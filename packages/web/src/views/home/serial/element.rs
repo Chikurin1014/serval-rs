@@ -1,4 +1,8 @@
 use dioxus::prelude::*;
+use dioxus_free_icons::{
+    icons::ld_icons::{LdCirclePlus, LdRefreshCcw, LdUsb},
+    Icon,
+};
 use wasm_bindgen::closure::Closure;
 
 use super::web_serial_api::{
@@ -11,158 +15,101 @@ const BAUDRATE_PRESETS: [u32; 6] = [9600_u32, 19200, 38400, 57600, 115200, 23040
 #[component]
 pub fn PortSelector() -> Element {
     let SerialContext {
-        ports,
+        mut ports,
         mut selected_index,
-        active_index,
+        mut active_index,
         mut status_message,
         ..
     } = use_context::<SerialContext>();
 
     rsx! {
         div {
-            class: "card bg-base-100 shadow-xl",
-            div {
-                class: "card-body gap-4",
-                // h2 { class: "card-title", "Detected Ports" }
-
-                if !ports().is_empty() {
-                    div {
-                        class: "overflow-x-auto",
-                        table {
-                            class: "table table-zebra",
-                            thead {
-                                tr {
-                                    th { "Device" }
-                                    th { "Details" }
-                                    th { "State" }
-                                    th { "Action" }
-                                }
+                class: "join",
+            button {
+                class: "btn btn-sm btn-outline join-item",
+                onclick: move |_| {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        match request_port_js().await {
+                            Ok(port) => {
+                                let mut current_ports = ports();
+                                current_ports.push(port);
+                                let new_index = current_ports.len().saturating_sub(1);
+                                *ports.write() = current_ports;
+                                *selected_index.write() = Some(new_index);
+                                *active_index.write() = None;
+                                *status_message.write() = "New port added and selected.".to_string();
                             }
-                            tbody {
-                                {ports().into_iter().enumerate().map(|(index, port)| {
-                                    let is_selected = selected_index() == Some(index);
-                                    let is_active = active_index() == Some(index);
-                                    rsx!(
-                                        tr {
-                                            td {
-                                                div { class: "flex items-center gap-2",
-                                                    span { "{port.title()}" }
-                                                    if is_selected {
-                                                        span { class: "badge badge-primary badge-sm", "Selected" }
-                                                    }
-                                                    if is_active {
-                                                        span { class: "badge badge-success badge-sm", "Open" }
-                                                    }
-                                                }
-                                            }
-                                            td {
-                                                if port.details().is_empty() {
-                                                    span { class: "text-base-content/60", "No USB metadata available." }
-                                                } else {
-                                                    div { class: "flex flex-wrap gap-2",
-                                                        {port.details().iter().map(|detail| rsx!( span { class: "badge badge-ghost", "{detail}" } ))}
-                                                    }
-                                                }
-                                            }
-                                            td {
-                                                if is_active {
-                                                    span { class: "badge badge-success", "Open" }
-                                                } else if is_selected {
-                                                    span { class: "badge badge-primary", "Selected" }
-                                                } else {
-                                                    span { class: "badge", "Idle" }
-                                                }
-                                            }
-                                            td {
-                                                button {
-                                                    class: "btn btn-xs btn-outline",
-                                                    onclick: move |_| {
-                                                        *selected_index.write() = Some(index);
-                                                        *status_message.write() = format!("Selected {}.", port.title());
-                                                    },
-                                                    "Select"
-                                                }
-                                            }
-                                        }
-                                    )
-                                })}
+                            Err(err) => {
+                                *status_message.write() = format!("Port request failed: {:?}", err);
                             }
                         }
-                    }
-                } else {
-                    p { class: "text-base-content/70", "No serial ports detected. Please connect a device and click 'Refresh Ports'." }
+                    });
+                },
+                Icon {
+                    icon: LdCirclePlus {},
                 }
             }
-        }
-    }
-}
-
-#[component]
-pub fn PortRequestButton() -> Element {
-    let SerialContext {
-        mut ports,
-        mut selected_index,
-        mut active_index,
-        mut status_message,
-        ..
-    } = use_context::<SerialContext>();
-
-    rsx! {
-        button {
-            class: "btn btn-outline",
-            onclick: move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    match request_port_js().await {
-                        Ok(port) => {
-                            let mut current_ports = ports();
-                            current_ports.push(port);
-                            let new_index = current_ports.len().saturating_sub(1);
-                            *ports.write() = current_ports;
-                            *selected_index.write() = Some(new_index);
-                            *active_index.write() = None;
-                            *status_message.write() = "New port added and selected.".to_string();
-                        }
-                        Err(err) => {
-                            *status_message.write() = format!("Port request failed: {:?}", err);
-                        }
+            div {
+                class: "dropdown join-item",
+                div {
+                    tabindex: "0",
+                    role: "button",
+                    class: "btn btn-sm btn-outline join-item",
+                    Icon {
+                        icon: LdUsb {},
                     }
-                });
-            },
-            "Request Port"
-        }
-    }
-}
-
-#[component]
-pub fn PortRefreshButton() -> Element {
-    let SerialContext {
-        mut ports,
-        mut selected_index,
-        mut active_index,
-        mut status_message,
-        ..
-    } = use_context::<SerialContext>();
-
-    rsx! {
-        button {
-            class: "btn btn-secondary",
-            onclick: move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    match get_ports_js().await {
-                        Ok(list) => {
-                            let new_selected_index = if list.is_empty() { None } else { Some(selected_index().unwrap_or(0).min(list.len().saturating_sub(1))) };
-                            *ports.write() = list;
-                            *selected_index.write() = new_selected_index;
-                            *active_index.write() = None;
-                            *status_message.write() = "Port list refreshed.".to_string();
+                    if ports().is_empty() {
+                        "No Devices available"
+                    } else if let Some(index) = selected_index() {
+                        if let Some(port) = ports().get(index) {
+                            "{port.title()}"
+                        } else {
+                            "No Device selected"
                         }
-                        Err(err) => {
-                            *status_message.write() = format!("Failed to refresh ports: {:?}", err);
-                        }
+                    } else {
+                        "No Device selected"
                     }
-                });
-            },
-            "Refresh Ports"
+                }
+                ul {
+                    tabindex: "-1",
+                    class: "dropdown-content menu bg-base-100 p-2 w-52  shadow-sm",
+                    {ports().into_iter().enumerate().map(|(index, port)| {
+                        rsx!(
+                            li {
+                                class: "hover:bg-base-200",
+                                onclick: move |_| {
+                                    *selected_index.write() = Some(index);
+                                    *active_index.write() = None;
+                                    *status_message.write() = format!("Selected {}.", port.title());
+                                },
+                                a { "{port.title()}" }
+                            }
+                        )
+                    })}
+                }
+            }
+            button {
+                class: "btn btn-sm btn-outline join-item",
+                onclick: move |_| {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        match get_ports_js().await {
+                            Ok(list) => {
+                                let new_selected_index = if list.is_empty() { None } else { Some(selected_index().unwrap_or(0).min(list.len().saturating_sub(1))) };
+                                *ports.write() = list;
+                                *selected_index.write() = new_selected_index;
+                                *active_index.write() = None;
+                                *status_message.write() = "Port list refreshed.".to_string();
+                            }
+                            Err(err) => {
+                                *status_message.write() = format!("Failed to refresh ports: {:?}", err);
+                            }
+                        }
+                    });
+                },
+                Icon {
+                    icon: LdRefreshCcw {},
+                }
+            }
         }
     }
 }

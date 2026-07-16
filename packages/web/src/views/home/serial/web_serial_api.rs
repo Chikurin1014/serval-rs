@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use dioxus::prelude::*;
 use js_sys::{Array, Function, Object, Promise};
+use usb_ids::Device;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
@@ -53,14 +54,28 @@ impl PortTitle {
         if let Ok(get_info) = js_sys::Reflect::get(port, &JsValue::from_str("getInfo")) {
             if !get_info.is_undefined() {
                 if let Ok(info_fn) = get_info.dyn_into::<Function>() {
-                    if info_fn.call0(port).is_ok() {
-                        return PortTitle("USB serial device".to_string());
+                    if let Ok(info) = info_fn.call0(port) {
+                        if let Some(vid) =
+                            js_sys::Reflect::get(&info, &JsValue::from_str("usbVendorId"))
+                                .ok()
+                                .and_then(|value| js_value_to_u16(&value))
+                        {
+                            if let Some(pid) =
+                                js_sys::Reflect::get(&info, &JsValue::from_str("usbProductId"))
+                                    .ok()
+                                    .and_then(|value| js_value_to_u16(&value))
+                            {
+                                if let Some(device) = Device::from_vid_pid(vid, pid) {
+                                    return PortTitle(device.name().to_string());
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        PortTitle("Serial port".to_string())
+        PortTitle("Serial Device".to_string())
     }
 
     fn as_str(&self) -> &str {

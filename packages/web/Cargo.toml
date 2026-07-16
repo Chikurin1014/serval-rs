@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }
+dioxus-free-icons = { workspace = true }
 ui = { workspace = true }
+wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Navigator"] }
-wasm-bindgen = "0.2"
+usb-ids = "1.2026.6"
 
 [features]
 default = ["web"]
