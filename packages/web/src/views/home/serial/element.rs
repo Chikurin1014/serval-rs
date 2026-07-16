@@ -1,7 +1,9 @@
 use dioxus::prelude::*;
+use wasm_bindgen::closure::Closure;
 
 use super::web_serial_api::{
-    close_port_js, get_ports_js, open_port_js, request_port_js, SerialContext,
+    close_port_js, get_ports_js, open_port_js, request_port_js, start_read_loop_js, write_port_js,
+    SerialContext,
 };
 
 const BAUDRATE_PRESETS: [u32; 6] = [9600_u32, 19200, 38400, 57600, 115200, 230400];
@@ -173,6 +175,7 @@ pub fn PortOpenButton() -> Element {
         mut active_index,
         baudrate,
         mut status_message,
+        received_text,
         ..
     } = use_context::<SerialContext>();
 
@@ -190,6 +193,23 @@ pub fn PortOpenButton() -> Element {
                             Ok(()) => {
                                 *active_index.write() = selected_index();
                                 *status_message.write() = format!("Opened {} at {} bps.", entry.title(), baudrate());
+
+                                let read_port = entry.port().clone();
+                                let received_text = received_text;
+                                let status_message = status_message;
+                                wasm_bindgen_futures::spawn_local(async move {
+                                    let mut received_text = received_text;
+                                    let mut status_message = status_message;
+                                    let on_chunk = Closure::wrap(Box::new(move |chunk: String| {
+                                        received_text.write().push_str(&chunk);
+                                    }) as Box<dyn FnMut(String)>);
+
+                                    if let Err(err) = start_read_loop_js(&read_port, &on_chunk).await {
+                                        *status_message.write() = format!("Read loop ended: {:?}", err);
+                                    }
+
+                                    drop(on_chunk);
+                                });
                             }
                             Err(err) => {
                                 *status_message.write() = format!("Failed to open port: {:?}", err);
@@ -239,6 +259,74 @@ pub fn PortCloseButton() -> Element {
                 }
             },
             "Close"
+        }
+    }
+}
+
+#[component]
+pub fn PortWritePanel() -> Element {
+    let SerialContext {
+        ports,
+        active_index,
+        mut outgoing_text,
+        mut status_message,
+        ..
+    } = use_context::<SerialContext>();
+
+    rsx! {
+        div {
+            class: "card bg-base-100 shadow-xl",
+            div {
+                class: "card-body gap-4",
+                h2 { class: "card-title", "Send Data" }
+                textarea {
+                    class: "textarea textarea-bordered min-h-36 w-full",
+                    placeholder: "Type text to send to the active port",
+                    value: "{outgoing_text()}",
+                    oninput: move |event| {
+                        *outgoing_text.write() = event.value();
+                    }
+                }
+                div {
+                    class: "flex flex-wrap gap-3",
+                    button {
+                        class: "btn btn-primary",
+                        disabled: active_index().is_none() || outgoing_text().trim().is_empty(),
+                        onclick: move |_| {
+                            let selected_entry = active_index().and_then(|index| ports().get(index).cloned());
+                            let text = outgoing_text().clone();
+
+                            if let Some(entry) = selected_entry {
+                                *status_message.write() = format!("Sending {} bytes...", text.len());
+                                wasm_bindgen_futures::spawn_local(async move {
+                                    let mut outgoing_text = outgoing_text;
+                                    let mut status_message = status_message;
+                                    match write_port_js(entry.port(), &text).await {
+                                        Ok(()) => {
+                                            *outgoing_text.write() = String::new();
+                                            *status_message.write() = format!("Sent {} bytes to {}.", text.len(), entry.title());
+                                        }
+                                        Err(err) => {
+                                            *status_message.write() = format!("Failed to send data: {:?}", err);
+                                        }
+                                    }
+                                });
+                            } else {
+                                *status_message.write() = "Open a port before sending data.".to_string();
+                            }
+                        },
+                        "Send"
+                    }
+                    button {
+                        class: "btn btn-ghost",
+                        onclick: move |_| {
+                            *outgoing_text.write() = String::new();
+                            *status_message.write() = "Cleared outgoing buffer.".to_string();
+                        },
+                        "Clear"
+                    }
+                }
+            }
         }
     }
 }

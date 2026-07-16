@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use dioxus::prelude::*;
 use js_sys::{Array, Function, Object, Promise};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
 #[derive(Clone)]
@@ -11,6 +11,8 @@ pub struct SerialContext {
     pub selected_index: Signal<Option<usize>>,
     pub active_index: Signal<Option<usize>>,
     pub baudrate: Signal<u32>,
+    pub received_text: Signal<String>,
+    pub outgoing_text: Signal<String>,
     pub status_message: Signal<String>,
 }
 
@@ -20,6 +22,8 @@ pub fn SerialProvider(children: Element) -> Element {
     let selected_port = use_signal(|| None::<usize>);
     let active_port = use_signal(|| None::<usize>);
     let baudrate = use_signal(|| 9600u32);
+    let received_text = use_signal(String::new);
+    let outgoing_text = use_signal(String::new);
     let status_message = use_signal(|| String::new());
 
     use_context_provider(|| SerialContext {
@@ -27,6 +31,8 @@ pub fn SerialProvider(children: Element) -> Element {
         selected_index: selected_port,
         active_index: active_port,
         baudrate: baudrate,
+        received_text: received_text,
+        outgoing_text: outgoing_text,
         status_message: status_message,
     });
 
@@ -196,6 +202,57 @@ pub async fn close_port_js(port: &JsValue) -> Result<(), JsValue> {
     let close = js_sys::Reflect::get(port, &JsValue::from_str("close"))?;
     let func: Function = close.dyn_into()?;
     let promise = func.call0(port)?;
+    let _: JsValue = JsFuture::from(Promise::from(promise)).await?;
+    Ok(())
+}
+
+pub async fn start_read_loop_js(
+    port: &JsValue,
+    on_chunk: &Closure<dyn FnMut(String)>,
+) -> Result<(), JsValue> {
+    let read_loop = Function::new_with_args(
+        "port, onChunk",
+        r#"
+            return (async () => {
+                const reader = port.readable.getReader();
+                const decoder = new TextDecoder();
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+                        if (value) {
+                            onChunk(decoder.decode(value, { stream: true }));
+                        }
+                    }
+                } finally {
+                    reader.releaseLock();
+                }
+            })();
+        "#,
+    );
+    let promise = read_loop.call2(&JsValue::NULL, port, on_chunk.as_ref())?;
+    let _: JsValue = JsFuture::from(Promise::from(promise)).await?;
+    Ok(())
+}
+
+pub async fn write_port_js(port: &JsValue, text: &str) -> Result<(), JsValue> {
+    let write = Function::new_with_args(
+        "port, text",
+        r#"
+            return (async () => {
+                const writer = port.writable.getWriter();
+                const encoder = new TextEncoder();
+                try {
+                    await writer.write(encoder.encode(text));
+                } finally {
+                    writer.releaseLock();
+                }
+            })();
+        "#,
+    );
+    let promise = write.call2(&JsValue::NULL, port, &JsValue::from_str(text))?;
     let _: JsValue = JsFuture::from(Promise::from(promise)).await?;
     Ok(())
 }

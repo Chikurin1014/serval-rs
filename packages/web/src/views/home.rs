@@ -3,10 +3,10 @@ mod serial;
 
 use dioxus::prelude::*;
 
-use display::ConnectionStatus;
+use display::{ConnectionStatus, TextMonitor};
 use serial::{
     BaudrateSelector, PortCloseButton, PortOpenButton, PortRefreshButton, PortRequestButton,
-    PortSelector, SerialProvider,
+    PortSelector, PortWritePanel, SerialProvider,
 };
 
 #[component]
@@ -32,22 +32,24 @@ pub fn Home() -> Element {
                                 class: "grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
 
                                 PortSelector {}
-
                                 BaudrateSelector {}
 
                                 div {
                                     class: "flex flex-wrap gap-3",
 
                                     PortRefreshButton {}
-
                                     PortRequestButton {}
-
                                     PortOpenButton {}
-
                                     PortCloseButton {}
                                 }
 
                                 ConnectionStatus {}
+                                PortWritePanel {}
+                            }
+
+                            div {
+                                class: "grid gap-6 lg:grid-cols-2",
+                                TextMonitor {}
                             }
                         }
                     }
