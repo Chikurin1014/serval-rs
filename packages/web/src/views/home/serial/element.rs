@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdCirclePlus, LdRefreshCcw, LdUsb},
+    icons::ld_icons::{LdCirclePlus, LdPause, LdPlay, LdRefreshCcw, LdUnplug},
     Icon,
 };
 use wasm_bindgen::closure::Closure;
@@ -10,10 +10,10 @@ use super::web_serial_api::{
     SerialContext,
 };
 
-const BAUDRATE_PRESETS: [u32; 6] = [9600_u32, 19200, 38400, 57600, 115200, 230400];
+const BAUDRATE_PRESETS: [u32; 4] = [9600_u32, 19200, 57600, 115200];
 
 #[component]
-pub fn PortSelector() -> Element {
+pub fn DeviceSelector() -> Element {
     let SerialContext {
         mut ports,
         mut selected_index,
@@ -26,7 +26,7 @@ pub fn PortSelector() -> Element {
         div {
                 class: "join",
             button {
-                class: "btn btn-sm btn-outline join-item",
+                class: "btn btn-sm join-item",
                 onclick: move |_| {
                     wasm_bindgen_futures::spawn_local(async move {
                         match request_port_js().await {
@@ -49,34 +49,48 @@ pub fn PortSelector() -> Element {
                     icon: LdCirclePlus {},
                 }
             }
-            div {
-                class: "dropdown join-item",
-                div {
-                    tabindex: "0",
-                    role: "button",
-                    class: "btn btn-sm btn-outline join-item",
-                    Icon {
-                        icon: LdUsb {},
-                    }
-                    if ports().is_empty() {
-                        "No Devices available"
-                    } else if let Some(index) = selected_index() {
+            button {
+                class: "btn btn-sm join-item",
+                popovertarget: "device-selector-dropdown",
+                style: "anchor-name:--anchor-device-selector-dropdown;",
+                disabled: ports().is_empty() || active_index().is_some(),
+                if !ports().is_empty() {
+                    if let Some(index) = selected_index() {
                         if let Some(port) = ports().get(index) {
-                            "{port.title()}"
+                            if active_index().is_some() {
+                                span {
+                                    class: "flex gap-3",
+                                    span { class: "loading loading-spinner loading-sm" }
+                                    "{port.title()}"
+                                }
+                            } else {
+                                span {
+                                    class: "flex gap-3",
+                                    Icon {
+                                        icon: LdUnplug {},
+                                    }
+                                    "{port.title()}"
+                                }
+                            }
                         } else {
                             "No Device selected"
                         }
                     } else {
                         "No Device selected"
                     }
+                } else {
+                    "No Devices available"
                 }
-                ul {
-                    tabindex: "-1",
-                    class: "dropdown-content menu bg-base-100 p-2 w-52  shadow-sm",
-                    {ports().into_iter().enumerate().map(|(index, port)| {
+            }
+            ul {
+                class: "dropdown menu rounded-box shadow-sm bg-base-300 w-52",
+                popover: true,
+                id: "device-selector-dropdown",
+                style: "position-anchor:--anchor-device-selector-dropdown;",
+                {
+                    ports().into_iter().enumerate().map(|(index, port)| {
                         rsx!(
                             li {
-                                class: "hover:bg-base-200",
                                 onclick: move |_| {
                                     *selected_index.write() = Some(index);
                                     *active_index.write() = None;
@@ -85,11 +99,11 @@ pub fn PortSelector() -> Element {
                                 a { "{port.title()}" }
                             }
                         )
-                    })}
+                    })
                 }
             }
             button {
-                class: "btn btn-sm btn-outline join-item",
+                class: "btn btn-sm join-item",
                 onclick: move |_| {
                     wasm_bindgen_futures::spawn_local(async move {
                         match get_ports_js().await {
@@ -115,7 +129,40 @@ pub fn PortSelector() -> Element {
 }
 
 #[component]
-pub fn PortOpenButton() -> Element {
+pub fn BaudrateConfigurator() -> Element {
+    let mut baudrate = use_context::<SerialContext>().baudrate;
+
+    rsx! {
+        label {
+            class: "input w-64",
+        input {
+            class: "input input-sm",
+            type: "number",
+            min: "1",
+            step: "1",
+            placeholder: "Baudrate (e.g. 9600)",
+            list: "baudrate-presets",
+            oninput: move |event| {
+                *baudrate.write() = parse_baudrate(&event.value()).unwrap_or(BAUDRATE_PRESETS[0]);
+            }
+        }
+        span { class: "label", "bps" }
+        }
+        datalist {
+            id: "baudrate-presets",
+            {BAUDRATE_PRESETS.iter().map(|baudrate_preset| {
+                rsx!(
+                    option {
+                        value: "{baudrate_preset}"
+                    }
+                )
+            })}
+        }
+    }
+}
+
+#[component]
+pub fn OpenCloseButton() -> Element {
     let SerialContext {
         ports,
         selected_index,
@@ -127,85 +174,85 @@ pub fn PortOpenButton() -> Element {
     } = use_context::<SerialContext>();
 
     rsx! {
-        button {
-            class: "btn btn-primary",
-            disabled: selected_index().is_none(),
-            onclick: move |_| {
-                let selected_index_entry = selected_index().and_then(|index| ports().get(index).cloned());
+        label {
+            class: "btn btn-circle btn-sm swap swap-rotate",
+            input {
+                type: "checkbox",
+                disabled: selected_index().is_none(),
+                onclick: move |_| {
+                    let will_open = active_index().is_none();
 
-                if let Some(entry) = selected_index_entry {
-                    *status_message.write() = format!("Opening {} at {} bps...", entry.title(), baudrate());
-                    wasm_bindgen_futures::spawn_local(async move {
-                        match open_port_js(entry.port(), baudrate()).await {
-                            Ok(()) => {
-                                *active_index.write() = selected_index();
-                                *status_message.write() = format!("Opened {} at {} bps.", entry.title(), baudrate());
+                    if let Some(index) = selected_index() {
+                        if let Some(entry) = ports().get(index).cloned() {
+                            *status_message.write() = if will_open {
+                                format!("Opening {} at {} bps...", entry.title(), baudrate())
+                            } else {
+                                format!("Closing {}...", entry.title())
+                            };
 
-                                let read_port = entry.port().clone();
-                                let received_text = received_text;
-                                let status_message = status_message;
-                                wasm_bindgen_futures::spawn_local(async move {
-                                    let mut received_text = received_text;
-                                    let mut status_message = status_message;
-                                    let on_chunk = Closure::wrap(Box::new(move |chunk: String| {
-                                        received_text.write().push_str(&chunk);
-                                    }) as Box<dyn FnMut(String)>);
+                            wasm_bindgen_futures::spawn_local(async move {
+                                if will_open {
+                                    match open_port_js(entry.port(), baudrate()).await {
+                                        Ok(()) => {
+                                            *active_index.write() = selected_index();
+                                            *status_message.write() = format!("Opened {} at {} bps.", entry.title(), baudrate());
 
-                                    if let Err(err) = start_read_loop_js(&read_port, &on_chunk).await {
-                                        *status_message.write() = format!("Read loop ended: {:?}", err);
+                                            let read_port = entry.port().clone();
+                                            let received_text = received_text;
+                                            let status_message = status_message;
+                                            wasm_bindgen_futures::spawn_local(async move {
+                                                let mut received_text = received_text;
+                                                let mut status_message = status_message;
+                                                let on_chunk = Closure::wrap(Box::new(move |chunk: String| {
+                                                    received_text.write().push_str(&chunk);
+                                                }) as Box<dyn FnMut(String)>);
+
+                                                if let Err(err) = start_read_loop_js(&read_port, &on_chunk).await {
+                                                    *status_message.write() = format!("Read loop ended: {:?}", err);
+                                                }
+
+                                                drop(on_chunk);
+                                            });
+                                        }
+                                        Err(err) => {
+                                            *status_message.write() = format!("Failed to open port: {:?}", err);
+                                        }
                                     }
-
-                                    drop(on_chunk);
-                                });
-                            }
-                            Err(err) => {
-                                *status_message.write() = format!("Failed to open port: {:?}", err);
-                            }
+                                } else {
+                                    match close_port_js(entry.port()).await {
+                                        Ok(()) => {
+                                            *active_index.write() = None;
+                                            *status_message.write() = format!("Closed {}.", entry.title());
+                                        }
+                                        Err(err) => {
+                                            *status_message.write() = format!("Failed to close port: {:?}", err);
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            *status_message.write() = "Selected port is no longer available.".to_string();
                         }
-                    });
-                } else {
-                    *status_message.write() = "Select a port first.".to_string();
+                    } else {
+                        *status_message.write() = "Select a port first.".to_string();
+                    }
                 }
-            },
-            "Open"
-        }
-    }
-}
-
-#[component]
-pub fn PortCloseButton() -> Element {
-    let SerialContext {
-        ports,
-        mut active_index,
-        mut status_message,
-        ..
-    } = use_context::<SerialContext>();
-
-    rsx! {
-        button {
-            class: "btn btn-error",
-            disabled: active_index().is_none(),
-            onclick: move |_| {
-                let active_index_entry = active_index().and_then(|index| ports().get(index).cloned());
-
-                if let Some(entry) = active_index_entry {
-                    *status_message.write() = format!("Closing {}...", entry.title());
-                    wasm_bindgen_futures::spawn_local(async move {
-                        match close_port_js(entry.port()).await {
-                            Ok(()) => {
-                                *active_index.write() = None;
-                                *status_message.write() = format!("Closed {}.", entry.title());
-                            }
-                            Err(err) => {
-                                *status_message.write() = format!("Failed to close port: {:?}", err);
-                            }
-                        }
-                    });
-                } else {
-                    *status_message.write() = "No active port to close.".to_string();
+            }
+            Icon {
+                class: "swap-on text-error",
+                icon: LdPause {},
+            }
+            if selected_index().is_some() {
+                Icon {
+                    class: "swap-off text-success",
+                    icon: LdPlay {},
                 }
-            },
-            "Close"
+            } else {
+                Icon {
+                    class: "swap-off text-base-content/60",
+                    icon: LdPlay {},
+                }
+            }
         }
     }
 }
@@ -271,56 +318,6 @@ pub fn PortWritePanel() -> Element {
                             *status_message.write() = "Cleared outgoing buffer.".to_string();
                         },
                         "Clear"
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-pub fn BaudrateSelector() -> Element {
-    let mut baudrate = use_context::<SerialContext>().baudrate;
-
-    rsx! {
-        div {
-            class: "grid gap-4 sm:grid-cols-2",
-
-            div {
-                class: "form-control gap-2",
-                label { class: "label", span { class: "label-text font-medium", "Baud Rate Presets" } }
-                select {
-                    class: "select select-bordered w-full",
-                    onchange: move |event| {
-                        let value = event.value();
-                        if let Some(new_baudrate) = parse_baudrate(&value) {
-                            *baudrate.write() = new_baudrate;
-                        }
-                    },
-                    option { value: "", "Choose a preset" }
-                    {BAUDRATE_PRESETS.iter().map(|baudrate| {
-                        rsx!(
-                            option {
-                                value: "{baudrate}",
-                                "{baudrate}"
-                            }
-                        )
-                    })}
-                }
-            }
-
-            div {
-                class: "form-control gap-2",
-                label { class: "label", span { class: "label-text font-medium", "Custom Baud Rate" } }
-                input {
-                    class: "input input-bordered w-full",
-                    r#type: "number",
-                    min: "1",
-                    step: "1",
-                    value: "{baudrate().to_string()}",
-                    placeholder: "{BAUDRATE_PRESETS[0].to_string()}",
-                    oninput: move |event| {
-                        *baudrate.write() = parse_baudrate(&event.value()).unwrap_or(BAUDRATE_PRESETS[0]);
                     }
                 }
             }
