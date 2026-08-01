@@ -1,10 +1,32 @@
 use dioxus::prelude::*;
-use ui::Hero;
+
+use crate::web_serial_api::WebSerialProvider;
+use ui::{
+    component::{
+        PortBaudrateConfigurator, PortOpenCloseButton, PortSelector, PortWritePanel, RawDataMonitor,
+    },
+    data::DataProvider,
+    serial::SerialProvider,
+};
 
 #[component]
 pub fn Home() -> Element {
     rsx! {
-        Hero {}
-
+        SerialProvider {
+            DataProvider {
+                WebSerialProvider {
+                    PortSelector {}
+                    div {
+                        PortBaudrateConfigurator {}
+                        PortOpenCloseButton {}
+                    }
+                    PortWritePanel {}
+                    div {
+                        class: "grid gap-6 lg:grid-cols-2",
+                        RawDataMonitor {}
+                    }
+                }
+            }
+        }
     }
 }

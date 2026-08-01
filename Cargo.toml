@@ -9,6 +9,7 @@ members = [
 
 [workspace.dependencies]
 dioxus = { version = "0.7.1" }
+dioxus-free-icons = { version = "0.10", features = ["lucide"] }
 
 # workspace
 ui = { path = "packages/ui" }

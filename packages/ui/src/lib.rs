@@ -5,3 +5,7 @@ pub use hero::Hero;
 
 mod navbar;
 pub use navbar::Navbar;
+
+pub mod component;
+pub mod data;
+pub mod serial;
