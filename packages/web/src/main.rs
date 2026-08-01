@@ -4,6 +4,7 @@ use ui::Navbar;
 use views::{Blog, Home};
 
 mod views;
+mod web_serial_api;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
