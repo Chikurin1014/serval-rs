@@ -16,7 +16,7 @@ pub fn PortOpenCloseButton() -> Element {
         ..
     } = use_context::<SerialContext>();
 
-    let can_open = selected_id()
+    let port_available = selected_id()
         .and_then(|id| ports().get(&id).and_then(|port| port.baudrate))
         .is_some();
 
@@ -25,7 +25,7 @@ pub fn PortOpenCloseButton() -> Element {
             class: "btn btn-circle btn-sm swap swap-rotate",
             input {
                 type: "checkbox",
-                disabled: !can_open && !is_open(),
+                disabled: !port_available,
                 onclick: move |_| {
                     let will_open = !is_open();
 
@@ -41,7 +41,7 @@ pub fn PortOpenCloseButton() -> Element {
                     class: "swap-on text-error",
                     icon: LdPause {},
                 }
-            } else if can_open {
+            } else if port_available {
                 Icon {
                     class: "swap-off text-success",
                     icon: LdPlay {},
