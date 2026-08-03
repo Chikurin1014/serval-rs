@@ -53,6 +53,5 @@ pub fn PortOpenCloseButton() -> Element {
                 icon: LdPlay {},
             }
         }
-        "is_open: {is_open.to_string()}, port_available: {port_available.to_string()}"
     }
 }
