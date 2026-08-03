@@ -11,7 +11,7 @@ pub fn PortOpenCloseButton() -> Element {
     let SerialContext {
         ports,
         selected_id,
-        mut is_open,
+        is_open,
         set_open,
         ..
     } = use_context::<SerialContext>();
@@ -27,12 +27,8 @@ pub fn PortOpenCloseButton() -> Element {
                 type: "checkbox",
                 disabled: !port_available,
                 onclick: move |_| {
-                    let will_open = !is_open();
-
                     if let Some(action) = set_open() {
-                        action(will_open);
-                    } else {
-                        *is_open.write() = will_open;
+                        action(!is_open());
                     }
                 }
             }
