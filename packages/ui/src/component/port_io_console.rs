@@ -15,31 +15,31 @@ pub fn PortIoConsole() -> Element {
     let mut text_to_show = use_signal(String::new);
     let mut text_to_send = use_signal(String::new);
 
-    let raw_timestamp = data_context.raw_time();
-    if let Some(ts) = raw_timestamp.as_ref() {
-        let current_timestamp = ts.last().copied().unwrap();
-        if current_timestamp != last_timestamp() {
-            let raw_data = data_context.raw_data();
-            // add new data to the text_to_show buffer
-            if let Some(data) = raw_data.as_ref() {
-                text_to_show.write().push_str(
-                    data.iter()
-                        .zip(ts.iter())
-                        .filter_map(|(data, timestamp)| {
-                            if *timestamp > last_timestamp() {
-                                Some(String::from_utf8_lossy(data))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                        .as_str(),
-                )
-            }
-            *last_timestamp.write() = current_timestamp;
+    use_effect(move || {
+        let Some(raw_data) = data_context.raw_data() else {
+            return;
+        };
+        if raw_data.is_empty() {
+            return;
         }
-    }
+
+        let next_text = raw_data
+            .iter()
+            .filter_map(|data| {
+                // Read last timestamp without consuming the signal
+                // Consuming the signal would cause the effect to re-run and an infinite loop
+                if *last_timestamp.peek() < data.timestamp() {
+                    Some(String::from_utf8_lossy(data.value()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        text_to_show.write().push_str(next_text.as_str());
+
+        last_timestamp.set(raw_data.last().unwrap().timestamp());
+    });
 
     let mut send_text = move || {
         if !is_open() || text_to_send().trim().is_empty() {
