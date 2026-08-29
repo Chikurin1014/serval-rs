@@ -11,46 +11,46 @@ pub fn PortOpenCloseButton() -> Element {
     let SerialContext {
         ports,
         selected_id,
-        mut is_open,
+        is_open,
         set_open,
         ..
     } = use_context::<SerialContext>();
 
-    let can_open = selected_id()
+    let is_open = is_open();
+    let port_available = selected_id()
         .and_then(|id| ports().get(&id).and_then(|port| port.baudrate))
         .is_some();
+
+    let icon_color = if port_available {
+        if is_open {
+            "text-error"
+        } else {
+            "text-success"
+        }
+    } else {
+        "text-base-content/60"
+    };
 
     rsx! {
         label {
             class: "btn btn-circle btn-sm swap swap-rotate",
             input {
                 type: "checkbox",
-                disabled: !can_open && !is_open(),
+                disabled: !port_available,
+                checked: is_open,
                 onclick: move |_| {
-                    let will_open = !is_open();
-
                     if let Some(action) = set_open() {
-                        action(will_open);
-                    } else {
-                        *is_open.write() = will_open;
+                        action(!is_open);
                     }
-                }
+                },
             }
-            if is_open() {
-                Icon {
-                    class: "swap-on text-error",
-                    icon: LdPause {},
-                }
-            } else if can_open {
-                Icon {
-                    class: "swap-off text-success",
-                    icon: LdPlay {},
-                }
-            } else {
-                Icon {
-                    class: "swap-off text-base-content/60",
-                    icon: LdPlay {},
-                }
+            Icon {
+                class: "swap-on {icon_color}",
+                icon: LdPause {},
+            }
+            Icon {
+                class: "swap-off {icon_color}",
+                icon: LdPlay {},
             }
         }
     }

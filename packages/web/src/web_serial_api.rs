@@ -10,23 +10,33 @@ use ui::serial::{Port, PortInfo, SerialContext};
 
 #[component]
 pub fn WebSerialProvider(children: Element) -> Element {
-    let serial = use_context::<SerialContext>();
+    let SerialContext {
+        ports,
+        selected_id,
+        is_open,
+        rx_data,
+        request_port,
+        refresh_ports,
+        set_open,
+        tx_send,
+    } = use_context::<SerialContext>();
     let web_ports = use_signal(|| HashMap::<Uuid, JsValue>::new());
-    let open_port_id = use_signal(|| None::<Uuid>);
 
     use_effect(move || {
-        let mut serial = serial.clone();
-        let mut web_ports = web_ports.clone();
+        let mut request_port = request_port.clone();
+        let mut refresh_ports = refresh_ports.clone();
+        let mut set_open = set_open.clone();
+        let mut tx_send = tx_send.clone();
 
-        *serial.request_port.write() = Some(Rc::new({
+        *request_port.write() = Some(Rc::new({
             move || {
                 wasm_bindgen_futures::spawn_local(async move {
-                    if let Ok(port) = request_port_js().await {
+                    if let Ok(port_js) = request_port_js().await {
                         let id = Uuid::new_v4();
-                        let info = port_info_from_port(&port);
+                        let info = js_value_to_port_info(&port_js);
 
-                        web_ports.write().insert(id, port);
-                        serial.ports.write().insert(
+                        web_ports.clone().write().insert(id, port_js);
+                        ports.clone().write().insert(
                             id,
                             Port {
                                 id,
@@ -34,129 +44,116 @@ pub fn WebSerialProvider(children: Element) -> Element {
                                 baudrate: None,
                             },
                         );
-                        *serial.selected_id.write() = Some(id);
-                        *serial.is_open.write() = false;
-                        serial.rx_data.write().clear();
+                        *selected_id.clone().write() = Some(id);
+                        *is_open.clone().write() = false;
+                        rx_data.clone().write().clear();
                     }
                 });
             }
         }));
 
-        *serial.refresh_ports.write() = Some(Rc::new({
-            let mut serial = serial.clone();
-            let mut web_ports = web_ports.clone();
+        *refresh_ports.write() = Some(Rc::new({
+            let mut ports = ports.clone();
 
             move || {
                 wasm_bindgen_futures::spawn_local(async move {
+                    if let Some(action) = set_open() {
+                        action(false);
+                    }
+
                     if let Ok(list) = get_ports_js().await {
                         let mut next_web_ports = HashMap::new();
                         let mut next_ports = HashMap::new();
 
-                        for port in list {
+                        for port_js in list {
                             let id = Uuid::new_v4();
-                            next_web_ports.insert(id, port);
+                            next_web_ports.insert(id, port_js);
                         }
 
-                        for (id, port) in &next_web_ports {
-                            let previous = (serial.ports)().get(id).cloned();
+                        for (id, port_js) in &next_web_ports {
                             next_ports.insert(
                                 *id,
                                 Port {
                                     id: *id,
-                                    info: port_info_from_port(port),
-                                    baudrate: previous.as_ref().and_then(|port| port.baudrate),
+                                    info: js_value_to_port_info(port_js),
+                                    baudrate: None,
                                 },
                             );
                         }
 
-                        *serial.ports.write() = next_ports;
-                        *web_ports.write() = next_web_ports;
-                        *serial.selected_id.write() = (serial.ports)().keys().next().copied();
+                        *ports.write() = next_ports;
+                        *web_ports.clone().write() = next_web_ports;
+                        *selected_id.clone().write() = ports().keys().next().copied();
                     }
                 });
             }
         }));
 
-        *serial.set_open.write() = Some(Rc::new({
-            let serial = serial.clone();
+        *set_open.write() = Some(Rc::new({
             let web_ports = web_ports.clone();
-            let mut open_port_id = open_port_id.clone();
 
             move |should_open| {
-                let mut serial = serial.clone();
+                let Some(selected_id) = selected_id() else {
+                    return;
+                };
+
+                let Some(baudrate) = ports().get(&selected_id).and_then(|port| port.baudrate)
+                else {
+                    return;
+                };
+
+                let Some(port_js) = web_ports.read().get(&selected_id).cloned() else {
+                    return;
+                };
 
                 wasm_bindgen_futures::spawn_local(async move {
+                    let mut rx_data = rx_data.clone();
+                    let mut is_open = is_open.clone();
+
                     if should_open {
-                        let Some(selected_id) = (serial.selected_id)() else {
+                        if is_open() {
                             return;
-                        };
+                        }
 
-                        let Some(baudrate) = (serial.ports)()
-                            .get(&selected_id)
-                            .and_then(|port| port.baudrate)
-                        else {
-                            return;
-                        };
-
-                        let Some(port) = web_ports.read().get(&selected_id).cloned() else {
-                            return;
-                        };
-
-                        if open_port_js(&port, baudrate).await.is_ok() {
-                            *serial.is_open.write() = true;
-                            *open_port_id.write() = Some(selected_id);
-                            serial.rx_data.write().clear();
-
-                            let read_port = port.clone();
-                            let read_id = open_port_id.clone();
-                            let mut serial = serial.clone();
-
+                        if open_port_js(&port_js, baudrate).await.is_ok() {
                             wasm_bindgen_futures::spawn_local(async move {
                                 let on_chunk = Closure::wrap(Box::new(move |chunk: String| {
-                                    if read_id().is_some() {
-                                        let timestamp_ms = js_sys::Date::now() as i64;
-                                        let data = chunk.into_bytes();
-                                        serial.rx_data.write().push_raw(timestamp_ms, data);
-                                    }
+                                    let timestamp_ms = js_sys::Date::now() as i64;
+                                    let data = chunk.into_bytes();
+                                    rx_data.write().push_raw(timestamp_ms, data);
                                 })
                                     as Box<dyn FnMut(String)>);
 
-                                let _ = start_read_loop_js(&read_port, &on_chunk).await;
+                                let _ = start_read_loop_js(&port_js, &on_chunk).await;
                                 drop(on_chunk);
                             });
-                        }
-                    } else if let Some(selected_id) = open_port_id() {
-                        if let Some(port) = web_ports.read().get(&selected_id).cloned() {
-                            if close_port_js(&port).await.is_ok() {
-                                *serial.is_open.write() = false;
-                                *open_port_id.write() = None;
-                                serial.rx_data.write().clear();
-                            }
+
+                            rx_data.write().clear();
+                            *is_open.write() = true;
                         }
                     } else {
-                        *serial.is_open.write() = false;
+                        if close_port_js(&port_js).await.is_ok() {
+                            rx_data.write().clear();
+                        }
+                        *is_open.write() = false;
                     }
                 });
             }
         }));
 
-        *serial.tx_send.write() = Some(Rc::new({
-            let serial = serial.clone();
+        *tx_send.write() = Some(Rc::new({
             let web_ports = web_ports.clone();
-            let open_port_id = open_port_id.clone();
+
+            let Some(selected_id) = selected_id() else {
+                return;
+            };
 
             move |data| {
                 wasm_bindgen_futures::spawn_local(async move {
-                    let selected_id = open_port_id().or_else(|| (serial.selected_id)());
-                    let Some(selected_id) = selected_id else {
+                    let Some(port_js) = web_ports.read().get(&selected_id).cloned() else {
                         return;
                     };
-
-                    let Some(port) = web_ports.read().get(&selected_id).cloned() else {
-                        return;
-                    };
-
-                    let _ = write_port_js(&port, &data).await;
+                    let _ = write_port_js(&port_js, &data).await;
                 });
             }
         }));
@@ -272,11 +269,11 @@ fn serial_api() -> Result<JsValue, JsValue> {
     js_sys::Reflect::get(&navigator, &JsValue::from_str("serial"))
 }
 
-fn port_info_from_port(port: &JsValue) -> PortInfo {
-    if let Ok(get_info) = js_sys::Reflect::get(port, &JsValue::from_str("getInfo")) {
+fn js_value_to_port_info(port_js: &JsValue) -> PortInfo {
+    if let Ok(get_info) = js_sys::Reflect::get(port_js, &JsValue::from_str("getInfo")) {
         if !get_info.is_undefined() {
             if let Ok(info_fn) = get_info.dyn_into::<Function>() {
-                if let Ok(info) = info_fn.call0(port) {
+                if let Ok(info) = info_fn.call0(port_js) {
                     if let Some(vid) =
                         js_sys::Reflect::get(&info, &JsValue::from_str("usbVendorId"))
                             .ok()
@@ -304,8 +301,8 @@ fn port_info_from_port(port: &JsValue) -> PortInfo {
     }
 }
 
-fn js_value_to_u16(value: &JsValue) -> Option<u16> {
-    value.as_f64().and_then(|number| {
+fn js_value_to_u16(value_js: &JsValue) -> Option<u16> {
+    value_js.as_f64().and_then(|number| {
         if number.is_finite() && number >= 0.0 && number <= u16::MAX as f64 {
             Some(number as u16)
         } else {
