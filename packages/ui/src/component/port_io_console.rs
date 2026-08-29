@@ -55,7 +55,7 @@ pub fn PortIoConsole() -> Element {
         div {
             class: "join join-vertical",
             height: "20rem",
-            width: "50rem",
+            max_width: "50rem",
 
             div {
                 class: "mockup-code overflow-auto text-sm join-item h-full w-full",
