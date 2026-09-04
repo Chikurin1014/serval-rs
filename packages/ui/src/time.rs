@@ -7,6 +7,6 @@ pub struct TimeContext {
 
 impl TimeContext {
     pub fn current(&self) -> i64 {
-        *self.timestamp_ms.read()
+        *self.timestamp_ms.peek()
     }
 }
