@@ -41,6 +41,10 @@ impl DataContext {
         self.clear("raw_data");
     }
 
+    pub fn remove(&mut self, label: &str) -> bool {
+        self.data_with_labels.write().remove(label).is_some()
+    }
+
     fn clear(&mut self, label: &str) {
         if let Some(data) = self.data_with_labels.write().get_mut(label) {
             match data {
@@ -56,7 +60,6 @@ impl DataContext {
 pub fn DataProvider(children: Element) -> Element {
     let data_with_labels = use_signal(BTreeMap::<String, TypedData>::new);
     let serial = use_context::<SerialContext>();
-    let mut last_timestamp = use_signal(|| 0i64);
     let mut data_context = DataContext { data_with_labels };
     let data_context_for_provider = data_context.clone();
 
@@ -74,10 +77,7 @@ pub fn DataProvider(children: Element) -> Element {
             return;
         };
 
-        if *last_timestamp.peek() < current.timestamp() {
-            last_timestamp.set(current.timestamp());
-            data_context.push_raw(current);
-        }
+        data_context.push_raw(current);
     });
 
     use_context_provider(|| data_context_for_provider.clone());

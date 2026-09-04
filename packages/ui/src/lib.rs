@@ -9,3 +9,6 @@ pub use navbar::Navbar;
 pub mod component;
 pub mod data;
 pub mod serial;
+pub mod time;
+
+pub use time::TimeContext;

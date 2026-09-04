@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{icons::ld_icons::LdSend, Icon};
 
-use crate::data::DataContext;
+use crate::data::{ByteData, DataContext};
 use crate::serial::SerialContext;
 
 #[component]
@@ -11,34 +11,34 @@ pub fn PortIoConsole() -> Element {
     } = use_context::<SerialContext>();
     let data_context = use_context::<DataContext>();
 
-    let mut last_timestamp = use_signal(|| 0i64);
     let mut text_to_show = use_signal(String::new);
     let mut text_to_send = use_signal(String::new);
+    let mut scroll_to_bottom = use_signal(|| false);
 
     use_effect(move || {
         let Some(raw_data) = data_context.raw_data() else {
+            text_to_show.set(String::new());
             return;
         };
-        if raw_data.is_empty() {
+
+        text_to_show.set(render_raw_data_text(&raw_data));
+        scroll_to_bottom.set(true);
+    });
+
+    use_effect(move || {
+        if !scroll_to_bottom() {
             return;
         }
 
-        let next_text = raw_data
-            .iter()
-            .filter_map(|data| {
-                // Read last timestamp without consuming the signal
-                // Consuming the signal would cause the effect to re-run and an infinite loop
-                if *last_timestamp.peek() < data.timestamp() {
-                    Some(String::from_utf8_lossy(data.value()))
-                } else {
-                    None
+        let _ = dioxus::document::eval(
+            r#"
+                const console = document.querySelector('[data-port-io-console]');
+                if (console) {
+                    console.scrollTop = console.scrollHeight;
                 }
-            })
-            .collect::<Vec<_>>()
-            .join("");
-        text_to_show.write().push_str(next_text.as_str());
-
-        last_timestamp.set(raw_data.last().unwrap().timestamp());
+            "#,
+        );
+        scroll_to_bottom.set(false);
     });
 
     let mut send_text = move || {
@@ -53,22 +53,15 @@ pub fn PortIoConsole() -> Element {
 
     rsx! {
         div {
-            class: "join join-vertical",
-            height: "20rem",
-            max_width: "50rem",
-
-            div {
-                class: "mockup-code overflow-auto text-sm join-item h-full w-full",
-                {
-                    text_to_show().lines().map(|line| rsx! {
-                        pre {
-                            code { "{line}" }
-                        }
-                    })
-                }
+            class: "join join-vertical h-full w-full",
+            pre {
+                "data-port-io-console": true,
+                class: "mockup-code min-h-0 flex-1 overflow-auto text-sm join-item w-full",
+                style: "white-space: pre-wrap;",
+                "{text_to_show()}"
             }
             div {
-                class: "join",
+                class: "join shrink-0",
                 input {
                     type: "text",
                     placeholder: "Type text to send to the active port",
@@ -95,5 +88,30 @@ pub fn PortIoConsole() -> Element {
                 }
             }
         }
+    }
+}
+
+fn render_raw_data_text(raw_data: &[ByteData]) -> String {
+    raw_data
+        .iter()
+        .map(|data| String::from_utf8_lossy(data.value()).into_owned())
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::ByteData;
+
+    #[test]
+    fn render_raw_data_text_does_not_repeat_old_chunks() {
+        let raw_data = vec![
+            ByteData::new(1, b"led: on\n".to_vec()),
+            ByteData::new(2, b"led: off\n".to_vec()),
+        ];
+
+        let rendered = render_raw_data_text(&raw_data);
+        assert_eq!(rendered, "led: on\nled: off\n");
+        assert!(!rendered.contains("led: onled: on"));
     }
 }

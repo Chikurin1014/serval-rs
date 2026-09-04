@@ -1,15 +1,19 @@
 use dioxus::prelude::*;
+use dioxus_free_icons::{icons::ld_icons::LdTrash, Icon};
 
 use crate::data::{DataContext, TypedData};
 
 #[component]
 pub fn DataList() -> Element {
     let data_context = use_context::<DataContext>();
+    let mut all_clear_context = data_context.clone();
     let rows = data_context
         .data_with_labels
         .read()
         .iter()
         .map(|(label, data)| {
+            let label = label.clone();
+            let mut row_context = data_context.clone();
             let type_name = data.type_name();
             let preview = latest_value_preview(data);
             rsx! {
@@ -17,6 +21,19 @@ pub fn DataList() -> Element {
                     th { class: "font-mono text-xs", "{label}" }
                     td { class: "font-mono text-xs", "{type_name}" }
                     td { class: "font-mono text-xs break-all", "{preview}" }
+                    td {
+                        button {
+                            class: "btn btn-xs btn-ghost btn-error btn-square",
+                            aria_label: "Delete label",
+                            onclick: {
+                                let label = label.clone();
+                                move |_| {
+                                    row_context.remove(&label);
+                                }
+                            },
+                            Icon { icon: LdTrash {} }
+                        }
+                    }
                 }
             }
         })
@@ -29,21 +46,27 @@ pub fn DataList() -> Element {
                 class: "card-body p-4",
                 h3 {
                     class: "card-title text-sm mb-3",
-                    "Data Context"
+                    "Data List"
                 }
                 div {
                     class: "overflow-auto max-h-80",
                     table {
-                        class: "table table-xs w-full",
+                        class: "table table-xs table-zebra w-full",
                         thead {
                             tr {
                                 th { "Label" }
                                 th { "Type" }
                                 th { "Latest" }
+                                th { "" }
                             }
                         }
                         tbody { {rows.into_iter()} }
                     }
+                }
+                button {
+                    class: "btn btn-xs btn-ghost",
+                    onclick: move |_| all_clear_context.clear_all(),
+                    "All clear"
                 }
             }
         }
@@ -53,18 +76,15 @@ pub fn DataList() -> Element {
 fn latest_value_preview(data: &TypedData) -> String {
     match data {
         TypedData::Number(queue) => queue
-            .iter()
-            .last()
+            .back()
             .map(|entry| format!("{}", entry.value()))
             .unwrap_or_else(|| "empty".to_string()),
         TypedData::String(queue) => queue
-            .iter()
-            .last()
+            .back()
             .map(|entry| entry.value().clone())
             .unwrap_or_else(|| "empty".to_string()),
         TypedData::Bytes(queue) => queue
-            .iter()
-            .last()
+            .back()
             .map(|entry| String::from_utf8_lossy(entry.value()).into_owned())
             .unwrap_or_else(|| "empty".to_string()),
     }
