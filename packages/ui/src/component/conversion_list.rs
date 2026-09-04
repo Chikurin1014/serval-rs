@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdTrash, Icon};
+use dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 
 use super::{ConversionByteToString, ConversionStringToNumber, ConversionStringToString};
 use crate::data::{DataContext, TypedData};
@@ -32,7 +32,7 @@ pub fn ConversionList() -> Element {
 
     rsx! {
         div {
-            class: "h-full max-h-full min-h-0 overflow-auto space-y-3",
+            class: "overflow-y-auto min-w-100",
             for mut item in items() {
                 div {
                     key: "{item.id}",
@@ -81,9 +81,7 @@ pub fn ConversionList() -> Element {
                                         list.remove(index);
                                     }
                                 },
-                                Icon {
-                                    icon: LdTrash {}
-                                }
+                                Icon { icon: LdX {} }
                             }
                         }
                         match item.kind {

@@ -9,15 +9,15 @@ use ui::component::{
 pub fn Home() -> Element {
     rsx! {
         div {
-            class: "flex h-full flex-col overflow-hidden gap-3 p-3",
+            class: "flex h-full flex-col gap-3 p-3",
             div {
-                class: "flex shrink-0 flex-wrap items-center gap-2",
+                class: "flex flex-wrap items-center gap-2",
                 PortSelector {}
                 PortBaudrateConfigurator {}
                 PortOpenCloseButton {}
             }
             div {
-                class: "grid md:grid-cols-2 h-full gap-1 overflow-auto",
+                class: "md:flex overflow-auto h-full min-h-0",
                 DataList {}
                 ConversionList {}
             }
