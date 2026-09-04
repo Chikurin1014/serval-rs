@@ -6,7 +6,10 @@ use uuid::Uuid;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
-use ui::serial::{Port, PortInfo, SerialContext};
+use ui::{
+    serial::{Port, PortInfo, SerialContext},
+    time::TimeContext,
+};
 
 #[component]
 pub fn WebSerialProvider(children: Element) -> Element {
@@ -20,6 +23,7 @@ pub fn WebSerialProvider(children: Element) -> Element {
         set_open,
         tx_send,
     } = use_context::<SerialContext>();
+    let time_context = use_context::<TimeContext>();
     let web_ports = use_signal(|| HashMap::<Uuid, JsValue>::new());
 
     use_effect(move || {
@@ -91,8 +95,11 @@ pub fn WebSerialProvider(children: Element) -> Element {
 
         *set_open.write() = Some(Rc::new({
             let web_ports = web_ports.clone();
+            let time_context = time_context.clone();
 
             move |should_open| {
+                let web_ports = web_ports.clone();
+                let time_context = time_context.clone();
                 let Some(selected_id) = selected_id() else {
                     return;
                 };
@@ -116,13 +123,15 @@ pub fn WebSerialProvider(children: Element) -> Element {
                         }
 
                         if open_port_js(&port_js, baudrate).await.is_ok() {
+                            let time_context = time_context.clone();
                             wasm_bindgen_futures::spawn_local(async move {
-                                let on_chunk = Closure::wrap(Box::new(move |chunk: String| {
-                                    let timestamp_ms = js_sys::Date::now() as i64;
-                                    let data = chunk.into_bytes();
-                                    rx_data.write().push_raw(timestamp_ms, data);
-                                })
-                                    as Box<dyn FnMut(String)>);
+                                let on_chunk =
+                                    Closure::wrap(Box::new(move |chunk: js_sys::Uint8Array| {
+                                        let timestamp_ms = time_context.current();
+                                        let data = chunk.to_vec();
+                                        rx_data.write().push_raw(timestamp_ms, data);
+                                    })
+                                        as Box<dyn FnMut(js_sys::Uint8Array)>);
 
                                 let _ = start_read_loop_js(&port_js, &on_chunk).await;
                                 drop(on_chunk);
@@ -211,14 +220,13 @@ async fn close_port_js(port: &JsValue) -> Result<(), JsValue> {
 
 async fn start_read_loop_js(
     port: &JsValue,
-    on_chunk: &Closure<dyn FnMut(String)>,
+    on_chunk: &Closure<dyn FnMut(js_sys::Uint8Array)>,
 ) -> Result<(), JsValue> {
     let read_loop = Function::new_with_args(
         "port, onChunk",
         r#"
             return (async () => {
                 const reader = port.readable.getReader();
-                const decoder = new TextDecoder();
                 try {
                     while (true) {
                         const { value, done } = await reader.read();
@@ -226,7 +234,7 @@ async fn start_read_loop_js(
                             break;
                         }
                         if (value) {
-                            onChunk(decoder.decode(value, { stream: true }));
+                            onChunk(value);
                         }
                     }
                 } finally {

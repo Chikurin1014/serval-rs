@@ -1,10 +1,12 @@
 use dioxus::prelude::*;
 
-use ui::Navbar;
-use views::{Blog, Home};
-
+mod time;
 mod views;
 mod web_serial_api;
+
+use time::TimeProvider;
+use ui::Navbar;
+use views::{Blog, Home};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -36,7 +38,9 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", type: "text/css", href: DAISYUI_CSS }
         document::Script { src: TAILWIND_CSS }
 
-        Router::<Route> {}
+        TimeProvider {
+            Router::<Route> {}
+        }
     }
 }
 
@@ -45,17 +49,25 @@ fn App() -> Element {
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
-        Navbar {
-            Link {
-                to: Route::Home {},
-                "Home"
+        div {
+            class: "flex h-screen flex-col overflow-hidden",
+            div {
+                class: "shrink-0",
+                Navbar {
+                    Link {
+                        to: Route::Home {},
+                        "Home"
+                    }
+                    Link {
+                        to: Route::Blog { id: 1 },
+                        "Blog"
+                    }
+                }
             }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
+            div {
+                class: "min-h-0 flex-1 overflow-hidden",
+                Outlet::<Route> {}
             }
         }
-
-        Outlet::<Route> {}
     }
 }

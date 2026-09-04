@@ -2,7 +2,10 @@ use dioxus::prelude::*;
 
 use crate::web_serial_api::WebSerialProvider;
 use ui::{
-    component::{PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton, PortSelector},
+    component::{
+        ConversionList, DataList, PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton,
+        PortSelector,
+    },
     data::DataProvider,
     serial::SerialProvider,
 };
@@ -13,16 +16,23 @@ pub fn Home() -> Element {
         SerialProvider {
             DataProvider {
                 WebSerialProvider {
-                    PortSelector {}
                     div {
-                        PortBaudrateConfigurator {}
-                        PortOpenCloseButton {}
-                    }
-                    // PortWritePanel {}
-                    div {
-                        class: "grid gap-6 lg:grid-cols-2",
-                        PortIoConsole {}
-                        // RawDataMonitor {}
+                        class: "flex h-full flex-col overflow-hidden gap-3 p-3",
+                        div {
+                            class: "flex shrink-0 flex-wrap items-center gap-2",
+                            PortSelector {}
+                            PortBaudrateConfigurator {}
+                            PortOpenCloseButton {}
+                        }
+                        div {
+                            class: "grid md:grid-cols-2 h-full gap-1 overflow-auto",
+                            DataList {}
+                            ConversionList {}
+                        }
+                        div {
+                            class: "h-[30vh] shrink-0",
+                            PortIoConsole {}
+                        }
                     }
                 }
             }
