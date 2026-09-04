@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use ui::{data::DataProvider, Navbar};
-use views::{Blog, Home};
+use views::Home;
 
 mod time;
 mod views;
@@ -16,8 +16,6 @@ enum Route {
     #[layout(WebNavbar)]
     #[route("/")]
     Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
@@ -63,10 +61,6 @@ fn WebNavbar() -> Element {
                     Link {
                         to: Route::Home {},
                         "Home"
-                    }
-                    Link {
-                        to: Route::Blog { id: 1 },
-                        "Blog"
                     }
                 }
             }
