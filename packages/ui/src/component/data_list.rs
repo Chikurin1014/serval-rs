@@ -16,11 +16,13 @@ pub fn DataList() -> Element {
             let mut row_context = data_context.clone();
             let type_name = data.type_name();
             let preview = latest_value_preview(data);
+            let timestamp = latest_timestamp(data);
             rsx! {
                 tr {
                     th { class: "font-mono text-xs", "{label}" }
                     td { class: "font-mono text-xs", "{type_name}" }
                     td { class: "font-mono text-xs break-all", "{preview}" }
+                    td { class: "font-mono text-xs", "{timestamp}" }
                     td {
                         button {
                             class: "btn btn-xs btn-ghost btn-error btn-square",
@@ -57,6 +59,7 @@ pub fn DataList() -> Element {
                                 th { "Label" }
                                 th { "Type" }
                                 th { "Latest" }
+                                th { "Timestamp" }
                                 th { "" }
                             }
                         }
@@ -87,6 +90,23 @@ fn latest_value_preview(data: &TypedData) -> String {
             .back()
             .map(|entry| String::from_utf8_lossy(entry.value()).into_owned())
             .unwrap_or_else(|| "empty".to_string()),
+    }
+}
+
+fn latest_timestamp(data: &TypedData) -> String {
+    match data {
+        TypedData::Number(queue) => queue
+            .back()
+            .map(|entry| format!("{}", entry.timestamp()))
+            .unwrap_or_else(|| "N/A".to_string()),
+        TypedData::String(queue) => queue
+            .back()
+            .map(|entry| format!("{}", entry.timestamp()))
+            .unwrap_or_else(|| "N/A".to_string()),
+        TypedData::Bytes(queue) => queue
+            .back()
+            .map(|entry| format!("{}", entry.timestamp()))
+            .unwrap_or_else(|| "N/A".to_string()),
     }
 }
 

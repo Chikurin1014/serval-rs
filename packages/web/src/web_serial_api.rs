@@ -234,7 +234,7 @@ async fn start_read_loop_js(
                             break;
                         }
                         if (value) {
-                            onChunk(new Uint8Array(value));
+                            onChunk(value);
                         }
                     }
                 } finally {
