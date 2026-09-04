@@ -7,13 +7,25 @@ use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
 use ui::{
-    serial::{Port, PortInfo, SerialContext},
+    serial::{
+        Port, PortInfo, RefreshPortsAction, RequestPortAction, RxData, SendBytesAction,
+        SerialContext, SetOpenAction,
+    },
     time::TimeContext,
 };
 
 #[component]
-pub fn WebSerialProvider(children: Element) -> Element {
-    let SerialContext {
+pub fn SerialProvider(children: Element) -> Element {
+    let ports = use_signal(|| HashMap::<Uuid, Port>::new());
+    let selected_id = use_signal(|| None::<Uuid>);
+    let is_open = use_signal(|| false);
+    let rx_data = use_signal(RxData::new);
+    let request_port = use_signal(|| None::<RequestPortAction>);
+    let refresh_ports = use_signal(|| None::<RefreshPortsAction>);
+    let set_open = use_signal(|| None::<SetOpenAction>);
+    let tx_send = use_signal(|| None::<SendBytesAction>);
+
+    use_context_provider(|| SerialContext {
         ports,
         selected_id,
         is_open,
@@ -22,7 +34,8 @@ pub fn WebSerialProvider(children: Element) -> Element {
         refresh_ports,
         set_open,
         tx_send,
-    } = use_context::<SerialContext>();
+    });
+
     let time_context = use_context::<TimeContext>();
     let web_ports = use_signal(|| HashMap::<Uuid, JsValue>::new());
 

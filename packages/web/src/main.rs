@@ -1,12 +1,14 @@
 use dioxus::prelude::*;
 
+use ui::{data::DataProvider, Navbar};
+use views::{Blog, Home};
+
 mod time;
 mod views;
 mod web_serial_api;
 
 use time::TimeProvider;
-use ui::Navbar;
-use views::{Blog, Home};
+use web_serial_api::SerialProvider;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -39,7 +41,11 @@ fn App() -> Element {
         document::Script { src: TAILWIND_CSS }
 
         TimeProvider {
-            Router::<Route> {}
+            SerialProvider {
+                DataProvider {
+                    Router::<Route> {}
+                }
+            }
         }
     }
 }
