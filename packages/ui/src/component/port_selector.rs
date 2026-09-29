@@ -27,15 +27,15 @@ pub fn PortSelector() -> Element {
     rsx! {
         div {
             class: "join",
-            button {
-                class: "btn btn-sm join-item",
-                onclick: move |_| {
-                    if let Some(action) = request_port() {
+            if let Some(action) = request_port() {
+                button {
+                    class: "btn btn-sm join-item",
+                    onclick: move |_| {
                         action();
+                    },
+                    Icon {
+                        icon: LdCirclePlus {},
                     }
-                },
-                Icon {
-                    icon: LdCirclePlus {},
                 }
             }
             button {
