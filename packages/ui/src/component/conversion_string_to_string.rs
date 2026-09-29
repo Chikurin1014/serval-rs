@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     icons::ld_icons::{LdMoveRight, LdRegex, LdTag},
@@ -8,7 +6,7 @@ use dioxus_free_icons::{
 use regex::Regex;
 
 use crate::{
-    data::{DataContext, StringData, TypedData},
+    data::{DataContext, StringData},
     time::TimeContext,
 };
 
@@ -63,15 +61,7 @@ pub fn ConversionStringToString(
             }
         };
 
-        let Some(queue) = data_context
-            .data_with_labels
-            .read()
-            .get(&source)
-            .and_then(|data| match data {
-                TypedData::String(queue) => Some(queue.clone()),
-                _ => None,
-            })
-        else {
+        let Some(queue) = data_context.get_string(&source) else {
             return;
         };
 
@@ -90,7 +80,6 @@ pub fn ConversionStringToString(
         processed_count.set(queue.len());
 
         let timestamp = time_context.current();
-        let mut map = data_context.data_with_labels.write();
         for entry in &new_entries {
             if regex.captures(entry.value()).is_none() {
                 continue;
@@ -105,13 +94,7 @@ pub fn ConversionStringToString(
                     .replace(entry.value(), replacement.as_str())
                     .into_owned(),
             );
-            let target_queue = map
-                .entry(target_label)
-                .or_insert_with(|| TypedData::String(VecDeque::new()));
-            match target_queue {
-                TypedData::String(queue) => queue.push_back(converted),
-                other => *other = TypedData::String(VecDeque::from([converted])),
-            }
+            data_context.push_string(&target_label, converted);
         }
         from_error.set(String::new());
         to_error.set(String::new());

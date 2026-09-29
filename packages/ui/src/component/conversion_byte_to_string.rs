@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     icons::ld_icons::{LdMoveRight, LdTag},
@@ -7,7 +5,7 @@ use dioxus_free_icons::{
 };
 
 use crate::{
-    data::{DataContext, StringData, TypedData},
+    data::{DataContext, StringData},
     time::TimeContext,
 };
 
@@ -40,29 +38,21 @@ pub fn ConversionByteToString(
             return;
         }
 
-        let Some(queue) = data_context
-            .data_with_labels
-            .read()
-            .get(&source_label)
-            .and_then(|data| match data {
-                TypedData::Bytes(queue) => Some(queue.clone()),
-                _ => None,
-            })
-        else {
+        let Some(source_queue) = data_context.get_bytes(&source_label) else {
             processed_count.set(0);
             buffer.set(String::new());
             return;
         };
 
         let processed = processed_count();
-        let start = if processed > queue.len() {
+        let start = if processed > source_queue.len() {
             processed_count.set(0);
             buffer.set(String::new());
             0
         } else {
             processed
         };
-        let new_entries = queue.iter().skip(start).cloned().collect::<Vec<_>>();
+        let new_entries = source_queue.iter().skip(start).cloned().collect::<Vec<_>>();
 
         if new_entries.is_empty() {
             return;
@@ -71,31 +61,15 @@ pub fn ConversionByteToString(
         let delim = decode_delimiter(&delimiter());
         let (pieces, next_buffer) = split_pending_bytes(&new_entries, &buffer(), &delim);
         buffer.set(next_buffer);
-        processed_count.set(queue.len());
+        processed_count.set(source_queue.len());
 
         if pieces.is_empty() {
             return;
         }
 
         let timestamp = time_context.current();
-        let mut map = data_context.data_with_labels.write();
-        let target_queue = map
-            .entry(target_label.clone())
-            .or_insert_with(|| TypedData::String(VecDeque::new()));
-
-        match target_queue {
-            TypedData::String(queue) => {
-                for value in pieces {
-                    queue.push_back(StringData::new(timestamp, value));
-                }
-            }
-            other => {
-                let converted = pieces
-                    .into_iter()
-                    .map(|value| StringData::new(timestamp, value))
-                    .collect::<VecDeque<_>>();
-                *other = TypedData::String(converted);
-            }
+        for value in pieces {
+            data_context.push_string(&target_label, StringData::new(timestamp, value));
         }
     });
 

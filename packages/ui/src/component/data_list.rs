@@ -1,5 +1,8 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdTrash, Icon};
+use dioxus_free_icons::{
+    icons::ld_icons::{LdTrash, LdX},
+    Icon,
+};
 
 use crate::data::{DataContext, TypedData};
 
@@ -8,20 +11,19 @@ pub fn DataList() -> Element {
     let data_context = use_context::<DataContext>();
     let mut all_clear_context = data_context.clone();
     let rows = data_context
-        .data_with_labels
-        .read()
+        .data_with_labels()
         .iter()
         .map(|(label, data)| {
             let label = label.clone();
             let mut row_context = data_context.clone();
-            let type_name = data.type_name();
+            let type_name = data.data_type().name();
             let preview = latest_value_preview(data);
             let timestamp = latest_timestamp(data);
             rsx! {
                 tr {
                     th { class: "font-mono text-xs", "{label}" }
                     td { class: "font-mono text-xs", "{type_name}" }
-                    td { class: "font-mono text-xs break-all", "{preview}" }
+                    td { class: "font-mono text-xs", "{preview}" }
                     td { class: "font-mono text-xs", "{timestamp}" }
                     td {
                         button {
@@ -33,7 +35,7 @@ pub fn DataList() -> Element {
                                     row_context.remove(&label);
                                 }
                             },
-                            Icon { icon: LdTrash {} }
+                            Icon { icon: LdX {} }
                         }
                     }
                 }
@@ -43,33 +45,38 @@ pub fn DataList() -> Element {
 
     rsx! {
         div {
-            class: "card bg-base-100 shadow-sm h-full",
+            class: "card bg-base-100 shadow-sm w-full",
             div {
-                class: "card-body p-4",
+                class: "card-body overflow-auto",
                 h3 {
-                    class: "card-title text-sm mb-3",
+                    class: "card-title text-sm",
                     "Data List"
                 }
                 div {
-                    class: "overflow-auto max-h-80",
+                    class: "overflow-auto",
                     table {
-                        class: "table table-xs table-zebra w-full",
+                        class: "table table-xs table-zebra table-pin-rows table-pin-cols",
                         thead {
                             tr {
                                 th { "Label" }
                                 th { "Type" }
                                 th { "Latest" }
                                 th { "Timestamp" }
-                                th { "" }
+                                th {
+                                    div {
+                                        class: "tooltip tooltip-right tooltip-error",
+                                       "data-tip": "Clear all",
+                                       button {
+                                           class: "btn btn-xs btn-error btn-ghost btn-square",
+                                           onclick: move |_| all_clear_context.clear_all(),
+                                           Icon { icon: LdTrash {} }
+                                       }
+                                    }
+                                }
                             }
                         }
                         tbody { {rows.into_iter()} }
                     }
-                }
-                button {
-                    class: "btn btn-xs btn-ghost",
-                    onclick: move |_| all_clear_context.clear_all(),
-                    "All clear"
                 }
             }
         }

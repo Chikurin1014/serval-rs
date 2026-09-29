@@ -53,28 +53,3 @@ pub struct SerialContext {
     pub set_open: Signal<Option<SetOpenAction>>,
     pub tx_send: Signal<Option<SendBytesAction>>,
 }
-
-#[component]
-pub fn SerialProvider(children: Element) -> Element {
-    let ports = use_signal(|| HashMap::<Uuid, Port>::new());
-    let selected_id = use_signal(|| None::<Uuid>);
-    let is_open = use_signal(|| false);
-    let rx_data = use_signal(RxData::new);
-    let request_port = use_signal(|| None::<RequestPortAction>);
-    let refresh_ports = use_signal(|| None::<RefreshPortsAction>);
-    let set_open = use_signal(|| None::<SetOpenAction>);
-    let tx_send = use_signal(|| None::<SendBytesAction>);
-
-    use_context_provider(|| SerialContext {
-        ports,
-        selected_id,
-        is_open,
-        rx_data,
-        request_port,
-        refresh_ports,
-        set_open,
-        tx_send,
-    });
-
-    children
-}

@@ -1,12 +1,14 @@
 use dioxus::prelude::*;
 
+use ui::{data::DataProvider, Navbar};
+use views::Home;
+
 mod time;
 mod views;
 mod web_serial_api;
 
 use time::TimeProvider;
-use ui::Navbar;
-use views::{Blog, Home};
+use web_serial_api::SerialProvider;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -14,8 +16,6 @@ enum Route {
     #[layout(WebNavbar)]
     #[route("/")]
     Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
@@ -39,7 +39,11 @@ fn App() -> Element {
         document::Script { src: TAILWIND_CSS }
 
         TimeProvider {
-            Router::<Route> {}
+            SerialProvider {
+                DataProvider {
+                    Router::<Route> {}
+                }
+            }
         }
     }
 }
@@ -57,10 +61,6 @@ fn WebNavbar() -> Element {
                     Link {
                         to: Route::Home {},
                         "Home"
-                    }
-                    Link {
-                        to: Route::Blog { id: 1 },
-                        "Blog"
                     }
                 }
             }

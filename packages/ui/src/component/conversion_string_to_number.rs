@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     icons::ld_icons::{LdMoveRight, LdRegex, LdTag},
@@ -8,7 +6,7 @@ use dioxus_free_icons::{
 use regex::Regex;
 
 use crate::{
-    data::{DataContext, NumberData, TypedData},
+    data::{DataContext, NumberData},
     time::TimeContext,
 };
 
@@ -63,15 +61,7 @@ pub fn ConversionStringToNumber(
             }
         };
 
-        let Some(queue) = data_context
-            .data_with_labels
-            .read()
-            .get(&source)
-            .and_then(|data| match data {
-                TypedData::String(queue) => Some(queue.clone()),
-                _ => None,
-            })
-        else {
+        let Some(queue) = data_context.get_string(&source) else {
             return;
         };
 
@@ -91,7 +81,6 @@ pub fn ConversionStringToNumber(
 
         let timestamp = time_context.current();
         let mut had_error = false;
-        let mut map = data_context.data_with_labels.write();
         for entry in new_entries {
             let Some(captures) = regex.captures(entry.value()) else {
                 continue;
@@ -110,19 +99,7 @@ pub fn ConversionStringToNumber(
             if target_label.is_empty() {
                 continue;
             }
-            let target_queue = map
-                .entry(target_label)
-                .or_insert_with(|| TypedData::Number(VecDeque::new()));
-
-            match target_queue {
-                TypedData::Number(queue) => {
-                    queue.push_back(NumberData::new(timestamp, number));
-                }
-                other => {
-                    *other =
-                        TypedData::Number(VecDeque::from([NumberData::new(timestamp, number)]));
-                }
-            }
+            data_context.push_number(&target_label, NumberData::new(timestamp, number));
         }
         if !had_error {
             from_error.set(String::new());
