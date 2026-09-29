@@ -1,44 +1,86 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 use dioxus::prelude::*;
 
 use super::data_type::{ByteData, TypedData};
-use crate::serial::{RxData, SerialContext};
+use crate::{
+    data::{NumberData, StringData},
+    serial::{RxData, SerialContext},
+};
 
 #[derive(Clone)]
 pub struct DataContext {
-    pub data_with_labels: Signal<BTreeMap<String, TypedData>>,
+    data_with_labels: Signal<HashMap<String, TypedData>>,
 }
 
 impl DataContext {
-    pub fn push_raw(&mut self, data: ByteData) {
-        let mut all_data = self.data_with_labels.write();
+    pub fn data_with_labels(&self) -> HashMap<String, TypedData> {
+        self.data_with_labels.read().clone()
+    }
 
-        let raw_data = all_data
-            .entry("raw_data".to_string())
-            .or_insert_with(|| TypedData::Bytes(VecDeque::new()));
-        match raw_data {
-            TypedData::Bytes(queue) => queue.push_back(data),
-            other => *other = TypedData::Bytes(VecDeque::from([data])),
+    pub fn get(&self, label: &str) -> Option<TypedData> {
+        self.data_with_labels.read().get(label).cloned()
+    }
+
+    pub fn get_bytes(&self, label: &str) -> Option<VecDeque<ByteData>> {
+        match self.get(label) {
+            Some(TypedData::Bytes(queue)) => Some(queue),
+            _ => None,
+        }
+    }
+
+    pub fn get_string(&self, label: &str) -> Option<VecDeque<StringData>> {
+        match self.get(label) {
+            Some(TypedData::String(queue)) => Some(queue),
+            _ => None,
         }
     }
 
     pub fn raw_data(&self) -> Option<Vec<ByteData>> {
-        self.data_with_labels
-            .read()
-            .get("raw_data")
-            .and_then(|data| match data {
-                TypedData::Bytes(queue) => Some(queue.iter().cloned().collect()),
-                _ => None,
-            })
+        self.get_bytes("raw_data")
+            .map(|queue| queue.into_iter().collect())
     }
 
-    pub fn clear_all(&mut self) {
-        self.data_with_labels.write().clear();
+    pub fn push_number(&mut self, label: &str, data: NumberData) {
+        let mut data_with_labels = self.data_with_labels.write();
+        if let Some(existing_data) = data_with_labels.get_mut(label) {
+            match existing_data {
+                TypedData::Number(queue) => queue.push_back(data),
+                _ => {
+                    *existing_data = data.into();
+                }
+            }
+        } else {
+            data_with_labels.insert(label.to_string(), data.into());
+        }
     }
 
-    pub fn clear_raw(&mut self) {
-        self.clear("raw_data");
+    pub fn push_string(&mut self, label: &str, data: StringData) {
+        let mut data_with_labels = self.data_with_labels.write();
+        if let Some(existing_data) = data_with_labels.get_mut(label) {
+            match existing_data {
+                TypedData::String(queue) => queue.push_back(data),
+                _ => {
+                    *existing_data = data.into();
+                }
+            }
+        } else {
+            data_with_labels.insert(label.to_string(), data.into());
+        }
+    }
+
+    pub fn push_bytes(&mut self, label: &str, data: ByteData) {
+        let mut data_with_labels = self.data_with_labels.write();
+        if let Some(existing_data) = data_with_labels.get_mut(label) {
+            match existing_data {
+                TypedData::Bytes(queue) => queue.push_back(data),
+                _ => {
+                    *existing_data = data.into();
+                }
+            }
+        } else {
+            data_with_labels.insert(label.to_string(), data.into());
+        }
     }
 
     pub fn remove(&mut self, label: &str) -> bool {
@@ -54,11 +96,19 @@ impl DataContext {
             }
         }
     }
+
+    pub fn clear_raw(&mut self) {
+        self.clear("raw_data");
+    }
+
+    pub fn clear_all(&mut self) {
+        self.data_with_labels.write().clear();
+    }
 }
 
 #[component]
 pub fn DataProvider(children: Element) -> Element {
-    let data_with_labels = use_signal(BTreeMap::<String, TypedData>::new);
+    let data_with_labels = use_signal(HashMap::<String, TypedData>::new);
     let serial = use_context::<SerialContext>();
     let mut data_context = DataContext { data_with_labels };
     let data_context_for_provider = data_context.clone();
@@ -77,7 +127,7 @@ pub fn DataProvider(children: Element) -> Element {
             return;
         };
 
-        data_context.push_raw(current);
+        data_context.push_bytes("raw_data", current);
     });
 
     use_context_provider(|| data_context_for_provider.clone());

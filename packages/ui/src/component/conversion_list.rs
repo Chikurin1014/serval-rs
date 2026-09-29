@@ -136,19 +136,19 @@ pub fn ConversionList() -> Element {
             }
             datalist {
                 id: "conversion-bytes-labels",
-                for (label, _) in data_context.data_with_labels.read().iter().filter(|(_, data)| matches!(data, TypedData::Bytes(_))) {
+                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Bytes(_))) {
                     option { value: "{label}" }
                 }
             }
             datalist {
                 id: "conversion-strings-labels",
-                for (label, _) in data_context.data_with_labels.read().iter().filter(|(_, data)| matches!(data, TypedData::String(_))) {
+                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::String(_))) {
                     option { value: "{label}" }
                 }
             }
             datalist {
                 id: "conversion-numbers-labels",
-                for (label, _) in data_context.data_with_labels.read().iter().filter(|(_, data)| matches!(data, TypedData::Number(_))) {
+                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Number(_))) {
                     option { value: "{label}" }
                 }
             }

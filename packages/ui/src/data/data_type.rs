@@ -1,5 +1,22 @@
 use std::collections::VecDeque;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DataType {
+    Number,
+    String,
+    Bytes,
+}
+
+impl DataType {
+    pub fn name(&self) -> &'static str {
+        match self {
+            DataType::Number => "Number",
+            DataType::String => "String",
+            DataType::Bytes => "Bytes",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedData {
     Number(VecDeque<NumberData>),
@@ -8,11 +25,19 @@ pub enum TypedData {
 }
 
 impl TypedData {
-    pub fn type_name(&self) -> &'static str {
+    pub fn new(data_type: DataType) -> Self {
+        match data_type {
+            DataType::Number => TypedData::Number(VecDeque::new()),
+            DataType::String => TypedData::String(VecDeque::new()),
+            DataType::Bytes => TypedData::Bytes(VecDeque::new()),
+        }
+    }
+
+    pub fn data_type(&self) -> DataType {
         match self {
-            TypedData::Number(_) => "Number",
-            TypedData::String(_) => "String",
-            TypedData::Bytes(_) => "Bytes",
+            TypedData::Number(_) => DataType::Number,
+            TypedData::String(_) => DataType::String,
+            TypedData::Bytes(_) => DataType::Bytes,
         }
     }
 
@@ -54,5 +79,23 @@ impl<T: Clone> Data<T> {
 
     pub fn value(&self) -> &T {
         &self.value
+    }
+}
+
+impl From<NumberData> for TypedData {
+    fn from(data: NumberData) -> Self {
+        TypedData::Number(VecDeque::from([data]))
+    }
+}
+
+impl From<StringData> for TypedData {
+    fn from(data: StringData) -> Self {
+        TypedData::String(VecDeque::from([data]))
+    }
+}
+
+impl From<ByteData> for TypedData {
+    fn from(data: ByteData) -> Self {
+        TypedData::Bytes(VecDeque::from([data]))
     }
 }

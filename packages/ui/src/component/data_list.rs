@@ -11,13 +11,12 @@ pub fn DataList() -> Element {
     let data_context = use_context::<DataContext>();
     let mut all_clear_context = data_context.clone();
     let rows = data_context
-        .data_with_labels
-        .read()
+        .data_with_labels()
         .iter()
         .map(|(label, data)| {
             let label = label.clone();
             let mut row_context = data_context.clone();
-            let type_name = data.type_name();
+            let type_name = data.data_type().name();
             let preview = latest_value_preview(data);
             let timestamp = latest_timestamp(data);
             rsx! {

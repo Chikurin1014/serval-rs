@@ -45,6 +45,6 @@ pub fn TimeProvider(children: Element) -> Element {
         });
     });
 
-    use_context_provider(|| TimeContext { timestamp_ms: now });
+    use_context_provider(|| TimeContext::new(now));
     children
 }
