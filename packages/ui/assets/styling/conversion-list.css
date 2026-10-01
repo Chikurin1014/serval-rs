@@ -1,0 +1,56 @@
+.conversion-panel {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.conversion-panel [data-slot="card"] {
+    min-width: 0;
+    gap: .75rem;
+    padding: .5rem 0 1rem;
+}
+
+.conversion-panel [data-slot="card"]+[data-slot="card"] {
+    margin-top: .75rem;
+}
+
+/* Switch, title and delete button on one row */
+.conversion-panel [data-slot="card-header"] {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 0 1rem .5rem;
+    border-bottom: 1px solid var(--dc-border);
+}
+
+.conversion-panel [data-slot="card-title"] {
+    flex: 1;
+    min-width: 0;
+    color: var(--dc-text);
+    font-weight: 900;
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.conversion-panel [data-slot="card-content"] {
+    min-width: 0;
+    padding: 0 1rem;
+}
+
+.conversion-panel .add-conversion-menu {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.conversion-panel button.add-conversion {
+    width: 100%;
+    height: 2.25rem;
+    padding: 0 1rem;
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}

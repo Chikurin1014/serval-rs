@@ -20,8 +20,8 @@ enum Route {
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
-const DAISYUI_CSS: &str = "https://cdn.jsdelivr.net/npm/daisyui@5";
-const TAILWIND_CSS: &str = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
+const COMPONENTS_CSS: Asset = asset!("/assets/components.css");
+const DX_COMPONENTS_THEME_CSS: Asset = asset!("/assets/dx-components-theme.css");
 
 fn main() {
     dioxus::launch(App);
@@ -35,8 +35,8 @@ fn App() -> Element {
         // Global app resources
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", type: "text/css", href: DAISYUI_CSS }
-        document::Script { src: TAILWIND_CSS }
+        document::Link { rel: "stylesheet", href: COMPONENTS_CSS }
+        document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME_CSS }
 
         TimeProvider {
             SerialProvider {
@@ -54,9 +54,9 @@ fn App() -> Element {
 fn WebNavbar() -> Element {
     rsx! {
         div {
-            class: "flex h-screen flex-col overflow-hidden",
+            class: "app-shell",
             div {
-                class: "shrink-0",
+                class: "navbar-shell",
                 Navbar {
                     Link {
                         to: Route::Home {},
@@ -65,7 +65,7 @@ fn WebNavbar() -> Element {
                 }
             }
             div {
-                class: "min-h-0 flex-1 overflow-hidden",
+                class: "route-shell",
                 Outlet::<Route> {}
             }
         }

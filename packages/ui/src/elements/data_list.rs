@@ -4,7 +4,13 @@ use dioxus_free_icons::{
     Icon,
 };
 
+use crate::components::{
+    button::{Button, ButtonSize, ButtonVariant},
+    card::{Card, CardAction, CardContent, CardHeader, CardTitle},
+};
 use crate::data::{DataContext, TypedData};
+
+const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
 #[component]
 pub fn DataList() -> Element {
@@ -21,13 +27,14 @@ pub fn DataList() -> Element {
             let timestamp = latest_timestamp(data);
             rsx! {
                 tr {
-                    th { class: "font-mono text-xs", "{label}" }
-                    td { class: "font-mono text-xs", "{type_name}" }
-                    td { class: "font-mono text-xs", "{preview}" }
-                    td { class: "font-mono text-xs", "{timestamp}" }
+                    th { class: "data-cell", "{label}" }
+                    td { class: "data-cell", "{type_name}" }
+                    td { class: "data-cell", "{preview}" }
+                    td { class: "data-cell", "{timestamp}" }
                     td {
-                        button {
-                            class: "btn btn-xs btn-ghost btn-error btn-square",
+                        Button {
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::IconXs,
                             aria_label: "Delete label",
                             onclick: {
                                 let label = label.clone();
@@ -44,35 +51,34 @@ pub fn DataList() -> Element {
         .collect::<Vec<_>>();
 
     rsx! {
+        document::Link { rel: "stylesheet", href: DATA_LIST_CSS }
+
         div {
-            class: "card bg-base-100 shadow-sm w-full",
-            div {
-                class: "card-body overflow-auto",
-                h3 {
-                    class: "card-title text-sm",
-                    "Data List"
+            class: "data-list",
+            Card {
+                CardHeader {
+                    CardTitle { "Data List" }
+                    CardAction {
+                        Button {
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::IconSm,
+                            aria_label: "Clear all",
+                            title: "Clear all",
+                            onclick: move |_| all_clear_context.clear_all(),
+                            Icon { icon: LdTrash {} }
+                        }
+                    }
                 }
-                div {
-                    class: "overflow-auto",
+                CardContent {
                     table {
-                        class: "table table-xs table-zebra table-pin-rows table-pin-cols",
+                        class: "data-table",
                         thead {
                             tr {
                                 th { "Label" }
                                 th { "Type" }
                                 th { "Latest" }
                                 th { "Timestamp" }
-                                th {
-                                    div {
-                                        class: "tooltip tooltip-right tooltip-error",
-                                       "data-tip": "Clear all",
-                                       button {
-                                           class: "btn btn-xs btn-error btn-ghost btn-square",
-                                           onclick: move |_| all_clear_context.clear_all(),
-                                           Icon { icon: LdTrash {} }
-                                       }
-                                    }
-                                }
+                                th {}
                             }
                         }
                         tbody { {rows.into_iter()} }

@@ -6,9 +6,12 @@ use dioxus_free_icons::{
 use regex::Regex;
 
 use crate::{
+    components::input::Input,
     data::{DataContext, StringData},
     time::TimeContext,
 };
+
+const CONVERSION_CSS: Asset = asset!("/assets/styling/conversion.css");
 
 #[component]
 pub fn ConversionStringToString(
@@ -101,68 +104,66 @@ pub fn ConversionStringToString(
     });
 
     rsx! {
+        document::Link { rel: "stylesheet", href: CONVERSION_CSS }
+
         div {
-            class: "flex items-center gap-2",
+            class: "conversion-row",
             div {
-                class: "join join-vertical",
+                class: "field-stack",
                 label {
-                    class: "input input-sm input-bordered",
+                    class: "field",
                     Icon { icon: LdTag {} }
-                    input {
-                        class: "grow",
+                    Input {
                         placeholder: "Source label",
                         list: "conversion-strings-labels", // Defined in `ConversionList` component
                         autocomplete: "on",
                         value: "{source_label()}",
-                        oninput: move |event| source_label.set(event.value()),
+                        oninput: move |event: FormEvent| source_label.set(event.value()),
                     }
                 }
                 label {
-                    class: "input input-sm input-bordered",
-                    span { class: "label", "From" }
+                    class: "field",
+                    span { class: "field-label", "From" }
                     Icon { icon: LdRegex {} }
-                    input {
-                        class: "grow",
+                    Input {
                         placeholder: "Text to be replaced",
                         value: "{from()}",
-                        oninput: move |event| {
+                        oninput: move |event: FormEvent| {
                             from.set(event.value());
                             from_error.set(String::new());
                         },
                     }
                 }
                 if !from_error().is_empty() {
-                    span { class: "text-error text-xs", "{from_error()}" }
+                    span { class: "field-error", "{from_error()}" }
                 }
             }
             Icon { icon: LdMoveRight {} }
             div {
-                class: "join join-vertical",
+                class: "field-stack",
                 label {
-                    class: "input input-sm input-bordered",
+                    class: "field",
                     Icon { icon: LdTag {} }
-                    input {
-                        class: "grow",
+                    Input {
                         placeholder: "Target label",
                         list: "conversion-strings-labels",
                         value: "{target_label()}",
-                        oninput: move |event| target_label.set(event.value()),
+                        oninput: move |event: FormEvent| target_label.set(event.value()),
                     }
                 }
                 label {
-                    class: "input input-sm input-bordered",
-                    span { class: "label", "To" }
-                    input {
-                        class: "grow",
+                    class: "field",
+                    span { class: "field-label", "To" }
+                    Input {
                         value: "{to()}",
-                        oninput: move |event| {
+                        oninput: move |event: FormEvent| {
                             to.set(event.value());
                             to_error.set(String::new());
                         }
                     }
                 }
                 if !to_error().is_empty() {
-                    span { class: "text-error text-xs", "{to_error()}" }
+                    span { class: "field-error", "{to_error()}" }
                 }
             }
         }

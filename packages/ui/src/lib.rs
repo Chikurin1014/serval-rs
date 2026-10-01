@@ -6,8 +6,9 @@ pub use hero::Hero;
 mod navbar;
 pub use navbar::Navbar;
 
-pub mod component;
+pub mod components;
 pub mod data;
+pub mod elements;
 pub mod serial;
 pub mod time;
 
