@@ -14,7 +14,7 @@
 }
 
 .conversion-panel [data-slot="card"]+[data-slot="card"] {
-    margin-top: .75rem;
+    margin-top: .3rem;
 }
 
 /* Switch, title and delete button on one row */

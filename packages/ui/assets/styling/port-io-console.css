@@ -4,6 +4,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    font-family: ui-monospace, monospace;
 }
 
 .console-output {
@@ -18,7 +19,6 @@
     border-bottom: none;
     background: var(--dc-screen);
     color: var(--dc-screen-text);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .875rem;
     white-space: pre-wrap;
 }

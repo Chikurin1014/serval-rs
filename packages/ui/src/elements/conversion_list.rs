@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdTrash, Icon};
+use dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 use dioxus_primitives::scroll_area::ScrollDirection;
 
 use super::{ConversionByteToString, ConversionStringToNumber, ConversionStringToString};
@@ -103,7 +103,7 @@ pub fn ConversionList() -> Element {
                                         list.remove(index);
                                     }
                                 },
-                                Icon { icon: LdTrash {} }
+                                Icon { icon: LdX {} }
                             }
                         }
                         CardContent {
