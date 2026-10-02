@@ -1,43 +1,7 @@
-/* App shell (`WebNavbar`) */
-.app-shell {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-}
-
-.navbar-shell {
-    flex: 0 0 auto;
-}
-
-.navbar-shell #navbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    min-height: 2.5rem;
-    padding: 0 .75rem;
-    border-bottom: 1px solid var(--dc-border);
-    background: var(--dc-panel);
-}
-
-.navbar-shell #navbar a {
-    color: var(--dc-text);
-    font-size: .75rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}
-
-.route-shell {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-}
-
-/* Home view */
 .home {
     display: flex;
     flex-direction: column;
-    gap: .75rem;
+    gap: .5rem;
     height: 100%;
     min-height: 0;
     box-sizing: border-box;
@@ -56,7 +20,7 @@
 .upper-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: .75rem;
+    gap: .5rem;
     min-height: 0;
     flex: 1 1 auto;
     overflow: hidden;

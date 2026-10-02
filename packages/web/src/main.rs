@@ -1,14 +1,12 @@
 use dioxus::prelude::*;
 
-use ui::{data::DataProvider, Navbar};
-use views::Home;
+use ui::{data::DataProvider, views::Home, Navbar, ThemeProvider};
 
+mod serial;
 mod time;
-mod views;
-mod web_serial_api;
 
+use serial::SerialProvider;
 use time::TimeProvider;
-use web_serial_api::SerialProvider;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -19,9 +17,7 @@ enum Route {
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const COMPONENTS_CSS: Asset = asset!("/assets/components.css");
-const DX_COMPONENTS_THEME_CSS: Asset = asset!("/assets/dx-components-theme.css");
+const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 
 fn main() {
     dioxus::launch(App);
@@ -34,14 +30,13 @@ fn App() -> Element {
     rsx! {
         // Global app resources
         document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", href: COMPONENTS_CSS }
-        document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME_CSS }
 
-        TimeProvider {
-            SerialProvider {
-                DataProvider {
-                    Router::<Route> {}
+        ThemeProvider {
+            TimeProvider {
+                SerialProvider {
+                    DataProvider {
+                        Router::<Route> {}
+                    }
                 }
             }
         }
@@ -53,6 +48,8 @@ fn App() -> Element {
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
+        document::Link { rel: "stylesheet", href: WEB_NAVBAR_CSS }
+
         div {
             class: "app-shell",
             div {

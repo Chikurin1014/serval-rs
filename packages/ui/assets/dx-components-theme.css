@@ -41,35 +41,35 @@ html[data-theme="light"] [class~="dxc-system"] {
    * Avoids pure black / white and keeps accents desaturated. */
 
   /* Primary colors (surfaces) */
-  --primary-color: var(--dark, #1d2023) var(--light, #f1f2f0);
-  --primary-color-1: var(--dark, #1b1e21) var(--light, #eceeeb);
-  --primary-color-2: var(--dark, #202428) var(--light, #f1f2f0);
-  --primary-color-3: var(--dark, #23272b) var(--light, #eceeeb);
-  --primary-color-4: var(--dark, #282d31) var(--light, #e6e8e5);
-  --primary-color-5: var(--dark, #2f353a) var(--light, #dfe2de);
-  --primary-color-6: var(--dark, #373e44) var(--light, #c6cbc7);
-  --primary-color-7: var(--dark, #4a525a) var(--light, #a3aaa6);
+  --primary-color: var(--dark, #272725) var(--light, #edf2f7);
+  --primary-color-1: var(--dark, #252523) var(--light, #e8eef1);
+  --primary-color-2: var(--dark, #2a2b2a) var(--light, #edf2f7);
+  --primary-color-3: var(--dark, #2d2e2d) var(--light, #e8eef1);
+  --primary-color-4: var(--dark, #323534) var(--light, #e2e8eb);
+  --primary-color-5: var(--dark, #3a3d3d) var(--light, #dbe2e4);
+  --primary-color-6: var(--dark, #434647) var(--light, #c2cbcd);
+  --primary-color-7: var(--dark, #56595d) var(--light, #9faaac);
 
   /* Border shared by every component and element */
-  --border-color: var(--dark, #58626b) var(--light, #8f9793);
+  --border-color: var(--dark, #5c6166) var(--light, #8b9799);
 
   /* Secondary colors (text) */
-  --secondary-color: var(--dark, #eef1f3) var(--light, #14181b);
-  --secondary-color-1: var(--dark, #eef1f3) var(--light, #14181b);
-  --secondary-color-2: var(--dark, #d3d9dd) var(--light, #262c30);
-  --secondary-color-3: var(--dark, #cfd5da) var(--light, #2b3236);
-  --secondary-color-4: var(--dark, #e2e6e9) var(--light, #1b2024);
-  --secondary-color-5: var(--dark, #a9b1b8) var(--light, #4f585d);
-  --secondary-color-6: var(--dark, #5a636a) var(--light, #b9bfbb);
+  --secondary-color: var(--dark, #f2f0ec) var(--light, #11181f);
+  --secondary-color-1: var(--dark, #f2f0ec) var(--light, #11181f);
+  --secondary-color-2: var(--dark, #d7d8d7) var(--light, #232c35);
+  --secondary-color-3: var(--dark, #d3d4d4) var(--light, #28323b);
+  --secondary-color-4: var(--dark, #e6e5e3) var(--light, #182028);
+  --secondary-color-5: var(--dark, #adb0b2) var(--light, #4c5862);
+  --secondary-color-6: var(--dark, #5e6265) var(--light, #b5bfc1);
 
   /* Highlight colors */
-  --focused-border-color: var(--dark, #6f8ea3) var(--light, #5b7c92);
-  --primary-success-color: var(--dark, #24302b) var(--light, #e3ebe6);
-  --secondary-success-color: var(--dark, #a9c4b4) var(--light, #4a7565);
-  --primary-warning-color: var(--dark, #332e24) var(--light, #eee9dc);
-  --secondary-warning-color: var(--dark, #cdbf9c) var(--light, #8a7440);
-  --primary-error-color: var(--dark, #8f4f45) var(--light, #a8574a);
-  --secondary-error-color: var(--dark, #804339) var(--light, #b56b5e);
+  --focused-border-color: var(--dark, #6d8fa3) var(--light, #4b7da0);
+  --primary-success-color: var(--dark, #273024) var(--light, #dceced);
+  --secondary-success-color: var(--dark, #aac5aa) var(--light, #35786b);
+  --primary-warning-color: var(--dark, #382c18) var(--light, #eaeae1);
+  --secondary-warning-color: var(--dark, #d6bd87) var(--light, #8c7436);
+  --primary-error-color: var(--dark, #9e4530) var(--light, #b34d46);
+  --secondary-error-color: var(--dark, #8e3724) var(--light, #be635c);
   --contrast-error-color: var(--dark, var(--secondary-color-1)) var(--light, var(--primary-color));
   --primary-info-color: var(--dark, var(--primary-color-5)) var(--light, var(--primary-color));
   --secondary-info-color: var(--dark, var(--primary-color-7)) var(--light, var(--secondary-color-3));

@@ -2,15 +2,15 @@
     color-scheme: light dark;
 
     /* Follow the same light/dark switch as `dx-components-theme.css` */
-    --dc-accent: var(--light, #4a7565) var(--dark, #7fa894);
+    --dc-accent: var(--light, #45756b) var(--dark, #84a78e);
     --dc-panel: var(--primary-color-2);
     --dc-border: var(--border-color);
     --dc-text: var(--secondary-color-4);
     --dc-text-muted: var(--secondary-color-5);
-    --dc-danger: var(--light, #9c5a4c) var(--dark, #c08878);
-    --dc-page: var(--light, #e6e8e6) var(--dark, #17191c);
+    --dc-danger: var(--light, #9a5b53) var(--dark, #c38771);
+    --dc-page: var(--light, #e0e2e7) var(--dark, #1a1918);
     /* The console keeps a dark "screen" in both schemes */
-    --dc-screen: var(--light, #23272b) var(--dark, #131517);
+    --dc-screen: var(--light, #202730) var(--dark, #161513);
     --dc-screen-text: #c9dfd2;
 }
 
@@ -18,6 +18,7 @@ html,
 body {
     background: var(--dc-page);
     color: var(--dc-text);
+    font-family: sans-serif;
 }
 
 body {

@@ -64,7 +64,7 @@
 }
 
 .data-table tbody tr:nth-child(even) {
-    background: color-mix(in oklab, var(--dc-text) 5%, transparent);
+    background: color-mix(in oklab, var(--dc-text) 3%, transparent);
 }
 
 .data-table .data-cell {
