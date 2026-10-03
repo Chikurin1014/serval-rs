@@ -9,6 +9,7 @@ members = [
 
 [workspace.dependencies]
 dioxus = { version = "0.7.1" }
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components" }
 dioxus-free-icons = { version = "0.10", features = ["lucide"] }
 
 # workspace

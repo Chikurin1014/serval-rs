@@ -1,0 +1,44 @@
+.home {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: .75rem;
+}
+
+.toolbar {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
+.upper-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: .5rem;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.console-slot {
+    height: 38vh;
+    min-height: 14rem;
+    flex: none;
+}
+
+@media (max-width: 900px) {
+    .upper-grid {
+        grid-template-columns: 1fr;
+        overflow: auto;
+    }
+
+    .console-slot {
+        height: 34vh;
+    }
+}

@@ -14,3 +14,7 @@
   cursor: pointer;
   color: #91a4d2;
 }
+
+#navbar .theme-switch {
+  margin-left: auto;
+}

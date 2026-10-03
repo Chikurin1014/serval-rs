@@ -1,8 +1,16 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{icons::ld_icons::LdSend, Icon};
 
-use crate::data::{ByteData, DataContext};
-use crate::serial::SerialContext;
+use crate::{
+    components::{
+        button::{Button, ButtonSize, ButtonVariant},
+        input::Input,
+    },
+    data::{ByteData, DataContext},
+    serial::SerialContext,
+};
+
+const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 
 #[component]
 pub fn PortIoConsole() -> Element {
@@ -52,32 +60,34 @@ pub fn PortIoConsole() -> Element {
     };
 
     rsx! {
+        document::Link { rel: "stylesheet", href: PORT_IO_CONSOLE_CSS }
+
         div {
-            class: "join join-vertical h-full w-full",
+            class: "console",
             pre {
                 "data-port-io-console": true,
-                class: "mockup-code min-h-0 flex-1 overflow-auto text-sm join-item w-full",
-                style: "white-space: pre-wrap;",
+                class: "console-output",
                 "{text_to_show()}"
             }
             div {
-                class: "join shrink-0",
-                input {
+                class: "console-send",
+                Input {
                     type: "text",
                     placeholder: "Type text to send to the active port",
-                    class: "input input-sm w-full",
                     value: "{text_to_send()}",
-                    oninput: move |event| {
+                    oninput: move |event: FormEvent| {
                         *text_to_send.write() = event.value();
                     },
-                    onkeydown: move |event| {
+                    onkeydown: move |event: KeyboardEvent| {
                         if event.key() == Key::Enter {
                             send_text();
                         }
                     }
                 }
-                button {
-                    class: "btn btn-success btn-sm join-item",
+                Button {
+                    variant: ButtonVariant::Primary,
+                    size: ButtonSize::Sm,
+                    background: "var(--secondary-success-color)",
                     disabled: !is_open() || text_to_send().trim().is_empty(),
                     onclick: move |_| {
                         send_text();

@@ -5,9 +5,12 @@ use dioxus_free_icons::{
 };
 
 use crate::{
+    components::input::Input,
     data::{DataContext, StringData},
     time::TimeContext,
 };
+
+const CONVERSION_CSS: Asset = asset!("/assets/styling/conversion.css");
 
 #[component]
 pub fn ConversionByteToString(
@@ -74,33 +77,33 @@ pub fn ConversionByteToString(
     });
 
     rsx! {
+        document::Link { rel: "stylesheet", href: CONVERSION_CSS }
+
         div {
-            class: "space-y-2",
+            class: "conversion-form",
             div {
-                class: "flex items-center gap-2",
+                class: "conversion-row",
                 div {
-                    class: "join join-vertical",
+                    class: "field-stack",
                     label {
-                        class: "input input-sm input-bordered",
+                        class: "field",
                         Icon { icon: LdTag {} }
-                        input {
-                            class: "grow",
+                        Input {
                             list: "conversion-bytes-labels", // Defined in `ConversionList` component
                             placeholder: "Source label",
                             autocomplete: "on",
                             value: "{source_label()}",
-                            oninput: move |event| {
+                            oninput: move |event: FormEvent| {
                                 source_label.set(event.value());
                             },
                         }
                     }
                     label {
-                        class: "input input-sm input-bordered",
-                        span { class: "label", "Delimiter" }
-                        input {
-                            class: "grow",
+                        class: "field",
+                        span { class: "field-label", "Delimiter" }
+                        Input {
                             value: "{delimiter()}",
-                            oninput: move |event| {
+                            oninput: move |event: FormEvent| {
                                 delimiter.set(event.value());
                             },
                         }
@@ -108,13 +111,12 @@ pub fn ConversionByteToString(
                 }
                 Icon { icon: LdMoveRight {} }
                 label {
-                    class: "input input-sm input-bordered",
+                    class: "field",
                     Icon { icon: LdTag {} }
-                    input {
-                        class: "grow",
+                    Input {
                         placeholder: "Target label",
                         value: "{target_label()}",
-                        oninput: move |event| {
+                        oninput: move |event: FormEvent| {
                             target_label.set(event.value());
                         },
                     }

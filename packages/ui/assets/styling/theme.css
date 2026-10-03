@@ -1,0 +1,43 @@
+:root {
+    color-scheme: light dark;
+
+    /* Follow the same light/dark switch as `dx-components-theme.css` */
+    --dc-accent: var(--light, #45756b) var(--dark, #84a78e);
+    --dc-panel: var(--primary-color-2);
+    --dc-border: var(--border-color);
+    --dc-text: var(--secondary-color-4);
+    --dc-text-muted: var(--secondary-color-5);
+    --dc-danger: var(--light, #9a5b53) var(--dark, #c38771);
+    --dc-page: var(--light, #e0e2e7) var(--dark, #1a1918);
+    /* The console keeps a dark "screen" in both schemes */
+    --dc-screen: var(--light, #202730) var(--dark, #161513);
+    --dc-screen-text: #c9dfd2;
+}
+
+html,
+body {
+    background: var(--dc-page);
+    color: var(--dc-text);
+    font-family: sans-serif;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+/* Keep native controls and scrollbars in step with an explicit theme choice */
+html[data-theme="light"] {
+    color-scheme: light;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+}

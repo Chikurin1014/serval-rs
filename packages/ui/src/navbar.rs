@@ -1,5 +1,7 @@
 use dioxus::prelude::*;
 
+use crate::theme::ThemeSwitch;
+
 const NAVBAR_CSS: Asset = asset!("/assets/styling/navbar.css");
 
 #[component]
@@ -10,6 +12,7 @@ pub fn Navbar(children: Element) -> Element {
         div {
             id: "navbar",
             {children}
+            ThemeSwitch {}
         }
     }
 }

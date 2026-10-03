@@ -1,14 +1,12 @@
 use dioxus::prelude::*;
 
-use ui::{data::DataProvider, Navbar};
-use views::Home;
+use ui::{data::DataProvider, views::Home, Navbar, ThemeProvider};
 
+mod serial;
 mod time;
-mod views;
-mod web_serial_api;
 
+use serial::SerialProvider;
 use time::TimeProvider;
-use web_serial_api::SerialProvider;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -19,9 +17,7 @@ enum Route {
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const DAISYUI_CSS: &str = "https://cdn.jsdelivr.net/npm/daisyui@5";
-const TAILWIND_CSS: &str = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
+const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 
 fn main() {
     dioxus::launch(App);
@@ -34,14 +30,13 @@ fn App() -> Element {
     rsx! {
         // Global app resources
         document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", type: "text/css", href: DAISYUI_CSS }
-        document::Script { src: TAILWIND_CSS }
 
-        TimeProvider {
-            SerialProvider {
-                DataProvider {
-                    Router::<Route> {}
+        ThemeProvider {
+            TimeProvider {
+                SerialProvider {
+                    DataProvider {
+                        Router::<Route> {}
+                    }
                 }
             }
         }
@@ -53,10 +48,12 @@ fn App() -> Element {
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
+        document::Link { rel: "stylesheet", href: WEB_NAVBAR_CSS }
+
         div {
-            class: "flex h-screen flex-col overflow-hidden",
+            class: "app-shell",
             div {
-                class: "shrink-0",
+                class: "navbar-shell",
                 Navbar {
                     Link {
                         to: Route::Home {},
@@ -65,7 +62,7 @@ fn WebNavbar() -> Element {
                 }
             }
             div {
-                class: "min-h-0 flex-1 overflow-hidden",
+                class: "route-shell",
                 Outlet::<Route> {}
             }
         }

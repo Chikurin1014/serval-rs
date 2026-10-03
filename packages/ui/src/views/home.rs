@@ -1,28 +1,33 @@
 use dioxus::prelude::*;
 
-use ui::component::{
+use crate::elements::{
     ConversionList, DataList, PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton,
     PortSelector,
 };
 
+const HOME_CSS: Asset = asset!("/assets/styling/home.css");
+
+/// Requires `SerialContext` and `DataContext` to be provided by an ancestor.
 #[component]
 pub fn Home() -> Element {
     rsx! {
+        document::Link { rel: "stylesheet", href: HOME_CSS }
+
         div {
-            class: "flex h-full flex-col gap-3 p-3",
+            class: "home",
             div {
-                class: "flex flex-wrap items-center gap-2",
+                class: "toolbar",
                 PortSelector {}
                 PortBaudrateConfigurator {}
                 PortOpenCloseButton {}
             }
             div {
-                class: "md:flex overflow-auto h-full min-h-0",
+                class: "upper-grid",
                 DataList {}
                 ConversionList {}
             }
             div {
-                class: "h-[30vh] shrink-0",
+                class: "console-slot",
                 PortIoConsole {}
             }
         }
