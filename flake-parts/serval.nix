@@ -20,7 +20,16 @@
           version = "0.1.0";
           src = pkgs.lib.cleanSource ../.;
 
-          cargoLock.lockFile = ../Cargo.lock;
+          cargoLock = {
+            lockFile = ../Cargo.lock;
+            # Git dependencies have no checksum in Cargo.lock, so Nix needs their hashes.
+            # Both crates come from the same checkout of DioxusLabs/components.
+            # Update these whenever that revision changes in Cargo.lock.
+            outputHashes = {
+              "dioxus-attributes-0.1.0" = "sha256-y4aeyIKJxwdi4L+D9Gm+jM5eXaBGZCKfcliyoYnypE4=";
+              "dioxus-primitives-0.0.1" = "sha256-y4aeyIKJxwdi4L+D9Gm+jM5eXaBGZCKfcliyoYnypE4=";
+            };
+          };
 
           # ref: https://github.com/DioxusLabs/dioxus/blob/main/flake.nix
           buildInputs =
