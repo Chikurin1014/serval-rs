@@ -3,7 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 use regex::{Captures, Regex};
 
-use crate::data::{set_if_changed, Converter, DataContext, NumberData, SourceCursor, StringData};
+use crate::data::{Converter, DataContext, NumberData, SourceCursor, StringData, set_if_changed};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegexOutput {
@@ -178,9 +178,11 @@ mod tests {
 
     #[test]
     fn value_parses_as_number() {
-        assert!(expand_first(r"(\d+)", "abc123def", "$1")
-            .parse::<f64>()
-            .is_ok());
+        assert!(
+            expand_first(r"(\d+)", "abc123def", "$1")
+                .parse::<f64>()
+                .is_ok()
+        );
     }
 
     #[test]

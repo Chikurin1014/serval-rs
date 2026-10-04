@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdDatabase, LdLineChart, LdSquareTerminal},
     Icon,
+    icons::ld_icons::{LdDatabase, LdLineChart, LdSquareTerminal},
 };
 
 use crate::{

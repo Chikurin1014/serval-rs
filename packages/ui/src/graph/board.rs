@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdPlus, Icon};
+use dioxus_free_icons::{Icon, icons::ld_icons::LdPlus};
 
 use super::{GraphContext, GraphProperty};
 use crate::{

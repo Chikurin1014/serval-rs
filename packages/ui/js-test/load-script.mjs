@@ -5,12 +5,12 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
 export function loadScript(url) {
-    const context = vm.createContext({});
-    vm.runInContext(readFileSync(url, "utf8"), context);
-    return context;
+  const context = vm.createContext({});
+  vm.runInContext(readFileSync(url, "utf8"), context);
+  return context;
 }
 
 /** Copies a value made in the script's context into this one, for `deepEqual`. */
 export function plain(value) {
-    return JSON.parse(JSON.stringify(value));
+  return JSON.parse(JSON.stringify(value));
 }

@@ -13,7 +13,7 @@ mod time_series;
 pub use board::GraphBoard;
 pub use context::{Graph, GraphContext, GraphKind, GraphProperty, GraphProvider};
 pub use frame::GraphFrame;
-pub use time_series::{TimeSeriesGraph, TIME_SERIES};
+pub use time_series::{TIME_SERIES, TimeSeriesGraph};
 
 /// The built-in kinds, for `GraphProvider`'s `kinds`.
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {

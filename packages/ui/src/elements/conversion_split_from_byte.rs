@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdMoveRight, LdTag},
     Icon,
+    icons::ld_icons::{LdMoveRight, LdTag},
 };
 
 use std::any::Any;

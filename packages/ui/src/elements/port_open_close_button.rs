@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdPause, LdPlay},
     Icon,
+    icons::ld_icons::{LdPause, LdPlay},
 };
 
 use crate::{

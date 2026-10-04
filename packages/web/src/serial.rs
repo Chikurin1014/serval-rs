@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use dioxus::prelude::*;
 use js_sys::{Array, Uint8Array};
 use uuid::Uuid;
-use wasm_bindgen::{closure::Closure, JsValue};
+use wasm_bindgen::{JsValue, closure::Closure};
 
 use ui::{
     serial::{
@@ -191,7 +191,7 @@ pub fn SerialProvider(children: Element) -> Element {
 /// Web Serial calls, see `serial.js`.
 mod web_serial {
     use js_sys::Uint8Array;
-    use wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsValue};
+    use wasm_bindgen::{JsValue, closure::Closure, prelude::wasm_bindgen};
 
     #[wasm_bindgen(module = "/src/serial.js")]
     extern "C" {

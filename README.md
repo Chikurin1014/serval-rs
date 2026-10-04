@@ -54,6 +54,7 @@ ui/
 #### Serving Your App
 
 Navigate to the platform crate of your choice:
+
 ```bash
 cd web
 ```
@@ -63,4 +64,3 @@ and serve:
 ```bash
 dx serve
 ```
-

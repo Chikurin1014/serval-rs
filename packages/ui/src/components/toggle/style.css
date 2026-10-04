@@ -13,10 +13,14 @@
   color: var(--secondary-color-4);
   font-size: 14px;
   outline: none;
-  transition: background-color 150ms, color 150ms, outline-color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms,
+    outline-color 150ms;
 }
 
-.dx-toggle:hover, .dx-toggle:focus-visible {
+.dx-toggle:hover,
+.dx-toggle:focus-visible {
   background-color: var(--primary-color-4);
   cursor: pointer;
 }

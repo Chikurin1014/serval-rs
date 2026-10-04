@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdCirclePlus, LdRefreshCcw, LdUnplug},
     Icon,
+    icons::ld_icons::{LdCirclePlus, LdRefreshCcw, LdUnplug},
 };
 
 use crate::{

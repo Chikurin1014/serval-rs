@@ -4,9 +4,9 @@ mod data_type;
 mod source_cursor;
 
 pub use conversion::{
-    set_if_changed, Conversion, ConversionContext, ConversionKind, ConversionProvider, Converter,
+    Conversion, ConversionContext, ConversionKind, ConversionProvider, Converter,
     InitialConversion, RegexMatch, RegexMatchSettings, RegexOutput, SplitFromByte,
-    SplitFromByteSettings,
+    SplitFromByteSettings, set_if_changed,
 };
 pub use data_context::{DataContext, DataProvider};
 pub use data_type::{ByteData, DataType, NumberData, StringData, TypedData};

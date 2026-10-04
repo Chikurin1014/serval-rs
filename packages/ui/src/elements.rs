@@ -8,8 +8,8 @@ mod port_open_close_button;
 mod port_selector;
 
 pub use conversion_list::ConversionList;
-pub use conversion_regex_match::{RegexMatchForm, REGEX_TO_NUMBER, REGEX_TO_STRING};
-pub use conversion_split_from_byte::{SplitFromByteForm, SPLIT_FROM_BYTE};
+pub use conversion_regex_match::{REGEX_TO_NUMBER, REGEX_TO_STRING, RegexMatchForm};
+pub use conversion_split_from_byte::{SPLIT_FROM_BYTE, SplitFromByteForm};
 pub use data_list::DataList;
 pub use port_baudrate_configurator::PortBaudrateConfigurator;
 pub use port_io_console::PortIoConsole;

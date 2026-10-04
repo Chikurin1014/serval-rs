@@ -1,67 +1,67 @@
 .conversion-panel {
-    display: flex;
-    flex-direction: column;
-    gap: .75rem;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* `VirtualList` sizes its canvas inline; the container only has to scroll */
 .conversion-panel .conversion-list {
-    position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    contain: layout paint;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  contain: layout paint;
 }
 
 /* Spacing on every list item, so the virtual list measures it with each card
  * (only a window of items is in the DOM, so `:last-child` would shift sizes) */
 .conversion-list [role="listitem"] {
-    padding-bottom: .3rem;
+  padding-bottom: 0.3rem;
 }
 
 .conversion-panel [data-slot="card"] {
-    min-width: 0;
-    gap: .75rem;
-    padding: .5rem 0 1rem;
+  min-width: 0;
+  gap: 0.75rem;
+  padding: 0.5rem 0 1rem;
 }
 
 /* Switch, title and delete button on one row */
 .conversion-panel [data-slot="card-header"] {
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    padding: 0 1rem .5rem;
-    border-bottom: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem 0.5rem;
+  border-bottom: 1px solid var(--dc-border);
 }
 
 .conversion-panel [data-slot="card-title"] {
-    flex: 1;
-    min-width: 0;
-    color: var(--dc-text);
-    font-weight: 900;
-    font-size: .75rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+  flex: 1;
+  min-width: 0;
+  color: var(--dc-text);
+  font-weight: 900;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .conversion-panel [data-slot="card-content"] {
-    min-width: 0;
-    padding: 0 1rem;
+  min-width: 0;
+  padding: 0 1rem;
 }
 
 .conversion-panel .add-conversion-menu {
-    display: block;
-    flex: 0 0 auto;
+  display: block;
+  flex: 0 0 auto;
 }
 
 .conversion-panel button.add-conversion {
-    width: 100%;
-    height: 2.25rem;
-    padding: 0 1rem;
-    font-size: .75rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

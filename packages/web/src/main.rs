@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
 use ui::{
+    Navbar, ThemeProvider,
     data::{ConversionProvider, DataProvider},
     elements::{builtin_conversion_kinds, initial_conversions},
-    graph::{builtin_graph_kinds, initial_graphs, GraphProvider},
+    graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
     views::Home,
-    Navbar, ThemeProvider,
 };
 
 mod serial;

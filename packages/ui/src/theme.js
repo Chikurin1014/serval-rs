@@ -10,29 +10,29 @@ const STORAGE_KEY = "theme";
 
 /** `localStorage`, or `null` where the page may not use it. */
 function browserStorage() {
-    try {
-        return localStorage;
-    } catch (_) {
-        return null;
-    }
+  try {
+    return localStorage;
+  } catch (_) {
+    return null;
+  }
 }
 
 /** The theme chosen in an earlier session, if any. */
 function storedTheme(storage) {
-    try {
-        const theme = storage?.getItem(STORAGE_KEY);
-        return THEMES.includes(theme) ? theme : null;
-    } catch (_) {
-        return null;
-    }
+  try {
+    const theme = storage?.getItem(STORAGE_KEY);
+    return THEMES.includes(theme) ? theme : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 /** Applies the theme chosen in an earlier session to `root` (<html>). */
 function restoreTheme(root, storage) {
-    const theme = storedTheme(storage);
-    if (theme) {
-        root.dataset.theme = theme;
-    }
+  const theme = storedTheme(storage);
+  if (theme) {
+    root.dataset.theme = theme;
+  }
 }
 
 /**
@@ -41,13 +41,13 @@ function restoreTheme(root, storage) {
  * Returns the new theme.
  */
 function toggleTheme(root, storage, systemPrefersDark) {
-    const showing = root.dataset.theme ?? (systemPrefersDark ? "dark" : "light");
-    const next = showing === "dark" ? "light" : "dark";
-    root.dataset.theme = next;
-    try {
-        storage?.setItem(STORAGE_KEY, next);
-    } catch (_) {
-        // Not remembered, e.g. storage is full or blocked
-    }
-    return next;
+  const showing = root.dataset.theme ?? (systemPrefersDark ? "dark" : "light");
+  const next = showing === "dark" ? "light" : "dark";
+  root.dataset.theme = next;
+  try {
+    storage?.setItem(STORAGE_KEY, next);
+  } catch (_) {
+    // Not remembered, e.g. storage is full or blocked
+  }
+  return next;
 }

@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdGripVertical, LdX},
     Icon,
+    icons::ld_icons::{LdGripVertical, LdX},
 };
 
-use super::{board::GraphDrag, GraphContext};
+use super::{GraphContext, board::GraphDrag};
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardFooter},

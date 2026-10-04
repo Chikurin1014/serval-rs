@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdMoon, LdSun},
     Icon,
+    icons::ld_icons::{LdMoon, LdSun},
 };
 
 use crate::components::button::{Button, ButtonSize, ButtonVariant};

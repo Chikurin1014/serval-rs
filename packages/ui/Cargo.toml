@@ -10,4 +10,3 @@ dioxus-free-icons = { workspace = true }
 regex = "1"
 uuid = "1"
 dioxus-icons = { version = "0.1.0", default-features = false }
-

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdTrash, LdX},
     Icon,
+    icons::ld_icons::{LdTrash, LdX},
 };
 
 use crate::components::{
