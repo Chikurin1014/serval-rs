@@ -16,6 +16,14 @@ use crate::{
 
 const GRAPH_BOARD_CSS: Asset = asset!("/assets/styling/graph-board.css");
 
+/// A graph being dragged to another place on the board, and the graph it is
+/// over (where it would land), for `GraphFrame`.
+#[derive(Clone, Copy)]
+pub(super) struct GraphDrag {
+    pub dragging: Signal<Option<usize>>,
+    pub target: Signal<Option<usize>>,
+}
+
 /// The graphs in `GraphContext`, with the data list in a sidebar on the left.
 ///
 /// The sidebar is the dx `Sidebar`, kept inside the board by `graph-board.css`
@@ -27,6 +35,10 @@ pub fn GraphBoard() -> Element {
     let graphs = use_memo(move || context.list());
     let kinds = context.kinds();
     let columns = columns(graphs.read().len());
+    use_context_provider(|| GraphDrag {
+        dragging: Signal::new(None),
+        target: Signal::new(None),
+    });
 
     rsx! {
         document::Link { rel: "stylesheet", href: GRAPH_BOARD_CSS }

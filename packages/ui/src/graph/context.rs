@@ -89,6 +89,17 @@ impl GraphContext {
     pub fn remove(&mut self, id: usize) {
         self.graphs.write().retain(|g| g.id != id);
     }
+
+    /// Moves the graph to `position` among all graphs (clamped to the end),
+    /// shifting the ones in between.
+    pub fn move_to(&mut self, id: usize, position: usize) {
+        let mut graphs = self.graphs.write();
+        if let Some(from) = graphs.iter().position(|g| g.id == id) {
+            let graph = graphs.remove(from);
+            let to = position.min(graphs.len());
+            graphs.insert(to, graph);
+        }
+    }
 }
 
 /// Provides [`GraphContext`].

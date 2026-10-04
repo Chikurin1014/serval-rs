@@ -13,27 +13,47 @@
     padding: .5rem 0 0;
 }
 
-/* Over the plot's top right corner; appears while the graph is hovered or
- * focused, and always where there is no hover (touch screens) */
+/* Over the plot's top corners: the move handle on the left, the remove button
+ * on the right. They appear while the graph is hovered or focused, and always
+ * where there is no hover (touch screens) */
+.graph .graph-handle,
 .graph .graph-remove {
     position: absolute;
     z-index: 1;
     top: .375rem;
-    right: .375rem;
     opacity: 0;
     transition: opacity 150ms ease;
 }
 
-.graph:hover .graph-remove,
-.graph:focus-within .graph-remove {
+.graph .graph-handle {
+    left: .375rem;
+    cursor: grab;
+}
+
+.graph .graph-remove {
+    right: .375rem;
+}
+
+.graph:hover :is(.graph-handle, .graph-remove),
+.graph:focus-within :is(.graph-handle, .graph-remove) {
     opacity: 1;
 }
 
 @media (hover: none) {
-    .graph .graph-remove {
+    .graph :is(.graph-handle, .graph-remove) {
         opacity: 1;
     }
+}
 
+/* While moving a graph: the one being dragged fades, the one it would take
+ * the place of is outlined */
+.graph[data-dragging="true"] {
+    opacity: .4;
+}
+
+.graph[data-drop-target="true"] [data-slot="card"] {
+    outline: 2px solid var(--focused-border-color);
+    outline-offset: -1px;
 }
 
 /* Title under the plot; it opens the settings below it. Capped so the open
