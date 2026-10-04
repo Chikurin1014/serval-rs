@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdMoveRight, LdRegex, LdTag},
-};
+use dioxus_icons::lucide;
 
 use std::any::Any;
 
@@ -64,7 +61,7 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
                 class: "field-stack",
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
                         list: "conversion-strings-labels", // Defined in `ConversionList` component
                         placeholder: "Source label",
@@ -76,7 +73,7 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
                 label {
                     class: "field",
                     span { class: "field-label", "From" }
-                    Icon { icon: LdRegex {} }
+                    lucide::Regex {}
                     Input {
                         placeholder: "Text to be matched",
                         value: "{pattern}",
@@ -90,12 +87,12 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
                     span { class: "field-error", "{error}" }
                 }
             }
-            Icon { icon: LdMoveRight {} }
+            lucide::MoveRight { size: 20 }
             div {
                 class: "field-stack",
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
                         placeholder: "Target label",
                         list: target_list,

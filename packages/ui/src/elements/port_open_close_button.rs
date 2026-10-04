@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdPause, LdPlay},
-};
+use dioxus_icons::lucide;
 
 use crate::{
     components::button::{Button, ButtonSize, ButtonVariant},
@@ -40,7 +37,7 @@ pub fn PortOpenCloseButton() -> Element {
                     action(!currently_open);
                 }
             },
-            if currently_open { Icon { icon: LdPause {} } } else { Icon { icon: LdPlay {} } }
+            if currently_open { lucide::Pause {} } else { lucide::Play {} }
         }
     }
 }

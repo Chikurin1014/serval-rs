@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdCirclePlus, LdRefreshCcw, LdUnplug},
-};
+use dioxus_icons::lucide;
 
 use crate::{
     components::{
@@ -44,9 +41,7 @@ pub fn PortSelector() -> Element {
                     onclick: move |_| {
                         action();
                     },
-                    Icon {
-                        icon: LdCirclePlus {},
-                    }
+                    lucide::CirclePlus {}
                 }
             }
             DropdownMenu {
@@ -63,9 +58,7 @@ pub fn PortSelector() -> Element {
                         } else {
                             span {
                                 class: "port-selector-name",
-                                Icon {
-                                    icon: LdUnplug {},
-                                }
+                                lucide::Unplug {}
                                 "{port.info.name}"
                             }
                         }
@@ -98,9 +91,7 @@ pub fn PortSelector() -> Element {
                         action();
                     }
                 },
-                Icon {
-                    icon: LdRefreshCcw {},
-                }
+                lucide::RefreshCcw {}
             }
         }
     }

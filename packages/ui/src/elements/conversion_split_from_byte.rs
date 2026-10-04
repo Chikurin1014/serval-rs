@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdMoveRight, LdTag},
-};
+use dioxus_icons::lucide;
 
 use std::any::Any;
 
@@ -44,7 +41,7 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
                     class: "field-stack",
                     label {
                         class: "field",
-                        Icon { icon: LdTag {} }
+                        lucide::Tag {}
                         Input {
                             list: "conversion-bytes-labels", // Defined in `ConversionList` component
                             placeholder: "Source label",
@@ -62,10 +59,10 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
                         }
                     }
                 }
-                Icon { icon: LdMoveRight {} }
+                lucide::MoveRight { size: 20 }
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
                         placeholder: "Target label",
                         value: "{to_label}",

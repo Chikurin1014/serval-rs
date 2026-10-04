@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdTrash, LdX},
-};
+use dioxus_icons::lucide;
 
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
@@ -42,7 +39,7 @@ pub fn DataList() -> Element {
                                     row_context.remove(&label);
                                 }
                             },
-                            Icon { icon: LdX {} }
+                            lucide::X {}
                         }
                     }
                 }
@@ -65,7 +62,7 @@ pub fn DataList() -> Element {
                             aria_label: "Clear all",
                             title: "Clear all",
                             onclick: move |_| all_clear_context.clear_all(),
-                            Icon { icon: LdTrash {} }
+                            lucide::Trash {}
                         }
                     }
                 }

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{Icon, icons::ld_icons::LdPlus};
+use dioxus_icons::lucide;
 
 use super::{GraphContext, GraphProperty};
 use crate::{
@@ -69,13 +69,13 @@ pub fn GraphBoard() -> Element {
                             onclick: move |_| {
                                 context.add(kind, GraphProperty::default());
                             },
-                            Icon { icon: LdPlus }
+                            lucide::Plus {}
                             "Add graph"
                         }
                     } else {
                         DropdownMenu {
                             DropdownMenuTrigger {
-                                Icon { icon: LdPlus }
+                                lucide::Plus { size: 20 }
                                 "Add graph"
                             }
                             DropdownMenuContent {

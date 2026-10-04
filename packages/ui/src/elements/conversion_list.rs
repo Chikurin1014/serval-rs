@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{Icon, icons::ld_icons::LdX};
+use dioxus_icons::lucide;
 
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
@@ -75,7 +75,7 @@ pub fn ConversionList() -> Element {
                                         let id = conversion.id;
                                         move |_| context.remove(id)
                                     },
-                                    Icon { icon: LdX {} }
+                                    lucide::X {}
                                 }
                             }
                             CardContent {

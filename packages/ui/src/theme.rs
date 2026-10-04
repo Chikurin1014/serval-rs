@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::{LdMoon, LdSun},
-};
+use dioxus_icons::lucide;
 
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
@@ -57,11 +54,11 @@ pub fn ThemeSwitch() -> Element {
             },
             span {
                 class: "theme-switch-sun",
-                Icon { icon: LdSun {} }
+                lucide::Sun {}
             }
             span {
                 class: "theme-switch-moon",
-                Icon { icon: LdMoon {} }
+                lucide::Moon {}
             }
         }
     }

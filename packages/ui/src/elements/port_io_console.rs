@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{Icon, icons::ld_icons::LdSend};
+use dioxus_icons::lucide;
 
 use crate::{
     components::{
@@ -92,9 +92,7 @@ pub fn PortIoConsole() -> Element {
                     onclick: move |_| {
                         send_text();
                     },
-                    Icon {
-                        icon: LdSend {}
-                    }
+                    lucide::Send {}
                 }
             }
         }
