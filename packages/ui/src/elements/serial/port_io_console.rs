@@ -6,7 +6,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         input::Input,
     },
-    data::{ByteData, DataContext},
+    data::{ByteData, DataContext, NewEntries, SourceCursor},
     serial::SerialContext,
 };
 
@@ -23,14 +23,25 @@ pub fn PortIoConsole() -> Element {
     let mut text_to_send = use_signal(String::new);
     let mut scroll_to_bottom = use_signal(|| false);
 
+    // Appends only the chunks received since the last run
+    let mut cursor = SourceCursor::default();
     use_effect(move || {
-        let Some(raw_data) = data_context.raw_data() else {
+        let Some(NewEntries { entries, restarted }) =
+            cursor.new_entries::<ByteData>(&data_context, "raw_data")
+        else {
+            cursor.reset();
             text_to_show.set(String::new());
             return;
         };
-
-        text_to_show.set(render_raw_data_text(&raw_data));
-        scroll_to_bottom.set(true);
+        if restarted {
+            text_to_show.set(String::new());
+        }
+        if !entries.is_empty() {
+            text_to_show
+                .write()
+                .push_str(&render_raw_data_text(&entries));
+            scroll_to_bottom.set(true);
+        }
     });
 
     use_effect(move || {

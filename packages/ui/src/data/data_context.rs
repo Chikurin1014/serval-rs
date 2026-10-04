@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dioxus::prelude::*;
 
 use crate::{
-    data::{ByteData, DataEntry, TypedData},
+    data::{ByteData, DataEntry, DataType, TypedData},
     serial::{RxData, SerialContext},
 };
 
@@ -13,20 +13,21 @@ pub struct DataContext {
 }
 
 impl DataContext {
-    pub fn data_with_labels(&self) -> HashMap<String, TypedData> {
-        self.data_with_labels.read().clone()
-    }
-
     /// Runs `f` on the stored data without cloning it.
     pub fn with_data<R>(&self, f: impl FnOnce(&HashMap<String, TypedData>) -> R) -> R {
         f(&self.data_with_labels.read())
     }
 
-    pub fn raw_data(&self) -> Option<Vec<ByteData>> {
-        self.with_data(|data| {
-            let queue = data.get("raw_data").and_then(ByteData::queue)?;
-            Some(queue.iter().cloned().collect())
-        })
+    /// The labels holding `data_type`, sorted.
+    pub fn labels_of(&self, data_type: DataType) -> Vec<String> {
+        let mut labels = self.with_data(|data| {
+            data.iter()
+                .filter(|(_, data)| data.data_type() == data_type)
+                .map(|(label, _)| label.clone())
+                .collect::<Vec<_>>()
+        });
+        labels.sort();
+        labels
     }
 
     /// Appends `entry` to `label`. If `label` holds another type, its entries

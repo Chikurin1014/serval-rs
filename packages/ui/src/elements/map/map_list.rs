@@ -8,7 +8,7 @@ use crate::components::{
     switch::Switch,
     virtual_list::VirtualList,
 };
-use crate::data::{DataContext, MapContext, TypedData};
+use crate::data::{DataContext, DataType, MapContext};
 
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 
@@ -20,6 +20,10 @@ pub fn MapList() -> Element {
     let mut context = use_context::<MapContext>();
     // Maps compare by id, so typing in a form does not re-render the list
     let maps = use_memo(move || context.list());
+    // Memos, so the list re-renders when labels come and go, not on every entry
+    let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
+    let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
+    let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
 
     rsx! {
         document::Link { rel: "stylesheet", href: MAP_LIST_CSS }
@@ -90,19 +94,19 @@ pub fn MapList() -> Element {
             }
             datalist {
                 id: "map-bytes-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Bytes(_))) {
+                for label in bytes_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
                 id: "map-strings-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::String(_))) {
+                for label in strings_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
                 id: "map-numbers-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Number(_))) {
+                for label in numbers_labels() {
                     option { value: "{label}" }
                 }
             }

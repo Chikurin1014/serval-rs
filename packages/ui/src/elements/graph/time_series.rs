@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use super::{GraphContext, GraphFrame, GraphKind};
 use crate::components::tag_group::{Tag, TagGroupEmpty, TagGroupLabel, TagGroupMulti, TagList};
-use crate::data::{DataContext, SourceCursor, TypedData};
+use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -94,16 +94,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     // `TagGroupMulti` takes the selection as an optional list
     let selected_values = use_memo(move || Some(selected()));
 
-    let number_labels = use_memo(move || {
-        let mut labels = data_context.with_data(|data| {
-            data.iter()
-                .filter(|(_, data)| matches!(data, TypedData::Number(_)))
-                .map(|(label, _)| label.clone())
-                .collect::<Vec<_>>()
-        });
-        labels.sort();
-        labels
-    });
+    let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let plotted = use_memo(move || {
         let selected = selected.read();
         number_labels

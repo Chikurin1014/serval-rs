@@ -12,41 +12,46 @@ const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 #[component]
 pub fn DataList() -> Element {
     let mut data_context = use_context::<DataContext>();
-    let rows = data_context
-        .data_with_labels()
-        .iter()
-        .map(|(label, data)| {
-            let label = label.clone();
-            let mut row_context = data_context;
-            let type_name = data.data_type().name();
-            let preview = latest_value_preview(data);
-            let timestamp = data
-                .latest_timestamp()
-                .map_or_else(|| "N/A".to_string(), |timestamp| timestamp.to_string());
-            rsx! {
-                tr {
-                    th { class: "data-cell", "{label}" }
-                    td { class: "data-cell", "{type_name}" }
-                    td { class: "data-cell", "{preview}" }
-                    td { class: "data-cell", "{timestamp}" }
-                    td {
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            size: ButtonSize::IconXs,
-                            aria_label: "Delete label",
-                            onclick: {
-                                let label = label.clone();
-                                move |_| {
-                                    row_context.remove(&label);
-                                }
-                            },
-                            lucide::X {}
+    // Read in place: only what is shown is copied out of each queue
+    let rows = data_context.with_data(|data| {
+        let mut entries = data.iter().collect::<Vec<_>>();
+        entries.sort_by_key(|(label, _)| *label);
+        entries
+            .into_iter()
+            .map(|(label, data)| {
+                let label = label.clone();
+                let mut row_context = data_context;
+                let type_name = data.data_type().name();
+                let preview = latest_value_preview(data);
+                let timestamp = data
+                    .latest_timestamp()
+                    .map_or_else(|| "N/A".to_string(), |timestamp| timestamp.to_string());
+                rsx! {
+                    tr {
+                        key: "{label}",
+                        th { class: "data-cell", "{label}" }
+                        td { class: "data-cell", "{type_name}" }
+                        td { class: "data-cell", "{preview}" }
+                        td { class: "data-cell", "{timestamp}" }
+                        td {
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: ButtonSize::IconXs,
+                                aria_label: "Delete label",
+                                onclick: {
+                                    let label = label.clone();
+                                    move |_| {
+                                        row_context.remove(&label);
+                                    }
+                                },
+                                lucide::X {}
+                            }
                         }
                     }
                 }
-            }
-        })
-        .collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>()
+    });
 
     rsx! {
         document::Link { rel: "stylesheet", href: DATA_LIST_CSS }
