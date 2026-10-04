@@ -51,11 +51,16 @@ impl Converter for SplitFromByte {
             return;
         }
 
-        let Some(new_entries) = self.cursor.new_bytes(data, source) else {
+        let Some(read) = self.cursor.new_bytes(data, source) else {
             self.cursor.reset();
             self.buffer.clear();
             return;
         };
+        if read.restarted {
+            // A partial line from the previous queue does not continue in this one
+            self.buffer.clear();
+        }
+        let new_entries = read.entries;
         if new_entries.is_empty() {
             return;
         }

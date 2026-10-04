@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use super::{GraphContext, GraphFrame, GraphKind};
 use crate::components::tag_group::{Tag, TagGroupEmpty, TagGroupLabel, TagGroupMulti, TagList};
-use crate::data::{DataContext, TypedData};
+use crate::data::{DataContext, SourceCursor, TypedData};
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -22,23 +22,18 @@ pub const TIME_SERIES: GraphKind = GraphKind {
 /// One label's update for `time_series.js`: `(label, reset, [(timestamp_ms, value)])`.
 type Update = (String, bool, Vec<(i64, f64)>);
 
-/// How much of a label's queue the plot has, to tell what is new.
-#[derive(Clone, Copy, PartialEq)]
-struct Sent {
-    len: usize,
-    first_timestamp: Option<i64>,
-}
-
 /// Feeds the plot only the points it does not have yet.
 #[derive(Default)]
 struct PlotFeed {
-    sent: HashMap<String, Sent>,
+    /// How far the plot has each selected label.
+    cursors: HashMap<String, SourceCursor>,
 }
 
 impl PlotFeed {
     /// The next message for `time_series.js`: the selected labels that hold
     /// numbers, and an update for each one the plot is behind on. A label
-    /// whose queue was cleared or replaced is sent again in full, as a reset.
+    /// newly selected, or whose queue was cleared or replaced, is sent again in
+    /// full, as a reset.
     fn next(
         &mut self,
         data: &HashMap<String, TypedData>,
@@ -56,30 +51,19 @@ impl PlotFeed {
             }
             labels.push(label.clone());
 
-            let current = Sent {
-                len: queue.len(),
-                first_timestamp: queue.front().map(|data| data.timestamp()),
-            };
-            let previous = self.sent.insert(label.clone(), current);
-            // Queues only grow at the back; anything else means it was cleared or replaced
-            let reset = previous.is_none_or(|previous| {
-                previous.first_timestamp != current.first_timestamp || previous.len > current.len
-            });
-            let skip = match previous {
-                Some(previous) if !reset => previous.len,
-                _ => 0,
-            };
-            if !reset && skip == current.len {
+            let read = self.cursors.entry(label.clone()).or_default().read(queue);
+            if !read.restarted && read.entries.is_empty() {
                 continue;
             }
-            let points = queue
+            let points = read
+                .entries
                 .iter()
-                .skip(skip)
                 .map(|data| (data.timestamp(), *data.value()))
                 .collect();
-            updates.push((label.clone(), reset, points));
+            updates.push((label.clone(), read.restarted, points));
         }
-        self.sent.retain(|label, _| labels.contains(label));
+        // Forget deselected labels, so selecting one again sends it in full
+        self.cursors.retain(|label, _| labels.contains(label));
 
         (labels, updates)
     }

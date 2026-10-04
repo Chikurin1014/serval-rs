@@ -11,13 +11,12 @@ mod split_from_byte;
 pub use regex_match::{RegexMatch, RegexMatchSettings, RegexOutput};
 pub use split_from_byte::{SplitFromByte, SplitFromByteSettings};
 
-use std::{any::Any, cell::RefCell, collections::VecDeque, rc::Rc};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use dioxus::{core::with_owner, prelude::*, signals::Owner};
 
-use super::data_type::Data;
 use crate::{
-    data::{ByteData, DataContext, DataType, NumberData, StringData, TypedData},
+    data::{DataContext, DataType},
     time::TimeContext,
 };
 
@@ -210,70 +209,6 @@ fn ConversionRunner(id: usize) -> Element {
     });
 
     rsx! {}
-}
-
-/// Tracks how far a converter has read a source queue, so each run only sees
-/// what was added since the previous one.
-#[derive(Default)]
-pub struct SourceCursor {
-    label: String,
-    processed: usize,
-}
-
-impl SourceCursor {
-    /// Starts over from the beginning of the queue on the next read.
-    pub fn reset(&mut self) {
-        self.processed = 0;
-    }
-
-    /// Bytes added under `label` since the last call, or `None` if `label`
-    /// holds no bytes.
-    pub fn new_bytes(&mut self, data: &DataContext, label: &str) -> Option<Vec<ByteData>> {
-        self.take(data, label, |data| match data {
-            TypedData::Bytes(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Strings added under `label` since the last call, or `None` if `label`
-    /// holds no strings.
-    pub fn new_strings(&mut self, data: &DataContext, label: &str) -> Option<Vec<StringData>> {
-        self.take(data, label, |data| match data {
-            TypedData::String(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Numbers added under `label` since the last call, or `None` if `label`
-    /// holds no numbers.
-    pub fn new_numbers(&mut self, data: &DataContext, label: &str) -> Option<Vec<NumberData>> {
-        self.take(data, label, |data| match data {
-            TypedData::Number(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    fn take<T: Clone>(
-        &mut self,
-        data: &DataContext,
-        label: &str,
-        queue_of: impl FnOnce(&TypedData) -> Option<&VecDeque<Data<T>>>,
-    ) -> Option<Vec<Data<T>>> {
-        if self.label != label {
-            self.label = label.to_string();
-            self.processed = 0;
-        }
-        data.with_data(|data| {
-            let queue = data.get(label).and_then(queue_of)?;
-            // Queues only grow at the back; a shorter one was cleared
-            if self.processed > queue.len() {
-                self.processed = 0;
-            }
-            let entries = queue.iter().skip(self.processed).cloned().collect();
-            self.processed = queue.len();
-            Some(entries)
-        })
-    }
 }
 
 /// Sets `signal` only if the value differs, so a conversion re-running does
