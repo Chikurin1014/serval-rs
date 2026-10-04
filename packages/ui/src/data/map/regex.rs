@@ -3,7 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 use regex::{Captures, Regex};
 
-use crate::data::{Converter, DataContext, NumberData, SourceCursor, StringData, set_if_changed};
+use crate::data::{DataContext, MapRunner, NumberData, SourceCursor, StringData, set_if_changed};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegexOutput {
@@ -33,7 +33,7 @@ impl RegexOutput {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct RegexMatchSettings {
+pub struct RegexSettings {
     pub from_label: Signal<String>,
     /// May use the pattern's capture groups (`$1`).
     pub to_label: Signal<String>,
@@ -45,11 +45,11 @@ pub struct RegexMatchSettings {
 }
 
 /// Converts each string matching a regex, labelling the result with
-/// `to_label` expanded from the same match (so one conversion can fan out to
+/// `to_label` expanded from the same match (so one map can fan out to
 /// several labels).
 pub struct RegexMatch {
     output: RegexOutput,
-    settings: RegexMatchSettings,
+    settings: RegexSettings,
     /// Settings of the previous run; a change restarts from the start of the source.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
@@ -59,7 +59,7 @@ impl RegexMatch {
     pub fn new(output: RegexOutput) -> Self {
         Self {
             output,
-            settings: RegexMatchSettings {
+            settings: RegexSettings {
                 from_label: Signal::new(String::new()),
                 to_label: Signal::new(String::new()),
                 pattern: Signal::new(String::new()),
@@ -73,13 +73,13 @@ impl RegexMatch {
     }
 }
 
-impl Converter for RegexMatch {
+impl MapRunner for RegexMatch {
     fn settings(&self) -> &dyn Any {
         &self.settings
     }
 
     fn run(&mut self, data: &mut DataContext, timestamp: i64) {
-        let RegexMatchSettings {
+        let RegexSettings {
             from_label,
             to_label,
             pattern,

@@ -5,31 +5,31 @@ use std::any::Any;
 
 use crate::{
     components::input::Input,
-    data::{ConversionKind, DataType, RegexMatch, RegexMatchSettings, RegexOutput},
+    data::{DataType, MapKind, RegexMatch, RegexOutput, RegexSettings},
 };
 
-const CONVERSION_CSS: Asset = asset!("/assets/styling/conversion.css");
+const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-pub const REGEX_TO_STRING: ConversionKind = ConversionKind {
+pub const REGEX_TO_STRING: MapKind = MapKind {
     name: "Regex (to String)",
     from: DataType::String,
     to: DataType::String,
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
     // The result is a string, so offer the existing string labels as targets
-    form: |settings: &dyn Any| regex_match_form(settings, Some("conversion-strings-labels")),
+    form: |settings: &dyn Any| regex_form(settings, Some("map-strings-labels")),
 };
 
-pub const REGEX_TO_NUMBER: ConversionKind = ConversionKind {
+pub const REGEX_TO_NUMBER: MapKind = MapKind {
     name: "Regex (to Number)",
     from: DataType::String,
     to: DataType::Number,
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
-    form: |settings: &dyn Any| regex_match_form(settings, None),
+    form: |settings: &dyn Any| regex_form(settings, None),
 };
 
-/// `target_list`: `datalist` id offered for the target label (defined in `ConversionList`).
-fn regex_match_form(settings: &dyn Any, target_list: Option<&str>) -> Element {
-    match settings.downcast_ref::<RegexMatchSettings>() {
+/// `target_list`: `datalist` id offered for the target label (defined in `MapList`).
+fn regex_form(settings: &dyn Any, target_list: Option<&str>) -> Element {
+    match settings.downcast_ref::<RegexSettings>() {
         Some(&settings) => rsx! {
             RegexMatchForm {
                 settings,
@@ -40,10 +40,10 @@ fn regex_match_form(settings: &dyn Any, target_list: Option<&str>) -> Element {
     }
 }
 
-/// Settings form of a `RegexMatch` conversion.
+/// Settings form of a `Regex` map.
 #[component]
-pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>) -> Element {
-    let RegexMatchSettings {
+pub fn RegexMatchForm(settings: RegexSettings, target_list: Option<String>) -> Element {
+    let RegexSettings {
         mut from_label,
         mut to_label,
         mut pattern,
@@ -53,17 +53,17 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: CONVERSION_CSS }
+        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
 
         div {
-            class: "conversion-row",
+            class: "map-row",
             div {
                 class: "field-stack",
                 label {
                     class: "field",
                     lucide::Tag {}
                     Input {
-                        list: "conversion-strings-labels", // Defined in `ConversionList` component
+                        list: "map-strings-labels", // Defined in `MapList` component
                         placeholder: "Source label",
                         autocomplete: "on",
                         value: "{from_label}",

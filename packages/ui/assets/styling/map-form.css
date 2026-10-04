@@ -1,16 +1,16 @@
-.conversion-form {
+.map-form {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.conversion-row {
+.map-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.conversion-row > svg {
+.map-row > svg {
   flex: 0 0 auto;
 }
 

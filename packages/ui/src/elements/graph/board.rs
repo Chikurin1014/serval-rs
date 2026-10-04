@@ -61,7 +61,7 @@ pub fn GraphBoard() -> Element {
                         aria_label: "Toggle data list",
                         title: "Toggle data list",
                     }
-                    // One kind needs no menu; with several, choose like conversions
+                    // One kind needs no menu; with several, choose like maps
                     if let [kind] = kinds[..] {
                         Button {
                             variant: ButtonVariant::Ghost,

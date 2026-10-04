@@ -1,4 +1,4 @@
-.conversion-panel {
+.map-panel {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -8,7 +8,7 @@
 }
 
 /* `VirtualList` sizes its canvas inline; the container only has to scroll */
-.conversion-panel .conversion-list {
+.map-panel .map-list {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
@@ -18,18 +18,18 @@
 
 /* Spacing on every list item, so the virtual list measures it with each card
  * (only a window of items is in the DOM, so `:last-child` would shift sizes) */
-.conversion-list [role="listitem"] {
+.map-list [role="listitem"] {
   padding-bottom: 0.3rem;
 }
 
-.conversion-panel [data-slot="card"] {
+.map-panel [data-slot="card"] {
   min-width: 0;
   gap: 0.75rem;
   padding: 0.5rem 0 1rem;
 }
 
 /* Switch, title and delete button on one row */
-.conversion-panel [data-slot="card-header"] {
+.map-panel [data-slot="card-header"] {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -37,7 +37,7 @@
   border-bottom: 1px solid var(--dc-border);
 }
 
-.conversion-panel [data-slot="card-title"] {
+.map-panel [data-slot="card-title"] {
   flex: 1;
   min-width: 0;
   color: var(--dc-text);
@@ -47,17 +47,17 @@
   text-transform: uppercase;
 }
 
-.conversion-panel [data-slot="card-content"] {
+.map-panel [data-slot="card-content"] {
   min-width: 0;
   padding: 0 1rem;
 }
 
-.conversion-panel .add-conversion-menu {
+.map-panel .add-map-menu {
   display: block;
   flex: 0 0 auto;
 }
 
-.conversion-panel button.add-conversion {
+.map-panel button.add-map {
   width: 100%;
   height: 2.25rem;
   padding: 0 1rem;

@@ -8,29 +8,29 @@ use crate::components::{
     switch::Switch,
     virtual_list::VirtualList,
 };
-use crate::data::{ConversionContext, DataContext, TypedData};
+use crate::data::{DataContext, MapContext, TypedData};
 
-const CONVERSION_LIST_CSS: Asset = asset!("/assets/styling/conversion-list.css");
+const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 
-/// Lists the conversions in `ConversionContext` for editing.
-/// The conversions run in `ConversionProvider`, whether or not this is mounted.
+/// Lists the maps in `MapContext` for editing.
+/// The maps run in `MapProvider`, whether or not this is mounted.
 #[component]
-pub fn ConversionList() -> Element {
+pub fn MapList() -> Element {
     let data_context = use_context::<DataContext>();
-    let mut context = use_context::<ConversionContext>();
-    // Conversions compare by id, so typing in a form does not re-render the list
-    let conversions = use_memo(move || context.list());
+    let mut context = use_context::<MapContext>();
+    // Maps compare by id, so typing in a form does not re-render the list
+    let maps = use_memo(move || context.list());
 
     rsx! {
-        document::Link { rel: "stylesheet", href: CONVERSION_LIST_CSS }
+        document::Link { rel: "stylesheet", href: MAP_LIST_CSS }
 
         div {
-            class: "conversion-panel",
+            class: "map-panel",
             DropdownMenu {
-                class: "add-conversion-menu",
+                class: "add-map-menu",
                 DropdownMenuTrigger {
-                    class: "add-conversion",
-                    "+ Add conversion"
+                    class: "add-map",
+                    "+ Add map"
                 }
                 DropdownMenuContent {
                     for (index, kind) in context.kinds().into_iter().enumerate() {
@@ -47,32 +47,32 @@ pub fn ConversionList() -> Element {
             }
             // Only the cards in view are rendered
             VirtualList {
-                class: "conversion-list",
-                count: conversions.read().len(),
+                class: "map-list",
+                count: maps.read().len(),
                 render_item: move |index: usize| {
-                    let Some(conversion) = conversions.read().get(index).cloned() else {
+                    let Some(map) = maps.read().get(index).cloned() else {
                         return VNode::empty();
                     };
                     rsx! {
                         Card {
-                            // By id, so removing a conversion does not hand its card to the next one
-                            key: "{conversion.id}",
+                            // By id, so removing a map does not hand its card to the next one
+                            key: "{map.id}",
                             CardHeader {
                                 Switch {
-                                    checked: (conversion.enabled)(),
+                                    checked: (map.enabled)(),
                                     on_checked_change: {
-                                        let mut enabled = conversion.enabled;
+                                        let mut enabled = map.enabled;
                                         move |checked| enabled.set(checked)
                                     },
-                                    aria_label: "Toggle conversion",
+                                    aria_label: "Toggle map",
                                 }
-                                CardTitle { "{conversion.kind.name}" }
+                                CardTitle { "{map.kind.name}" }
                                 Button {
                                     variant: ButtonVariant::Ghost,
                                     size: ButtonSize::IconSm,
-                                    aria_label: "Delete conversion",
+                                    aria_label: "Delete map",
                                     onclick: {
-                                        let id = conversion.id;
+                                        let id = map.id;
                                         move |_| context.remove(id)
                                     },
                                     lucide::X {}
@@ -80,8 +80,8 @@ pub fn ConversionList() -> Element {
                             }
                             CardContent {
                                 div {
-                                    class: "conversion-content",
-                                    {conversion.form()}
+                                    class: "map-content",
+                                    {map.form()}
                                 }
                             }
                         }
@@ -89,19 +89,19 @@ pub fn ConversionList() -> Element {
                 },
             }
             datalist {
-                id: "conversion-bytes-labels",
+                id: "map-bytes-labels",
                 for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Bytes(_))) {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "conversion-strings-labels",
+                id: "map-strings-labels",
                 for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::String(_))) {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "conversion-numbers-labels",
+                id: "map-numbers-labels",
                 for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Number(_))) {
                     option { value: "{label}" }
                 }

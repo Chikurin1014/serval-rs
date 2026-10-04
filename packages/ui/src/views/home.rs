@@ -4,15 +4,16 @@ use dioxus_icons::lucide;
 use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     elements::{
-        ConversionList, DataList, PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton,
-        PortSelector,
+        DataList,
+        graph::GraphBoard,
+        map::MapList,
+        serial::{PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton, PortSelector},
     },
-    graph::GraphBoard,
 };
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
 
-/// Requires `SerialContext`, `DataContext` and `ConversionContext` to be
+/// Requires `SerialContext`, `DataContext` and `MapContext` to be
 /// provided by an ancestor.
 #[component]
 pub fn Home() -> Element {
@@ -68,7 +69,7 @@ pub fn Home() -> Element {
                 div {
                     class: "data-grid",
                     DataList {}
-                    ConversionList {}
+                    MapList {}
                 }
             }
             TabContent {

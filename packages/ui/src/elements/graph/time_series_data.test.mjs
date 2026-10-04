@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { loadScript, plain } from "../../js-test/load-script.mjs";
+import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
 const { alignedData, applyMessage, withAlpha } = loadScript(
   new URL("./time_series_data.js", import.meta.url),

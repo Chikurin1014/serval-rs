@@ -163,7 +163,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             if number_labels.read().is_empty() {
                 p {
                     class: "graph-empty",
-                    "No number data yet. Add a conversion to a number to plot it."
+                    "No number data yet. Add a map to a number to plot it."
                 }
             } else if plotted() == 0 {
                 p {

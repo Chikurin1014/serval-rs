@@ -2,7 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
-use crate::data::{ByteData, Converter, DataContext, SourceCursor, StringData};
+use crate::data::{ByteData, DataContext, MapRunner, SourceCursor, StringData};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct SplitFromByteSettings {
@@ -34,7 +34,7 @@ impl SplitFromByte {
     }
 }
 
-impl Converter for SplitFromByte {
+impl MapRunner for SplitFromByte {
     fn settings(&self) -> &dyn Any {
         &self.settings
     }
