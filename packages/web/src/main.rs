@@ -1,6 +1,11 @@
 use dioxus::prelude::*;
 
-use ui::{data::DataProvider, views::Home, Navbar, ThemeProvider};
+use ui::{
+    data::{ConversionProvider, DataProvider},
+    elements::{builtin_conversion_kinds, initial_conversions},
+    views::Home,
+    Navbar, ThemeProvider,
+};
 
 mod serial;
 mod time;
@@ -35,7 +40,11 @@ fn App() -> Element {
             TimeProvider {
                 SerialProvider {
                     DataProvider {
-                        Router::<Route> {}
+                        ConversionProvider {
+                            kinds: builtin_conversion_kinds(),
+                            initial: initial_conversions(),
+                            Router::<Route> {}
+                        }
                     }
                 }
             }

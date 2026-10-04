@@ -6,3 +6,5 @@ pub mod input;
 pub mod scroll_area;
 pub mod switch;
 pub mod toggle;
+pub mod tabs;
+pub mod virtual_list;
