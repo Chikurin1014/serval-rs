@@ -16,12 +16,6 @@
 
   outputs =
     inputs@{ flake-parts, ... }:
-    let
-      package-types = [
-        "web"
-      ];
-      package-names = [ "default" ] ++ package-types;
-    in
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         ./flake-parts/serval.nix
@@ -47,6 +41,7 @@
             projectRootFile = "flake.nix";
             programs = {
               nixfmt.enable = true;
+              ruff.enable = true; # Python
               rustfmt.enable = true; # Rust
               taplo.enable = true; # TOML
               prettier.enable = true; # JS/TS/JSON/MD/...

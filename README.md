@@ -67,6 +67,9 @@ dx serve
 
 ## Testing
 
+`nix flake check` runs all of the tests below in the Nix sandbox, against a release build of the web app.
+It only sees files tracked by git, so `git add` new files first.
+
 Run these inside `nix develop`, which provides Node.js, pytest, Playwright and its browsers.
 
 Unit tests (Rust and JavaScript):
