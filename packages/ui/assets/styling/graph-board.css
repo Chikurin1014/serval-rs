@@ -1,0 +1,85 @@
+/* The dx `Sidebar` is made for the page edge (`position: fixed`,
+ * `100svh`); keep it inside the board instead. Its own `left` offsets and
+ * transitions then work relative to the board. dx class names are hashed,
+ * so these target its `data-slot`s */
+.graph-board[data-slot="sidebar-wrapper"] {
+    position: relative;
+    container-type: inline-size;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+}
+
+/* Wide enough for the data list table (the dx default is 16rem) */
+.graph-board [data-slot="sidebar"] {
+    --dx-sidebar-width: min(24rem, 45cqw);
+}
+
+.graph-board [data-slot="sidebar-container"] {
+    position: absolute;
+    height: auto;
+}
+
+.graph-board [data-slot="sidebar-content"] {
+    flex: 1 1 auto;
+    padding-right: .5rem;
+}
+
+/* Below 768px the sidebar opens as a dx `Sheet`. dx means to hide the sheet's
+ * close button there, but its sidebar and sheet rules tie and the sheet's wins,
+ * leaving the button over the data list's clear button. Escape or a tap
+ * outside still closes it */
+[data-slot="sidebar"][data-mobile="true"] > button {
+    display: none;
+}
+
+/* Keep the graphs clear of the expanded sidebar's divider */
+.graph-board [data-slot="sidebar"][data-state="expanded"] ~ .graph-main {
+    padding-left: .5rem;
+}
+
+.graph-board .graph-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .5rem;
+    min-width: 0;
+    min-height: 0;
+    background: none;
+}
+
+.graph-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: .5rem;
+}
+
+/* 1 graph: 1 column, 2-4: 2 columns, 5+: 3 columns (`data-columns` from `GraphBoard`).
+ * Rows share the height; past that the grid scrolls */
+.graph-grid {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(var(--graph-columns, 1), minmax(0, 1fr));
+    grid-auto-rows: minmax(16rem, 1fr);
+    gap: .5rem;
+    min-height: 0;
+    overflow: auto;
+}
+
+.graph-grid[data-columns="2"] {
+    --graph-columns: 2;
+}
+
+.graph-grid[data-columns="3"] {
+    --graph-columns: 3;
+}
+
+.graph-grid-empty {
+    grid-column: 1 / -1;
+    align-self: center;
+    justify-self: center;
+    margin: 0;
+    color: var(--dc-text-muted);
+    font-size: .85rem;
+}

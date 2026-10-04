@@ -3,6 +3,7 @@ use dioxus::prelude::*;
 use ui::{
     data::{ConversionProvider, DataProvider},
     elements::{builtin_conversion_kinds, initial_conversions},
+    graph::{builtin_graph_kinds, initial_graphs, GraphProvider},
     views::Home,
     Navbar, ThemeProvider,
 };
@@ -43,7 +44,11 @@ fn App() -> Element {
                         ConversionProvider {
                             kinds: builtin_conversion_kinds(),
                             initial: initial_conversions(),
-                            Router::<Route> {}
+                            GraphProvider {
+                                kinds: builtin_graph_kinds(),
+                                initial: initial_graphs(),
+                                Router::<Route> {}
+                            }
                         }
                     }
                 }

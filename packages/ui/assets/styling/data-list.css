@@ -32,6 +32,8 @@
 .data-list [data-slot="card-content"] {
     flex: 1;
     min-height: 0;
+    /* Let a table wider than the card scroll instead of overflowing it */
+    min-width: 0;
     overflow: auto;
     padding: 0 1rem;
 }

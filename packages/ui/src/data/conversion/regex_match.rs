@@ -112,7 +112,12 @@ impl Converter for RegexMatch {
             }
         };
 
-        let Some(entries) = self.cursor.new_strings(data, &source) else {
+        // A restart needs no special handling: what was converted before stays
+        let Some(entries) = self
+            .cursor
+            .new_strings(data, &source)
+            .map(|read| read.entries)
+        else {
             return;
         };
         if entries.is_empty() {

@@ -1,0 +1,130 @@
+//! Graphs shown on the board, kept in a context so they survive the board
+//! being unmounted (e.g. while another tab is shown).
+
+use dioxus::prelude::*;
+
+/// A kind of graph that can be added to the board.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphKind {
+    pub name: &'static str,
+    /// Draws the graph with the given id in [`GraphContext`].
+    pub view: fn(usize) -> Element,
+}
+
+impl PartialEq for GraphKind {
+    // Function pointers have no reliable identity, so compare by name
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+/// What a graph shows.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct GraphProperty {
+    /// Name given by the user; views fall back to a numbered default when `None`.
+    pub title: Option<String>,
+    /// Labels plotted (views decide their order).
+    pub labels: Vec<String>,
+}
+
+/// One graph in [`GraphContext`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct Graph {
+    pub id: usize,
+    pub kind: GraphKind,
+    pub property: GraphProperty,
+}
+
+impl Graph {
+    /// The kind's view, keyed by id so each graph keeps its own state when
+    /// others are added or removed (kinds need not key their views).
+    pub fn view(&self) -> Element {
+        let id = self.id;
+        rsx! {
+            Fragment { key: "{id}", {(self.kind.view)(id)} }
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct GraphContext {
+    kinds: Signal<Vec<GraphKind>>,
+    graphs: Signal<Vec<Graph>>,
+    next_id: Signal<usize>,
+}
+
+impl GraphContext {
+    /// The kinds that can be added.
+    pub fn kinds(&self) -> Vec<GraphKind> {
+        self.kinds.read().clone()
+    }
+
+    pub fn list(&self) -> Vec<Graph> {
+        self.graphs.read().clone()
+    }
+
+    pub fn get(&self, id: usize) -> Option<Graph> {
+        self.graphs.read().iter().find(|g| g.id == id).cloned()
+    }
+
+    /// Position of the graph among all graphs, e.g. for numbering titles.
+    pub fn position(&self, id: usize) -> Option<usize> {
+        self.graphs.read().iter().position(|g| g.id == id)
+    }
+
+    /// Adds a graph of `kind` and returns its id.
+    pub fn add(&mut self, kind: GraphKind, property: GraphProperty) -> usize {
+        let id = *self.next_id.peek();
+        self.next_id.set(id + 1);
+        self.graphs.write().push(Graph { id, kind, property });
+        id
+    }
+
+    pub fn update(&mut self, id: usize, f: impl FnOnce(&mut GraphProperty)) {
+        if let Some(graph) = self.graphs.write().iter_mut().find(|g| g.id == id) {
+            f(&mut graph.property);
+        }
+    }
+
+    pub fn remove(&mut self, id: usize) {
+        self.graphs.write().retain(|g| g.id != id);
+    }
+
+    /// Moves the graph to `position` among all graphs (clamped to the end),
+    /// shifting the ones in between.
+    pub fn move_to(&mut self, id: usize, position: usize) {
+        let mut graphs = self.graphs.write();
+        if let Some(from) = graphs.iter().position(|g| g.id == id) {
+            let graph = graphs.remove(from);
+            let to = position.min(graphs.len());
+            graphs.insert(to, graph);
+        }
+    }
+}
+
+/// Provides [`GraphContext`].
+#[component]
+pub fn GraphProvider(
+    /// The kinds that can be added.
+    kinds: Vec<GraphKind>,
+    /// Graphs present from the start.
+    #[props(default)]
+    initial: Vec<(GraphKind, GraphProperty)>,
+    children: Element,
+) -> Element {
+    use_context_provider(|| {
+        let mut context = GraphContext {
+            kinds: Signal::new(kinds),
+            graphs: Signal::new(Vec::new()),
+            next_id: Signal::new(0),
+        };
+        for (kind, property) in initial {
+            context.add(kind, property);
+        }
+        context
+    });
+
+    rsx! {
+        {children}
+    }
+}
