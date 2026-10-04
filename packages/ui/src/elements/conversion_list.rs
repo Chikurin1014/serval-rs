@@ -1,44 +1,25 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{icons::ld_icons::LdX, Icon};
-use dioxus_primitives::scroll_area::ScrollDirection;
 
-use super::{ConversionByteToString, ConversionStringToNumber, ConversionStringToString};
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardHeader, CardTitle},
     dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
-    scroll_area::ScrollArea,
     switch::Switch,
+    virtual_list::VirtualList,
 };
-use crate::data::{DataContext, TypedData};
+use crate::data::{ConversionContext, DataContext, TypedData};
 
 const CONVERSION_LIST_CSS: Asset = asset!("/assets/styling/conversion-list.css");
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ConversionKind {
-    ByteToString,
-    StringToNumber,
-    StringToString,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ConversionItem {
-    id: usize,
-    kind: ConversionKind,
-    enabled: Signal<bool>,
-}
-
+/// Lists the conversions in `ConversionContext` for editing.
+/// The conversions run in `ConversionProvider`, whether or not this is mounted.
 #[component]
 pub fn ConversionList() -> Element {
     let data_context = use_context::<DataContext>();
-    let mut items = use_signal(|| {
-        vec![ConversionItem {
-            id: 0,
-            kind: ConversionKind::ByteToString,
-            enabled: Signal::new(true),
-        }]
-    });
-    let mut next_id = use_signal(|| 1usize);
+    let mut context = use_context::<ConversionContext>();
+    // Conversions compare by id, so typing in a form does not re-render the list
+    let conversions = use_memo(move || context.list());
 
     rsx! {
         document::Link { rel: "stylesheet", href: CONVERSION_LIST_CSS }
@@ -52,83 +33,60 @@ pub fn ConversionList() -> Element {
                     "+ Add conversion"
                 }
                 DropdownMenuContent {
-                    for (index, (label, kind)) in [
-                        ("Split Bytes into String", ConversionKind::ByteToString),
-                        ("Convert String to Number", ConversionKind::StringToNumber),
-                        ("Convert String to String", ConversionKind::StringToString),
-                    ].into_iter().enumerate() {
+                    for (index, kind) in context.kinds().into_iter().enumerate() {
                         DropdownMenuItem {
                             value: kind,
                             index,
                             on_select: move |kind| {
-                                let id = next_id();
-                                next_id.set(id + 1);
-                                items.write().push(ConversionItem {
-                                    id,
-                                    kind,
-                                    enabled: Signal::new(false),
-                                });
+                                context.add(kind);
                             },
-                            "{label}"
+                            "{kind.name}"
                         }
                     }
                 }
             }
-            ScrollArea {
-                max_height: "50vh",
-                direction: ScrollDirection::Vertical,
-                for mut item in items() {
-                    Card {
-                        key: "{item.id}",
-                        CardHeader {
-                            Switch {
-                                checked: (item.enabled)(),
-                                on_checked_change: move |new_checked| item.enabled.set(new_checked),
-                                aria_label: "Toggle conversion",
-                            }
-                            CardTitle {
-                                match item.kind {
-                                    ConversionKind::ByteToString => "Split Bytes into String",
-                                    ConversionKind::StringToNumber => "Convert String to Number",
-                                    ConversionKind::StringToString => "Convert String to String",
+            // Only the cards in view are rendered
+            VirtualList {
+                class: "conversion-list",
+                count: conversions.read().len(),
+                render_item: move |index: usize| {
+                    let Some(conversion) = conversions.read().get(index).cloned() else {
+                        return VNode::empty();
+                    };
+                    rsx! {
+                        Card {
+                            // By id, so removing a conversion does not hand its card to the next one
+                            key: "{conversion.id}",
+                            CardHeader {
+                                Switch {
+                                    checked: (conversion.enabled)(),
+                                    on_checked_change: {
+                                        let mut enabled = conversion.enabled;
+                                        move |checked| enabled.set(checked)
+                                    },
+                                    aria_label: "Toggle conversion",
+                                }
+                                CardTitle { "{conversion.kind.name}" }
+                                Button {
+                                    variant: ButtonVariant::Ghost,
+                                    size: ButtonSize::IconSm,
+                                    aria_label: "Delete conversion",
+                                    onclick: {
+                                        let id = conversion.id;
+                                        move |_| context.remove(id)
+                                    },
+                                    Icon { icon: LdX {} }
                                 }
                             }
-                            Button {
-                                variant: ButtonVariant::Ghost,
-                                size: ButtonSize::IconSm,
-                                aria_label: "Delete conversion",
-                                onclick: move |_| {
-                                    let mut list = items.write();
-                                    if let Some(index) = list.iter().position(|value| value.id == item.id) {
-                                        list.remove(index);
-                                    }
-                                },
-                                Icon { icon: LdX {} }
-                            }
-                        }
-                        CardContent {
-                            div {
-                                class: "conversion-content",
-                                match item.kind {
-                                    ConversionKind::ByteToString => rsx! {
-                                        ConversionByteToString {
-                                            initial_source_label: if item.id == 0 { "raw_data".to_string() } else { String::new() },
-                                            initial_target_label: if item.id == 0 { "raw_str".to_string() } else { String::new() },
-                                            initial_delimiter: "\\n".to_string(),
-                                            enabled: read_signal(item.enabled),
-                                        }
-                                    },
-                                    ConversionKind::StringToNumber => rsx! {
-                                        ConversionStringToNumber { enabled: read_signal(item.enabled) }
-                                    },
-                                    ConversionKind::StringToString => rsx! {
-                                        ConversionStringToString { enabled: read_signal(item.enabled) }
-                                    },
+                            CardContent {
+                                div {
+                                    class: "conversion-content",
+                                    {conversion.form()}
                                 }
                             }
                         }
                     }
-                }
+                },
             }
             datalist {
                 id: "conversion-bytes-labels",
@@ -150,8 +108,4 @@ pub fn ConversionList() -> Element {
             }
         }
     }
-}
-
-fn read_signal(signal: Signal<bool>) -> ReadSignal<bool> {
-    signal.into()
 }

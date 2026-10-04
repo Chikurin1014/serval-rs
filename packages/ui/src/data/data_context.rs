@@ -2,9 +2,8 @@ use std::collections::{HashMap, VecDeque};
 
 use dioxus::prelude::*;
 
-use super::data_type::{ByteData, TypedData};
 use crate::{
-    data::{NumberData, StringData},
+    data::{ByteData, NumberData, StringData, TypedData},
     serial::{RxData, SerialContext},
 };
 
@@ -16,6 +15,11 @@ pub struct DataContext {
 impl DataContext {
     pub fn data_with_labels(&self) -> HashMap<String, TypedData> {
         self.data_with_labels.read().clone()
+    }
+
+    /// Runs `f` on the stored data without cloning it.
+    pub fn with_data<R>(&self, f: impl FnOnce(&HashMap<String, TypedData>) -> R) -> R {
+        f(&self.data_with_labels.read())
     }
 
     pub fn get(&self, label: &str) -> Option<TypedData> {
