@@ -31,7 +31,6 @@
 
       perSystem =
         {
-          config,
           system,
           pkgs,
           ...
@@ -43,31 +42,6 @@
               inputs.rust-overlay.overlays.default
             ];
           };
-
-          # packages = {
-          #   default = import ./nix/serval.nix {
-          #     package-type = builtins.head package-types;
-          #     inherit pkgs;
-          #   };
-          # }
-          # // builtins.listToAttrs (
-          #   map (name: {
-          #     inherit name;
-          #     value = import ./nix/serval.nix {
-          #       package-type = name;
-          #       inherit pkgs;
-          #     };
-          #   }) package-types
-          # );
-          #
-          # devShells = builtins.listToAttrs (
-          #   map (name: {
-          #     inherit name;
-          #     value = pkgs.mkShell {
-          #       inputsFrom = [ config.packages.${name} ];
-          #     };
-          #   }) package-names
-          # );
 
           formatter = inputs.treefmt-nix.lib.mkWrapper pkgs {
             projectRootFile = "flake.nix";

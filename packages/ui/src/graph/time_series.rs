@@ -12,7 +12,11 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-const TIME_SERIES_JS: &str = include_str!("time_series.js");
+/// The data handling, then the plot, which uses it (see both files)
+const TIME_SERIES_JS: &str = concat!(
+    include_str!("time_series_data.js"),
+    include_str!("time_series.js"),
+);
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",

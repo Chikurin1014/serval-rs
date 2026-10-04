@@ -83,6 +83,8 @@
           inherit name;
           value = pkgs.mkShell {
             inputsFrom = [ config.packages.${name} ];
+            # Runs the JS tests (`*.test.mjs`) with `node --test`
+            packages = [ pkgs.nodejs ];
           };
         }) package-names
       );
