@@ -64,3 +64,26 @@ and serve:
 ```bash
 dx serve
 ```
+
+## Testing
+
+Run these inside `nix develop`, which provides Node.js, pytest, Playwright and its browsers.
+
+Unit tests (Rust and JavaScript):
+
+```bash
+cargo test -p ui
+```
+
+```bash
+node --test 'packages/**/*.test.mjs'
+```
+
+End-to-end tests drive the web app in headless Chromium with a mock serial port (`e2e/mock_serial.js`) that sends `temp:…` and `volt:…` lines.
+They build the app into `target/e2e`, apart from `dx serve`'s build:
+
+```bash
+pytest e2e
+```
+
+To test an existing build instead, point `SERVAL_E2E_APP` at its `public/` directory.

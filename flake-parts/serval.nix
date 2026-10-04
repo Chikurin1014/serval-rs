@@ -83,8 +83,16 @@
           inherit name;
           value = pkgs.mkShell {
             inputsFrom = [ config.packages.${name} ];
-            # Runs the JS tests (`*.test.mjs`) with `node --test`
-            packages = [ pkgs.nodejs ];
+            packages = [
+              pkgs.nodejs
+              (pkgs.python3.withPackages (ps: [
+                ps.pytest
+                ps.playwright
+              ]))
+            ];
+            # The browsers matching the Playwright above, instead of a download
+            PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
+            PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
           };
         }) package-names
       );

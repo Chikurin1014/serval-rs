@@ -1,0 +1,98 @@
+"""Operations on the app shared by the tests."""
+
+from playwright.sync_api import ConsoleMessage, Page, expect
+
+# The rows of the data list in view, as {label: [type, latest, timestamp]}
+_DATA_ROWS = """() => {
+    const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
+    if (!table) return {};
+    return Object.fromEntries([...table.querySelectorAll('tbody tr')].map(row => {
+        const [label, ...cells] = [...row.children].slice(0, 4).map(c => c.textContent);
+        return [label, cells];
+    }));
+}"""
+
+# The labels plotted by each graph, in order
+_GRAPH_LEGENDS = """() => [...document.querySelectorAll('.graph-grid .graph')].map(graph =>
+    [...graph.querySelectorAll('.u-legend .u-series th')].map(th => th.textContent.trim()).slice(1))"""
+
+# Splits a "name:value" line into `name` labelling the number `value`
+NAME_VALUE = r"(\w+):([\d.]+)"
+
+
+class App:
+    def __init__(self, page: Page):
+        self.page = page
+        self.console: list[ConsoleMessage] = []
+        self.errors: list[str] = []
+        page.on("console", lambda message: self.console.append(message))
+        page.on("pageerror", lambda error: self.errors.append(str(error)))
+
+    def open_port(self):
+        page = self.page
+        # The port selector asks for a port, which the mock grants
+        page.locator(".toolbar-port button").first.click()
+        page.get_by_placeholder("Baudrate (e.g. 9600)").fill("9600")
+        page.get_by_role("button", name="Open port").click()
+        expect(page.get_by_role("button", name="Close port")).to_be_visible()
+
+    def tab(self, name: str):
+        self.page.get_by_role("tab", name=name).click()
+
+    def add_map(self, kind: str):
+        """Adds a map of `kind` (its name in the menu) from the Data tab."""
+        self.page.get_by_text("+ Add map").click()
+        self.page.get_by_text(kind).first.click()
+
+    def add_regex_map(
+        self,
+        kind: str = "Regex (to Number)",
+        source: str = "raw_str",
+        pattern: str = NAME_VALUE,
+        target: str = "$1",
+        replacement: str = "$2",
+    ):
+        """Adds a regex map from the Data tab, sets it and enables it."""
+        self.add_map(kind)
+        card = self.map_cards().last
+        card.get_by_placeholder("Source label").fill(source)
+        card.get_by_placeholder("Text to be matched").fill(pattern)
+        card.get_by_placeholder("Target label").fill(target)
+        card.get_by_label("To", exact=True).fill(replacement)
+        card.get_by_role("switch").click()
+
+    def map_cards(self):
+        return self.page.locator(".map-list [data-slot=card]")
+
+    def data_rows(self) -> dict[str, list[str]]:
+        return self.page.evaluate(_DATA_ROWS)
+
+    def wait_for_labels(self, *labels: str):
+        """Waits until the data list in view shows every one of `labels`."""
+        self.page.wait_for_function(
+            f"labels => {{ const rows = ({_DATA_ROWS})(); return labels.every(l => l in rows); }}",
+            arg=list(labels),
+        )
+
+    def graphs(self):
+        return self.page.locator(".graph-grid .graph")
+
+    def graph_legends(self) -> list[list[str]]:
+        return self.page.evaluate(_GRAPH_LEGENDS)
+
+    def wait_for_graph_legends(self, legends: list[list[str]]):
+        self.page.wait_for_function(
+            f"expected => JSON.stringify(({_GRAPH_LEGENDS})()) === JSON.stringify(expected)",
+            arg=legends,
+        )
+
+    def set_up_graph(self, index: int, title: str, labels: list[str]):
+        """Titles the graph at `index` and plots `labels` on it."""
+        graph = self.graphs().nth(index)
+        graph.locator(".graph-title").click()  # opens the settings
+        graph.locator(".graph-settings-body input").fill(title)
+        for label in labels:
+            graph.locator("[data-slot=card-footer]").get_by_role(
+                "row", name=label, exact=True
+            ).click()
+        graph.locator(".graph-title").click()  # closes them
