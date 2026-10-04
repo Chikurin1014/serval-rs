@@ -9,5 +9,5 @@ pub use conversion::{
     SplitFromByteSettings, set_if_changed,
 };
 pub use data_context::{DataContext, DataProvider};
-pub use data_type::{ByteData, DataType, NumberData, StringData, TypedData};
+pub use data_type::{ByteData, DataEntry, DataType, NumberData, StringData, TypedData};
 pub use source_cursor::{NewEntries, SourceCursor};

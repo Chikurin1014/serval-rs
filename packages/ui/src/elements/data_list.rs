@@ -11,17 +11,18 @@ const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
 #[component]
 pub fn DataList() -> Element {
-    let data_context = use_context::<DataContext>();
-    let mut all_clear_context = data_context.clone();
+    let mut data_context = use_context::<DataContext>();
     let rows = data_context
         .data_with_labels()
         .iter()
         .map(|(label, data)| {
             let label = label.clone();
-            let mut row_context = data_context.clone();
+            let mut row_context = data_context;
             let type_name = data.data_type().name();
             let preview = latest_value_preview(data);
-            let timestamp = latest_timestamp(data);
+            let timestamp = data
+                .latest_timestamp()
+                .map_or_else(|| "N/A".to_string(), |timestamp| timestamp.to_string());
             rsx! {
                 tr {
                     th { class: "data-cell", "{label}" }
@@ -61,7 +62,7 @@ pub fn DataList() -> Element {
                             size: ButtonSize::IconSm,
                             aria_label: "Clear all",
                             title: "Clear all",
-                            onclick: move |_| all_clear_context.clear_all(),
+                            onclick: move |_| data_context.clear_all(),
                             lucide::Trash {}
                         }
                     }
@@ -86,38 +87,16 @@ pub fn DataList() -> Element {
     }
 }
 
+/// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
-    match data {
-        TypedData::Number(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.value()))
-            .unwrap_or_else(|| "empty".to_string()),
-        TypedData::String(queue) => queue
-            .back()
-            .map(|entry| entry.value().clone())
-            .unwrap_or_else(|| "empty".to_string()),
+    let latest = match data {
+        TypedData::Number(queue) => queue.back().map(|entry| entry.value().to_string()),
+        TypedData::String(queue) => queue.back().map(|entry| entry.value().clone()),
         TypedData::Bytes(queue) => queue
             .back()
-            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned())
-            .unwrap_or_else(|| "empty".to_string()),
-    }
-}
-
-fn latest_timestamp(data: &TypedData) -> String {
-    match data {
-        TypedData::Number(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-        TypedData::String(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-        TypedData::Bytes(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-    }
+            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned()),
+    };
+    latest.unwrap_or_else(|| "empty".to_string())
 }
 
 #[cfg(test)]

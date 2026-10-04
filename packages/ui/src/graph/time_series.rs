@@ -94,18 +94,15 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     // `TagGroupMulti` takes the selection as an optional list
     let selected_values = use_memo(move || Some(selected()));
 
-    let number_labels = use_memo({
-        let data_context = data_context.clone();
-        move || {
-            let mut labels = data_context.with_data(|data| {
-                data.iter()
-                    .filter(|(_, data)| matches!(data, TypedData::Number(_)))
-                    .map(|(label, _)| label.clone())
-                    .collect::<Vec<_>>()
-            });
-            labels.sort();
-            labels
-        }
+    let number_labels = use_memo(move || {
+        let mut labels = data_context.with_data(|data| {
+            data.iter()
+                .filter(|(_, data)| matches!(data, TypedData::Number(_)))
+                .map(|(label, _)| label.clone())
+                .collect::<Vec<_>>()
+        });
+        labels.sort();
+        labels
     });
     let plotted = use_memo(move || {
         let selected = selected.read();

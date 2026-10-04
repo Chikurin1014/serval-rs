@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
-use super::data_type::Data;
-use crate::data::{ByteData, DataContext, NumberData, StringData, TypedData};
+use crate::data::{DataContext, DataEntry};
 
 /// What a [`SourceCursor`] read.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,7 +39,7 @@ impl SourceCursor {
     ///
     /// Queues only grow at the back, so one that got shorter, or whose first
     /// entry changed, was cleared or replaced: it is read again in full.
-    pub fn read<T: Clone>(&mut self, queue: &VecDeque<Data<T>>) -> NewEntries<Data<T>> {
+    pub fn read<T: DataEntry>(&mut self, queue: &VecDeque<T>) -> NewEntries<T> {
         let current = Position {
             len: queue.len(),
             first_timestamp: queue.front().map(|data| data.timestamp()),
@@ -61,53 +60,19 @@ impl SourceCursor {
         }
     }
 
-    /// Bytes added under `label` since the previous read, or `None` if
-    /// `label` holds no bytes.
-    pub fn new_bytes(&mut self, data: &DataContext, label: &str) -> Option<NewEntries<ByteData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::Bytes(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Strings added under `label` since the previous read, or `None` if
-    /// `label` holds no strings.
-    pub fn new_strings(
+    /// Entries of type `T` added under `label` since the previous read, or
+    /// `None` if `label` holds no entries of that type.
+    pub fn new_entries<T: DataEntry>(
         &mut self,
         data: &DataContext,
         label: &str,
-    ) -> Option<NewEntries<StringData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::String(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Numbers added under `label` since the previous read, or `None` if
-    /// `label` holds no numbers.
-    pub fn new_numbers(
-        &mut self,
-        data: &DataContext,
-        label: &str,
-    ) -> Option<NewEntries<NumberData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::Number(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    fn read_label<T: Clone>(
-        &mut self,
-        data: &DataContext,
-        label: &str,
-        queue_of: impl FnOnce(&TypedData) -> Option<&VecDeque<Data<T>>>,
-    ) -> Option<NewEntries<Data<T>>> {
+    ) -> Option<NewEntries<T>> {
         if self.label != label {
             self.label = label.to_string();
             self.reset();
         }
         data.with_data(|data| {
-            let queue = data.get(label).and_then(queue_of)?;
+            let queue = data.get(label).and_then(T::queue)?;
             Some(self.read(queue))
         })
     }

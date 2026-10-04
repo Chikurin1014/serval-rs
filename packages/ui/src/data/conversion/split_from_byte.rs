@@ -51,7 +51,7 @@ impl Converter for SplitFromByte {
             return;
         }
 
-        let Some(read) = self.cursor.new_bytes(data, source) else {
+        let Some(read) = self.cursor.new_entries::<ByteData>(data, source) else {
             self.cursor.reset();
             self.buffer.clear();
             return;
@@ -69,7 +69,7 @@ impl Converter for SplitFromByte {
             split_pending_bytes(&new_entries, &self.buffer, &decode_delimiter(&delimiter()));
         self.buffer = buffer;
         for value in pieces {
-            data.push_string(target, StringData::new(timestamp, value));
+            data.push(target, StringData::new(timestamp, value));
         }
     }
 }

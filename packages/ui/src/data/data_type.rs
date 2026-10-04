@@ -25,14 +25,6 @@ pub enum TypedData {
 }
 
 impl TypedData {
-    pub fn new(data_type: DataType) -> Self {
-        match data_type {
-            DataType::Number => TypedData::Number(VecDeque::new()),
-            DataType::String => TypedData::String(VecDeque::new()),
-            DataType::Bytes => TypedData::Bytes(VecDeque::new()),
-        }
-    }
-
     pub fn data_type(&self) -> DataType {
         match self {
             TypedData::Number(_) => DataType::Number,
@@ -41,19 +33,12 @@ impl TypedData {
         }
     }
 
-    pub fn len(&self) -> usize {
+    /// When the newest entry was received, if there is one.
+    pub fn latest_timestamp(&self) -> Option<i64> {
         match self {
-            TypedData::Number(queue) => queue.len(),
-            TypedData::String(queue) => queue.len(),
-            TypedData::Bytes(queue) => queue.len(),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self {
-            TypedData::Number(queue) => queue.is_empty(),
-            TypedData::String(queue) => queue.is_empty(),
-            TypedData::Bytes(queue) => queue.is_empty(),
+            TypedData::Number(queue) => queue.back().map(Data::timestamp),
+            TypedData::String(queue) => queue.back().map(Data::timestamp),
+            TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
         }
     }
 }
@@ -82,20 +67,78 @@ impl<T: Clone> Data<T> {
     }
 }
 
-impl From<NumberData> for TypedData {
-    fn from(data: NumberData) -> Self {
-        TypedData::Number(VecDeque::from([data]))
-    }
+/// An entry type of [`TypedData`]: each one is stored in its own variant.
+pub trait DataEntry: Clone + Into<TypedData> {
+    fn timestamp(&self) -> i64;
+
+    /// The queue of entries of this type in `data`, if it holds this type.
+    fn queue(data: &TypedData) -> Option<&VecDeque<Self>>;
+
+    /// Like [`DataEntry::queue`], to change the queue.
+    fn queue_mut(data: &mut TypedData) -> Option<&mut VecDeque<Self>>;
 }
 
-impl From<StringData> for TypedData {
-    fn from(data: StringData) -> Self {
-        TypedData::String(VecDeque::from([data]))
-    }
+macro_rules! data_entry {
+    ($entry:ty, $variant:ident) => {
+        impl From<$entry> for TypedData {
+            fn from(data: $entry) -> Self {
+                TypedData::$variant(VecDeque::from([data]))
+            }
+        }
+
+        impl DataEntry for $entry {
+            fn timestamp(&self) -> i64 {
+                Data::timestamp(self)
+            }
+
+            fn queue(data: &TypedData) -> Option<&VecDeque<Self>> {
+                match data {
+                    TypedData::$variant(queue) => Some(queue),
+                    _ => None,
+                }
+            }
+
+            fn queue_mut(data: &mut TypedData) -> Option<&mut VecDeque<Self>> {
+                match data {
+                    TypedData::$variant(queue) => Some(queue),
+                    _ => None,
+                }
+            }
+        }
+    };
 }
 
-impl From<ByteData> for TypedData {
-    fn from(data: ByteData) -> Self {
-        TypedData::Bytes(VecDeque::from([data]))
+data_entry!(NumberData, Number);
+data_entry!(StringData, String);
+data_entry!(ByteData, Bytes);
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use super::{ByteData, DataEntry, NumberData, StringData, TypedData};
+
+    #[test]
+    fn each_entry_type_has_its_own_queue() {
+        let mut numbers: TypedData = NumberData::new(1, 1.5).into();
+        assert_eq!(NumberData::queue(&numbers).map(VecDeque::len), Some(1));
+        assert!(StringData::queue(&numbers).is_none());
+        assert!(ByteData::queue(&numbers).is_none());
+
+        NumberData::queue_mut(&mut numbers)
+            .unwrap()
+            .push_back(NumberData::new(2, 2.5));
+        assert_eq!(NumberData::queue(&numbers).map(VecDeque::len), Some(2));
+        assert!(StringData::queue_mut(&mut numbers).is_none());
+    }
+
+    #[test]
+    fn latest_timestamp_is_the_newest_entry() {
+        let mut strings: TypedData = StringData::new(10, "a".to_string()).into();
+        StringData::queue_mut(&mut strings)
+            .unwrap()
+            .push_back(StringData::new(20, "b".to_string()));
+        assert_eq!(strings.latest_timestamp(), Some(20));
+        assert_eq!(TypedData::Bytes(VecDeque::new()).latest_timestamp(), None);
     }
 }

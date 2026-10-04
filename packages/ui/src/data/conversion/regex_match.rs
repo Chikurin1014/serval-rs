@@ -20,12 +20,12 @@ impl RegexOutput {
         timestamp: i64,
     ) -> Result<(), String> {
         match self {
-            RegexOutput::String => data.push_string(label, StringData::new(timestamp, value)),
+            RegexOutput::String => data.push(label, StringData::new(timestamp, value)),
             RegexOutput::Number => {
                 let number = value
                     .parse::<f64>()
                     .map_err(|_| format!("The result '{value}' is not a number"))?;
-                data.push_number(label, NumberData::new(timestamp, number));
+                data.push(label, NumberData::new(timestamp, number));
             }
         }
         Ok(())
@@ -115,7 +115,7 @@ impl Converter for RegexMatch {
         // A restart needs no special handling: what was converted before stays
         let Some(entries) = self
             .cursor
-            .new_strings(data, &source)
+            .new_entries::<StringData>(data, &source)
             .map(|read| read.entries)
         else {
             return;
