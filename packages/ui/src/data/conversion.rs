@@ -13,7 +13,11 @@ pub use split_from_byte::{SplitFromByte, SplitFromByteSettings};
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 
-use dioxus::{core::with_owner, prelude::*, signals::Owner};
+use dioxus::{
+    core::{Runtime, current_scope_id, with_owner},
+    prelude::*,
+    signals::Owner,
+};
 
 use crate::{
     data::{DataContext, DataType},
@@ -95,6 +99,8 @@ pub struct ConversionContext {
     kinds: Signal<Vec<ConversionKind>>,
     list: Signal<Vec<Conversion>>,
     next_id: Signal<usize>,
+    /// `ConversionProvider`'s scope, an ancestor of everything that uses a conversion.
+    scope: ScopeId,
 }
 
 impl ConversionContext {
@@ -123,10 +129,14 @@ impl ConversionContext {
     ) -> usize {
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
-        // Signals made here belong to the conversion, not to whichever
-        // component happened to handle the event that added it
+        // Signals made here are owned by the conversion (dropped with it), not by
+        // whichever component handled the event that added it. They are made
+        // in the provider's scope, so Dioxus sees them used only below where
+        // they were made (by runners and forms), and does not warn
         let owner = Owner::default();
-        let (converter, enabled) = with_owner(owner.clone(), || (create(), Signal::new(enabled)));
+        let (converter, enabled) = Runtime::current().in_scope(self.scope, || {
+            with_owner(owner.clone(), || (create(), Signal::new(enabled)))
+        });
         self.list.write().push(Conversion {
             id,
             kind,
@@ -158,6 +168,7 @@ pub fn ConversionProvider(
             kinds: Signal::new(kinds),
             list: Signal::new(Vec::new()),
             next_id: Signal::new(0),
+            scope: current_scope_id(),
         };
         for conversion in initial {
             context.push(conversion.kind, conversion.enabled, conversion.create);
