@@ -10,16 +10,11 @@ const PORT_OPEN_CLOSE_BUTTON_CSS: Asset = asset!("/assets/styling/port-open-clos
 
 #[component]
 pub fn PortOpenCloseButton() -> Element {
-    let SerialContext {
-        ports,
-        selected_id,
-        is_open,
-        set_open,
-        ..
-    } = use_context::<SerialContext>();
-    let currently_open = is_open();
-    let port_available = selected_id()
-        .and_then(|id| ports().get(&id).and_then(|port| port.baudrate))
+    let serial = use_context::<SerialContext>();
+    let currently_open = serial.is_open();
+    let port_available = serial
+        .selected_port()
+        .and_then(|port| port.baudrate)
         .is_some();
 
     rsx! {
@@ -33,8 +28,10 @@ pub fn PortOpenCloseButton() -> Element {
             disabled: !port_available,
             aria_label: if currently_open { "Close port" } else { "Open port" },
             onclick: move |_| {
-                if let Some(action) = set_open() {
-                    action(!currently_open);
+                if currently_open {
+                    serial.close();
+                } else {
+                    serial.open();
                 }
             },
             if currently_open { lucide::Pause {} } else { lucide::Play {} }

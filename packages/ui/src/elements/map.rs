@@ -2,7 +2,7 @@ mod map_list;
 mod regex;
 mod split_from_byte;
 
-use crate::data::{InitialMap, MapKind, SplitFromByte};
+use crate::data::{InitialMap, MapKind, RAW_DATA_LABEL, SplitFromByte};
 
 pub use map_list::MapList;
 pub use regex::{REGEX_TO_NUMBER, REGEX_TO_STRING};
@@ -19,6 +19,6 @@ pub fn initial_maps() -> Vec<InitialMap> {
     vec![InitialMap {
         kind: SPLIT_FROM_BYTE,
         enabled: true,
-        create: || Box::new(SplitFromByte::new("raw_data", "raw_str")),
+        create: || Box::new(SplitFromByte::new(RAW_DATA_LABEL, "raw_str")),
     }]
 }

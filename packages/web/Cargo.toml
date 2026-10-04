@@ -9,7 +9,6 @@ ui = { workspace = true }
 
 js-sys = "0.3"
 usb-ids = "1.2026.6"
-uuid = { version = "1", features = ["v4", "js"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 

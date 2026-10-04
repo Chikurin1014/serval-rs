@@ -8,4 +8,3 @@ dioxus = { workspace = true }
 dioxus-icons = { workspace = true }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 regex = "1"
-uuid = "1"

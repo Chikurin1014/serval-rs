@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  closePort,
   getPorts,
   openPort,
   readLoop,
@@ -115,4 +116,46 @@ test("port selection and opening go through the given serial API", async () => {
   assert.equal(await requestPort(serial), port);
   await openPort(port, 115200);
   assert.deepEqual(port.opened, { baudRate: 115200 });
+});
+
+/**
+ * A port that streams until its reader is cancelled and, like a real one,
+ * fails to close while its stream is locked to a reader.
+ */
+function streamingPort() {
+  const port = { locked: false, closed: false };
+  let endRead;
+  port.readable = {
+    getReader: () => {
+      port.locked = true;
+      return {
+        read: () => new Promise((resolve) => (endRead = resolve)),
+        cancel: async () => endRead({ value: undefined, done: true }),
+        releaseLock: () => (port.locked = false),
+      };
+    },
+  };
+  port.close = async () => {
+    if (port.locked) {
+      throw new TypeError("The port's stream is locked");
+    }
+    port.closed = true;
+  };
+  return port;
+}
+
+test("closePort stops readLoop, then closes the port", async () => {
+  const port = streamingPort();
+  const reading = readLoop(port, () => {});
+
+  await closePort(port);
+  await reading;
+  assert.equal(port.locked, false);
+  assert.equal(port.closed, true);
+});
+
+test("closePort closes a port that is not being read", async () => {
+  const port = streamingPort();
+  await closePort(port);
+  assert.equal(port.closed, true);
 });

@@ -1,191 +1,86 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use dioxus::prelude::*;
 use js_sys::{Array, Uint8Array};
-use uuid::Uuid;
-use wasm_bindgen::{JsValue, closure::Closure};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
-use ui::{
-    serial::{
-        Port, PortInfo, RefreshPortsAction, RequestPortAction, RxData, SendBytesAction,
-        SerialContext, SetOpenAction,
-    },
-    time::TimeContext,
+use ui::serial::{
+    LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, use_serial_provider,
 };
 
+/// Provides `SerialContext` with the browser's Web Serial.
+///
+/// Requires `DataContext` and `TimeContext` to be provided by an ancestor.
 #[component]
 pub fn SerialProvider(children: Element) -> Element {
-    let ports = use_signal(|| HashMap::<Uuid, Port>::new());
-    let selected_id = use_signal(|| None::<Uuid>);
-    let is_open = use_signal(|| false);
-    let rx_data = use_signal(RxData::new);
-    let request_port = use_signal(|| None::<RequestPortAction>);
-    let refresh_ports = use_signal(|| None::<RefreshPortsAction>);
-    let set_open = use_signal(|| None::<SetOpenAction>);
-    let tx_send = use_signal(|| None::<SendBytesAction>);
-
-    use_context_provider(|| SerialContext {
-        ports,
-        selected_id,
-        is_open,
-        rx_data,
-        request_port,
-        refresh_ports,
-        set_open,
-        tx_send,
-    });
-
-    let time_context = use_context::<TimeContext>();
-    let web_ports = use_signal(|| HashMap::<Uuid, JsValue>::new());
-
-    use_effect(move || {
-        let mut request_port = request_port.clone();
-        let mut refresh_ports = refresh_ports.clone();
-        let mut set_open = set_open.clone();
-        let mut tx_send = tx_send.clone();
-
-        *request_port.write() = Some(Rc::new({
-            move || {
-                wasm_bindgen_futures::spawn_local(async move {
-                    if let Ok(port_js) = web_serial::request_port().await {
-                        let id = Uuid::new_v4();
-                        let info = port_info(&port_js);
-
-                        web_ports.clone().write().insert(id, port_js);
-                        ports.clone().write().insert(
-                            id,
-                            Port {
-                                id,
-                                info,
-                                baudrate: None,
-                            },
-                        );
-                        *selected_id.clone().write() = Some(id);
-                        *is_open.clone().write() = false;
-                        rx_data.clone().write().clear();
-                    }
-                });
-            }
-        }));
-
-        *refresh_ports.write() = Some(Rc::new({
-            let mut ports = ports.clone();
-
-            move || {
-                wasm_bindgen_futures::spawn_local(async move {
-                    if let Some(action) = set_open() {
-                        action(false);
-                    }
-
-                    if let Ok(list) = web_serial::get_ports()
-                        .await
-                        .map(|ports| Array::from(&ports))
-                    {
-                        let mut next_web_ports = HashMap::new();
-                        let mut next_ports = HashMap::new();
-
-                        for port_js in list {
-                            let id = Uuid::new_v4();
-                            next_web_ports.insert(id, port_js);
-                        }
-
-                        for (id, port_js) in &next_web_ports {
-                            next_ports.insert(
-                                *id,
-                                Port {
-                                    id: *id,
-                                    info: port_info(port_js),
-                                    baudrate: None,
-                                },
-                            );
-                        }
-
-                        *ports.write() = next_ports;
-                        *web_ports.clone().write() = next_web_ports;
-                        *selected_id.clone().write() = ports().keys().next().copied();
-                    }
-                });
-            }
-        }));
-
-        *set_open.write() = Some(Rc::new({
-            let web_ports = web_ports.clone();
-            let time_context = time_context.clone();
-
-            move |should_open| {
-                let web_ports = web_ports.clone();
-                let time_context = time_context.clone();
-                let Some(selected_id) = selected_id() else {
-                    return;
-                };
-
-                let Some(baudrate) = ports().get(&selected_id).and_then(|port| port.baudrate)
-                else {
-                    return;
-                };
-
-                let Some(port_js) = web_ports.read().get(&selected_id).cloned() else {
-                    return;
-                };
-
-                wasm_bindgen_futures::spawn_local(async move {
-                    let mut rx_data = rx_data.clone();
-                    let mut is_open = is_open.clone();
-
-                    if should_open {
-                        if is_open() {
-                            return;
-                        }
-
-                        if web_serial::open_port(&port_js, baudrate).await.is_ok() {
-                            let time_context = time_context.clone();
-                            wasm_bindgen_futures::spawn_local(async move {
-                                let on_chunk = Closure::wrap(Box::new(move |chunk: Uint8Array| {
-                                    let timestamp_ms = time_context.current();
-                                    let data = chunk.to_vec();
-                                    rx_data.write().push_raw(timestamp_ms, data);
-                                })
-                                    as Box<dyn FnMut(Uint8Array)>);
-
-                                let _ = web_serial::read_loop(&port_js, &on_chunk).await;
-                                drop(on_chunk);
-                            });
-
-                            rx_data.write().clear();
-                            *is_open.write() = true;
-                        }
-                    } else {
-                        if web_serial::close_port(&port_js).await.is_ok() {
-                            rx_data.write().clear();
-                        }
-                        *is_open.write() = false;
-                    }
-                });
-            }
-        }));
-
-        *tx_send.write() = Some(Rc::new({
-            let web_ports = web_ports.clone();
-
-            let Some(selected_id) = selected_id() else {
-                return;
-            };
-
-            move |data| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    let Some(port_js) = web_ports.read().get(&selected_id).cloned() else {
-                        return;
-                    };
-                    let _ =
-                        web_serial::write_port(&port_js, Uint8Array::from(data.as_slice())).await;
-                });
-            }
-        }));
-
-        ()
-    });
-
+    use_serial_provider(|| Rc::new(WebSerial));
     children
+}
+
+struct WebSerial;
+
+impl SerialBackend for WebSerial {
+    fn request_port(&self) -> LocalFuture<SerialResult<Rc<dyn SerialPort>>> {
+        Box::pin(async {
+            let port = web_serial::request_port().await.map_err(message)?;
+            Ok(Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
+        })
+    }
+
+    fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>> {
+        Box::pin(async {
+            let ports = web_serial::get_ports().await.map_err(message)?;
+            Ok(Array::from(&ports)
+                .into_iter()
+                .map(|port| Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
+                .collect())
+        })
+    }
+}
+
+/// A `SerialPort` object of Web Serial.
+struct WebSerialPort(JsValue);
+
+impl SerialPort for WebSerialPort {
+    fn info(&self) -> PortInfo {
+        port_info(&self.0)
+    }
+
+    fn open(&self, baudrate: u32) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move {
+            web_serial::open_port(&port, baudrate)
+                .await
+                .map_err(message)
+        })
+    }
+
+    fn read(&self, mut on_chunk: Box<dyn FnMut(Vec<u8>)>) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move {
+            let on_chunk =
+                Closure::wrap(Box::new(move |chunk: Uint8Array| on_chunk(chunk.to_vec()))
+                    as Box<dyn FnMut(Uint8Array)>);
+            // `on_chunk` is dropped once the loop ends, as JS calls it no more
+            web_serial::read_loop(&port, &on_chunk)
+                .await
+                .map_err(message)
+        })
+    }
+
+    fn write(&self, bytes: Vec<u8>) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move {
+            web_serial::write_port(&port, Uint8Array::from(bytes.as_slice()))
+                .await
+                .map_err(message)
+        })
+    }
+
+    fn close(&self) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move { web_serial::close_port(&port).await.map_err(message) })
+    }
 }
 
 /// Web Serial calls, see `serial.js`.
@@ -205,6 +100,7 @@ mod web_serial {
         #[wasm_bindgen(catch, js_name = openPort)]
         pub async fn open_port(port: &JsValue, baud_rate: u32) -> Result<(), JsValue>;
 
+        /// Stops `readLoop` on the port first, if it is running.
         #[wasm_bindgen(catch, js_name = closePort)]
         pub async fn close_port(port: &JsValue) -> Result<(), JsValue>;
 
@@ -238,4 +134,12 @@ fn port_info(port: &JsValue) -> PortInfo {
             |device| device.name().to_string(),
         );
     PortInfo { name }
+}
+
+/// A JS error as a message.
+fn message(error: JsValue) -> String {
+    match error.dyn_ref::<js_sys::Error>() {
+        Some(error) => error.message().into(),
+        None => format!("{error:?}"),
+    }
 }

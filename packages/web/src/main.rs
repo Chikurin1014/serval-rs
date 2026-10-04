@@ -42,8 +42,8 @@ fn App() -> Element {
 
         ThemeProvider {
             TimeProvider {
-                SerialProvider {
-                    DataProvider {
+                DataProvider {
+                    SerialProvider {
                         MapProvider {
                             kinds: builtin_map_kinds(),
                             initial: initial_maps(),

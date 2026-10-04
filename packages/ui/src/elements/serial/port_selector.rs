@@ -13,43 +13,31 @@ const PORT_SELECTOR_CSS: Asset = asset!("/assets/styling/port-selector.css");
 
 #[component]
 pub fn PortSelector() -> Element {
-    let SerialContext {
-        ports,
-        mut selected_id,
-        mut is_open,
-        request_port,
-        refresh_ports,
-        ..
-    } = use_context::<SerialContext>();
+    let serial = use_context::<SerialContext>();
 
-    let mut sorted_ports = ports().values().cloned().collect::<Vec<_>>();
-    sorted_ports.sort_by(|left, right| left.info.name.cmp(&right.info.name));
-    let ports_for_list = sorted_ports.clone();
-    let has_ports = !ports_for_list.is_empty();
-
-    let selected_port = selected_id().and_then(|id| ports().get(&id).cloned());
+    let mut ports = serial.ports();
+    ports.sort_by(|left, right| left.info.name.cmp(&right.info.name));
+    let has_ports = !ports.is_empty();
+    let is_open = serial.is_open();
+    let selected_port = serial.selected_port();
 
     rsx! {
         document::Link { rel: "stylesheet", href: PORT_SELECTOR_CSS }
 
         div {
             class: "port-selector",
-            if let Some(action) = request_port() {
-                Button {
-                    size: ButtonSize::Sm,
-                    variant: ButtonVariant::Ghost,
-                    onclick: move |_| {
-                        action();
-                    },
-                    lucide::CirclePlus {}
-                }
+            Button {
+                size: ButtonSize::Sm,
+                variant: ButtonVariant::Ghost,
+                onclick: move |_| serial.request_port(),
+                lucide::CirclePlus {}
             }
             DropdownMenu {
-                disabled: !has_ports || is_open(),
+                disabled: !has_ports || is_open,
                 DropdownMenuTrigger {
                     class: "port-selector-trigger",
-                    if let Some(port) = selected_port.clone() {
-                        if is_open() {
+                    if let Some(port) = selected_port {
+                        if is_open {
                             span {
                                 class: "port-selector-name",
                                 span { class: "port-selector-spinner" }
@@ -69,15 +57,12 @@ pub fn PortSelector() -> Element {
                     }
                 }
                 DropdownMenuContent {
-                    for (index, port) in ports_for_list.into_iter().enumerate() {
+                    for (index, port) in ports.into_iter().enumerate() {
                         DropdownMenuItem {
                             key: "{port.id}",
                             value: port.id,
                             index,
-                            on_select: move |id| {
-                                *selected_id.write() = Some(id);
-                                *is_open.write() = false;
-                            },
+                            on_select: move |id| serial.select(id),
                             "{port.info.name}"
                         }
                     }
@@ -86,11 +71,7 @@ pub fn PortSelector() -> Element {
             Button {
                 size: ButtonSize::Sm,
                 variant: ButtonVariant::Ghost,
-                onclick: move |_| {
-                    if let Some(action) = refresh_ports() {
-                        action();
-                    }
-                },
+                onclick: move |_| serial.refresh_ports(),
                 lucide::RefreshCcw {}
             }
         }

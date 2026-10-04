@@ -5678,7 +5678,6 @@ dependencies = [
  "dioxus-icons",
  "dioxus-primitives",
  "regex",
- "uuid",
 ]
 
 [[package]]
@@ -5754,7 +5753,6 @@ version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf3923a6f5c4c6382e0b653c4117f48d631ea17f38ed86e2a828e6f7412f5239"
 dependencies = [
- "getrandom 0.4.3",
  "js-sys",
  "wasm-bindgen",
 ]
@@ -5926,7 +5924,6 @@ dependencies = [
  "js-sys",
  "ui",
  "usb-ids",
- "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]

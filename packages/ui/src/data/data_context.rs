@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::{
-    data::{ByteData, DataEntry, DataType, TypedData},
-    serial::{RxData, SerialContext},
-};
+use crate::data::{DataEntry, DataType, TypedData};
+
+/// The label the bytes received from the serial port go to.
+pub const RAW_DATA_LABEL: &str = "raw_data";
 
 #[derive(Clone, Copy)]
 pub struct DataContext {
@@ -52,28 +52,9 @@ impl DataContext {
 
 #[component]
 pub fn DataProvider(children: Element) -> Element {
-    let data_with_labels = use_signal(HashMap::<String, TypedData>::new);
-    let serial = use_context::<SerialContext>();
-    let mut data_context = DataContext { data_with_labels };
-
-    use_effect(move || {
-        let rx_data = (serial.rx_data)();
-        let current_data = match rx_data {
-            RxData {
-                timestamp_ms: Some(timestamp),
-                data: Some(data),
-            } => Some(ByteData::new(timestamp, data)),
-            _ => None,
-        };
-
-        let Some(current) = current_data else {
-            return;
-        };
-
-        data_context.push("raw_data", current);
+    use_context_provider(|| DataContext {
+        data_with_labels: Signal::new(HashMap::new()),
     });
-
-    use_context_provider(|| data_context);
 
     children
 }

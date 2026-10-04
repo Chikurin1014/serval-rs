@@ -6,7 +6,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         input::Input,
     },
-    data::{ByteData, DataContext, NewEntries, SourceCursor},
+    data::{ByteData, DataContext, NewEntries, RAW_DATA_LABEL, SourceCursor},
     serial::SerialContext,
 };
 
@@ -14,9 +14,7 @@ const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css")
 
 #[component]
 pub fn PortIoConsole() -> Element {
-    let SerialContext {
-        is_open, tx_send, ..
-    } = use_context::<SerialContext>();
+    let serial = use_context::<SerialContext>();
     let data_context = use_context::<DataContext>();
 
     let mut text_to_show = use_signal(String::new);
@@ -27,7 +25,7 @@ pub fn PortIoConsole() -> Element {
     let mut cursor = SourceCursor::default();
     use_effect(move || {
         let Some(NewEntries { entries, restarted }) =
-            cursor.new_entries::<ByteData>(&data_context, "raw_data")
+            cursor.new_entries::<ByteData>(&data_context, RAW_DATA_LABEL)
         else {
             cursor.reset();
             text_to_show.set(String::new());
@@ -61,12 +59,10 @@ pub fn PortIoConsole() -> Element {
     });
 
     let mut send_text = move || {
-        if !is_open() || text_to_send().trim().is_empty() {
+        if !serial.is_open() || text_to_send().trim().is_empty() {
             return;
         }
-        if let Some(send_action) = tx_send() {
-            send_action(text_to_send().as_bytes().to_vec());
-        }
+        serial.send(text_to_send().into_bytes());
         *text_to_send.write() = String::new();
     };
 
@@ -99,7 +95,7 @@ pub fn PortIoConsole() -> Element {
                     variant: ButtonVariant::Primary,
                     size: ButtonSize::Sm,
                     background: "var(--secondary-success-color)",
-                    disabled: !is_open() || text_to_send().trim().is_empty(),
+                    disabled: !serial.is_open() || text_to_send().trim().is_empty(),
                     onclick: move |_| {
                         send_text();
                     },
