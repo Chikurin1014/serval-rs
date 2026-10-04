@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::ld_icons::{LdDatabase, LdSquareTerminal},
+    icons::ld_icons::{LdDatabase, LdLineChart, LdSquareTerminal},
     Icon,
 };
 
@@ -10,6 +10,7 @@ use crate::{
         ConversionList, DataList, PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton,
         PortSelector,
     },
+    graph::GraphBoard,
 };
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
@@ -48,6 +49,13 @@ pub fn Home() -> Element {
                         Icon { icon: LdDatabase }
                         "Data"
                     }
+                    TabTrigger {
+                        class: "home-tab-trigger",
+                        index: 2usize,
+                        value: "graph".to_string(),
+                        Icon { icon: LdLineChart }
+                        "Graph"
+                    }
                 }
             }
             TabContent {
@@ -65,6 +73,12 @@ pub fn Home() -> Element {
                     DataList {}
                     ConversionList {}
                 }
+            }
+            TabContent {
+                class: "home-tab",
+                index: 2usize,
+                value: "graph".to_string(),
+                GraphBoard {}
             }
         }
     }

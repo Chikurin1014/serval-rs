@@ -1,6 +1,10 @@
 :root {
     color-scheme: light dark;
 
+    /* Borders of the components' styles (card, input, button, dropdown menu).
+     * Not part of the default `dx-components-theme.css`, so defined here */
+    --border-color: var(--primary-color-7);
+
     /* Follow the same light/dark switch as `dx-components-theme.css` */
     --dc-accent: var(--light, #45756b) var(--dark, #84a78e);
     --dc-panel: var(--primary-color-2);
