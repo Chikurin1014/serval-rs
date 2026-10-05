@@ -63,3 +63,19 @@
     overflow: auto;
   }
 }
+
+/* The console, and the port's details and log at its right */
+.console-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .console-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}

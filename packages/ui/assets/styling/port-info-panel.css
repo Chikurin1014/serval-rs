@@ -1,0 +1,108 @@
+.port-info-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.port-info-panel [data-slot="card"] {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+}
+
+/* The title in the middle of the header, both ways */
+.port-info-panel [data-slot="card-header"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--dc-border);
+}
+
+.port-info-panel [data-slot="card-title"] {
+  color: var(--dc-text);
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  /* Letter spacing follows the last letter too: take it back, to centre */
+  margin-right: -0.08em;
+  text-transform: uppercase;
+}
+
+/* The port's details stay; only the log below them scrolls */
+.port-info-panel [data-slot="card-content"] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+
+.port-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--dc-border);
+  font-size: 0.8rem;
+}
+
+.port-info dt {
+  color: var(--dc-text-muted);
+}
+
+.port-info dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--dc-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.port-log {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  list-style: none;
+}
+
+.port-log li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 0.5rem;
+  padding: 0.25rem 0 0.25rem 0.5rem;
+  border-left: 2px solid var(--border-color);
+}
+
+.port-log li + li {
+  margin-top: 0.25rem;
+}
+
+.port-log li[data-kind="success"] {
+  border-left-color: var(--secondary-success-color);
+}
+
+.port-log li[data-kind="error"] {
+  border-left-color: var(--secondary-error-color);
+}
+
+.port-log time {
+  color: var(--dc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.port-log-title {
+  color: var(--dc-text);
+}
+
+/* Under the title, wrapping as it needs */
+.port-log-detail {
+  grid-column: 2;
+  color: var(--dc-text-muted);
+  overflow-wrap: anywhere;
+}

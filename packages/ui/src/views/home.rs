@@ -7,7 +7,10 @@ use crate::{
         DataList,
         graph::GraphBoard,
         map::MapList,
-        serial::{PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton, PortSelector},
+        serial::{
+            PortBaudrateConfigurator, PortInfoPanel, PortIoConsole, PortOpenCloseButton,
+            PortSelector,
+        },
     },
 };
 
@@ -60,7 +63,11 @@ pub fn Home() -> Element {
                 class: "home-tab",
                 index: 0usize,
                 value: "console".to_string(),
-                PortIoConsole {}
+                div {
+                    class: "console-grid",
+                    PortIoConsole {}
+                    PortInfoPanel {}
+                }
             }
             TabContent {
                 class: "home-tab",

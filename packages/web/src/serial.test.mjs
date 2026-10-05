@@ -114,8 +114,14 @@ test("port selection and opening go through the given serial API", async () => {
 
   assert.deepEqual(await getPorts(serial), [port]);
   assert.equal(await requestPort(serial), port);
-  await openPort(port, 115200);
-  assert.deepEqual(port.opened, { baudRate: 115200 });
+  await openPort(port, 115200, 8, 1, "none", "none");
+  assert.deepEqual(port.opened, {
+    baudRate: 115200,
+    dataBits: 8,
+    stopBits: 1,
+    parity: "none",
+    flowControl: "none",
+  });
 });
 
 /**
