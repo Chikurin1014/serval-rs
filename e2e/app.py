@@ -96,3 +96,21 @@ class App:
                 "row", name=label, exact=True
             ).click()
         graph.locator(".graph-title").click()  # closes them
+
+    def toasts(self) -> list[tuple[str, str, str]]:
+        """The toasts showing, newest first, as `(type, title, description)`."""
+        toasts = self.page.evaluate(
+            """() => [...document.querySelectorAll('[role=alertdialog]')].map(toast => {
+                const [title, description] = toast.querySelector('[role=alert]').children;
+                return [toast.dataset.type, title.textContent, description?.textContent ?? ''];
+            })"""
+        )
+        return [tuple(toast) for toast in toasts]
+
+    def wait_for_toast(self, title: str):
+        """Waits until the newest toast has `title`."""
+        self.page.wait_for_function(
+            """title => document.querySelector('[role=alertdialog] [role=alert]')
+                ?.firstElementChild.textContent === title""",
+            arg=title,
+        )

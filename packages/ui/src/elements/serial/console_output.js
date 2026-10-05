@@ -39,3 +39,11 @@ function cutPoint(text, excess) {
   const code = text.charCodeAt(excess);
   return code >= 0xdc00 && code <= 0xdfff ? excess + 1 : excess;
 }
+
+/**
+ * Whether a scrolled element shows its end, within `slack` pixels (positions
+ * are not always whole, and the last line need not show in full).
+ */
+function isAtBottom(scrollTop, scrollHeight, clientHeight, slack = 16) {
+  return scrollHeight - scrollTop - clientHeight <= slack;
+}

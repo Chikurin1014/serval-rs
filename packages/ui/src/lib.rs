@@ -9,6 +9,7 @@ pub mod elements;
 pub mod serial;
 pub mod theme;
 pub mod time;
+pub mod toast;
 pub mod views;
 
 pub use theme::ThemeProvider;

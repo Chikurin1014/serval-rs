@@ -18,6 +18,20 @@ const TIME_SERIES_JS: &str = concat!(
     include_str!("time_series.js"),
 );
 
+/// Line colors, as CSS custom properties. A label takes the one at its place
+/// among the number labels, which its tag shows too, so tags and lines match.
+const SERIES_COLORS: [&str; 5] = [
+    "--dc-accent",
+    "--focused-border-color",
+    "--secondary-warning-color",
+    "--dc-danger",
+    "--secondary-color-5",
+];
+
+fn series_color(index: usize) -> &'static str {
+    SERIES_COLORS[index % SERIES_COLORS.len()]
+}
+
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
@@ -106,8 +120,15 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
 
     use_effect(move || {
         let selected = selected.read();
-        let message = data_context.with_data(|data| feed.borrow_mut().next(data, &selected));
-        let _ = plot.send(message);
+        let (labels, updates) =
+            data_context.with_data(|data| feed.borrow_mut().next(data, &selected));
+        let colors = number_labels
+            .read()
+            .iter()
+            .enumerate()
+            .map(|(index, label)| (label.clone(), series_color(index)))
+            .collect::<HashMap<_, _>>();
+        let _ = plot.send((labels, updates, colors));
     });
 
     use_drop(move || {
@@ -134,6 +155,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                             Tag {
                                 key: "{label}",
                                 index,
+                                style: "--series-color: var({series_color(index)})",
                                 value: label.clone(),
                                 "{label}"
                             }

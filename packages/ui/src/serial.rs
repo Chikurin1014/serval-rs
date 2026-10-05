@@ -2,6 +2,8 @@
 //!
 //! [`SerialContext`] keeps the ports and which one is open, and pushes what
 //! the open port receives to [`RAW_DATA`] in `DataContext`, chunk by chunk.
+//!
+//! It reports how connecting goes, and what fails, in toasts.
 
 use std::{future::Future, pin::Pin, rc::Rc};
 
@@ -13,6 +15,7 @@ use dioxus::{
 use crate::{
     data::{ByteData, DataContext, RAW_DATA_LABEL},
     time::TimeContext,
+    toast::{Toaster, use_toaster},
 };
 
 /// A future run on the UI thread, as platform serial APIs are not `Send`.
@@ -23,8 +26,8 @@ pub type SerialResult<T> = Result<T, String>;
 
 /// Where a platform's serial ports come from.
 pub trait SerialBackend {
-    /// Asks the user to grant a port.
-    fn request_port(&self) -> LocalFuture<SerialResult<Rc<dyn SerialPort>>>;
+    /// Asks the user to grant a port; `None` if they chose none.
+    fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
 
     /// The ports granted before.
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
@@ -70,6 +73,7 @@ pub struct SerialContext {
     backend: CopyValue<Rc<dyn SerialBackend>>,
     time: CopyValue<TimeContext>,
     data: DataContext,
+    toaster: Toaster,
     ports: Signal<Vec<Port>>,
     next_id: CopyValue<usize>,
     selected: Signal<Option<usize>>,
@@ -118,9 +122,13 @@ impl SerialContext {
         let context = *self;
         self.spawn(async move {
             let backend = context.backend.cloned();
-            if let Ok(handle) = backend.request_port().await {
-                let id = context.add(handle);
-                context.select(id);
+            match backend.request_port().await {
+                Ok(Some(handle)) => {
+                    let id = context.add(handle);
+                    context.select(id);
+                }
+                Ok(None) => {}
+                Err(error) => context.toaster.error("Failed to add a port", &error),
             }
         });
     }
@@ -130,12 +138,16 @@ impl SerialContext {
     pub fn refresh_ports(&self) {
         let context = *self;
         self.spawn(async move {
-            if context.is_open() && context.close_port().await.is_err() {
+            if context.is_open() && !context.close_port().await {
                 return;
             }
             let backend = context.backend.cloned();
-            let Ok(handles) = backend.known_ports().await else {
-                return;
+            let handles = match backend.known_ports().await {
+                Ok(handles) => handles,
+                Err(error) => {
+                    context.toaster.error("Failed to list the ports", &error);
+                    return;
+                }
             };
             let mut ports = context.ports;
             ports.write().clear();
@@ -161,11 +173,16 @@ impl SerialContext {
         };
         let context = *self;
         self.spawn(async move {
-            if port.handle.open(baudrate).await.is_err() {
+            if let Err(error) = port.handle.open(baudrate).await {
+                context.toaster.error("Failed to open the port", &error);
                 return;
             }
             let mut open = context.open;
             open.set(Some(port.id));
+            context.toaster.success(
+                "Port opened",
+                &format!("{} at {baudrate} bps", port.info.name),
+            );
 
             let mut data = context.data;
             let time = context.time;
@@ -174,10 +191,13 @@ impl SerialContext {
                 // before) a render
                 data.push(RAW_DATA_LABEL, ByteData::new(time.read().current(), chunk));
             });
-            let _ = port.handle.read(on_chunk).await;
+            let read = port.handle.read(on_chunk).await;
             // Closed, or lost (e.g. unplugged)
             if *open.peek() == Some(port.id) {
                 open.set(None);
+                if let Err(error) = read {
+                    context.toaster.error("Connection lost", &error);
+                }
             }
         });
     }
@@ -185,7 +205,7 @@ impl SerialContext {
     pub fn close(&self) {
         let context = *self;
         self.spawn(async move {
-            let _ = context.close_port().await;
+            context.close_port().await;
         });
     }
 
@@ -194,19 +214,27 @@ impl SerialContext {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
             return;
         };
+        let context = *self;
         self.spawn(async move {
-            let _ = port.handle.write(bytes).await;
+            if let Err(error) = port.handle.write(bytes).await {
+                context.toaster.error("Failed to send", &error);
+            }
         });
     }
 
-    async fn close_port(&self) -> SerialResult<()> {
+    /// Closes the open port, if any; `false` if it failed to, and is still open.
+    async fn close_port(&self) -> bool {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
-            return Ok(());
+            return true;
         };
-        port.handle.close().await?;
+        if let Err(error) = port.handle.close().await {
+            self.toaster.error("Failed to close the port", &error);
+            return false;
+        }
         let mut open = self.open;
         open.set(None);
-        Ok(())
+        self.toaster.info("Port closed", &port.info.name);
+        true
     }
 
     fn port(&self, id: usize) -> Option<Port> {
@@ -234,14 +262,17 @@ impl SerialContext {
 
 /// Provides [`SerialContext`] with the platform's `backend`.
 ///
-/// Requires `DataContext` and `TimeContext` to be provided by an ancestor.
+/// Requires `DataContext`, `TimeContext` and `ToastProvider` to be provided by
+/// an ancestor.
 pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> SerialContext {
     let data = use_context::<DataContext>();
     let time = use_context::<TimeContext>();
+    let toaster = use_toaster();
     use_context_provider(|| SerialContext {
         backend: CopyValue::new(backend()),
         time: CopyValue::new(time),
         data,
+        toaster,
         ports: Signal::new(Vec::new()),
         next_id: CopyValue::new(0),
         selected: Signal::new(None),

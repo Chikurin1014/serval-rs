@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use ui::{
     ThemeProvider,
+    components::toast::ToastProvider,
     data::{DataProvider, MapProvider},
     elements::{
         Navbar,
@@ -41,16 +42,19 @@ fn App() -> Element {
         document::Link { rel: "icon", href: FAVICON }
 
         ThemeProvider {
-            TimeProvider {
-                DataProvider {
-                    SerialProvider {
-                        MapProvider {
-                            kinds: builtin_map_kinds(),
-                            initial: initial_maps(),
-                            GraphProvider {
-                                kinds: builtin_graph_kinds(),
-                                initial: initial_graphs(),
-                                Router::<Route> {}
+            // Outermost after the theme, so any provider below can show toasts
+            ToastProvider {
+                TimeProvider {
+                    DataProvider {
+                        SerialProvider {
+                            MapProvider {
+                                kinds: builtin_map_kinds(),
+                                initial: initial_maps(),
+                                GraphProvider {
+                                    kinds: builtin_graph_kinds(),
+                                    initial: initial_graphs(),
+                                    Router::<Route> {}
+                                }
                             }
                         }
                     }

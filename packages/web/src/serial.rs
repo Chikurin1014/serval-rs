@@ -20,10 +20,14 @@ pub fn SerialProvider(children: Element) -> Element {
 struct WebSerial;
 
 impl SerialBackend for WebSerial {
-    fn request_port(&self) -> LocalFuture<SerialResult<Rc<dyn SerialPort>>> {
+    fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>> {
         Box::pin(async {
-            let port = web_serial::request_port().await.map_err(message)?;
-            Ok(Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
+            match web_serial::request_port().await {
+                Ok(port) => Ok(Some(Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)),
+                // The user closed the chooser without picking a port
+                Err(error) if error_name(&error).as_deref() == Some("NotFoundError") => Ok(None),
+                Err(error) => Err(message(error)),
+            }
         })
     }
 
@@ -134,6 +138,13 @@ fn port_info(port: &JsValue) -> PortInfo {
             |device| device.name().to_string(),
         );
     PortInfo { name }
+}
+
+/// The `name` of a JS error (e.g. a `DOMException`'s), if it has one.
+fn error_name(error: &JsValue) -> Option<String> {
+    js_sys::Reflect::get(error, &JsValue::from_str("name"))
+        .ok()?
+        .as_string()
 }
 
 /// A JS error as a message.
