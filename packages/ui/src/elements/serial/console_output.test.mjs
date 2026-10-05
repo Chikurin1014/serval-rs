@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { loadScript } from "../../../js-test/load-script.mjs";
 
-const { appendOutput, cutPoint } = loadScript(
+const { appendOutput, cutPoint, isAtBottom } = loadScript(
   new URL("./console_output.js", import.meta.url),
 );
 
@@ -61,4 +61,13 @@ test("cutPoint without line breaks cuts right after the excess", () => {
   assert.equal(cutPoint("abcdef", 2), 2);
   // Not between the halves of a surrogate pair ("😀" is two units)
   assert.equal(cutPoint("a😀b", 2), 3);
+});
+
+test("isAtBottom allows a little short of the end", () => {
+  // 1000px of content in a 200px view: the end is at 800
+  assert.equal(isAtBottom(800, 1000, 200), true);
+  assert.equal(isAtBottom(790, 1000, 200), true);
+  assert.equal(isAtBottom(700, 1000, 200), false);
+  // All of it in view
+  assert.equal(isAtBottom(0, 100, 200), true);
 });

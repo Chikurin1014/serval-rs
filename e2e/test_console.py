@@ -62,3 +62,26 @@ def test_keeps_up_past_the_data_limit(app: App):
     assert WHOLE_STREAM.fullmatch(text)
     chunks = text.count("temp:")
     assert chunks == app.page.evaluate("window.mockSerialPort.sent")
+
+
+def test_stops_scrolling_while_the_user_reads_back(app: App):
+    output = app.page.locator(".console-output")
+    app.open_port()
+    # More than fits, so it scrolls
+    app.page.evaluate("window.mockSerialPort.burst(200)")
+    app.page.wait_for_function(
+        "() => { const o = document.querySelector('.console-output');"
+        " return o.scrollTop > 0 && o.scrollHeight - o.scrollTop - o.clientHeight < 16; }"
+    )
+
+    # Scrolled up: new text does not move it
+    output.evaluate("o => { o.scrollTop = 0; }")
+    app.page.wait_for_timeout(500)
+    assert output.evaluate("o => o.scrollTop") == 0
+
+    # Back at the bottom: it follows the new text again
+    output.evaluate("o => { o.scrollTop = o.scrollHeight; }")
+    before = output.evaluate("o => o.scrollTop")
+    app.page.wait_for_function(
+        f"() => document.querySelector('.console-output').scrollTop > {before}"
+    )
