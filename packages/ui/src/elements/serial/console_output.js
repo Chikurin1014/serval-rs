@@ -1,18 +1,24 @@
 // The text side of `port_io_console.js`, kept free of the page so it can be
 // tested; `port_io_console.rs` runs this ahead of `port_io_console.js`.
 
+// Of `maxLength`, what is left after dropping the oldest text
+const TRIM_TO = 0.9;
+
 /**
  * Appends `text` to `node` (a DOM `Text`, or anything with its `data`,
- * `length`, `appendData` and `deleteData`), then drops text from the front
- * until at most `maxLength` characters are left.
+ * `length`, `appendData` and `deleteData`).
+ *
+ * Past `maxLength` characters, it drops text from the front down to
+ * `TRIM_TO` of that, so the rest of the output, copied on every drop, is
+ * copied once in many chunks rather than on each one.
  *
  * Only the new text is copied in, so a long output costs no more per chunk
  * than a short one.
  */
 function appendOutput(node, text, maxLength) {
   node.appendData(text);
-  const excess = node.length - maxLength;
-  if (excess > 0) {
+  if (node.length > maxLength) {
+    const excess = node.length - Math.floor(maxLength * TRIM_TO);
     node.deleteData(0, cutPoint(node.data, excess));
   }
 }

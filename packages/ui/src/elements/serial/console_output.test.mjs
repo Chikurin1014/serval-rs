@@ -18,6 +18,7 @@ function fakeText(data = "") {
       this.data += text;
     },
     deleteData(offset, count) {
+      this.deletes = (this.deletes ?? 0) + 1;
       this.data = this.data.slice(0, offset) + this.data.slice(offset + count);
     },
   };
@@ -33,6 +34,23 @@ test("appendOutput drops whole lines from the front past the limit", () => {
   const node = fakeText("one\ntwo\n");
   appendOutput(node, "three\n", 9);
   assert.equal(node.data, "three\n");
+});
+
+test("appendOutput drops a tenth at once, not a little on every chunk", () => {
+  const node = fakeText();
+  for (let i = 0; i < 100; i++) {
+    appendOutput(node, "123456789\n", 1000);
+    assert.ok(node.length <= 1000);
+  }
+  // 1000 characters in all: the limit is reached, not passed
+  assert.equal(node.deletes, undefined);
+
+  for (let i = 0; i < 100; i++) {
+    appendOutput(node, "123456789\n", 1000);
+  }
+  // Each drop leaves 900, room for 10 more lines before the next
+  assert.equal(node.deletes, 10);
+  assert.match(node.data, /^(123456789\n)+$/);
 });
 
 test("cutPoint keeps a line that already starts at the cut", () => {
