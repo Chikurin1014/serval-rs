@@ -16,18 +16,23 @@ let frame = 0;
 // height lays out all the text
 let following = true;
 let watched = null;
-// Where this last scrolled to: the scroll event that follows arrives late,
-// when more text may have come, so it would look like the user scrolled up
-let scrolledTo = -1;
+// Where it was scrolled to last. New text only grows at the bottom, so going
+// up from there is the user's doing
+let lastTop = 0;
 const onScroll = () => {
-  if (watched.scrollTop === scrolledTo) {
-    return;
+  const top = watched.scrollTop;
+  if (top < lastTop) {
+    following = false;
+  } else if (top > lastTop) {
+    // Text that came since the scroll is not seen yet: allow for some
+    following = isAtBottom(
+      top,
+      watched.scrollHeight,
+      watched.clientHeight,
+      watched.clientHeight / 4,
+    );
   }
-  following = isAtBottom(
-    watched.scrollTop,
-    watched.scrollHeight,
-    watched.clientHeight,
-  );
+  lastTop = top;
 };
 
 while (true) {
@@ -49,6 +54,9 @@ while (true) {
   }
   if (reset) {
     node.data = "";
+    // Nothing left to read back
+    following = true;
+    lastTop = 0;
   }
   appendOutput(node, text, MAX_CONSOLE_TEXT);
 
@@ -58,7 +66,7 @@ while (true) {
       frame = 0;
       if (following) {
         output.scrollTop = output.scrollHeight;
-        scrolledTo = output.scrollTop;
+        lastTop = output.scrollTop;
       }
     });
   }
