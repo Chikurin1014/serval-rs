@@ -28,6 +28,9 @@ pub fn PortInfoPanel() -> Element {
         .as_ref()
         .and_then(|port| port.baudrate)
         .map_or_else(unknown, |baudrate| format!("{baudrate} bps"));
+    let rx_bytes = format_bytes(serial.rx_bytes());
+    let tx_bytes = format_bytes(serial.tx_bytes());
+    let log = serial.log();
 
     rsx! {
         document::Link { rel: "stylesheet", href: PORT_INFO_PANEL_CSS }
@@ -37,6 +40,21 @@ pub fn PortInfoPanel() -> Element {
             Card {
                 CardHeader { CardTitle { "Port Info" } }
                 CardContent {
+                    // Shown instead of the details and the log when the panel is
+                    // too short for them (see `port-info-panel.css`)
+                    div {
+                        class: "port-summary",
+                        span { "{product} · {vendor}" }
+                        span { "{baudrate} {frame()}" }
+                        span { "RX {rx_bytes} · TX {tx_bytes}" }
+                        if let Some(entry) = log.first() {
+                            span {
+                                class: "port-summary-log",
+                                "data-kind": kind_name(entry.kind),
+                                "{time.format(entry.time_ms)} {entry.title}"
+                            }
+                        }
+                    }
                     dl {
                         class: "port-info",
                         dt { "Vendor" }
@@ -54,20 +72,16 @@ pub fn PortInfoPanel() -> Element {
                         dt { "Flow control" }
                         dd { "{FLOW_CONTROL}" }
                         dt { "Received" }
-                        dd { {format_bytes(serial.rx_bytes())} }
+                        dd { "{rx_bytes}" }
                         dt { "Sent" }
-                        dd { {format_bytes(serial.tx_bytes())} }
+                        dd { "{tx_bytes}" }
                     }
                     ol {
                         class: "port-log",
                         aria_label: "Log",
-                        for entry in serial.log() {
+                        for entry in log {
                             li {
-                                "data-kind": match entry.kind {
-                                    LogKind::Success => "success",
-                                    LogKind::Info => "info",
-                                    LogKind::Error => "error",
-                                },
+                                "data-kind": kind_name(entry.kind),
                                 time { "{time.format(entry.time_ms)}" }
                                 span { class: "port-log-title", "{entry.title}" }
                                 if !entry.detail.is_empty() {
@@ -79,6 +93,20 @@ pub fn PortInfoPanel() -> Element {
                 }
             }
         }
+    }
+}
+
+/// The frame ports are opened with, as e.g. "8N1".
+fn frame() -> String {
+    let parity = PARITY.chars().next().unwrap_or('N').to_ascii_uppercase();
+    format!("{DATA_BITS}{parity}{STOP_BITS}")
+}
+
+fn kind_name(kind: LogKind) -> &'static str {
+    match kind {
+        LogKind::Success => "success",
+        LogKind::Info => "info",
+        LogKind::Error => "error",
     }
 }
 
@@ -97,7 +125,12 @@ fn format_bytes(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::format_bytes;
+    use super::{format_bytes, frame};
+
+    #[test]
+    fn frame_is_8n1() {
+        assert_eq!(frame(), "8N1");
+    }
 
     #[test]
     fn format_bytes_separates_thousands() {

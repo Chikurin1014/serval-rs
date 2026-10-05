@@ -106,3 +106,43 @@
   color: var(--dc-text-muted);
   overflow-wrap: anywhere;
 }
+
+/* Too short for the details and the log: a summary in their place */
+.port-info-panel {
+  container: port-info / size;
+}
+
+.port-summary {
+  display: none;
+}
+
+@container port-info (max-height: 20rem) {
+  .port-info,
+  .port-log {
+    display: none;
+  }
+
+  .port-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    overflow: hidden;
+    padding: 0.75rem 1rem;
+    color: var(--dc-text);
+    font-size: 0.8rem;
+  }
+}
+
+.port-summary-log {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border-color);
+  color: var(--dc-text-muted);
+}
+
+.port-summary-log[data-kind="success"] {
+  border-left-color: var(--secondary-success-color);
+}
+
+.port-summary-log[data-kind="error"] {
+  border-left-color: var(--secondary-error-color);
+}

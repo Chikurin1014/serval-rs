@@ -1,3 +1,5 @@
+from playwright.sync_api import expect
+
 from app import App
 
 
@@ -67,3 +69,19 @@ def test_logs_connecting_and_failures(app: App):
         ("error", "Failed to send"),
         ("success", "Port opened"),
     ]
+
+
+def test_shows_a_summary_when_too_short_for_the_details(app: App):
+    app.open_port()
+    details = app.page.locator(".port-info")
+    summary = app.page.locator(".port-summary")
+    expect(details).to_be_visible()
+    expect(summary).to_be_hidden()
+
+    # Narrow: the panel goes under the console, too short for the details
+    app.page.set_viewport_size({"width": 800, "height": 600})
+    expect(details).to_be_hidden()
+    expect(summary).to_be_visible()
+    expect(summary).to_contain_text("Uno R3 (CDC ACM) · Arduino SA")
+    expect(summary).to_contain_text("9600 bps 8N1")
+    expect(summary).to_contain_text("Port opened")
