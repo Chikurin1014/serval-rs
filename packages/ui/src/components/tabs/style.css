@@ -13,7 +13,7 @@
   flex-direction: row;
   padding: 0.25rem;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: 0;
   gap: 0.25rem;
 }
 
@@ -25,7 +25,7 @@
 .dx-tabs-trigger {
   padding: 4px 8px;
   border: none;
-  border-radius: calc(0.5rem - 0.25rem);
+  border-radius: 0;
   background: none;
   color: var(--secondary-color-5);
   cursor: pointer;
@@ -34,8 +34,8 @@
 [data-variant="default"] .dx-tabs-trigger[data-state="active"] {
   background-color: var(--light, var(--primary-color))
     var(--dark, var(--primary-color-6));
-  box-shadow: var(--dark, inset 0 0 0 1px var(--primary-color-7))
-    var(--light, 0 1px 2px rgb(0 0 0 / 18%));
+  /* A flat 1px line, as the other elements' borders */
+  box-shadow: inset 0 0 0 1px var(--border-color);
 }
 
 .dx-tabs-trigger[data-state="active"] {
@@ -59,12 +59,11 @@
 }
 
 [data-variant="default"] .dx-tabs-content-themed {
-  border: 1px solid var(--light, var(--primary-color-6))
-    var(--dark, var(--primary-color-7));
-  border-radius: 0.5rem;
+  /* Barely there: the panel stands out from the page by its background */
+  border: 1px solid color-mix(in oklab, var(--border-color) 25%, transparent);
+  border-radius: 0;
   background: var(--light, var(--primary-color))
     var(--dark, var(--primary-color-3));
-  box-shadow: var(--light, 0 1px 2px rgb(0 0 0 / 18%)) var(--dark, none);
 }
 
 .dx-tabs-content[data-state="inactive"] {
