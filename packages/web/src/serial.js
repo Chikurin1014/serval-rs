@@ -12,8 +12,16 @@ export function requestPort(serial = navigator.serial) {
   return serial.requestPort();
 }
 
-export function openPort(port, baudRate) {
-  return port.open({ baudRate });
+/** Opens the port with every setting given, so none is left to a default. */
+export function openPort(
+  port,
+  baudRate,
+  dataBits,
+  stopBits,
+  parity,
+  flowControl,
+) {
+  return port.open({ baudRate, dataBits, stopBits, parity, flowControl });
 }
 
 // The reader `readLoop` holds on each port, and when it is released

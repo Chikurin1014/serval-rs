@@ -5,7 +5,7 @@ use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::serial::{
-    LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, use_serial_provider,
+    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, use_serial_provider,
 };
 
 /// Provides `SerialContext` with the browser's Web Serial.
@@ -53,9 +53,16 @@ impl SerialPort for WebSerialPort {
     fn open(&self, baudrate: u32) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move {
-            web_serial::open_port(&port, baudrate)
-                .await
-                .map_err(message)
+            web_serial::open_port(
+                &port,
+                baudrate,
+                serial::DATA_BITS,
+                serial::STOP_BITS,
+                serial::PARITY,
+                serial::FLOW_CONTROL,
+            )
+            .await
+            .map_err(message)
         })
     }
 
@@ -102,7 +109,14 @@ mod web_serial {
         pub async fn request_port() -> Result<JsValue, JsValue>;
 
         #[wasm_bindgen(catch, js_name = openPort)]
-        pub async fn open_port(port: &JsValue, baud_rate: u32) -> Result<(), JsValue>;
+        pub async fn open_port(
+            port: &JsValue,
+            baud_rate: u32,
+            data_bits: u8,
+            stop_bits: u8,
+            parity: &str,
+            flow_control: &str,
+        ) -> Result<(), JsValue>;
 
         /// Stops `readLoop` on the port first, if it is running.
         #[wasm_bindgen(catch, js_name = closePort)]
@@ -128,16 +142,23 @@ mod web_serial {
     }
 }
 
-/// The USB device's name, from its vendor and product ids.
+/// The USB device's vendor and product names, from their ids.
 fn port_info(port: &JsValue) -> PortInfo {
-    let name = web_serial::usb_vendor_id(port)
+    let vendor_id = web_serial::usb_vendor_id(port);
+    let device = vendor_id
         .zip(web_serial::usb_product_id(port))
-        .and_then(|(vid, pid)| usb_ids::Device::from_vid_pid(vid, pid))
-        .map_or_else(
-            || "Serial Device".to_string(),
-            |device| device.name().to_string(),
-        );
-    PortInfo { name }
+        .and_then(|(vid, pid)| usb_ids::Device::from_vid_pid(vid, pid));
+    let vendor = vendor_id
+        .and_then(<usb_ids::Vendor as usb_ids::FromId<u16>>::from_id)
+        .map(|vendor| vendor.name().to_string());
+    let product = device.map(|device| device.name().to_string());
+    PortInfo {
+        name: product
+            .clone()
+            .unwrap_or_else(|| "Serial Device".to_string()),
+        vendor,
+        product,
+    }
 }
 
 /// The `name` of a JS error (e.g. a `DOMException`'s), if it has one.
