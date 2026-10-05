@@ -30,7 +30,7 @@
   padding: 12px 16px;
   border: 1px solid var(--light, var(--primary-color-6))
     var(--dark, var(--primary-color-7));
-  border-radius: 0;
+  border-radius: 0.375rem;
   margin-top: -4rem;
   box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
   filter: var(--light, none)
@@ -131,33 +131,37 @@
   transform: scale(calc(100%));
 }
 
+/* The type's color in the border, and a little of it over the panels'
+   background (as the navbar's) */
+.dx-toast[data-type] {
+  --toast-color: var(--border-color);
+  /* How much of it the text takes; on the light theme, as much as keeps
+     every type's text above 4.5:1 against the background */
+  --toast-title-mix: var(--light, 65%) var(--dark, 40%);
+  --toast-description-mix: var(--light, 55%) var(--dark, 25%);
+  /* And how much the background takes */
+  --toast-background-mix: var(--light, 3%) var(--dark, 5%);
+
+  border-width: 2px;
+  border-color: var(--toast-color);
+  background-color: color-mix(
+    in oklab,
+    var(--dc-panel),
+    var(--toast-color) var(--toast-background-mix)
+  );
+  color: var(--dc-text);
+}
+
 .dx-toast[data-type="success"] {
-  background-color: var(--primary-success-color);
-  color: var(--secondary-success-color);
+  --toast-color: var(--secondary-success-color);
 }
 
 .dx-toast[data-type="error"] {
-  /* The theme's error red, less saturated and a little closer to the
-     page's lightness, so it stands out no more than the other types do */
-  background-color: var(
-      --light,
-      oklch(from var(--primary-error-color) calc(l + 0.02) calc(c * 0.6) h)
-    )
-    var(
-      --dark,
-      oklch(from var(--primary-error-color) calc(l - 0.05) calc(c * 0.6) h)
-    );
-  color: var(--contrast-error-color);
+  --toast-color: var(--secondary-error-color);
 }
 
 .dx-toast[data-type="warning"] {
-  background-color: var(--primary-warning-color);
-  color: var(--secondary-warning-color);
-}
-
-.dx-toast[data-type="info"] {
-  background-color: var(--primary-info-color);
-  color: var(--secondary-info-color);
+  --toast-color: var(--secondary-warning-color);
 }
 
 .dx-toast-content {
@@ -169,12 +173,21 @@
 
 .dx-toast-title {
   margin-bottom: 4px;
-  color: var(--secondary-color-4);
-  font-weight: 600;
+  /* More of the type's color than the description, to stand out */
+  color: color-mix(
+    in oklab,
+    var(--dc-text),
+    var(--toast-color) var(--toast-title-mix)
+  );
+  font-weight: 700;
 }
 
 .dx-toast-description {
-  color: var(--secondary-color-3);
+  color: color-mix(
+    in oklab,
+    var(--dc-text),
+    var(--toast-color) var(--toast-description-mix)
+  );
   font-size: 0.875rem;
   /* One line, as the toasts are of a fixed height to stack */
   overflow: hidden;
