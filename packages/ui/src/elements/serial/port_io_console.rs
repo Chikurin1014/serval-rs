@@ -12,50 +12,39 @@ use crate::{
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 
+/// The text handling, then the output, which uses it (see both files)
+const CONSOLE_JS: &str = concat!(
+    include_str!("console_output.js"),
+    include_str!("port_io_console.js"),
+);
+
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
     let data_context = use_context::<DataContext>();
 
-    let mut text_to_show = use_signal(String::new);
     let mut text_to_send = use_signal(String::new);
-    let mut scroll_to_bottom = use_signal(|| false);
+    // Owns the output text, so each chunk costs the same however long it is
+    let output = use_hook(|| document::eval(CONSOLE_JS));
 
-    // Appends only the chunks received since the last run
+    // Sends only the chunks received since the last run
     let mut cursor = SourceCursor::default();
     use_effect(move || {
-        let Some(NewEntries { entries, restarted }) =
-            cursor.new_entries::<ByteData>(&data_context, RAW_DATA_LABEL)
+        let Some(NewEntries {
+            entries, restarted, ..
+        }) = cursor.new_entries::<ByteData>(&data_context, RAW_DATA_LABEL)
         else {
             cursor.reset();
-            text_to_show.set(String::new());
+            let _ = output.send((true, String::new()));
             return;
         };
-        if restarted {
-            text_to_show.set(String::new());
-        }
-        if !entries.is_empty() {
-            text_to_show
-                .write()
-                .push_str(&render_raw_data_text(&entries));
-            scroll_to_bottom.set(true);
+        if restarted || !entries.is_empty() {
+            let _ = output.send((restarted, render_raw_data_text(&entries)));
         }
     });
 
-    use_effect(move || {
-        if !scroll_to_bottom() {
-            return;
-        }
-
-        let _ = dioxus::document::eval(
-            r#"
-                const console = document.querySelector('[data-port-io-console]');
-                if (console) {
-                    console.scrollTop = console.scrollHeight;
-                }
-            "#,
-        );
-        scroll_to_bottom.set(false);
+    use_drop(move || {
+        let _ = output.send(());
     });
 
     let mut send_text = move || {
@@ -74,7 +63,7 @@ pub fn PortIoConsole() -> Element {
             pre {
                 "data-port-io-console": true,
                 class: "console-output",
-                "{text_to_show()}"
+                // Filled by `port_io_console.js`
             }
             div {
                 class: "console-send",

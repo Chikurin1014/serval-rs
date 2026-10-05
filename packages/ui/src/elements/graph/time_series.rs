@@ -168,17 +168,17 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::HashMap;
 
     use super::PlotFeed;
-    use crate::data::{NumberData, TypedData};
+    use crate::data::{DataEntry, NumberData, Queue, TypedData};
 
     fn numbers(points: &[(i64, f64)]) -> TypedData {
         TypedData::Number(
             points
                 .iter()
                 .map(|&(timestamp, value)| NumberData::new(timestamp, value))
-                .collect::<VecDeque<_>>(),
+                .collect::<Queue<_>>(),
         )
     }
 
@@ -198,7 +198,11 @@ mod tests {
             [("temp".to_string(), true, vec![(1, 1.0), (2, 2.0)])]
         );
 
-        data.insert("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]));
+        let temp = data
+            .get_mut("temp")
+            .and_then(NumberData::queue_mut)
+            .unwrap();
+        temp.push(NumberData::new(3, 3.0));
         let (_, updates) = feed.next(&data, &selected(&["temp"]));
         assert_eq!(updates, [("temp".to_string(), false, vec![(3, 3.0)])]);
 
@@ -213,7 +217,7 @@ mod tests {
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
         feed.next(&data, &selected(&["temp"]));
 
-        // Cleared and refilled past its old length: only the first timestamp tells
+        // Cleared and refilled: another queue, even if as long
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
         let (_, updates) = feed.next(&data, &selected(&["temp"]));
         assert_eq!(
@@ -228,7 +232,7 @@ mod tests {
         let data = HashMap::from([
             ("temp".to_string(), numbers(&[(1, 1.0)])),
             ("volt".to_string(), numbers(&[(1, 3.3)])),
-            ("raw_str".to_string(), TypedData::String(VecDeque::new())),
+            ("raw_str".to_string(), TypedData::String(Queue::new())),
         ]);
 
         let (labels, _) = feed.next(&data, &selected(&["volt", "raw_str"]));

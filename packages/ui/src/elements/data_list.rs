@@ -107,11 +107,11 @@ fn latest_value_preview(data: &TypedData) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::VecDeque;
+    use crate::data::Queue;
 
     #[test]
     fn latest_value_preview_uses_latest_queue_entry() {
-        let data = TypedData::Number(VecDeque::from([
+        let data = TypedData::Number(Queue::from_iter([
             crate::data::NumberData::new(1, 10.0),
             crate::data::NumberData::new(2, 20.0),
         ]));
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn latest_value_preview_handles_string_queue() {
-        let data = TypedData::String(VecDeque::from([
+        let data = TypedData::String(Queue::from_iter([
             crate::data::StringData::new(1, "first".to_string()),
             crate::data::StringData::new(2, "second".to_string()),
         ]));

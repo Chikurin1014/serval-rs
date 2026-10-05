@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use crate::data::Queue;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DataType {
@@ -19,9 +19,9 @@ impl DataType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedData {
-    Number(VecDeque<NumberData>),
-    String(VecDeque<StringData>),
-    Bytes(VecDeque<ByteData>),
+    Number(Queue<NumberData>),
+    String(Queue<StringData>),
+    Bytes(Queue<ByteData>),
 }
 
 impl TypedData {
@@ -72,17 +72,17 @@ pub trait DataEntry: Clone + Into<TypedData> {
     fn timestamp(&self) -> i64;
 
     /// The queue of entries of this type in `data`, if it holds this type.
-    fn queue(data: &TypedData) -> Option<&VecDeque<Self>>;
+    fn queue(data: &TypedData) -> Option<&Queue<Self>>;
 
     /// Like [`DataEntry::queue`], to change the queue.
-    fn queue_mut(data: &mut TypedData) -> Option<&mut VecDeque<Self>>;
+    fn queue_mut(data: &mut TypedData) -> Option<&mut Queue<Self>>;
 }
 
 macro_rules! data_entry {
     ($entry:ty, $variant:ident) => {
         impl From<$entry> for TypedData {
             fn from(data: $entry) -> Self {
-                TypedData::$variant(VecDeque::from([data]))
+                TypedData::$variant(Queue::from_iter([data]))
             }
         }
 
@@ -91,14 +91,14 @@ macro_rules! data_entry {
                 Data::timestamp(self)
             }
 
-            fn queue(data: &TypedData) -> Option<&VecDeque<Self>> {
+            fn queue(data: &TypedData) -> Option<&Queue<Self>> {
                 match data {
                     TypedData::$variant(queue) => Some(queue),
                     _ => None,
                 }
             }
 
-            fn queue_mut(data: &mut TypedData) -> Option<&mut VecDeque<Self>> {
+            fn queue_mut(data: &mut TypedData) -> Option<&mut Queue<Self>> {
                 match data {
                     TypedData::$variant(queue) => Some(queue),
                     _ => None,
@@ -114,21 +114,20 @@ data_entry!(ByteData, Bytes);
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
-
     use super::{ByteData, DataEntry, NumberData, StringData, TypedData};
+    use crate::data::Queue;
 
     #[test]
     fn each_entry_type_has_its_own_queue() {
         let mut numbers: TypedData = NumberData::new(1, 1.5).into();
-        assert_eq!(NumberData::queue(&numbers).map(VecDeque::len), Some(1));
+        assert_eq!(NumberData::queue(&numbers).map(Queue::len), Some(1));
         assert!(StringData::queue(&numbers).is_none());
         assert!(ByteData::queue(&numbers).is_none());
 
         NumberData::queue_mut(&mut numbers)
             .unwrap()
-            .push_back(NumberData::new(2, 2.5));
-        assert_eq!(NumberData::queue(&numbers).map(VecDeque::len), Some(2));
+            .push(NumberData::new(2, 2.5));
+        assert_eq!(NumberData::queue(&numbers).map(Queue::len), Some(2));
         assert!(StringData::queue_mut(&mut numbers).is_none());
     }
 
@@ -137,8 +136,8 @@ mod tests {
         let mut strings: TypedData = StringData::new(10, "a".to_string()).into();
         StringData::queue_mut(&mut strings)
             .unwrap()
-            .push_back(StringData::new(20, "b".to_string()));
+            .push(StringData::new(20, "b".to_string()));
         assert_eq!(strings.latest_timestamp(), Some(20));
-        assert_eq!(TypedData::Bytes(VecDeque::new()).latest_timestamp(), None);
+        assert_eq!(TypedData::Bytes(Queue::new()).latest_timestamp(), None);
     }
 }

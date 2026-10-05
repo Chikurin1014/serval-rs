@@ -9,6 +9,7 @@
 //                 unless `reset` is set
 //   3. `null` when the component unmounts
 
+// Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
 const MAX_POINTS = 10000;
 
 const id = await dioxus.recv();

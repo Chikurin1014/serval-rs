@@ -35,7 +35,7 @@ impl DataContext {
     pub fn push<T: DataEntry>(&mut self, label: &str, entry: T) {
         let mut data_with_labels = self.data_with_labels.write();
         if let Some(queue) = data_with_labels.get_mut(label).and_then(T::queue_mut) {
-            queue.push_back(entry);
+            queue.push(entry);
         } else {
             data_with_labels.insert(label.to_string(), entry.into());
         }
