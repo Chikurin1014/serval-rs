@@ -1,0 +1,48 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # For jobs to come that publish a release (see `needs` and `if` in them)
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      # Opens or updates the release pull request from the commits on `main`,
+      # and tags and releases once it is merged (see release-please-config.json)
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # release-please bumps the version in Cargo.toml, but cannot in
+      # Cargo.lock, which `--locked` builds would then reject: catch it up on
+      # the release pull request
+      - if: steps.release.outputs.pr
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+
+      - if: steps.release.outputs.pr
+        name: Update the crates' versions in Cargo.lock
+        env:
+          # The runner's own toolchain will do for this, not the one
+          # rust-toolchain.toml asks for, with its targets to download
+          RUSTUP_TOOLCHAIN: stable
+        run: |
+          cargo update --workspace
+          if ! git diff --quiet Cargo.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --message "chore: update Cargo.lock" Cargo.lock
+            git push
+          fi
