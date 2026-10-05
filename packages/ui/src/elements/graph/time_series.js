@@ -3,10 +3,11 @@
 //
 // Messages from Rust:
 //   1. the container element id (once, after mount)
-//   2. `[labels, updates]` whenever data changes
+//   2. `[labels, updates, colors]` whenever data changes
 //      - labels:  the selected labels that hold numbers; others are dropped
 //      - updates: `[label, reset, [[timestamp_ms, value], ...]]`, only new points
 //                 unless `reset` is set
+//      - colors:  `{label: css custom property}`, each line's color (as its tag's)
 //   3. `null` when the component unmounts
 
 // Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
@@ -26,7 +27,10 @@ while (!window.uPlot) {
 /** @type {Map<string, {t: number[], v: number[]}>} */
 const series = new Map();
 let plot = null;
-let plotLabels = "";
+// The labels and their colors the plot was created with
+let plotLines = "";
+/** @type {Record<string, string>} */
+let colors = {};
 let frame = 0;
 
 // Resolve a CSS custom property (which may use the `--light`/`--dark` switch) to a color
@@ -38,16 +42,12 @@ function cssColor(name) {
   return getComputedStyle(probe).color;
 }
 
-const PALETTE = [
-  "--dc-accent",
-  "--focused-border-color",
-  "--secondary-warning-color",
-  "--dc-danger",
-  "--secondary-color-5",
-];
-
 function sortedLabels() {
   return [...series.keys()].sort();
+}
+
+function lines(labels) {
+  return labels.map((label) => `${label}=${colors[label]}`).join("\n");
 }
 
 function fit() {
@@ -62,7 +62,7 @@ function fit() {
 function create() {
   plot?.destroy();
   const labels = sortedLabels();
-  plotLabels = labels.join("\n");
+  plotLines = lines(labels);
 
   const text = cssColor("--dc-text-muted");
   const grid = withAlpha(cssColor("--dc-border"), 0.35);
@@ -80,9 +80,9 @@ function create() {
       axes: [axis, { ...axis }],
       series: [
         {},
-        ...labels.map((label, i) => ({
+        ...labels.map((label) => ({
           label,
-          stroke: cssColor(PALETTE[i % PALETTE.length]),
+          stroke: cssColor(colors[label] ?? "--secondary-color-5"),
           width: 1.5,
           spanGaps: true,
           points: { show: false },
@@ -100,7 +100,7 @@ function create() {
 function draw() {
   frame = 0;
   const labels = sortedLabels();
-  if (!plot || labels.join("\n") !== plotLabels) {
+  if (!plot || lines(labels) !== plotLines) {
     create();
   } else {
     plot.setData(alignedData(series, labels));
@@ -134,7 +134,9 @@ while (true) {
     break;
   }
 
-  applyMessage(series, message, MAX_POINTS);
+  const [labels, updates, lineColors] = message;
+  colors = lineColors;
+  applyMessage(series, [labels, updates], MAX_POINTS);
   schedule();
 }
 
