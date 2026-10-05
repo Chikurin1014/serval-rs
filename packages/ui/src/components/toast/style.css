@@ -162,6 +162,7 @@
 
 .dx-toast-content {
   flex: 1;
+  min-width: 0;
   margin-right: 8px;
   transition: filter 0.2s ease;
 }
@@ -175,6 +176,10 @@
 .dx-toast-description {
   color: var(--secondary-color-3);
   font-size: 0.875rem;
+  /* One line, as the toasts are of a fixed height to stack */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dx-toast-close {

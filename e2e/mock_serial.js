@@ -15,8 +15,16 @@
     written: [],
     // How many chunks it sent; read by the tests
     sent: 0,
+    // Set by the tests to make it fail: a message for `open` or `write` to
+    // fail with, or `cancelRequest` for the user closing the port chooser
+    openError: null,
+    writeError: null,
+    cancelRequest: false,
     getInfo: () => ({ usbVendorId: 0x2341, usbProductId: 0x0043 }),
     open: async () => {
+      if (port.openError) {
+        throw new DOMException(port.openError, "NetworkError");
+      }
       port.readable = new ReadableStream({
         start(controller) {
           const send = () => {
@@ -27,6 +35,13 @@
             controller.enqueue(encoder.encode(`temp:${temp}\nvolt:${volt}\n`));
           };
           timer = setInterval(send, 50);
+          // As unplugging the device does: reading fails
+          port.lose = () => {
+            clearInterval(timer);
+            controller.error(
+              new DOMException("The device has been lost.", "NetworkError"),
+            );
+          };
           // Sends `count` chunks at once, as a fast device would; for the tests
           port.burst = (count) => {
             for (let i = 0; i < count; i++) {
@@ -40,6 +55,9 @@
       });
       port.writable = new WritableStream({
         write(chunk) {
+          if (port.writeError) {
+            throw new DOMException(port.writeError, "NetworkError");
+          }
           port.written.push(new TextDecoder().decode(chunk));
         },
       });
@@ -58,7 +76,12 @@
   Object.defineProperty(navigator, "serial", {
     value: {
       getPorts: async () => [port],
-      requestPort: async () => port,
+      requestPort: async () => {
+        if (port.cancelRequest) {
+          throw new DOMException("No port selected by the user.", "NotFoundError");
+        }
+        return port;
+      },
       addEventListener() {},
       removeEventListener() {},
     },
