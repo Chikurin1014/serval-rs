@@ -83,7 +83,7 @@ pub fn PortIoConsole() -> Element {
                 Button {
                     variant: ButtonVariant::Primary,
                     size: ButtonSize::Sm,
-                    background: "var(--secondary-success-color)",
+                    class: "console-send-button",
                     disabled: !serial.is_open() || text_to_send().trim().is_empty(),
                     onclick: move |_| {
                         send_text();

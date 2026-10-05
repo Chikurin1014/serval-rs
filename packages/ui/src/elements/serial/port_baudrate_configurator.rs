@@ -6,6 +6,7 @@ const PORT_BAUDRATE_CONFIGURATOR_CSS: Asset =
     asset!("/assets/styling/port-baudrate-configurator.css");
 
 const BAUDRATE_PRESETS: [u32; 4] = [9600_u32, 19200, 57600, 115200];
+const BAUDRATE_PRESETS_LIST: &str = "baudrate-presets";
 
 #[component]
 pub fn PortBaudrateConfigurator() -> Element {
@@ -22,7 +23,7 @@ pub fn PortBaudrateConfigurator() -> Element {
                 min: "1",
                 step: "1",
                 placeholder: "Baudrate (e.g. 9600)",
-                list: "baudrate-presets",
+                list: BAUDRATE_PRESETS_LIST,
                 value: selected_baudrate.map(|baudrate| baudrate.to_string()),
                 oninput: move |event: FormEvent| {
                     if let Some(baudrate) = parse_baudrate(&event.value()) {
@@ -33,7 +34,7 @@ pub fn PortBaudrateConfigurator() -> Element {
             span { class: "baudrate-unit", "bps" }
         }
         datalist {
-            id: "baudrate-presets",
+            id: BAUDRATE_PRESETS_LIST,
             {BAUDRATE_PRESETS.iter().map(|baudrate_preset| {
                 rsx!(
                     option {

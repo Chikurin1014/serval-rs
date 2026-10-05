@@ -12,6 +12,11 @@ use crate::data::{DataContext, DataType, MapContext};
 
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 
+// `datalist` ids of the labels of each type, offered by the maps' forms
+pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
+pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
+pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
+
 /// Lists the maps in `MapContext` for editing.
 /// The maps run in `MapProvider`, whether or not this is mounted.
 #[component]
@@ -93,19 +98,19 @@ pub fn MapList() -> Element {
                 },
             }
             datalist {
-                id: "map-bytes-labels",
+                id: BYTES_LABELS_LIST_ID,
                 for label in bytes_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "map-strings-labels",
+                id: STRINGS_LABELS_LIST_ID,
                 for label in strings_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "map-numbers-labels",
+                id: NUMBERS_LABELS_LIST_ID,
                 for label in numbers_labels() {
                     option { value: "{label}" }
                 }

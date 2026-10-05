@@ -36,3 +36,16 @@
   height: 2rem;
   font-size: 0.875rem;
 }
+
+/* The send button in the success color, hovered as the primary style is */
+.console-send button.console-send-button {
+  background-color: var(--secondary-success-color);
+}
+
+.console-send button.console-send-button:not(:disabled):hover {
+  background-color: color-mix(
+    in oklab,
+    var(--secondary-success-color) 90%,
+    transparent
+  );
+}

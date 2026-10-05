@@ -3,6 +3,7 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::map_list::BYTES_LABELS_LIST_ID;
 use crate::{
     components::input::Input,
     data::{DataType, MapKind, SplitFromByte, SplitFromByteSettings},
@@ -43,7 +44,7 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
                         class: "field",
                         lucide::Tag {}
                         Input {
-                            list: "map-bytes-labels", // Defined in `MapList` component
+                            list: BYTES_LABELS_LIST_ID,
                             placeholder: "Source label",
                             autocomplete: "on",
                             value: "{from_label}",
