@@ -74,10 +74,22 @@
           buildPhase = ''
             dx build --release --debug-symbols false --package ${package-type}
           '';
-          installPhase = ''
-            mkdir -p $out/bin
-            cp -r target/dx/${package-type}/release/${package-type}/public $out/bin/serval-${package-type}
-          '';
+          installPhase =
+            if package-type == "web" then
+              # Static files to serve, not programs: in `share`, as data
+              ''
+                mkdir -p $out/share
+                cp -r target/dx/web/release/web/public $out/share/serval-web
+              ''
+            else
+              # The program in `bin`, and its assets where Dioxus looks for a
+              # Linux app's: `lib/<name>/assets`, beside `bin`
+              ''
+                app=target/dx/${package-type}/release/linux/app
+                mkdir -p $out/bin $out/lib/serval-${package-type}
+                cp $app/${package-type} $out/bin/serval-${package-type}
+                cp -r $app/assets $out/lib/serval-${package-type}/
+              '';
           doCheck = false; # Disable tests to avoid building deps for them
         };
     in
@@ -123,7 +135,7 @@
                 nativeBuildInputs = [ python ];
                 # Chromium aborts without a fontconfig setup, which the sandbox lacks
                 FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
-                SERVAL_E2E_APP = "${config.packages.web}/bin/serval-web";
+                SERVAL_E2E_APP = "${config.packages.web}/share/serval-web";
               }
             )
             ''
