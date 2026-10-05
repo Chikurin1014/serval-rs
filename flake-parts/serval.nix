@@ -74,22 +74,25 @@
             doCheck = false;
           };
           dependencies = craneLib.buildDepsOnly (
-            args
-            // pkgs.lib.optionalAttrs (package-type == "web") {
-              # `wasm-bindgen` fails on an app that does nothing, so the
-              # stand-in for this one launches Dioxus, as the real one does
-              dummySrc = craneLib.mkDummySrc {
-                inherit src;
-                extraDummyScript = ''
-                  chmod +w $out/packages/web/src/main.rs
-                  cat > $out/packages/web/src/main.rs <<'EOF'
-                  fn main() {
-                      dioxus::launch(|| dioxus::prelude::VNode::empty());
-                  }
-                  EOF
-                '';
-              };
-            }
+            if package-type == "web" then
+              builtins.removeAttrs args [ "src" ]
+              // {
+                # `wasm-bindgen` fails on an app that does nothing, so the
+                # stand-in for this one launches Dioxus, as the real one does
+                dummySrc = craneLib.mkDummySrc {
+                  inherit src;
+                  extraDummyScript = ''
+                    chmod +w $out/packages/web/src/main.rs
+                    cat > $out/packages/web/src/main.rs <<'EOF'
+                    fn main() {
+                        dioxus::launch(|| dioxus::prelude::VNode::empty());
+                    }
+                    EOF
+                  '';
+                };
+              }
+            else
+              args
           );
         in
         craneLib.buildPackage (
