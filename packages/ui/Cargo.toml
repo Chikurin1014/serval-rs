@@ -8,3 +8,7 @@ dioxus = { workspace = true }
 dioxus-icons = { workspace = true }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 regex = "1"
+
+[dev-dependencies]
+# Renders components to HTML in tests (used by `components::toast`)
+dioxus-ssr = "0.7"

@@ -15,3 +15,4 @@ pub mod tag_group;
 pub mod toggle;
 pub mod tooltip;
 pub mod virtual_list;
+pub mod toast;
