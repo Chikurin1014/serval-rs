@@ -42,4 +42,4 @@ jobs:
       # against a release build of the web app (see `checks` in
       # flake-parts/serval.nix)
       - name: Run the checks
-        run: nix flake check --print-build-logs
+        run: nix flake check --print-build-logs --keep-going
