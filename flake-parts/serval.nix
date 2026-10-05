@@ -7,6 +7,12 @@
   perSystem =
     { config, pkgs, ... }:
     let
+      inherit (builtins)
+        head
+        listToAttrs
+        readFile
+        ;
+
       package-types = [ "web" ];
       package-names = [ "default" ] ++ package-types;
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ../rust-toolchain.toml;
@@ -39,7 +45,7 @@
       # on top of them (`cargoArtifacts`)
       commonArgs = {
         pname = "serval";
-        version = "0.1.0";
+        version = (fromTOML (readFile ../Cargo.toml)).workspace.package.version;
         inherit src buildInputs;
         strictDeps = true;
         nativeBuildInputs = [ pkgs.pkg-config ];
@@ -75,7 +81,7 @@
           };
           dependencies = craneLib.buildDepsOnly (
             if package-type == "web" then
-              builtins.removeAttrs args [ "src" ]
+              removeAttrs args [ "src" ]
               // {
                 # `wasm-bindgen` fails on an app that does nothing, so the
                 # stand-in for this one launches Dioxus, as the real one does
@@ -136,9 +142,9 @@
     in
     {
       packages = {
-        default = mkPackage (builtins.head package-types);
+        default = mkPackage (head package-types);
       }
-      // builtins.listToAttrs (
+      // listToAttrs (
         map (name: {
           inherit name;
           value = mkPackage name;
@@ -189,7 +195,7 @@
             '';
       };
 
-      devShells = builtins.listToAttrs (
+      devShells = listToAttrs (
         map (name: {
           inherit name;
           value = pkgs.mkShell (
