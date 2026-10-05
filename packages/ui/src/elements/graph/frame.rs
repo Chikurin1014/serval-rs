@@ -1,10 +1,7 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdGripVertical, LdX},
-    Icon,
-};
+use dioxus_icons::lucide;
 
-use super::{board::GraphDrag, GraphContext};
+use super::{GraphContext, board::GraphDrag};
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardFooter},
@@ -148,7 +145,7 @@ pub fn GraphFrame(
                             ));
                         }
                     },
-                    Icon { icon: LdGripVertical {} }
+                    lucide::GripVertical {}
                 }
             }
             // Over the top right corner of the plot, shown while the graph is hovered
@@ -159,7 +156,7 @@ pub fn GraphFrame(
                 aria_label: "Remove graph",
                 title: "Remove graph",
                 onclick: move |_| graph_context.remove(id),
-                Icon { icon: LdX {} }
+                lucide::X {}
             }
             Card {
                 CardContent {

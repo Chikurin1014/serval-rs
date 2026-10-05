@@ -1,7 +1,4 @@
-use std::collections::VecDeque;
-
-use super::data_type::Data;
-use crate::data::{ByteData, DataContext, NumberData, StringData, TypedData};
+use crate::data::{DataContext, DataEntry, Queue};
 
 /// What a [`SourceCursor`] read.
 #[derive(Clone, Debug, PartialEq)]
@@ -13,13 +10,17 @@ pub struct NewEntries<T> {
     /// [`SourceCursor::reset`] or a label change, or when the queue was
     /// cleared or replaced since.
     pub restarted: bool,
+    /// How many entries were dropped from the queue before this reader got to
+    /// them, so it never saw them: it fell more than `MAX_ENTRIES_PER_LABEL`
+    /// behind. They come before `entries`.
+    pub missed: u64,
 }
 
-/// How much of a queue was read last time.
+/// Where the last read ended, in which queue.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Position {
-    len: usize,
-    first_timestamp: Option<i64>,
+    queue: u64,
+    end: u64,
 }
 
 /// Tracks how far a reader has read a queue in `DataContext`, so each read
@@ -38,76 +39,46 @@ impl SourceCursor {
 
     /// Entries added to `queue` since the previous read.
     ///
-    /// Queues only grow at the back, so one that got shorter, or whose first
-    /// entry changed, was cleared or replaced: it is read again in full.
-    pub fn read<T: Clone>(&mut self, queue: &VecDeque<Data<T>>) -> NewEntries<Data<T>> {
+    /// Positions count every entry ever pushed, so the oldest being dropped
+    /// does not move them. Another queue (the label was cleared or replaced)
+    /// is read again in full. Entries dropped before the reader got to them
+    /// are skipped, and counted in [`NewEntries::missed`].
+    pub fn read<T: Clone>(&mut self, queue: &Queue<T>) -> NewEntries<T> {
         let current = Position {
-            len: queue.len(),
-            first_timestamp: queue.front().map(|data| data.timestamp()),
+            queue: queue.id(),
+            end: queue.end(),
         };
         let resume_at = match self.read.replace(current) {
-            Some(previous)
-                if previous.len <= current.len
-                    && (previous.len == 0
-                        || previous.first_timestamp == current.first_timestamp) =>
-            {
-                Some(previous.len)
-            }
+            Some(previous) if previous.queue == current.queue => Some(previous.end),
             _ => None,
         };
+        let (skip, missed) = match resume_at {
+            Some(end) => (
+                end.saturating_sub(queue.dropped()) as usize,
+                queue.dropped().saturating_sub(end),
+            ),
+            None => (0, 0),
+        };
         NewEntries {
-            entries: queue.iter().skip(resume_at.unwrap_or(0)).cloned().collect(),
+            entries: queue.iter().skip(skip).cloned().collect(),
             restarted: resume_at.is_none(),
+            missed,
         }
     }
 
-    /// Bytes added under `label` since the previous read, or `None` if
-    /// `label` holds no bytes.
-    pub fn new_bytes(&mut self, data: &DataContext, label: &str) -> Option<NewEntries<ByteData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::Bytes(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Strings added under `label` since the previous read, or `None` if
-    /// `label` holds no strings.
-    pub fn new_strings(
+    /// Entries of type `T` added under `label` since the previous read, or
+    /// `None` if `label` holds no entries of that type.
+    pub fn new_entries<T: DataEntry>(
         &mut self,
         data: &DataContext,
         label: &str,
-    ) -> Option<NewEntries<StringData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::String(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    /// Numbers added under `label` since the previous read, or `None` if
-    /// `label` holds no numbers.
-    pub fn new_numbers(
-        &mut self,
-        data: &DataContext,
-        label: &str,
-    ) -> Option<NewEntries<NumberData>> {
-        self.read_label(data, label, |data| match data {
-            TypedData::Number(queue) => Some(queue),
-            _ => None,
-        })
-    }
-
-    fn read_label<T: Clone>(
-        &mut self,
-        data: &DataContext,
-        label: &str,
-        queue_of: impl FnOnce(&TypedData) -> Option<&VecDeque<Data<T>>>,
-    ) -> Option<NewEntries<Data<T>>> {
+    ) -> Option<NewEntries<T>> {
         if self.label != label {
             self.label = label.to_string();
             self.reset();
         }
         data.with_data(|data| {
-            let queue = data.get(label).and_then(queue_of)?;
+            let queue = data.get(label).and_then(T::queue)?;
             Some(self.read(queue))
         })
     }
@@ -115,75 +86,89 @@ impl SourceCursor {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
-
     use super::{NewEntries, SourceCursor};
-    use crate::data::NumberData;
+    use crate::data::Queue;
 
-    fn queue(points: &[(i64, f64)]) -> VecDeque<NumberData> {
-        points
-            .iter()
-            .map(|&(timestamp, value)| NumberData::new(timestamp, value))
-            .collect()
+    fn read(cursor: &mut SourceCursor, queue: &Queue<i32>) -> (Vec<i32>, bool) {
+        let NewEntries {
+            entries,
+            restarted,
+            missed,
+        } = cursor.read(queue);
+        assert_eq!(
+            missed, 0,
+            "only `skips_what_was_dropped_before_it_was_read` misses"
+        );
+        (entries, restarted)
     }
 
-    fn read(cursor: &mut SourceCursor, points: &[(i64, f64)]) -> (Vec<(i64, f64)>, bool) {
-        let NewEntries { entries, restarted } = cursor.read(&queue(points));
-        let entries = entries
-            .iter()
-            .map(|data| (data.timestamp(), *data.value()))
-            .collect();
-        (entries, restarted)
+    fn queue_of(entries: &[i32]) -> Queue<i32> {
+        entries.iter().copied().collect()
     }
 
     #[test]
     fn reads_everything_first_then_only_new_entries() {
         let mut cursor = SourceCursor::default();
-        assert_eq!(
-            read(&mut cursor, &[(1, 1.0), (2, 2.0)]),
-            (vec![(1, 1.0), (2, 2.0)], true)
-        );
-        assert_eq!(
-            read(&mut cursor, &[(1, 1.0), (2, 2.0), (3, 3.0)]),
-            (vec![(3, 3.0)], false)
-        );
-        assert_eq!(
-            read(&mut cursor, &[(1, 1.0), (2, 2.0), (3, 3.0)]),
-            (vec![], false)
-        );
+        let mut queue = queue_of(&[1, 2]);
+        assert_eq!(read(&mut cursor, &queue), (vec![1, 2], true));
+        queue.push(3);
+        assert_eq!(read(&mut cursor, &queue), (vec![3], false));
+        assert_eq!(read(&mut cursor, &queue), (vec![], false));
     }
 
     #[test]
-    fn restarts_when_the_queue_got_shorter() {
+    fn keeps_its_place_when_the_oldest_are_dropped() {
         let mut cursor = SourceCursor::default();
-        read(&mut cursor, &[(1, 1.0), (2, 2.0)]);
-        assert_eq!(read(&mut cursor, &[(5, 5.0)]), (vec![(5, 5.0)], true));
+        let mut queue = queue_of(&[1, 2, 3]);
+        read(&mut cursor, &queue);
+        queue.push_within(4, 3);
+        queue.push_within(5, 3);
+        assert_eq!(read(&mut cursor, &queue), (vec![4, 5], false));
     }
 
     #[test]
-    fn restarts_when_the_queue_was_refilled_past_its_old_length() {
+    fn skips_what_was_dropped_before_it_was_read() {
         let mut cursor = SourceCursor::default();
-        read(&mut cursor, &[(1, 1.0), (2, 2.0)]);
-        // Same or greater length, but a different first entry
-        assert_eq!(
-            read(&mut cursor, &[(5, 5.0), (6, 6.0), (7, 7.0)]),
-            (vec![(5, 5.0), (6, 6.0), (7, 7.0)], true)
-        );
+        let mut queue = queue_of(&[1]);
+        read(&mut cursor, &queue);
+        for entry in 2..=6 {
+            queue.push_within(entry, 3);
+        }
+        // 2 and 3 were dropped unread
+        let read = cursor.read(&queue);
+        assert_eq!(read.entries, [4, 5, 6]);
+        assert!(!read.restarted);
+        assert_eq!(read.missed, 2);
+
+        // Counted once: the next read misses nothing
+        queue.push_within(7, 3);
+        assert_eq!(cursor.read(&queue).missed, 0);
+    }
+
+    #[test]
+    fn restarts_on_another_queue() {
+        let mut cursor = SourceCursor::default();
+        read(&mut cursor, &queue_of(&[1, 2]));
+        // Even one as long, e.g. the label cleared and refilled
+        assert_eq!(read(&mut cursor, &queue_of(&[5, 6])), (vec![5, 6], true));
     }
 
     #[test]
     fn an_empty_queue_filling_up_is_not_a_restart() {
         let mut cursor = SourceCursor::default();
-        assert_eq!(read(&mut cursor, &[]), (vec![], true));
-        assert_eq!(read(&mut cursor, &[]), (vec![], false));
-        assert_eq!(read(&mut cursor, &[(1, 1.0)]), (vec![(1, 1.0)], false));
+        let mut queue = Queue::new();
+        assert_eq!(read(&mut cursor, &queue), (vec![], true));
+        assert_eq!(read(&mut cursor, &queue), (vec![], false));
+        queue.push(1);
+        assert_eq!(read(&mut cursor, &queue), (vec![1], false));
     }
 
     #[test]
     fn reset_reads_everything_again() {
         let mut cursor = SourceCursor::default();
-        read(&mut cursor, &[(1, 1.0)]);
+        let queue = queue_of(&[1]);
+        read(&mut cursor, &queue);
         cursor.reset();
-        assert_eq!(read(&mut cursor, &[(1, 1.0)]), (vec![(1, 1.0)], true));
+        assert_eq!(read(&mut cursor, &queue), (vec![1], true));
     }
 }

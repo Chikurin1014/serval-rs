@@ -1,21 +1,19 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdDatabase, LdLineChart, LdSquareTerminal},
-    Icon,
-};
+use dioxus_icons::lucide;
 
 use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     elements::{
-        ConversionList, DataList, PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton,
-        PortSelector,
+        DataList,
+        graph::GraphBoard,
+        map::MapList,
+        serial::{PortBaudrateConfigurator, PortIoConsole, PortOpenCloseButton, PortSelector},
     },
-    graph::GraphBoard,
 };
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
 
-/// Requires `SerialContext`, `DataContext` and `ConversionContext` to be
+/// Requires `SerialContext`, `DataContext` and `MapContext` to be
 /// provided by an ancestor.
 #[component]
 pub fn Home() -> Element {
@@ -39,21 +37,21 @@ pub fn Home() -> Element {
                         class: "home-tab-trigger",
                         index: 0usize,
                         value: "console".to_string(),
-                        Icon { icon: LdSquareTerminal }
+                        lucide::SquareTerminal { size: 20 }
                         "Console"
                     }
                     TabTrigger {
                         class: "home-tab-trigger",
                         index: 1usize,
                         value: "data".to_string(),
-                        Icon { icon: LdDatabase }
+                        lucide::Database { size: 20 }
                         "Data"
                     }
                     TabTrigger {
                         class: "home-tab-trigger",
                         index: 2usize,
                         value: "graph".to_string(),
-                        Icon { icon: LdLineChart }
+                        lucide::ChartLine { size: 20 }
                         "Graph"
                     }
                 }
@@ -71,7 +69,7 @@ pub fn Home() -> Element {
                 div {
                     class: "data-grid",
                     DataList {}
-                    ConversionList {}
+                    MapList {}
                 }
             }
             TabContent {

@@ -3,7 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 use regex::{Captures, Regex};
 
-use crate::data::{set_if_changed, Converter, DataContext, NumberData, SourceCursor, StringData};
+use crate::data::{DataContext, MapRunner, NumberData, SourceCursor, StringData, set_if_changed};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegexOutput {
@@ -20,12 +20,12 @@ impl RegexOutput {
         timestamp: i64,
     ) -> Result<(), String> {
         match self {
-            RegexOutput::String => data.push_string(label, StringData::new(timestamp, value)),
+            RegexOutput::String => data.push(label, StringData::new(timestamp, value)),
             RegexOutput::Number => {
                 let number = value
                     .parse::<f64>()
                     .map_err(|_| format!("The result '{value}' is not a number"))?;
-                data.push_number(label, NumberData::new(timestamp, number));
+                data.push(label, NumberData::new(timestamp, number));
             }
         }
         Ok(())
@@ -33,7 +33,7 @@ impl RegexOutput {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct RegexMatchSettings {
+pub struct RegexSettings {
     pub from_label: Signal<String>,
     /// May use the pattern's capture groups (`$1`).
     pub to_label: Signal<String>,
@@ -45,11 +45,11 @@ pub struct RegexMatchSettings {
 }
 
 /// Converts each string matching a regex, labelling the result with
-/// `to_label` expanded from the same match (so one conversion can fan out to
+/// `to_label` expanded from the same match (so one map can fan out to
 /// several labels).
 pub struct RegexMatch {
     output: RegexOutput,
-    settings: RegexMatchSettings,
+    settings: RegexSettings,
     /// Settings of the previous run; a change restarts from the start of the source.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
@@ -59,7 +59,7 @@ impl RegexMatch {
     pub fn new(output: RegexOutput) -> Self {
         Self {
             output,
-            settings: RegexMatchSettings {
+            settings: RegexSettings {
                 from_label: Signal::new(String::new()),
                 to_label: Signal::new(String::new()),
                 pattern: Signal::new(String::new()),
@@ -73,13 +73,13 @@ impl RegexMatch {
     }
 }
 
-impl Converter for RegexMatch {
+impl MapRunner for RegexMatch {
     fn settings(&self) -> &dyn Any {
         &self.settings
     }
 
     fn run(&mut self, data: &mut DataContext, timestamp: i64) {
-        let RegexMatchSettings {
+        let RegexSettings {
             from_label,
             to_label,
             pattern,
@@ -115,7 +115,7 @@ impl Converter for RegexMatch {
         // A restart needs no special handling: what was converted before stays
         let Some(entries) = self
             .cursor
-            .new_strings(data, &source)
+            .new_entries::<StringData>(data, &source)
             .map(|read| read.entries)
         else {
             return;
@@ -178,9 +178,11 @@ mod tests {
 
     #[test]
     fn value_parses_as_number() {
-        assert!(expand_first(r"(\d+)", "abc123def", "$1")
-            .parse::<f64>()
-            .is_ok());
+        assert!(
+            expand_first(r"(\d+)", "abc123def", "$1")
+                .parse::<f64>()
+                .is_ok()
+        );
     }
 
     #[test]

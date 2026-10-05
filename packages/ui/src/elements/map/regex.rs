@@ -1,52 +1,50 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdMoveRight, LdRegex, LdTag},
-    Icon,
-};
+use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::{
     components::input::Input,
-    data::{ConversionKind, DataType, RegexMatch, RegexMatchSettings, RegexOutput},
+    data::{DataType, MapKind, RegexMatch, RegexOutput, RegexSettings},
 };
 
-const CONVERSION_CSS: Asset = asset!("/assets/styling/conversion.css");
+const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-pub const REGEX_TO_STRING: ConversionKind = ConversionKind {
+pub const REGEX_TO_STRING: MapKind = MapKind {
     name: "Regex (to String)",
     from: DataType::String,
     to: DataType::String,
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
-    // The result is a string, so offer the existing string labels as targets
-    form: |settings: &dyn Any| regex_match_form(settings, Some("conversion-strings-labels")),
+    // Offer the existing labels of the result's type as targets
+    form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
 };
 
-pub const REGEX_TO_NUMBER: ConversionKind = ConversionKind {
+pub const REGEX_TO_NUMBER: MapKind = MapKind {
     name: "Regex (to Number)",
     from: DataType::String,
     to: DataType::Number,
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
-    form: |settings: &dyn Any| regex_match_form(settings, None),
+    form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
 };
 
-/// `target_list`: `datalist` id offered for the target label (defined in `ConversionList`).
-fn regex_match_form(settings: &dyn Any, target_list: Option<&str>) -> Element {
-    match settings.downcast_ref::<RegexMatchSettings>() {
+/// `target_list`: `datalist` id offered for the target label (defined in `MapList`).
+fn regex_form(settings: &dyn Any, target_list: &str) -> Element {
+    match settings.downcast_ref::<RegexSettings>() {
         Some(&settings) => rsx! {
             RegexMatchForm {
                 settings,
-                target_list: target_list.map(str::to_string),
+                target_list: target_list.to_string(),
             }
         },
         None => VNode::empty(),
     }
 }
 
-/// Settings form of a `RegexMatch` conversion.
+/// Settings form of a `Regex` map.
 #[component]
-pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>) -> Element {
-    let RegexMatchSettings {
+pub fn RegexMatchForm(settings: RegexSettings, target_list: String) -> Element {
+    let RegexSettings {
         mut from_label,
         mut to_label,
         mut pattern,
@@ -56,17 +54,17 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: CONVERSION_CSS }
+        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
 
         div {
-            class: "conversion-row",
+            class: "map-row",
             div {
                 class: "field-stack",
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
-                        list: "conversion-strings-labels", // Defined in `ConversionList` component
+                        list: STRINGS_LABELS_LIST_ID,
                         placeholder: "Source label",
                         autocomplete: "on",
                         value: "{from_label}",
@@ -76,7 +74,7 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
                 label {
                     class: "field",
                     span { class: "field-label", "From" }
-                    Icon { icon: LdRegex {} }
+                    lucide::Regex {}
                     Input {
                         placeholder: "Text to be matched",
                         value: "{pattern}",
@@ -90,12 +88,12 @@ pub fn RegexMatchForm(settings: RegexMatchSettings, target_list: Option<String>)
                     span { class: "field-error", "{error}" }
                 }
             }
-            Icon { icon: LdMoveRight {} }
+            lucide::MoveRight { size: 20 }
             div {
                 class: "field-stack",
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
                         placeholder: "Target label",
                         list: target_list,

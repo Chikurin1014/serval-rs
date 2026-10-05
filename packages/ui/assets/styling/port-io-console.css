@@ -1,38 +1,51 @@
 .console {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: ui-monospace, monospace;
 }
 
 .console-output {
-    flex: 1 1 auto;
-    min-height: 0;
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0;
-    overflow: auto;
-    padding: 1rem;
-    border: 1px solid var(--dc-border);
-    border-bottom: none;
-    background: var(--dc-screen);
-    color: var(--dc-screen-text);
-    font-size: .875rem;
-    white-space: pre-wrap;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--dc-border);
+  border-bottom: none;
+  background: var(--dc-screen);
+  color: var(--dc-screen-text);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
 }
 
 /* Input and send button joined under the output */
 .console-send {
-    display: flex;
-    flex: 0 0 auto;
-    width: 100%;
+  display: flex;
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 .console-send input {
-    flex: 1;
-    min-width: 0;
-    height: 2rem;
-    font-size: .875rem;
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  font-size: 0.875rem;
+}
+
+/* The send button in the success color, hovered as the primary style is */
+.console-send button.console-send-button {
+  background-color: var(--secondary-success-color);
+}
+
+.console-send button.console-send-button:not(:disabled):hover {
+  background-color: color-mix(
+    in oklab,
+    var(--secondary-success-color) 90%,
+    transparent
+  );
 }

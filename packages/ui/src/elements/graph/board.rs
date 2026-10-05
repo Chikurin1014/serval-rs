@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdPlus, Icon};
+use dioxus_icons::lucide;
 
 use super::{GraphContext, GraphProperty};
 use crate::{
@@ -61,7 +61,7 @@ pub fn GraphBoard() -> Element {
                         aria_label: "Toggle data list",
                         title: "Toggle data list",
                     }
-                    // One kind needs no menu; with several, choose like conversions
+                    // One kind needs no menu; with several, choose like maps
                     if let [kind] = kinds[..] {
                         Button {
                             variant: ButtonVariant::Ghost,
@@ -69,13 +69,13 @@ pub fn GraphBoard() -> Element {
                             onclick: move |_| {
                                 context.add(kind, GraphProperty::default());
                             },
-                            Icon { icon: LdPlus }
+                            lucide::Plus {}
                             "Add graph"
                         }
                     } else {
                         DropdownMenu {
                             DropdownMenuTrigger {
-                                Icon { icon: LdPlus }
+                                lucide::Plus { size: 20 }
                                 "Add graph"
                             }
                             DropdownMenuContent {

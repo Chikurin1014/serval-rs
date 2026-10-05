@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdTrash, LdX},
-    Icon,
-};
+use dioxus_icons::lucide;
 
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
@@ -14,41 +11,47 @@ const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
 #[component]
 pub fn DataList() -> Element {
-    let data_context = use_context::<DataContext>();
-    let mut all_clear_context = data_context.clone();
-    let rows = data_context
-        .data_with_labels()
-        .iter()
-        .map(|(label, data)| {
-            let label = label.clone();
-            let mut row_context = data_context.clone();
-            let type_name = data.data_type().name();
-            let preview = latest_value_preview(data);
-            let timestamp = latest_timestamp(data);
-            rsx! {
-                tr {
-                    th { class: "data-cell", "{label}" }
-                    td { class: "data-cell", "{type_name}" }
-                    td { class: "data-cell", "{preview}" }
-                    td { class: "data-cell", "{timestamp}" }
-                    td {
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            size: ButtonSize::IconXs,
-                            aria_label: "Delete label",
-                            onclick: {
-                                let label = label.clone();
-                                move |_| {
-                                    row_context.remove(&label);
-                                }
-                            },
-                            Icon { icon: LdX {} }
+    let mut data_context = use_context::<DataContext>();
+    // Read in place: only what is shown is copied out of each queue
+    let rows = data_context.with_data(|data| {
+        let mut entries = data.iter().collect::<Vec<_>>();
+        entries.sort_by_key(|(label, _)| *label);
+        entries
+            .into_iter()
+            .map(|(label, data)| {
+                let label = label.clone();
+                let mut row_context = data_context;
+                let type_name = data.data_type().name();
+                let preview = latest_value_preview(data);
+                let timestamp = data
+                    .latest_timestamp()
+                    .map_or_else(|| "N/A".to_string(), |timestamp| timestamp.to_string());
+                rsx! {
+                    tr {
+                        key: "{label}",
+                        th { class: "data-cell", "{label}" }
+                        td { class: "data-cell", "{type_name}" }
+                        td { class: "data-cell", "{preview}" }
+                        td { class: "data-cell", "{timestamp}" }
+                        td {
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: ButtonSize::IconXs,
+                                aria_label: "Delete label",
+                                onclick: {
+                                    let label = label.clone();
+                                    move |_| {
+                                        row_context.remove(&label);
+                                    }
+                                },
+                                lucide::X {}
+                            }
                         }
                     }
                 }
-            }
-        })
-        .collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>()
+    });
 
     rsx! {
         document::Link { rel: "stylesheet", href: DATA_LIST_CSS }
@@ -64,8 +67,8 @@ pub fn DataList() -> Element {
                             size: ButtonSize::IconSm,
                             aria_label: "Clear all",
                             title: "Clear all",
-                            onclick: move |_| all_clear_context.clear_all(),
-                            Icon { icon: LdTrash {} }
+                            onclick: move |_| data_context.clear_all(),
+                            lucide::Trash {}
                         }
                     }
                 }
@@ -89,48 +92,26 @@ pub fn DataList() -> Element {
     }
 }
 
+/// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
-    match data {
-        TypedData::Number(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.value()))
-            .unwrap_or_else(|| "empty".to_string()),
-        TypedData::String(queue) => queue
-            .back()
-            .map(|entry| entry.value().clone())
-            .unwrap_or_else(|| "empty".to_string()),
+    let latest = match data {
+        TypedData::Number(queue) => queue.back().map(|entry| entry.value().to_string()),
+        TypedData::String(queue) => queue.back().map(|entry| entry.value().clone()),
         TypedData::Bytes(queue) => queue
             .back()
-            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned())
-            .unwrap_or_else(|| "empty".to_string()),
-    }
-}
-
-fn latest_timestamp(data: &TypedData) -> String {
-    match data {
-        TypedData::Number(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-        TypedData::String(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-        TypedData::Bytes(queue) => queue
-            .back()
-            .map(|entry| format!("{}", entry.timestamp()))
-            .unwrap_or_else(|| "N/A".to_string()),
-    }
+            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned()),
+    };
+    latest.unwrap_or_else(|| "empty".to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::VecDeque;
+    use crate::data::Queue;
 
     #[test]
     fn latest_value_preview_uses_latest_queue_entry() {
-        let data = TypedData::Number(VecDeque::from([
+        let data = TypedData::Number(Queue::from_iter([
             crate::data::NumberData::new(1, 10.0),
             crate::data::NumberData::new(2, 20.0),
         ]));
@@ -140,7 +121,7 @@ mod tests {
 
     #[test]
     fn latest_value_preview_handles_string_queue() {
-        let data = TypedData::String(VecDeque::from([
+        let data = TypedData::String(Queue::from_iter([
             crate::data::StringData::new(1, "first".to_string()),
             crate::data::StringData::new(2, "second".to_string()),
         ]));

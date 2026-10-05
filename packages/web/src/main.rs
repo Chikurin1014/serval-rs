@@ -1,11 +1,14 @@
 use dioxus::prelude::*;
 
 use ui::{
-    data::{ConversionProvider, DataProvider},
-    elements::{builtin_conversion_kinds, initial_conversions},
-    graph::{builtin_graph_kinds, initial_graphs, GraphProvider},
+    ThemeProvider,
+    data::{DataProvider, MapProvider},
+    elements::{
+        Navbar,
+        graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
+        map::{builtin_map_kinds, initial_maps},
+    },
     views::Home,
-    Navbar, ThemeProvider,
 };
 
 mod serial;
@@ -39,11 +42,11 @@ fn App() -> Element {
 
         ThemeProvider {
             TimeProvider {
-                SerialProvider {
-                    DataProvider {
-                        ConversionProvider {
-                            kinds: builtin_conversion_kinds(),
-                            initial: initial_conversions(),
+                DataProvider {
+                    SerialProvider {
+                        MapProvider {
+                            kinds: builtin_map_kinds(),
+                            initial: initial_maps(),
                             GraphProvider {
                                 kinds: builtin_graph_kinds(),
                                 initial: initial_graphs(),

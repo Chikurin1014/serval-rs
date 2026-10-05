@@ -1,19 +1,17 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdMoveRight, LdTag},
-    Icon,
-};
+use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::map_list::BYTES_LABELS_LIST_ID;
 use crate::{
     components::input::Input,
-    data::{ConversionKind, DataType, SplitFromByte, SplitFromByteSettings},
+    data::{DataType, MapKind, SplitFromByte, SplitFromByteSettings},
 };
 
-const CONVERSION_CSS: Asset = asset!("/assets/styling/conversion.css");
+const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-pub const SPLIT_FROM_BYTE: ConversionKind = ConversionKind {
+pub const SPLIT_FROM_BYTE: MapKind = MapKind {
     name: "Split (from Byte)",
     from: DataType::Bytes,
     to: DataType::String,
@@ -24,7 +22,7 @@ pub const SPLIT_FROM_BYTE: ConversionKind = ConversionKind {
     },
 };
 
-/// Settings form of a `SplitFromByte` conversion.
+/// Settings form of a `SplitFromByte` map.
 #[component]
 pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
     let SplitFromByteSettings {
@@ -34,19 +32,19 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: CONVERSION_CSS }
+        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
 
         div {
-            class: "conversion-form",
+            class: "map-form",
             div {
-                class: "conversion-row",
+                class: "map-row",
                 div {
                     class: "field-stack",
                     label {
                         class: "field",
-                        Icon { icon: LdTag {} }
+                        lucide::Tag {}
                         Input {
-                            list: "conversion-bytes-labels", // Defined in `ConversionList` component
+                            list: BYTES_LABELS_LIST_ID,
                             placeholder: "Source label",
                             autocomplete: "on",
                             value: "{from_label}",
@@ -62,10 +60,10 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
                         }
                     }
                 }
-                Icon { icon: LdMoveRight {} }
+                lucide::MoveRight { size: 20 }
                 label {
                     class: "field",
-                    Icon { icon: LdTag {} }
+                    lucide::Tag {}
                     Input {
                         placeholder: "Target label",
                         value: "{to_label}",

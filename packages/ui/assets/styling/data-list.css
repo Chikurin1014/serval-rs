@@ -1,76 +1,77 @@
 .data-list {
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .data-list [data-slot="card"] {
-    height: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-    padding: .5rem 0 1rem;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.5rem 0 1rem;
 }
 
 /* Title and clear button on one row, vertically centred */
 .data-list [data-slot="card-header"] {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1rem .5rem;
-    border-bottom: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem 0.5rem;
+  border-bottom: 1px solid var(--dc-border);
 }
 
 .data-list [data-slot="card-title"] {
-    color: var(--dc-text);
-    font-weight: 900;
-    font-size: .9rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+  color: var(--dc-text);
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* Only the table scrolls; the card header stays in place */
 .data-list [data-slot="card-content"] {
-    flex: 1;
-    min-height: 0;
-    /* Let a table wider than the card scroll instead of overflowing it */
-    min-width: 0;
-    overflow: auto;
-    padding: 0 1rem;
+  flex: 1;
+  min-height: 0;
+  /* Let a table wider than the card scroll instead of overflowing it */
+  min-width: 0;
+  overflow: auto;
+  padding: 0 1rem;
 }
 
 .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .8rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
 }
 
 .data-table th,
 .data-table td {
-    padding: .3rem .5rem;
-    border-bottom: 1px solid var(--dc-border);
-    text-align: left;
-    vertical-align: middle;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--dc-border);
+  text-align: left;
+  vertical-align: middle;
 }
 
 .data-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--light, var(--primary-color-2)) var(--dark, var(--primary-color-3));
-    color: var(--dc-text);
-    font-family: ui-monospace, monospace;
-    font-size: .75rem;
-    font-weight: 500;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
+  color: var(--dc-text);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .data-table tbody tr:nth-child(even) {
-    background: color-mix(in oklab, var(--dc-text) 3%, transparent);
+  background: color-mix(in oklab, var(--dc-text) 3%, transparent);
 }
 
 .data-table .data-cell {
-    font-family: ui-monospace, monospace;
-    font-size: .75rem;
-    font-weight: 400;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
 }

@@ -1,5 +1,6 @@
 .dx-separator {
-  background-color: var(--light, var(--primary-color-6)) var(--dark, var(--primary-color-7));
+  background-color: var(--light, var(--primary-color-6))
+    var(--dark, var(--primary-color-7));
 }
 
 .dx-separator[data-orientation="horizontal"] {

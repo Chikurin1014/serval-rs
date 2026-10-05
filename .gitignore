@@ -16,3 +16,7 @@
 .nvim.lua
 .nvimrc
 .exrc
+
+# Python (end-to-end tests)
+__pycache__/
+.pytest_cache/

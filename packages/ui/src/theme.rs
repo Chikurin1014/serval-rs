@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    icons::ld_icons::{LdMoon, LdSun},
-    Icon,
-};
+use dioxus_icons::lucide;
 
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
@@ -11,26 +8,21 @@ const THEME_CSS: Asset = asset!("/assets/styling/theme.css");
 const THEME_SWITCH_CSS: Asset = asset!("/assets/styling/theme-switch.css");
 
 /// Re-applies the theme chosen with `ThemeSwitch` in a previous session.
-const RESTORE_THEME_JS: &str = r#"
-try {
-    const theme = localStorage.getItem("theme");
-    if (theme === "light" || theme === "dark") {
-        document.documentElement.dataset.theme = theme;
-    }
-} catch (_) {}
-"#;
+const RESTORE_THEME_JS: &str = concat!(
+    include_str!("theme.js"),
+    "\nrestoreTheme(document.documentElement, browserStorage());\n",
+);
 
 /// Flips `data-theme` on `<html>`, which `dx-components-theme.css` switches on.
 /// Without an explicit choice the current theme is the system preference.
-const TOGGLE_THEME_JS: &str = r#"
-const root = document.documentElement;
-const system = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-const next = (root.dataset.theme ?? system) === "dark" ? "light" : "dark";
-root.dataset.theme = next;
-try {
-    localStorage.setItem("theme", next);
-} catch (_) {}
-"#;
+const TOGGLE_THEME_JS: &str = concat!(
+    include_str!("theme.js"),
+    "\ntoggleTheme(\n",
+    "    document.documentElement,\n",
+    "    browserStorage(),\n",
+    "    matchMedia(\"(prefers-color-scheme: dark)\").matches,\n",
+    ");\n",
+);
 
 #[component]
 pub fn ThemeProvider(children: Element) -> Element {
@@ -62,11 +54,11 @@ pub fn ThemeSwitch() -> Element {
             },
             span {
                 class: "theme-switch-sun",
-                Icon { icon: LdSun {} }
+                lucide::Sun {}
             }
             span {
                 class: "theme-switch-moon",
-                Icon { icon: LdMoon {} }
+                lucide::Moon {}
             }
         }
     }

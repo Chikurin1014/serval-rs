@@ -1,7 +1,7 @@
 button.port-open-close[data-open="false"] {
-    color: var(--dc-accent);
+  color: var(--dc-accent);
 }
 
 button.port-open-close[data-open="true"] {
-    color: var(--dc-danger);
+  color: var(--dc-danger);
 }

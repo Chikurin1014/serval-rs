@@ -1,61 +1,57 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdSend, Icon};
+use dioxus_icons::lucide;
 
 use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
         input::Input,
     },
-    data::{ByteData, DataContext},
+    data::{ByteData, DataContext, NewEntries, RAW_DATA_LABEL, SourceCursor},
     serial::SerialContext,
 };
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 
+/// The text handling, then the output, which uses it (see both files)
+const CONSOLE_JS: &str = concat!(
+    include_str!("console_output.js"),
+    include_str!("port_io_console.js"),
+);
+
 #[component]
 pub fn PortIoConsole() -> Element {
-    let SerialContext {
-        is_open, tx_send, ..
-    } = use_context::<SerialContext>();
+    let serial = use_context::<SerialContext>();
     let data_context = use_context::<DataContext>();
 
-    let mut text_to_show = use_signal(String::new);
     let mut text_to_send = use_signal(String::new);
-    let mut scroll_to_bottom = use_signal(|| false);
+    // Owns the output text, so each chunk costs the same however long it is
+    let output = use_hook(|| document::eval(CONSOLE_JS));
 
+    // Sends only the chunks received since the last run
+    let mut cursor = SourceCursor::default();
     use_effect(move || {
-        let Some(raw_data) = data_context.raw_data() else {
-            text_to_show.set(String::new());
+        let Some(NewEntries {
+            entries, restarted, ..
+        }) = cursor.new_entries::<ByteData>(&data_context, RAW_DATA_LABEL)
+        else {
+            cursor.reset();
+            let _ = output.send((true, String::new()));
             return;
         };
-
-        text_to_show.set(render_raw_data_text(&raw_data));
-        scroll_to_bottom.set(true);
+        if restarted || !entries.is_empty() {
+            let _ = output.send((restarted, render_raw_data_text(&entries)));
+        }
     });
 
-    use_effect(move || {
-        if !scroll_to_bottom() {
-            return;
-        }
-
-        let _ = dioxus::document::eval(
-            r#"
-                const console = document.querySelector('[data-port-io-console]');
-                if (console) {
-                    console.scrollTop = console.scrollHeight;
-                }
-            "#,
-        );
-        scroll_to_bottom.set(false);
+    use_drop(move || {
+        let _ = output.send(());
     });
 
     let mut send_text = move || {
-        if !is_open() || text_to_send().trim().is_empty() {
+        if !serial.is_open() || text_to_send().trim().is_empty() {
             return;
         }
-        if let Some(send_action) = tx_send() {
-            send_action(text_to_send().as_bytes().to_vec());
-        }
+        serial.send(text_to_send().into_bytes());
         *text_to_send.write() = String::new();
     };
 
@@ -67,7 +63,7 @@ pub fn PortIoConsole() -> Element {
             pre {
                 "data-port-io-console": true,
                 class: "console-output",
-                "{text_to_show()}"
+                // Filled by `port_io_console.js`
             }
             div {
                 class: "console-send",
@@ -87,14 +83,12 @@ pub fn PortIoConsole() -> Element {
                 Button {
                     variant: ButtonVariant::Primary,
                     size: ButtonSize::Sm,
-                    background: "var(--secondary-success-color)",
-                    disabled: !is_open() || text_to_send().trim().is_empty(),
+                    class: "console-send-button",
+                    disabled: !serial.is_open() || text_to_send().trim().is_empty(),
                     onclick: move |_| {
                         send_text();
                     },
-                    Icon {
-                        icon: LdSend {}
-                    }
+                    lucide::Send {}
                 }
             }
         }

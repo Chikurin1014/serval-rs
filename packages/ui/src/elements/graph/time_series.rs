@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use super::{GraphContext, GraphFrame, GraphKind};
 use crate::components::tag_group::{Tag, TagGroupEmpty, TagGroupLabel, TagGroupMulti, TagList};
-use crate::data::{DataContext, SourceCursor, TypedData};
+use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -12,7 +12,11 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-const TIME_SERIES_JS: &str = include_str!("time_series.js");
+/// The data handling, then the plot, which uses it (see both files)
+const TIME_SERIES_JS: &str = concat!(
+    include_str!("time_series_data.js"),
+    include_str!("time_series.js"),
+);
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
@@ -90,19 +94,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     // `TagGroupMulti` takes the selection as an optional list
     let selected_values = use_memo(move || Some(selected()));
 
-    let number_labels = use_memo({
-        let data_context = data_context.clone();
-        move || {
-            let mut labels = data_context.with_data(|data| {
-                data.iter()
-                    .filter(|(_, data)| matches!(data, TypedData::Number(_)))
-                    .map(|(label, _)| label.clone())
-                    .collect::<Vec<_>>()
-            });
-            labels.sort();
-            labels
-        }
-    });
+    let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let plotted = use_memo(move || {
         let selected = selected.read();
         number_labels
@@ -162,7 +154,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             if number_labels.read().is_empty() {
                 p {
                     class: "graph-empty",
-                    "No number data yet. Add a conversion to a number to plot it."
+                    "No number data yet. Add a map to a number to plot it."
                 }
             } else if plotted() == 0 {
                 p {
@@ -176,17 +168,17 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::HashMap;
 
     use super::PlotFeed;
-    use crate::data::{NumberData, TypedData};
+    use crate::data::{DataEntry, NumberData, Queue, TypedData};
 
     fn numbers(points: &[(i64, f64)]) -> TypedData {
         TypedData::Number(
             points
                 .iter()
                 .map(|&(timestamp, value)| NumberData::new(timestamp, value))
-                .collect::<VecDeque<_>>(),
+                .collect::<Queue<_>>(),
         )
     }
 
@@ -206,7 +198,11 @@ mod tests {
             [("temp".to_string(), true, vec![(1, 1.0), (2, 2.0)])]
         );
 
-        data.insert("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]));
+        let temp = data
+            .get_mut("temp")
+            .and_then(NumberData::queue_mut)
+            .unwrap();
+        temp.push(NumberData::new(3, 3.0));
         let (_, updates) = feed.next(&data, &selected(&["temp"]));
         assert_eq!(updates, [("temp".to_string(), false, vec![(3, 3.0)])]);
 
@@ -221,7 +217,7 @@ mod tests {
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
         feed.next(&data, &selected(&["temp"]));
 
-        // Cleared and refilled past its old length: only the first timestamp tells
+        // Cleared and refilled: another queue, even if as long
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
         let (_, updates) = feed.next(&data, &selected(&["temp"]));
         assert_eq!(
@@ -236,7 +232,7 @@ mod tests {
         let data = HashMap::from([
             ("temp".to_string(), numbers(&[(1, 1.0)])),
             ("volt".to_string(), numbers(&[(1, 3.3)])),
-            ("raw_str".to_string(), TypedData::String(VecDeque::new())),
+            ("raw_str".to_string(), TypedData::String(Queue::new())),
         ]);
 
         let (labels, _) = feed.next(&data, &selected(&["volt", "raw_str"]));

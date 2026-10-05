@@ -1,108 +1,48 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::{
-    data::{ByteData, NumberData, StringData, TypedData},
-    serial::{RxData, SerialContext},
-};
+use crate::data::{DataEntry, DataType, TypedData};
 
-#[derive(Clone)]
+/// The label the bytes received from the serial port go to.
+pub const RAW_DATA_LABEL: &str = "raw_data";
+
+#[derive(Clone, Copy)]
 pub struct DataContext {
     data_with_labels: Signal<HashMap<String, TypedData>>,
 }
 
 impl DataContext {
-    pub fn data_with_labels(&self) -> HashMap<String, TypedData> {
-        self.data_with_labels.read().clone()
-    }
-
     /// Runs `f` on the stored data without cloning it.
     pub fn with_data<R>(&self, f: impl FnOnce(&HashMap<String, TypedData>) -> R) -> R {
         f(&self.data_with_labels.read())
     }
 
-    pub fn get(&self, label: &str) -> Option<TypedData> {
-        self.data_with_labels.read().get(label).cloned()
+    /// The labels holding `data_type`, sorted.
+    pub fn labels_of(&self, data_type: DataType) -> Vec<String> {
+        let mut labels = self.with_data(|data| {
+            data.iter()
+                .filter(|(_, data)| data.data_type() == data_type)
+                .map(|(label, _)| label.clone())
+                .collect::<Vec<_>>()
+        });
+        labels.sort();
+        labels
     }
 
-    pub fn get_bytes(&self, label: &str) -> Option<VecDeque<ByteData>> {
-        match self.get(label) {
-            Some(TypedData::Bytes(queue)) => Some(queue),
-            _ => None,
-        }
-    }
-
-    pub fn get_string(&self, label: &str) -> Option<VecDeque<StringData>> {
-        match self.get(label) {
-            Some(TypedData::String(queue)) => Some(queue),
-            _ => None,
-        }
-    }
-
-    pub fn raw_data(&self) -> Option<Vec<ByteData>> {
-        self.get_bytes("raw_data")
-            .map(|queue| queue.into_iter().collect())
-    }
-
-    pub fn push_number(&mut self, label: &str, data: NumberData) {
+    /// Appends `entry` to `label`. If `label` holds another type, its entries
+    /// are replaced by this one.
+    pub fn push<T: DataEntry>(&mut self, label: &str, entry: T) {
         let mut data_with_labels = self.data_with_labels.write();
-        if let Some(existing_data) = data_with_labels.get_mut(label) {
-            match existing_data {
-                TypedData::Number(queue) => queue.push_back(data),
-                _ => {
-                    *existing_data = data.into();
-                }
-            }
+        if let Some(queue) = data_with_labels.get_mut(label).and_then(T::queue_mut) {
+            queue.push(entry);
         } else {
-            data_with_labels.insert(label.to_string(), data.into());
-        }
-    }
-
-    pub fn push_string(&mut self, label: &str, data: StringData) {
-        let mut data_with_labels = self.data_with_labels.write();
-        if let Some(existing_data) = data_with_labels.get_mut(label) {
-            match existing_data {
-                TypedData::String(queue) => queue.push_back(data),
-                _ => {
-                    *existing_data = data.into();
-                }
-            }
-        } else {
-            data_with_labels.insert(label.to_string(), data.into());
-        }
-    }
-
-    pub fn push_bytes(&mut self, label: &str, data: ByteData) {
-        let mut data_with_labels = self.data_with_labels.write();
-        if let Some(existing_data) = data_with_labels.get_mut(label) {
-            match existing_data {
-                TypedData::Bytes(queue) => queue.push_back(data),
-                _ => {
-                    *existing_data = data.into();
-                }
-            }
-        } else {
-            data_with_labels.insert(label.to_string(), data.into());
+            data_with_labels.insert(label.to_string(), entry.into());
         }
     }
 
     pub fn remove(&mut self, label: &str) -> bool {
         self.data_with_labels.write().remove(label).is_some()
-    }
-
-    fn clear(&mut self, label: &str) {
-        if let Some(data) = self.data_with_labels.write().get_mut(label) {
-            match data {
-                TypedData::Number(queue) => queue.clear(),
-                TypedData::String(queue) => queue.clear(),
-                TypedData::Bytes(queue) => queue.clear(),
-            }
-        }
-    }
-
-    pub fn clear_raw(&mut self) {
-        self.clear("raw_data");
     }
 
     pub fn clear_all(&mut self) {
@@ -112,29 +52,9 @@ impl DataContext {
 
 #[component]
 pub fn DataProvider(children: Element) -> Element {
-    let data_with_labels = use_signal(HashMap::<String, TypedData>::new);
-    let serial = use_context::<SerialContext>();
-    let mut data_context = DataContext { data_with_labels };
-    let data_context_for_provider = data_context.clone();
-
-    use_effect(move || {
-        let rx_data = (serial.rx_data)();
-        let current_data = match rx_data {
-            RxData {
-                timestamp_ms: Some(timestamp),
-                data: Some(data),
-            } => Some(ByteData::new(timestamp, data)),
-            _ => None,
-        };
-
-        let Some(current) = current_data else {
-            return;
-        };
-
-        data_context.push_bytes("raw_data", current);
+    use_context_provider(|| DataContext {
+        data_with_labels: Signal::new(HashMap::new()),
     });
-
-    use_context_provider(|| data_context_for_provider.clone());
 
     children
 }

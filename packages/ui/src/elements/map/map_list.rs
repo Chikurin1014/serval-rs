@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{icons::ld_icons::LdX, Icon};
+use dioxus_icons::lucide;
 
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
@@ -8,29 +8,38 @@ use crate::components::{
     switch::Switch,
     virtual_list::VirtualList,
 };
-use crate::data::{ConversionContext, DataContext, TypedData};
+use crate::data::{DataContext, DataType, MapContext};
 
-const CONVERSION_LIST_CSS: Asset = asset!("/assets/styling/conversion-list.css");
+const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 
-/// Lists the conversions in `ConversionContext` for editing.
-/// The conversions run in `ConversionProvider`, whether or not this is mounted.
+// `datalist` ids of the labels of each type, offered by the maps' forms
+pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
+pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
+pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
+
+/// Lists the maps in `MapContext` for editing.
+/// The maps run in `MapProvider`, whether or not this is mounted.
 #[component]
-pub fn ConversionList() -> Element {
+pub fn MapList() -> Element {
     let data_context = use_context::<DataContext>();
-    let mut context = use_context::<ConversionContext>();
-    // Conversions compare by id, so typing in a form does not re-render the list
-    let conversions = use_memo(move || context.list());
+    let mut context = use_context::<MapContext>();
+    // Maps compare by id, so typing in a form does not re-render the list
+    let maps = use_memo(move || context.list());
+    // Memos, so the list re-renders when labels come and go, not on every entry
+    let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
+    let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
+    let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
 
     rsx! {
-        document::Link { rel: "stylesheet", href: CONVERSION_LIST_CSS }
+        document::Link { rel: "stylesheet", href: MAP_LIST_CSS }
 
         div {
-            class: "conversion-panel",
+            class: "map-panel",
             DropdownMenu {
-                class: "add-conversion-menu",
+                class: "add-map-menu",
                 DropdownMenuTrigger {
-                    class: "add-conversion",
-                    "+ Add conversion"
+                    class: "add-map",
+                    "+ Add map"
                 }
                 DropdownMenuContent {
                     for (index, kind) in context.kinds().into_iter().enumerate() {
@@ -47,41 +56,41 @@ pub fn ConversionList() -> Element {
             }
             // Only the cards in view are rendered
             VirtualList {
-                class: "conversion-list",
-                count: conversions.read().len(),
+                class: "map-list",
+                count: maps.read().len(),
                 render_item: move |index: usize| {
-                    let Some(conversion) = conversions.read().get(index).cloned() else {
+                    let Some(map) = maps.read().get(index).cloned() else {
                         return VNode::empty();
                     };
                     rsx! {
                         Card {
-                            // By id, so removing a conversion does not hand its card to the next one
-                            key: "{conversion.id}",
+                            // By id, so removing a map does not hand its card to the next one
+                            key: "{map.id}",
                             CardHeader {
                                 Switch {
-                                    checked: (conversion.enabled)(),
+                                    checked: (map.enabled)(),
                                     on_checked_change: {
-                                        let mut enabled = conversion.enabled;
+                                        let mut enabled = map.enabled;
                                         move |checked| enabled.set(checked)
                                     },
-                                    aria_label: "Toggle conversion",
+                                    aria_label: "Toggle map",
                                 }
-                                CardTitle { "{conversion.kind.name}" }
+                                CardTitle { "{map.kind.name}" }
                                 Button {
                                     variant: ButtonVariant::Ghost,
                                     size: ButtonSize::IconSm,
-                                    aria_label: "Delete conversion",
+                                    aria_label: "Delete map",
                                     onclick: {
-                                        let id = conversion.id;
+                                        let id = map.id;
                                         move |_| context.remove(id)
                                     },
-                                    Icon { icon: LdX {} }
+                                    lucide::X {}
                                 }
                             }
                             CardContent {
                                 div {
-                                    class: "conversion-content",
-                                    {conversion.form()}
+                                    class: "map-content",
+                                    {map.form()}
                                 }
                             }
                         }
@@ -89,20 +98,20 @@ pub fn ConversionList() -> Element {
                 },
             }
             datalist {
-                id: "conversion-bytes-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Bytes(_))) {
+                id: BYTES_LABELS_LIST_ID,
+                for label in bytes_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "conversion-strings-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::String(_))) {
+                id: STRINGS_LABELS_LIST_ID,
+                for label in strings_labels() {
                     option { value: "{label}" }
                 }
             }
             datalist {
-                id: "conversion-numbers-labels",
-                for (label, _) in data_context.data_with_labels().iter().filter(|(_, data)| matches!(data, TypedData::Number(_))) {
+                id: NUMBERS_LABELS_LIST_ID,
+                for label in numbers_labels() {
                     option { value: "{label}" }
                 }
             }

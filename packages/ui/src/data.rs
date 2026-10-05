@@ -1,13 +1,14 @@
-mod conversion;
 mod data_context;
 mod data_type;
+mod map;
+mod queue;
 mod source_cursor;
 
-pub use conversion::{
-    set_if_changed, Conversion, ConversionContext, ConversionKind, ConversionProvider, Converter,
-    InitialConversion, RegexMatch, RegexMatchSettings, RegexOutput, SplitFromByte,
-    SplitFromByteSettings,
+pub use data_context::{DataContext, DataProvider, RAW_DATA_LABEL};
+pub use data_type::{ByteData, DataEntry, DataType, NumberData, StringData, TypedData};
+pub use map::{
+    InitialMap, Map, MapContext, MapKind, MapProvider, MapRunner, RegexMatch, RegexOutput,
+    RegexSettings, SplitFromByte, SplitFromByteSettings, set_if_changed,
 };
-pub use data_context::{DataContext, DataProvider};
-pub use data_type::{ByteData, DataType, NumberData, StringData, TypedData};
+pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};
 pub use source_cursor::{NewEntries, SourceCursor};

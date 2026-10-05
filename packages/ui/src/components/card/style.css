@@ -4,7 +4,8 @@
   padding: 1.5rem 0;
   border: 1px solid var(--border-color);
   border-radius: 0;
-  background-color: var(--light, var(--primary-color-2)) var(--dark, var(--primary-color-3));
+  background-color: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
   color: var(--secondary-color-4);
   gap: 1.5rem;
 }

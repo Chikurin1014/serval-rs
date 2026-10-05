@@ -1,16 +1,16 @@
 /* uPlot sizes itself to this box (see `fit` in time_series.js) */
 .graph-plot {
-    position: absolute;
-    inset: .5rem 1rem 0;
-    overflow: hidden;
+  position: absolute;
+  inset: 0.5rem 1rem 0;
+  overflow: hidden;
 }
 
 /* An empty plot would still show its axes and legend */
 .graph-plot:has(~ .graph-empty) {
-    visibility: hidden;
+  visibility: hidden;
 }
 
 .graph .u-legend {
-    color: var(--dc-text);
-    font-size: .75rem;
+  color: var(--dc-text);
+  font-size: 0.75rem;
 }

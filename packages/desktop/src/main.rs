@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ui::Navbar;
+use ui::elements::Navbar;
 use views::{Blog, Home};
 
 mod views;
