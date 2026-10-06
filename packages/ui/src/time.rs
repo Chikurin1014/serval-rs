@@ -7,7 +7,8 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct TimeContext {
     now_ms: Rc<dyn Fn() -> i64>,
-    format_ms: Rc<dyn Fn(i64) -> String>,
+    /// Given a time and whether to show its milliseconds.
+    format_ms: Rc<dyn Fn(i64, bool) -> String>,
 }
 
 impl TimeContext {
@@ -20,7 +21,8 @@ impl TimeContext {
     }
 
     /// Shows times with `format_ms` instead, e.g. in the platform's local time.
-    pub fn with_format(self, format_ms: impl Fn(i64) -> String + 'static) -> Self {
+    /// `format_ms` is given a time and whether to show its milliseconds.
+    pub fn with_format(self, format_ms: impl Fn(i64, bool) -> String + 'static) -> Self {
         Self {
             format_ms: Rc::new(format_ms),
             ..self
@@ -34,19 +36,30 @@ impl TimeContext {
 
     /// The time of day at `ms` (a time from [`Self::current`]), to show.
     pub fn format(&self, ms: i64) -> String {
-        (self.format_ms)(ms)
+        (self.format_ms)(ms, false)
+    }
+
+    /// As [`Self::format`], with the milliseconds.
+    pub fn format_millis(&self, ms: i64) -> String {
+        (self.format_ms)(ms, true)
     }
 }
 
-/// `HH:MM:SS` in UTC: with no platform API, the time zone is unknown.
-fn utc_time_of_day(ms: i64) -> String {
+/// `HH:MM:SS` (or `HH:MM:SS.mmm` with `millis`) in UTC: with no platform API,
+/// the time zone is unknown.
+fn utc_time_of_day(ms: i64, millis: bool) -> String {
     let seconds = ms.div_euclid(1000).rem_euclid(24 * 60 * 60);
-    format!(
+    let time = format!(
         "{:02}:{:02}:{:02}",
         seconds / 3600,
         seconds % 3600 / 60,
         seconds % 60
-    )
+    );
+    if millis {
+        format!("{time}.{:03}", ms.rem_euclid(1000))
+    } else {
+        time
+    }
 }
 
 impl PartialEq for TimeContext {
@@ -77,9 +90,12 @@ mod tests {
     #[test]
     fn formats_utc_by_default() {
         // 2026-10-05 01:02:03.456 UTC
-        assert_eq!(TimeContext::new(|| 0).format(1_791_162_123_456), "01:02:03");
-        let local = TimeContext::new(|| 0).with_format(|_| "local".to_string());
-        assert_eq!(local.format(0), "local");
+        let utc = TimeContext::new(|| 0);
+        assert_eq!(utc.format(1_791_162_123_456), "01:02:03");
+        assert_eq!(utc.format_millis(1_791_162_123_456), "01:02:03.456");
+        let local = TimeContext::new(|| 0).with_format(|_, millis| format!("local {millis}"));
+        assert_eq!(local.format(0), "local false");
+        assert_eq!(local.format_millis(0), "local true");
     }
 
     #[test]

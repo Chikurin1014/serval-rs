@@ -10,16 +10,19 @@ use crate::components::{
     tag_group::{Tag, TagGroup, TagList},
 };
 use crate::data::{DataContext, TypedData, format_number};
+use crate::time::TimeContext;
 
 pub use filter::{FilterContext, FilterKind};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
-/// Requires `DataContext` and `FilterContext` to be provided by an ancestor.
+/// Requires `DataContext`, `FilterContext` and `TimeContext` to be provided by an
+/// ancestor.
 #[component]
 pub fn DataList() -> Element {
     let mut data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
+    let time_context = use_context::<TimeContext>();
     // Read in place: only what is shown is copied out of each queue
     let rows = data_context.with_data(|data| {
         let mut entries = data
@@ -34,16 +37,17 @@ pub fn DataList() -> Element {
                 let mut row_context = data_context;
                 let type_name = data.data_type().name();
                 let preview = latest_value_preview(data);
-                let timestamp = data
-                    .latest_timestamp()
-                    .map_or_else(|| "N/A".to_string(), |timestamp| timestamp.to_string());
+                let time = data.latest_timestamp().map_or_else(
+                    || "N/A".to_string(),
+                    |timestamp| time_context.format_millis(timestamp),
+                );
                 rsx! {
                     tr {
                         key: "{label}",
                         th { class: "data-cell", "{label}" }
                         td { class: "data-cell", "{type_name}" }
                         td { class: "data-cell", "{preview}" }
-                        td { class: "data-cell", "{timestamp}" }
+                        td { class: "data-cell", "{time}" }
                         td {
                             Button {
                                 variant: ButtonVariant::Ghost,
@@ -91,7 +95,7 @@ pub fn DataList() -> Element {
                                 th { "Label" }
                                 th { "Type" }
                                 th { "Latest" }
-                                th { "Timestamp" }
+                                th { "Time" }
                                 th {}
                             }
                         }

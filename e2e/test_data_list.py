@@ -62,7 +62,10 @@ def test_shows_each_label_with_its_latest_value(app: App):
     app.add_regex_map()
     app.wait_for_labels("raw_bytes", "message", "temp", "volt")
     rows = app.data_rows()
-    now = app.page.evaluate("Date.now()")
+    # The time of day as the browser shows it, over the last few seconds
+    recent = app.page.evaluate(
+        "[0, 1, 2, 3].map(s => new Date(Date.now() - s * 1000).toLocaleTimeString('default'))"
+    )
 
     assert {label: row[0] for label, row in rows.items()} == {
         "raw_bytes": "Bytes",
@@ -72,8 +75,10 @@ def test_shows_each_label_with_its_latest_value(app: App):
     }
     assert re.fullmatch(r"(temp|volt):[\d.]+", rows["message"][1])
     assert re.fullmatch(r"[\d.]+", rows["temp"][1])
-    for label, (_, _, timestamp) in rows.items():
-        assert 0 <= now - int(timestamp) < 2000, f"{label} is not recent"
+    for label, (_, _, time) in rows.items():
+        # With its milliseconds, as the locale writes them
+        assert re.search(r":\d{2}[.,]\d{3}", time), f"{label} at {time} has no milliseconds"
+        assert re.sub(r"([.,])\d{3}", "", time, count=1) in recent, f"{label} at {time} is not recent"
 
 
 def test_deletes_a_label(app: App):

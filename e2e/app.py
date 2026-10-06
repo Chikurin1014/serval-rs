@@ -4,7 +4,7 @@ import re
 
 from playwright.sync_api import ConsoleMessage, Page, expect
 
-# The rows of the data list in view, as {label: [type, latest, timestamp]}
+# The rows of the data list in view, as {label: [type, latest, time]}
 _DATA_ROWS = """() => {
     const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
     if (!table) return {};
