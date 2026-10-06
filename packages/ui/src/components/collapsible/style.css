@@ -25,6 +25,34 @@
   text-decoration-line: underline;
 }
 
+/* Slides open and closed: its one row grows from nothing to the content's
+ * height and back. Closed, it is hidden once it has shrunk, so its content
+ * takes no focus */
 .dx-collapsible-content {
-  display: contents;
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s linear 200ms;
+}
+
+.dx-collapsible-content[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s;
+}
+
+.dx-collapsible-content-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+ (prefers-reduced-motion: reduce) {
+  .dx-collapsible-content,
+  .dx-collapsible-content[data-open="true"] {
+    transition: none;
+  }
 }
