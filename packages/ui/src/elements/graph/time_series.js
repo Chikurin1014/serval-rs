@@ -4,7 +4,8 @@
 // Messages from Rust:
 //   1. the container element id (once, after mount)
 //   2. `[labels, updates, colors]` whenever data changes
-//      - labels:  the selected labels that hold numbers; others are dropped
+//      - labels:  the labels shown (by the Data list's filters) that hold numbers;
+//                 others are dropped
 //      - updates: `[label, reset, [[timestamp_ms, value], ...]]`, only new points
 //                 unless `reset` is set
 //      - colors:  `{label: css custom property}`, each line's color (as its tag's)

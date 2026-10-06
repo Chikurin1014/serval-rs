@@ -93,15 +93,11 @@ class App:
             arg=legends,
         )
 
-    def set_up_graph(self, index: int, title: str, labels: list[str]):
-        """Titles the graph at `index` and plots `labels` on it."""
+    def set_up_graph(self, index: int, title: str):
+        """Titles the graph at `index`."""
         graph = self.graphs().nth(index)
         graph.locator(".graph-title").click()  # opens the settings
         graph.locator(".graph-settings-body input").fill(title)
-        for label in labels:
-            graph.locator("[data-slot=card-footer]").get_by_role(
-                "row", name=label, exact=True
-            ).click()
         graph.locator(".graph-title").click()  # closes them
 
     def toasts(self) -> list[tuple[str, str, str]]:

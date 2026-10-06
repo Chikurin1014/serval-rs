@@ -14,9 +14,3 @@
   color: var(--dc-text);
   font-size: 0.75rem;
 }
-
-/* A chosen label's tag in its line's color (`--series-color`, set on each tag) */
-.graph .graph-settings-body [data-selected="true"] {
-  border-color: var(--series-color);
-  background-color: color-mix(in oklab, var(--series-color) 25%, transparent);
-}

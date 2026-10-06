@@ -23,8 +23,6 @@ impl PartialEq for GraphKind {
 pub struct GraphProperty {
     /// Name given by the user; views fall back to a numbered default when `None`.
     pub title: Option<String>,
-    /// Labels plotted (views decide their order).
-    pub labels: Vec<String>,
 }
 
 /// One graph in [`GraphContext`].

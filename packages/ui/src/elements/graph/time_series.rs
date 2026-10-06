@@ -2,9 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{GraphContext, GraphFrame, GraphKind};
-use crate::components::tag_group::{Tag, TagGroupEmpty, TagGroupLabel, TagGroupMulti, TagList};
+use super::{GraphFrame, GraphKind};
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
+use crate::elements::FilterContext;
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -43,19 +43,19 @@ type Update = (String, bool, Vec<(i64, f64)>);
 /// Feeds the plot only the points it does not have yet.
 #[derive(Default)]
 struct PlotFeed {
-    /// How far the plot has each selected label.
+    /// How far the plot has each label it shows.
     cursors: HashMap<String, SourceCursor>,
 }
 
 impl PlotFeed {
-    /// The next message for `time_series.js`: the selected labels that hold
-    /// numbers, and an update for each one the plot is behind on. A label
-    /// newly selected, or whose queue was cleared or replaced, is sent again in
-    /// full, as a reset.
+    /// The next message for `time_series.js`: the labels that hold numbers and
+    /// `shows` lets through, and an update for each one the plot is behind on. A
+    /// label newly shown, or whose queue was cleared or replaced, is sent again
+    /// in full, as a reset.
     fn next(
         &mut self,
         data: &HashMap<String, TypedData>,
-        selected: &[String],
+        shows: impl Fn(&str) -> bool,
     ) -> (Vec<String>, Vec<Update>) {
         let mut labels = Vec::new();
         let mut updates = Vec::new();
@@ -64,7 +64,7 @@ impl PlotFeed {
             let TypedData::Number(queue) = data else {
                 continue;
             };
-            if !selected.contains(label) {
+            if !shows(label) {
                 continue;
             }
             labels.push(label.clone());
@@ -80,48 +80,38 @@ impl PlotFeed {
                 .collect();
             updates.push((label.clone(), read.restarted, points));
         }
-        // Forget deselected labels, so selecting one again sends it in full
+        // Forget the labels no longer shown, so showing one again sends it in full
         self.cursors.retain(|label, _| labels.contains(label));
 
         (labels, updates)
     }
 }
 
-/// Plots the `Number` labels chosen in its settings against time, for the graph
-/// with `id` in `GraphContext`.
+/// Plots against time the `Number` labels the data list shows (by
+/// `FilterContext`), for the graph with `id` in `GraphContext`.
 #[component]
 pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
-    let mut graph_context = use_context::<GraphContext>();
+    let filter_context = use_context::<FilterContext>();
     // Graph ids are never reused, so this is unique on the page
     let container_id = format!("graph-plot-{id}");
     let plot = use_hook(|| document::eval(TIME_SERIES_JS));
     let feed = use_hook(|| Rc::new(RefCell::new(PlotFeed::default())));
 
-    // Only this graph's labels, so edits to other graphs do not re-run the plot
-    let selected = use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| graph.property.labels)
-            .unwrap_or_default()
-    });
-    // `TagGroupMulti` takes the selection as an optional list
-    let selected_values = use_memo(move || Some(selected()));
-
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let plotted = use_memo(move || {
-        let selected = selected.read();
         number_labels
             .read()
             .iter()
-            .filter(|label| selected.contains(label))
+            .filter(|label| filter_context.shows(label))
             .count()
     });
 
     use_effect(move || {
-        let selected = selected.read();
-        let (labels, updates) =
-            data_context.with_data(|data| feed.borrow_mut().next(data, &selected));
+        let (labels, updates) = data_context.with_data(|data| {
+            feed.borrow_mut()
+                .next(data, |label| filter_context.shows(label))
+        });
         let colors = number_labels
             .read()
             .iter()
@@ -142,27 +132,6 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
 
         GraphFrame {
             id,
-            settings: rsx! {
-                TagGroupMulti {
-                    values: selected_values,
-                    on_values_change: move |labels| {
-                        graph_context.update(id, |property| property.labels = labels);
-                    },
-                    TagGroupLabel { "Data" }
-                    TagList {
-                        TagGroupEmpty { "No number data yet" }
-                        for (index, label) in number_labels().into_iter().enumerate() {
-                            Tag {
-                                key: "{label}",
-                                index,
-                                style: "--series-color: var({series_color(index)})",
-                                value: label.clone(),
-                                "{label}"
-                            }
-                        }
-                    }
-                }
-            },
             div {
                 class: "graph-plot",
                 id: "{container_id}",
@@ -181,7 +150,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             } else if plotted() == 0 {
                 p {
                     class: "graph-empty",
-                    "Open the settings under the title to choose what to plot."
+                    "No number data shown. Change the Data list's filters to show some."
                 }
             }
         }
@@ -204,8 +173,9 @@ mod tests {
         )
     }
 
-    fn selected(labels: &[&str]) -> Vec<String> {
-        labels.iter().map(|label| label.to_string()).collect()
+    /// Shows `labels`, as `FilterContext::shows` would.
+    fn shown<'a>(labels: &'a [&'a str]) -> impl Fn(&str) -> bool + 'a {
+        move |label| labels.contains(&label)
     }
 
     #[test]
@@ -213,7 +183,7 @@ mod tests {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
 
-        let (labels, updates) = feed.next(&data, &selected(&["temp"]));
+        let (labels, updates) = feed.next(&data, shown(&["temp"]));
         assert_eq!(labels, ["temp"]);
         assert_eq!(
             updates,
@@ -225,10 +195,10 @@ mod tests {
             .and_then(NumberData::queue_mut)
             .unwrap();
         temp.push(NumberData::new(3, 3.0));
-        let (_, updates) = feed.next(&data, &selected(&["temp"]));
+        let (_, updates) = feed.next(&data, shown(&["temp"]));
         assert_eq!(updates, [("temp".to_string(), false, vec![(3, 3.0)])]);
 
-        let (labels, updates) = feed.next(&data, &selected(&["temp"]));
+        let (labels, updates) = feed.next(&data, shown(&["temp"]));
         assert_eq!(labels, ["temp"]);
         assert!(updates.is_empty());
     }
@@ -237,11 +207,11 @@ mod tests {
     fn resends_a_cleared_queue_as_a_reset() {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
-        feed.next(&data, &selected(&["temp"]));
+        feed.next(&data, shown(&["temp"]));
 
         // Cleared and refilled: another queue, even if as long
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
-        let (_, updates) = feed.next(&data, &selected(&["temp"]));
+        let (_, updates) = feed.next(&data, shown(&["temp"]));
         assert_eq!(
             updates,
             [("temp".to_string(), true, vec![(5, 5.0), (6, 6.0), (7, 7.0)])]
@@ -249,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn plots_only_selected_number_labels() {
+    fn plots_only_shown_number_labels() {
         let mut feed = PlotFeed::default();
         let data = HashMap::from([
             ("temp".to_string(), numbers(&[(1, 1.0)])),
@@ -257,12 +227,12 @@ mod tests {
             ("message".to_string(), TypedData::String(Queue::new())),
         ]);
 
-        let (labels, _) = feed.next(&data, &selected(&["volt", "message"]));
+        let (labels, _) = feed.next(&data, shown(&["volt", "message"]));
         assert_eq!(labels, ["volt"]);
 
-        // Deselected, then selected again: sent in full once more
-        feed.next(&data, &selected(&[]));
-        let (_, updates) = feed.next(&data, &selected(&["volt"]));
+        // Hidden, then shown again: sent in full once more
+        feed.next(&data, shown(&[]));
+        let (_, updates) = feed.next(&data, shown(&["volt"]));
         assert_eq!(updates, [("volt".to_string(), true, vec![(1, 3.3)])]);
     }
 }
