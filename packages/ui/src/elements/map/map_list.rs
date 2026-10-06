@@ -116,7 +116,6 @@ fn AddMapBar() -> Element {
             class: "add-map-bar",
             span {
                 class: "add-map-label",
-                lucide::SquareFunction {}
                 "Map to"
             }
             div {

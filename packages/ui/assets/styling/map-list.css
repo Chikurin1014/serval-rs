@@ -160,7 +160,7 @@
     padding: 0.75rem 1rem;
 }
 
-/* "+ Map to Bytes / Number / String", in a box as the inputs are */
+/* "Map to Bytes / Number / String", in a box as the inputs are */
 .add-map-bar {
     display: flex;
     flex: 0 0 auto;
@@ -293,7 +293,7 @@
     position: relative;
 }
 
-.add-map-content [data-presets="true"] > svg {
+.add-map-content [data-presets="true"]>svg {
     width: 0.875rem;
     height: 0.875rem;
     margin-right: -0.25rem;
@@ -311,8 +311,8 @@
     padding-left: 0.25rem;
 }
 
-.add-map-content [data-presets="true"]:hover > .add-map-presets,
-.add-map-content [data-presets="true"]:focus-within > .add-map-presets {
+.add-map-content [data-presets="true"]:hover>.add-map-presets,
+.add-map-content [data-presets="true"]:focus-within>.add-map-presets {
     display: block;
 }
 
