@@ -106,6 +106,7 @@
 }
 
 .graph-settings-body > label,
+.graph-settings-body > .graph-setting,
 .graph-settings-body > div:has(> [role="grid"]) {
   display: contents;
 }

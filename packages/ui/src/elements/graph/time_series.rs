@@ -2,7 +2,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{GraphFrame, GraphKind};
+use super::{AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind};
+use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
 
@@ -93,6 +94,20 @@ impl PlotFeed {
 pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
+    let mut graph_context = use_context::<GraphContext>();
+    // Only this graph's, so edits to other graphs do not re-run the plot
+    let value_scale = use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| graph.property.value_scale)
+            .unwrap_or_default()
+    });
+    let draw_style = use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| graph.property.draw_style)
+            .unwrap_or_default()
+    });
     // Graph ids are never reused, so this is unique on the page
     let container_id = format!("graph-plot-{id}");
     let plot = use_hook(|| document::eval(TIME_SERIES_JS));
@@ -118,7 +133,8 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .enumerate()
             .map(|(index, label)| (label.clone(), series_color(index)))
             .collect::<HashMap<_, _>>();
-        let _ = plot.send((labels, updates, colors));
+        let log = value_scale() == AxisScale::Log;
+        let _ = plot.send((labels, updates, colors, log, draw_style().name()));
     });
 
     use_drop(move || {
@@ -132,6 +148,44 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
 
         GraphFrame {
             id,
+            settings: rsx! {
+                div {
+                    class: "graph-setting",
+                    span { class: "graph-setting-label", "Value axis" }
+                    div {
+                        class: "graph-scale",
+                        role: "group",
+                        aria_label: "Value axis",
+                        for scale in AxisScale::ALL {
+                            Toggle {
+                                pressed: Some(value_scale() == scale),
+                                on_pressed_change: move |_| {
+                                    graph_context.update(id, |property| property.value_scale = scale);
+                                },
+                                "{scale.name()}"
+                            }
+                        }
+                    }
+                }
+                div {
+                    class: "graph-setting",
+                    span { class: "graph-setting-label", "Draw" }
+                    div {
+                        class: "graph-scale",
+                        role: "group",
+                        aria_label: "Draw",
+                        for style in DrawStyle::ALL {
+                            Toggle {
+                                pressed: Some(draw_style() == style),
+                                on_pressed_change: move |_| {
+                                    graph_context.update(id, |property| property.draw_style = style);
+                                },
+                                "{style.label()}"
+                            }
+                        }
+                    }
+                }
+            },
             div {
                 class: "graph-plot",
                 id: "{container_id}",

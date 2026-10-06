@@ -3,12 +3,14 @@
 //
 // Messages from Rust:
 //   1. the container element id (once, after mount)
-//   2. `[labels, updates, colors]` whenever data changes
+//   2. `[labels, updates, colors, log, style]` whenever data or the settings change
 //      - labels:  the labels shown (by the Data list's filters) that hold numbers;
 //                 others are dropped
 //      - updates: `[label, reset, [[timestamp_ms, value], ...]]`, only new points
 //                 unless `reset` is set
-//      - colors:  `{label: css custom property}`, each line's color (as its tag's)
+//      - colors:  `{label: css custom property}`, each line's color
+//      - log:     whether the value axis is logarithmic, else linear
+//      - style:   how the values are drawn: "points", "linear" or "stepped"
 //   3. `null` when the component unmounts
 
 // Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
@@ -32,6 +34,10 @@ let plot = null;
 let plotLines = "";
 /** @type {Record<string, string>} */
 let colors = {};
+// Whether the value axis is logarithmic (base 10), else linear
+let logScale = false;
+// How each label's values are drawn: "points", "linear" or "stepped"
+let drawStyle = "linear";
 let frame = 0;
 
 // Resolve a CSS custom property (which may use the `--light`/`--dark` switch) to a color
@@ -58,6 +64,31 @@ function areaFill(color) {
   };
 }
 
+// A label's series options in `drawStyle`, for its line `color`
+function seriesStyle(color) {
+  if (drawStyle === "points") {
+    // Only the points: no line between them, nothing filled
+    return {
+      paths: () => null,
+      points: { show: true, size: 4, width: 1, stroke: color, fill: color },
+    };
+  }
+  return {
+    // Each value held until the next for "stepped"
+    ...(drawStyle === "stepped" && { paths: uPlot.paths.stepped({ align: 1 }) }),
+    // An area chart: filled down to the bottom of the plot
+    fill: areaFill(color),
+    spanGaps: true,
+    points: { show: false },
+  };
+}
+
+// The points to plot, as the value axis can show them
+function plotData(labels) {
+  const data = alignedData(series, labels);
+  return logScale ? forLogScale(data) : data;
+}
+
 function sortedLabels() {
   return [...series.keys()].sort();
 }
@@ -77,6 +108,9 @@ function fit() {
 
 function create() {
   plot?.destroy();
+  // What the plot was made with, for the page (and its tests) to read
+  container.dataset.valueScale = logScale ? "log" : "linear";
+  container.dataset.drawStyle = drawStyle;
   const labels = sortedLabels();
   plotLines = lines(labels);
 
@@ -92,25 +126,17 @@ function create() {
     {
       width: container.clientWidth,
       height: Math.max(container.clientHeight, 50),
-      scales: { x: { time: true } },
+      scales: { x: { time: true }, y: logScale ? { distr: 3, log: 10 } : {} },
       axes: [axis, { ...axis }],
       series: [
         {},
         ...labels.map((label) => {
           const color = cssColor(colors[label] ?? "--secondary-color-5");
-          return {
-            label,
-            stroke: color,
-            // An area chart: filled down to the bottom of the plot
-            fill: areaFill(color),
-            width: 1.5,
-            spanGaps: true,
-            points: { show: false },
-          };
+          return { label, stroke: color, width: 1.5, ...seriesStyle(color) };
         }),
       ],
     },
-    alignedData(series, labels),
+    plotData(labels),
     container,
   );
   fit();
@@ -124,7 +150,7 @@ function draw() {
   if (!plot || lines(labels) !== plotLines) {
     create();
   } else {
-    plot.setData(alignedData(series, labels));
+    plot.setData(plotData(labels));
   }
 }
 
@@ -155,8 +181,14 @@ while (true) {
     break;
   }
 
-  const [labels, updates, lineColors] = message;
+  const [labels, updates, lineColors, log, style] = message;
   colors = lineColors;
+  if (log !== logScale || style !== drawStyle) {
+    logScale = log;
+    drawStyle = style;
+    // These are set at creation, so make the plot again
+    plotLines = null;
+  }
   applyMessage(series, [labels, updates], MAX_POINTS);
   schedule();
 }

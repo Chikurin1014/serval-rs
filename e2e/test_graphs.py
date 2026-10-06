@@ -83,3 +83,45 @@ def test_clearing_data_from_the_sidebar_keeps_plotting(app: App):
 
     app.wait_for_labels("temp")
     app.wait_for_graph_legends([["temp", "volt"]])
+
+
+def test_value_axis_can_be_linear_or_log(app: App):
+    open_graphs_with_numbers(app)
+    graph = app.graphs().first
+    plot = graph.locator(".graph-plot")
+    expect(plot).to_have_attribute("data-value-scale", "linear")
+
+    graph.locator(".graph-title").click()  # opens the settings
+    scale = graph.get_by_role("group", name="Value axis")
+    linear = scale.get_by_role("button", name="Linear")
+    log = scale.get_by_role("button", name="Log")
+    expect(linear).to_have_attribute("aria-pressed", "true")
+    log.click()
+    expect(log).to_have_attribute("aria-pressed", "true")
+    expect(linear).to_have_attribute("aria-pressed", "false")
+    expect(plot).to_have_attribute("data-value-scale", "log")
+    app.wait_for_graph_legends([["temp", "volt"]])
+
+    # Kept when the graph is shown again
+    app.tab("Console")
+    app.tab("Graph")
+    expect(app.graphs().first.locator(".graph-plot")).to_have_attribute(
+        "data-value-scale", "log"
+    )
+
+
+def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
+    open_graphs_with_numbers(app)
+    graph = app.graphs().first
+    plot = graph.locator(".graph-plot")
+    expect(plot).to_have_attribute("data-draw-style", "linear")
+
+    graph.locator(".graph-title").click()  # opens the settings
+    draw = graph.get_by_role("group", name="Draw")
+    expect(draw.get_by_role("button")).to_have_text(["Points", "Linear", "Stepped"])
+    expect(draw.get_by_role("button", name="Linear")).to_have_attribute("aria-pressed", "true")
+    for name, style in [("Points", "points"), ("Stepped", "stepped"), ("Linear", "linear")]:
+        draw.get_by_role("button", name=name).click()
+        expect(draw.get_by_role("button", name=name)).to_have_attribute("aria-pressed", "true")
+        expect(plot).to_have_attribute("data-draw-style", style)
+        app.wait_for_graph_legends([["temp", "volt"]])

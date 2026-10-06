@@ -54,6 +54,13 @@ function alignedData(series, labels) {
   return [xs, ...ys];
 }
 
+/** `data` (as `alignedData` gives it) without the values a log scale cannot
+ * show, 0 or less, which are gaps instead. */
+function forLogScale(data) {
+  const [xs, ...ys] = data;
+  return [xs, ...ys.map((y) => y.map((v) => (v !== null && v > 0 ? v : null)))];
+}
+
 /** `rgb(r, g, b)` (as `getComputedStyle` gives it) with an alpha. */
 function withAlpha(color, alpha) {
   return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);

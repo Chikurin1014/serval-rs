@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
-const { alignedData, applyMessage, withAlpha } = loadScript(
+const { alignedData, applyMessage, forLogScale, withAlpha } = loadScript(
   new URL("./time_series_data.js", import.meta.url),
 );
 
@@ -98,4 +98,11 @@ test("withAlpha turns a computed rgb colour translucent", () => {
   );
   // Colours that already have an alpha are left alone
   assert.equal(withAlpha("rgba(0, 0, 0, 0.5)", 0.35), "rgba(0, 0, 0, 0.5)");
+});
+
+test("forLogScale leaves out values a log scale cannot show", () => {
+  assert.deepEqual(
+    plain(forLogScale([[1, 2, 3, 4], [10, 0, -1, null], [0.5, 1, 2, 3]])),
+    [[1, 2, 3, 4], [10, null, null, null], [0.5, 1, 2, 3]],
+  );
 });
