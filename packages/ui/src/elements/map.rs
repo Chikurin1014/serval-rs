@@ -7,7 +7,7 @@ mod map_list;
 mod regex;
 mod replace;
 
-use crate::data::{Decode, InitialMap, MapKind, RAW_DATA_LABEL, RegexMatch, RegexOutput};
+use crate::data::{Decode, InitialMap, MapKind, RAW_BYTES_LABEL, RegexMatch, RegexOutput};
 
 pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
 pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
@@ -17,6 +17,9 @@ pub use encode::{ENCODE, EncodeForm};
 pub use map_list::MapList;
 pub use regex::{NAME_COLON_NUMBER, REGEX_TO_NUMBER, REGEX_TO_STRING};
 pub use replace::{REPLACE, ReplaceForm};
+
+/// The label the initial maps decode the raw bytes into, as text.
+pub const MESSAGE_LABEL: &str = "message";
 
 /// The built-in kinds, for `MapProvider`'s `kinds`.
 pub fn builtin_map_kinds() -> Vec<MapKind> {
@@ -44,7 +47,7 @@ pub fn initial_maps() -> Vec<InitialMap> {
         InitialMap {
             kind: DECODE,
             enabled: true,
-            create: || Box::new(Decode::new(RAW_DATA_LABEL, "raw_str")),
+            create: || Box::new(Decode::new(RAW_BYTES_LABEL, MESSAGE_LABEL)),
         },
         InitialMap {
             kind: REGEX_TO_NUMBER,
@@ -52,7 +55,7 @@ pub fn initial_maps() -> Vec<InitialMap> {
             create: || {
                 Box::new(RegexMatch::with(
                     RegexOutput::Number,
-                    "raw_str",
+                    MESSAGE_LABEL,
                     NAME_COLON_NUMBER,
                     "$1",
                     "$2",

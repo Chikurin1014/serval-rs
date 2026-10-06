@@ -254,10 +254,10 @@ mod tests {
         let data = HashMap::from([
             ("temp".to_string(), numbers(&[(1, 1.0)])),
             ("volt".to_string(), numbers(&[(1, 3.3)])),
-            ("raw_str".to_string(), TypedData::String(Queue::new())),
+            ("message".to_string(), TypedData::String(Queue::new())),
         ]);
 
-        let (labels, _) = feed.next(&data, &selected(&["volt", "raw_str"]));
+        let (labels, _) = feed.next(&data, &selected(&["volt", "message"]));
         assert_eq!(labels, ["volt"]);
 
         // Deselected, then selected again: sent in full once more

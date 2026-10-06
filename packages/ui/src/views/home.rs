@@ -3,8 +3,9 @@ use dioxus_icons::lucide;
 
 use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
+    data::RAW_BYTES_LABEL,
     elements::{
-        DataList,
+        DataList, FilterContext, FilterKind,
         graph::GraphBoard,
         map::MapList,
         serial::{
@@ -20,6 +21,10 @@ const HOME_CSS: Asset = asset!("/assets/styling/home.css");
 /// provided by an ancestor.
 #[component]
 pub fn Home() -> Element {
+    // Here, above the tabs, so the data list's filters stay when it is left;
+    // the raw bytes are hidden, as they show decoded in `message`
+    use_context_provider(|| FilterContext::with(&[(FilterKind::Hide, RAW_BYTES_LABEL)]));
+
     rsx! {
         document::Link { rel: "stylesheet", href: HOME_CSS }
 

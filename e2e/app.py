@@ -4,11 +4,11 @@ import re
 
 from playwright.sync_api import ConsoleMessage, Page, expect
 
-# The rows of the data list in view, as {label: [type, latest, timestamp]}
+# The rows of the data list in view, as {label: [type, latest, time]}
 _DATA_ROWS = """() => {
     const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
     if (!table) return {};
-    return Object.fromEntries([...table.querySelectorAll('tbody tr')].map(row => {
+    return Object.fromEntries([...table.querySelectorAll('tbody tr.data-row')].map(row => {
         const [label, ...cells] = [...row.children].slice(0, 4).map(c => c.textContent);
         return [label, cells];
     }));
@@ -54,7 +54,7 @@ class App:
     def add_regex_map(
         self,
         output: str = "Number",
-        source: str = "raw_str",
+        source: str = "message",
         pattern: str = NAME_VALUE,
         target: str = "$1",
         replacement: str = "$2",
