@@ -5,6 +5,7 @@
 //! [`MapProvider`] (see `crate::elements::map::builtin_map_kinds`
 //! for the built-in ones).
 
+mod arithmetic;
 mod concat;
 mod decode;
 mod encode;
@@ -24,6 +25,7 @@ use crate::{
     time::TimeContext,
 };
 
+pub use arithmetic::{Arithmetic, ArithmeticSettings, Operation};
 pub use concat::{Concat, ConcatSettings};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};

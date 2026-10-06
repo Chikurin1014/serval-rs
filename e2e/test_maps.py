@@ -1,5 +1,6 @@
 import re
 
+import pytest
 from playwright.sync_api import expect
 
 from app import NAME_VALUE, App
@@ -101,8 +102,11 @@ def test_add_menus_open_on_hover(app: App):
     number.hover()
     expect(number).to_have_attribute("aria-expanded", "true")
     option = bar.get_by_role("option")
-    expect(option.locator(".add-map-title")).to_have_text(["Regex"])
-    expect(option.locator(".map-types")).to_have_text(["StringNumber"])
+    # By input type: Number before String
+    expect(option.locator(".add-map-title")).to_have_text(
+        ["Add", "Subtract", "Multiply", "Divide", "Regex"]
+    )
+    expect(option.locator(".map-types").last).to_have_text("StringNumber")
 
     # Clicking the trigger of the open menu keeps it open
     number.click()
@@ -261,3 +265,89 @@ def test_concat_joins_the_newest_of_both(app: App):
     expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
         ["raw_str", "assigned"]
     )
+
+
+def add_arithmetic_map(app: App, name: str, first: str, second: str, target: str):
+    app.add_map(name, "Number", "Number")
+    card = app.map_cards().last
+    fields = card.get_by_placeholder("Label or number")
+    fields.nth(0).fill(first)
+    fields.nth(1).fill(second)
+    card.get_by_placeholder("Target label").fill(target)
+    card.get_by_role("switch").click()
+    return card
+
+
+def latest_numbers(card) -> tuple[list[str], float]:
+    """The latest conversion's input values and result, read at once as they
+    change while data comes in."""
+    inputs, result = card.evaluate(
+        """card => [
+            [...card.querySelectorAll(".map-latest-from .map-latest-value")].map(v => v.textContent),
+            card.querySelector(".map-latest > .map-latest-value").textContent,
+        ]"""
+    )
+    return inputs, float(result)
+
+
+def test_arithmetic_with_a_constant(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map()
+    card = add_arithmetic_map(app, "Multiply", "temp", "2", "doubled")
+    app.wait_for_labels("doubled")
+    assert app.data_rows()["doubled"][0] == "Number"
+
+    # The constant shows with no label
+    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(["temp", ""])
+    (value, constant), result = latest_numbers(card)
+    # Numbers show to five significant digits
+    assert constant == "2.0000"
+    assert result == pytest.approx(float(value) * 2, rel=1e-4)
+
+
+def test_arithmetic_prefers_a_label_to_a_number(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map()
+    # A Number label called "10"
+    app.add_regex_map(target="10")
+    app.wait_for_labels("10")
+    card = add_arithmetic_map(app, "Add", "temp", "10", "sum")
+    app.wait_for_labels("sum")
+    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(["temp", "10"])
+    (first, second), result = latest_numbers(card)
+    assert result == pytest.approx(float(first) + float(second), rel=1e-4)
+    assert float(second) != 10
+
+
+def test_division_by_zero_shows_an_error(app: App):
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Divide", "1", "0", "quotient")
+    expect(card.locator(".field-error")).to_have_text("Division by zero")
+
+
+def test_unknown_operand_shows_an_error(app: App):
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Subtract", "nothing", "1", "difference")
+    expect(card.locator(".field-error")).to_contain_text("nothing")
+
+
+def test_formula_renders_with_katex(app: App):
+    failed = []
+    app.page.on(
+        "response",
+        lambda response: response.status >= 400 and failed.append(response.url),
+    )
+    app.page.on("requestfailed", lambda request: failed.append(request.url))
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Divide", "a", "b", "quotient")
+    formula = card.locator(".arithmetic-formula .formula")
+    expect(formula).to_have_attribute("data-rendered", "true")
+    # Division as `a / b`, side by side
+    expect(formula.locator(".katex-mathml annotation")).to_have_text("a / b")
+    expect(formula.locator(".formula-fallback")).to_be_hidden()
+    # Its fonts load from beside its CSS
+    app.page.wait_for_function("document.fonts.status === 'loaded'")
+    assert app.page.evaluate("document.fonts.check('1em KaTeX_Math')")
+    assert failed == []

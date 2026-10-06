@@ -76,3 +76,13 @@
   color: var(--dc-danger);
   font-size: 0.75rem;
 }
+
+/* `Arithmetic`'s formula (`a + b`), centred over the form */
+.arithmetic-formula {
+  color: var(--dc-text);
+  font-family: ui-monospace, monospace;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+}
+

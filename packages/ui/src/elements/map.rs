@@ -1,3 +1,4 @@
+mod arithmetic;
 mod concat;
 mod decode;
 mod encode;
@@ -7,6 +8,7 @@ mod replace;
 
 use crate::data::{Decode, InitialMap, MapKind, RAW_DATA_LABEL};
 
+pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
 pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
@@ -23,6 +25,10 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         REGEX_TO_STRING,
         REPLACE,
         CONCAT,
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
     ]
 }
 

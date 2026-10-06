@@ -5,7 +5,7 @@ use regex::{Captures, Regex};
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, set_if_changed, trim_segments,
+    StringData, format_number, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,19 +156,39 @@ impl MapRunner for RegexMatch {
         }
         // Split into segments only for the one shown
         if let Some(input) = latest {
+            let mut to_value = regex
+                .captures(input)
+                .map(|captures| replacement_segments(&captures, &replacement))
+                .unwrap_or_default();
+            if self.output == RegexOutput::Number {
+                to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
+            }
             let conversion = Conversion {
                 from: vec![ConversionInput::new(source.trim(), input.as_str())],
                 to_label: label_segments(&regex, input, &to_label),
-                to_value: regex
-                    .captures(input)
-                    .map(|captures| replacement_segments(&captures, &replacement))
-                    .unwrap_or_default(),
+                to_value,
             };
             set_if_changed(&mut self.latest, Some(conversion));
         }
         set_if_changed(&mut pattern_error, None);
         set_if_changed(&mut replacement_error, error);
     }
+}
+
+/// The number that `segments` make up, shown as numbers are: one segment,
+/// taken from the input if any part of it was.
+fn number_segment(segments: &[Segment]) -> Option<Segment> {
+    let text = segments
+        .iter()
+        .map(|segment| segment.text.as_str())
+        .collect::<String>();
+    let number = text.parse::<f64>().ok()?;
+    let text = format_number(number);
+    Some(if segments.iter().any(|segment| segment.from_input) {
+        Segment::from_input(text)
+    } else {
+        Segment::fixed(text)
+    })
 }
 
 /// Builds the value for one match from the replacement and its capture groups,

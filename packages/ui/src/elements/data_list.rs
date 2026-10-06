@@ -5,7 +5,7 @@ use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardAction, CardContent, CardHeader, CardTitle},
 };
-use crate::data::{DataContext, TypedData};
+use crate::data::{DataContext, TypedData, format_number};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
@@ -95,7 +95,7 @@ pub fn DataList() -> Element {
 /// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
     let latest = match data {
-        TypedData::Number(queue) => queue.back().map(|entry| entry.value().to_string()),
+        TypedData::Number(queue) => queue.back().map(|entry| format_number(*entry.value())),
         TypedData::String(queue) => queue.back().map(|entry| entry.value().clone()),
         TypedData::Bytes(queue) => queue
             .back()
@@ -116,7 +116,7 @@ mod tests {
             crate::data::NumberData::new(2, 20.0),
         ]));
 
-        assert_eq!(latest_value_preview(&data), "20");
+        assert_eq!(latest_value_preview(&data), "20.000");
     }
 
     #[test]
