@@ -48,13 +48,13 @@ impl MapRunner for Encode {
             from_label,
             to_label,
         } = self.settings;
-        let (source, target) = (from_label(), to_label());
-        let (source, target) = (source.trim(), target.trim());
-        if source.is_empty() || target.is_empty() || source == target {
+        let (from, to) = (from_label(), to_label());
+        let (from, to) = (from.trim(), to.trim());
+        if from.is_empty() || to.is_empty() || from == to {
             return;
         }
 
-        let Some(read) = self.cursor.new_entries::<StringData>(data, source) else {
+        let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
             self.cursor.reset();
             return;
         };
@@ -63,14 +63,14 @@ impl MapRunner for Encode {
         };
 
         let conversion = Conversion {
-            from: vec![ConversionInput::new(source, last.value().as_str())],
-            to_label: vec![Segment::fixed(target)],
+            from: vec![ConversionInput::new(from, last.value().as_str())],
+            to_label: vec![Segment::fixed(to)],
             to_value: vec![Segment::from_input(last.value().as_str())],
         };
         set_if_changed(&mut self.latest, Some(conversion));
         for entry in &read.entries {
             data.push(
-                target,
+                to,
                 ByteData::new(timestamp, entry.value().as_bytes().to_vec()),
             );
         }

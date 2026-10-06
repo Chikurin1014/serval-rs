@@ -67,8 +67,8 @@ pub struct ArithmeticSettings {
 pub struct Arithmetic {
     settings: ArithmeticSettings,
     latest: Signal<Option<Conversion>>,
-    first: Source,
-    second: Source,
+    first: Input,
+    second: Input,
     /// The constants of the last result from two of them.
     last_constants: Option<(f64, f64)>,
     /// Why the last pair gave no result, shown until one does.
@@ -107,13 +107,13 @@ impl Operand {
 
 /// An operand's label, read as far as it was used.
 #[derive(Default)]
-struct Source {
+struct Input {
     cursor: SourceCursor,
     /// The newest number not used yet, when the other operand is a label too.
     newest: Option<f64>,
 }
 
-impl Source {
+impl Input {
     /// The numbers added under `label` since the last read.
     fn read(&mut self, data: &DataContext, label: &str) -> Vec<f64> {
         match self.cursor.new_entries::<NumberData>(data, label) {
@@ -147,8 +147,8 @@ impl Arithmetic {
                 error: Signal::new(None),
             },
             latest: Signal::new(None),
-            first: Source::default(),
-            second: Source::default(),
+            first: Input::default(),
+            second: Input::default(),
             last_constants: None,
             failure: None,
         }
@@ -219,9 +219,9 @@ impl MapRunner for Arithmetic {
             to_label,
             mut error,
         } = self.settings;
-        let (first, second, target) = (first(), second(), to_label());
-        let target = target.trim();
-        if first.trim().is_empty() || second.trim().is_empty() || target.is_empty() {
+        let (first, second, to) = (first(), second(), to_label());
+        let to = to.trim();
+        if first.trim().is_empty() || second.trim().is_empty() || to.is_empty() {
             set_if_changed(&mut error, None);
             return;
         }
@@ -235,7 +235,7 @@ impl MapRunner for Arithmetic {
                 return;
             }
         };
-        if [&first, &second].contains(&&Operand::Label(target.to_string())) {
+        if [&first, &second].contains(&&Operand::Label(to.to_string())) {
             return;
         }
 
@@ -243,7 +243,7 @@ impl MapRunner for Arithmetic {
         for (first_value, second_value) in self.pairs(data, &first, &second) {
             match operation.apply(first_value, second_value) {
                 Ok(result) => {
-                    data.push(target, NumberData::new(timestamp, result));
+                    data.push(to, NumberData::new(timestamp, result));
                     latest = Some((first_value, second_value, result));
                     self.failure = None;
                 }
@@ -254,7 +254,7 @@ impl MapRunner for Arithmetic {
         if let Some((first_value, second_value, result)) = latest {
             let conversion = Conversion {
                 from: vec![first.input(first_value), second.input(second_value)],
-                to_label: vec![Segment::fixed(target)],
+                to_label: vec![Segment::fixed(to)],
                 to_value: vec![Segment::from_input(format_number(result))],
             };
             set_if_changed(&mut self.latest, Some(conversion));

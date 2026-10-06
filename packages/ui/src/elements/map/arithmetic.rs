@@ -98,7 +98,7 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                 class: "field",
                 lucide::Tag {}
                 Input {
-                    placeholder: "Target label",
+                    placeholder: "Output label",
                     list: NUMBERS_LABELS_LIST_ID,
                     value: "{to_label}",
                     oninput: move |event: FormEvent| to_label.set(event.value()),

@@ -45,14 +45,14 @@ pub trait MapRunner {
     /// [`set_if_changed`]) and shown in the map's card.
     fn latest(&self) -> Signal<Option<Conversion>>;
 
-    /// Processes new source data while the map is enabled.
+    /// Processes new input data while the map is enabled.
     ///
-    /// Re-runs whenever anything reactive read here changes: the source data
+    /// Re-runs whenever anything reactive read here changes: the input data
     /// (read through `data`) and the settings signals.
     fn run(&mut self, data: &mut DataContext, timestamp: i64);
 }
 
-/// The input of a map (one value of each source) and what it was turned into.
+/// What a map took in (one value of each input) and what it was turned into.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conversion {
     pub from: Vec<ConversionInput>,
@@ -60,7 +60,7 @@ pub struct Conversion {
     pub to_value: Vec<Segment>,
 }
 
-/// One source's value in a [`Conversion`].
+/// One input's value in a [`Conversion`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConversionInput {
     pub label: String,
@@ -126,7 +126,7 @@ pub fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
 #[derive(Clone, Copy, Debug)]
 pub struct MapKind {
     pub name: &'static str,
-    /// The type of each source, in order.
+    /// The type of each input, in order.
     pub from: &'static [DataType],
     pub to: DataType,
     /// Creates a map with default settings.

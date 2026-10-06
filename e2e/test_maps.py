@@ -67,9 +67,9 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
 
     # Run the first one added, so its signals are used before it is removed
     card = app.map_cards().nth(1)
-    card.get_by_placeholder("Source label").fill("raw_str")
+    card.get_by_placeholder("Input label").fill("raw_str")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
-    card.get_by_placeholder("Target label").fill("$1")
+    card.get_by_placeholder("Output label").fill("$1")
     card.get_by_label("To", exact=True).fill("$2")
     card.get_by_role("switch").click()
     app.wait_for_labels("temp", "volt")
@@ -137,8 +137,8 @@ def test_decode_without_delimiter_keeps_each_chunk(app: App):
     app.tab("Data")
     app.add_map("Decode", "Bytes", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("Source label").fill("raw_data")
-    card.get_by_placeholder("Target label").fill("chunk")
+    card.get_by_placeholder("Input label").fill("raw_data")
+    card.get_by_placeholder("Output label").fill("chunk")
     card.get_by_label("Delimiter").fill("")
     card.get_by_role("switch").click()
     app.wait_for_labels("chunk")
@@ -153,8 +153,8 @@ def test_encode_turns_strings_into_bytes(app: App):
     app.tab("Data")
     app.add_map("Encode", "String", "Bytes")
     card = app.map_cards().last
-    card.get_by_placeholder("Source label").fill("raw_str")
-    card.get_by_placeholder("Target label").fill("line_bytes")
+    card.get_by_placeholder("Input label").fill("raw_str")
+    card.get_by_placeholder("Output label").fill("line_bytes")
     # Nothing to set but the labels
     expect(card.get_by_label("Delimiter")).to_have_count(0)
     card.get_by_role("switch").click()
@@ -168,12 +168,12 @@ def test_cards_open_to_their_settings(app: App):
     app.tab("Data")
     # The initial map starts closed; one added starts open to be set
     initial = app.map_cards().first
-    expect(initial.get_by_placeholder("Source label")).to_have_count(0)
+    expect(initial.get_by_placeholder("Input label")).to_have_count(0)
     app.add_map("Regex", "String", "Number")
-    expect(app.map_cards().last.get_by_placeholder("Source label")).to_be_visible()
+    expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
 
     initial.locator(".map-title").click()
-    expect(initial.get_by_placeholder("Source label")).to_be_visible()
+    expect(initial.get_by_placeholder("Input label")).to_be_visible()
 
 
 def test_delete_button_shows_on_hover(app: App):
@@ -222,9 +222,9 @@ def test_card_header_shows_the_types(app: App):
 def add_replace_map(app: App, pattern: str, replacement: str, target: str):
     app.add_map("Replace", "String", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("Source label").fill("raw_str")
+    card.get_by_placeholder("Input label").fill("raw_str")
     card.get_by_placeholder("Text to be replaced").fill(pattern)
-    card.get_by_placeholder("Target label").fill(target)
+    card.get_by_placeholder("Output label").fill(target)
     card.get_by_label("To", exact=True).fill(replacement)
     card.get_by_role("switch").click()
 
@@ -250,9 +250,9 @@ def test_concat_joins_the_newest_of_both(app: App):
     add_replace_map(app, ":", "=", "assigned")
     app.add_map("Concat", "String", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("First source label").fill("raw_str")
-    card.get_by_placeholder("Second source label").fill("assigned")
-    card.get_by_placeholder("Target label").fill("joined")
+    card.get_by_placeholder("First input label").fill("raw_str")
+    card.get_by_placeholder("Second input label").fill("assigned")
+    card.get_by_placeholder("Output label").fill("joined")
     card.get_by_label("Separator").fill(" | ")
     card.get_by_role("switch").click()
     app.wait_for_labels("joined")
@@ -273,7 +273,7 @@ def add_arithmetic_map(app: App, name: str, first: str, second: str, target: str
     fields = card.get_by_placeholder("Label or number")
     fields.nth(0).fill(first)
     fields.nth(1).fill(second)
-    card.get_by_placeholder("Target label").fill(target)
+    card.get_by_placeholder("Output label").fill(target)
     card.get_by_role("switch").click()
     return card
 

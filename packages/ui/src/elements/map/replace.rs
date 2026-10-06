@@ -45,7 +45,7 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
                     lucide::Tag {}
                     Input {
                         list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Source label",
+                        placeholder: "Input label",
                         autocomplete: "on",
                         value: "{from_label}",
                         oninput: move |event: FormEvent| from_label.set(event.value()),
@@ -75,7 +75,7 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
                     class: "field",
                     lucide::Tag {}
                     Input {
-                        placeholder: "Target label",
+                        placeholder: "Output label",
                         list: STRINGS_LABELS_LIST_ID,
                         value: "{to_label}",
                         oninput: move |event: FormEvent| to_label.set(event.value()),

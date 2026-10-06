@@ -62,9 +62,9 @@ class App:
         """Adds a regex map from the Data tab, sets it and enables it."""
         self.add_map("Regex", "String", output)
         card = self.map_cards().last
-        card.get_by_placeholder("Source label").fill(source)
+        card.get_by_placeholder("Input label").fill(source)
         card.get_by_placeholder("Text to be matched").fill(pattern)
-        card.get_by_placeholder("Target label").fill(target)
+        card.get_by_placeholder("Output label").fill(target)
         card.get_by_label("To", exact=True).fill(replacement)
         card.get_by_role("switch").click()
 

@@ -22,8 +22,8 @@ pub const CONCAT: MapKind = MapKind {
     },
 };
 
-/// Settings form of a `Concat` map: the two sources on the left, the
-/// target and what goes between them on the right.
+/// Settings form of a `Concat` map: the two inputs on the left, the
+/// output and what goes between them on the right.
 #[component]
 pub fn ConcatForm(settings: ConcatSettings) -> Element {
     let ConcatSettings {
@@ -45,7 +45,7 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
                     lucide::Tag {}
                     Input {
                         list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "First source label",
+                        placeholder: "First input label",
                         autocomplete: "on",
                         value: "{first_label}",
                         oninput: move |event: FormEvent| first_label.set(event.value()),
@@ -56,7 +56,7 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
                     lucide::Tag {}
                     Input {
                         list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Second source label",
+                        placeholder: "Second input label",
                         autocomplete: "on",
                         value: "{second_label}",
                         oninput: move |event: FormEvent| second_label.set(event.value()),
@@ -70,7 +70,7 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
                     class: "field",
                     lucide::Tag {}
                     Input {
-                        placeholder: "Target label",
+                        placeholder: "Output label",
                         list: STRINGS_LABELS_LIST_ID,
                         value: "{to_label}",
                         oninput: move |event: FormEvent| to_label.set(event.value()),

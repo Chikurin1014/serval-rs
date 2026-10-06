@@ -16,23 +16,23 @@ pub struct ConcatSettings {
     pub separator: Signal<String>,
 }
 
-/// Joins two strings, one from each source, once both have a new one:
+/// Joins two strings, one from each input, once both have a new one:
 /// the newest of each, dropping any older ones that came in between.
 pub struct Concat {
     settings: ConcatSettings,
     latest: Signal<Option<Conversion>>,
-    first: Source,
-    second: Source,
+    first: Input,
+    second: Input,
 }
 
-/// One of the sources and its newest string since the last join.
+/// One of the inputs and its newest string since the last join.
 #[derive(Default)]
-struct Source {
+struct Input {
     cursor: SourceCursor,
     newest: Option<String>,
 }
 
-impl Source {
+impl Input {
     /// Takes in what is new under `label`.
     fn read(&mut self, data: &DataContext, label: &str) {
         match self.cursor.new_entries::<StringData>(data, label) {
@@ -62,8 +62,8 @@ impl Concat {
                 separator: Signal::new(String::new()),
             },
             latest: Signal::new(None),
-            first: Source::default(),
-            second: Source::default(),
+            first: Input::default(),
+            second: Input::default(),
         }
     }
 }
@@ -90,12 +90,12 @@ impl MapRunner for Concat {
             to_label,
             separator,
         } = self.settings;
-        let (first, second, target) = (first_label(), second_label(), to_label());
-        let (first, second, target) = (first.trim(), second.trim(), target.trim());
-        if first.is_empty() || second.is_empty() || target.is_empty() {
+        let (first, second, to) = (first_label(), second_label(), to_label());
+        let (first, second, to) = (first.trim(), second.trim(), to.trim());
+        if first.is_empty() || second.is_empty() || to.is_empty() {
             return;
         }
-        if target == first || target == second {
+        if to == first || to == second {
             return;
         }
 
@@ -113,14 +113,14 @@ impl MapRunner for Concat {
                 ConversionInput::new(first, first_value.as_str()),
                 ConversionInput::new(second, second_value.as_str()),
             ],
-            to_label: vec![Segment::fixed(target)],
+            to_label: vec![Segment::fixed(to)],
             to_value: concat_segments(&first_value, &separator, &second_value),
         };
         let value = format!("{first_value}{separator}{second_value}");
         self.first.newest = None;
         self.second.newest = None;
         set_if_changed(&mut self.latest, Some(conversion));
-        data.push(target, StringData::new(timestamp, value));
+        data.push(to, StringData::new(timestamp, value));
     }
 }
 

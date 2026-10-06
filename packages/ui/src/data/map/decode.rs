@@ -58,13 +58,13 @@ impl MapRunner for Decode {
             to_label,
             delimiter,
         } = self.settings;
-        let (source, target) = (from_label(), to_label());
-        let (source, target) = (source.trim(), target.trim());
-        if source.is_empty() || target.is_empty() || source == target {
+        let (from, to) = (from_label(), to_label());
+        let (from, to) = (from.trim(), to.trim());
+        if from.is_empty() || to.is_empty() || from == to {
             return;
         }
 
-        let Some(read) = self.cursor.new_entries::<ByteData>(data, source) else {
+        let Some(read) = self.cursor.new_entries::<ByteData>(data, from) else {
             self.cursor.reset();
             self.pending.clear();
             self.buffer.clear();
@@ -109,14 +109,14 @@ impl MapRunner for Decode {
 
         if let (Some(last), Some(from_value)) = (pieces.last(), from_value) {
             let conversion = Conversion {
-                from: vec![ConversionInput::new(source, from_value)],
-                to_label: vec![Segment::fixed(target)],
+                from: vec![ConversionInput::new(from, from_value)],
+                to_label: vec![Segment::fixed(to)],
                 to_value: vec![Segment::from_input(last.as_str())],
             };
             set_if_changed(&mut self.latest, Some(conversion));
         }
         for value in pieces {
-            data.push(target, StringData::new(timestamp, value));
+            data.push(to, StringData::new(timestamp, value));
         }
     }
 }

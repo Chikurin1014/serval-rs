@@ -42,7 +42,7 @@ pub fn EncodeForm(settings: EncodeSettings) -> Element {
                     lucide::Tag {}
                     Input {
                         list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Source label",
+                        placeholder: "Input label",
                         autocomplete: "on",
                         value: "{from_label}",
                         oninput: move |event: FormEvent| from_label.set(event.value()),
@@ -54,7 +54,7 @@ pub fn EncodeForm(settings: EncodeSettings) -> Element {
                     lucide::Tag {}
                     Input {
                         list: BYTES_LABELS_LIST_ID,
-                        placeholder: "Target label",
+                        placeholder: "Output label",
                         value: "{to_label}",
                         oninput: move |event: FormEvent| to_label.set(event.value()),
                     }

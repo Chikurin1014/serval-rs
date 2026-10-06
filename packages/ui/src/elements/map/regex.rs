@@ -16,7 +16,7 @@ pub const REGEX_TO_STRING: MapKind = MapKind {
     from: &[DataType::String],
     to: DataType::String,
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
-    // Offer the existing labels of the result's type as targets
+    // Offer the existing labels of the result's type as outputs
     form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
 };
 
@@ -28,13 +28,13 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
 };
 
-/// `target_list`: `datalist` id offered for the target label (defined in `MapList`).
-fn regex_form(settings: &dyn Any, target_list: &str) -> Element {
+/// `output_list`: `datalist` id offered for the output label (defined in `MapList`).
+fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
     match settings.downcast_ref::<RegexSettings>() {
         Some(&settings) => rsx! {
             RegexMatchForm {
                 settings,
-                target_list: target_list.to_string(),
+                output_list: output_list.to_string(),
             }
         },
         None => VNode::empty(),
@@ -43,7 +43,7 @@ fn regex_form(settings: &dyn Any, target_list: &str) -> Element {
 
 /// Settings form of a `Regex` map.
 #[component]
-pub fn RegexMatchForm(settings: RegexSettings, target_list: String) -> Element {
+pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
     let RegexSettings {
         mut from_label,
         mut to_label,
@@ -65,7 +65,7 @@ pub fn RegexMatchForm(settings: RegexSettings, target_list: String) -> Element {
                     lucide::Tag {}
                     Input {
                         list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Source label",
+                        placeholder: "Input label",
                         autocomplete: "on",
                         value: "{from_label}",
                         oninput: move |event: FormEvent| from_label.set(event.value()),
@@ -95,8 +95,8 @@ pub fn RegexMatchForm(settings: RegexSettings, target_list: String) -> Element {
                     class: "field",
                     lucide::Tag {}
                     Input {
-                        placeholder: "Target label",
-                        list: target_list,
+                        placeholder: "Output label",
+                        list: output_list,
                         value: "{to_label}",
                         oninput: move |event: FormEvent| to_label.set(event.value()),
                     }

@@ -54,7 +54,7 @@ pub struct RegexMatch {
     output: RegexOutput,
     settings: RegexSettings,
     latest: Signal<Option<Conversion>>,
-    /// Settings of the previous run; a change restarts from the start of the source.
+    /// Settings of the previous run; a change restarts from the start of the input.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
 }
@@ -104,10 +104,10 @@ impl MapRunner for RegexMatch {
             set_if_changed(&mut pattern_error, None);
             set_if_changed(&mut replacement_error, None);
         }
-        let [source, to_label, pattern, replacement] = current;
-        if source.trim().is_empty()
-            || to_label.trim().is_empty()
-            || source.trim() == to_label.trim()
+        let [from, to, pattern, replacement] = current;
+        if from.trim().is_empty()
+            || to.trim().is_empty()
+            || from.trim() == to.trim()
             || pattern.trim().is_empty()
         {
             return;
@@ -124,7 +124,7 @@ impl MapRunner for RegexMatch {
         // A restart needs no special handling: what was converted before stays
         let Some(entries) = self
             .cursor
-            .new_entries::<StringData>(data, &source)
+            .new_entries::<StringData>(data, &from)
             .map(|read| read.entries)
         else {
             return;
@@ -140,7 +140,7 @@ impl MapRunner for RegexMatch {
             let Some(captures) = regex.captures(input) else {
                 continue;
             };
-            let label = regex.replace(input, to_label.as_str());
+            let label = regex.replace(input, to.as_str());
             let label = label.trim();
             if label.is_empty() {
                 continue;
@@ -164,8 +164,8 @@ impl MapRunner for RegexMatch {
                 to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
             }
             let conversion = Conversion {
-                from: vec![ConversionInput::new(source.trim(), input.as_str())],
-                to_label: label_segments(&regex, input, &to_label),
+                from: vec![ConversionInput::new(from.trim(), input.as_str())],
+                to_label: label_segments(&regex, input, &to),
                 to_value,
             };
             set_if_changed(&mut self.latest, Some(conversion));
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn target_label_can_use_match_groups() {
+    fn output_label_can_use_match_groups() {
         let regex = Regex::new(r"led: (on|off)").unwrap();
         assert_eq!(regex.replace("led: on", "led_$1"), "led_on");
     }

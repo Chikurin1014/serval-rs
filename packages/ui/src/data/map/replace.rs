@@ -24,7 +24,7 @@ pub struct ReplaceSettings {
 pub struct Replace {
     settings: ReplaceSettings,
     latest: Signal<Option<Conversion>>,
-    /// Settings of the previous run; a change restarts from the start of the source.
+    /// Settings of the previous run; a change restarts from the start of the input.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
 }
@@ -76,9 +76,9 @@ impl MapRunner for Replace {
             self.cursor.reset();
             set_if_changed(&mut pattern_error, None);
         }
-        let [source, target, pattern, replacement] = current;
-        let (source, target) = (source.trim(), target.trim());
-        if source.is_empty() || target.is_empty() || source == target || pattern.is_empty() {
+        let [from, to, pattern, replacement] = current;
+        let (from, to) = (from.trim(), to.trim());
+        if from.is_empty() || to.is_empty() || from == to || pattern.is_empty() {
             return;
         }
 
@@ -92,7 +92,7 @@ impl MapRunner for Replace {
         set_if_changed(&mut pattern_error, None);
 
         // A restart needs no special handling: what was replaced before stays
-        let Some(read) = self.cursor.new_entries::<StringData>(data, source) else {
+        let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
             return;
         };
         let Some(last) = read.entries.last() else {
@@ -101,14 +101,14 @@ impl MapRunner for Replace {
 
         // Split into segments only for the one shown
         let conversion = Conversion {
-            from: vec![ConversionInput::new(source, last.value().as_str())],
-            to_label: vec![Segment::fixed(target)],
+            from: vec![ConversionInput::new(from, last.value().as_str())],
+            to_label: vec![Segment::fixed(to)],
             to_value: replaced_segments(&regex, last.value(), &replacement),
         };
         set_if_changed(&mut self.latest, Some(conversion));
         for entry in &read.entries {
             let value = regex.replace_all(entry.value(), replacement.as_str());
-            data.push(target, StringData::new(timestamp, value.into_owned()));
+            data.push(to, StringData::new(timestamp, value.into_owned()));
         }
     }
 }
