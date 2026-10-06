@@ -46,7 +46,8 @@ pub fn DataList() -> Element {
                         key: "{label}",
                         th { class: "data-cell", "{label}" }
                         td { class: "data-cell", "{type_name}" }
-                        td { class: "data-cell", "{preview}" }
+                        // Cut short to one line; all of it on hover
+                        td { class: "data-cell", title: "{preview}", "{preview}" }
                         td { class: "data-cell", "{time}" }
                         td {
                             Button {
@@ -90,6 +91,14 @@ pub fn DataList() -> Element {
                 CardContent {
                     table {
                         class: "data-table",
+                        // Set widths, so the columns stay put as the values change
+                        colgroup {
+                            col { class: "data-col-label" }
+                            col { class: "data-col-type" }
+                            col { class: "data-col-latest" }
+                            col { class: "data-col-time" }
+                            col { class: "data-col-delete" }
+                        }
                         thead {
                             tr {
                                 th { "Label" }

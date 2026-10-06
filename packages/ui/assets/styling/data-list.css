@@ -39,10 +39,30 @@
   padding: 0 1rem;
 }
 
+/* Laid out by the set column widths, not by the values, which change all the
+ * time; scrolls sideways where narrower than its least width */
 .data-table {
   width: 100%;
+  min-width: 28rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.8rem;
+}
+
+.data-table .data-col-label {
+  width: 7rem;
+}
+
+.data-table .data-col-type {
+  width: 5rem;
+}
+
+.data-table .data-col-time {
+  width: 9rem;
+}
+
+.data-table .data-col-delete {
+  width: 2.5rem;
 }
 
 .data-table th,
@@ -51,6 +71,10 @@
   border-bottom: 1px solid var(--dc-border);
   text-align: left;
   vertical-align: middle;
+  /* One line each, so the rows keep their height */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-table thead th {
@@ -75,6 +99,8 @@
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
   font-weight: 400;
+  /* Digits as wide as each other, so a changing number keeps its width */
+  font-variant-numeric: tabular-nums;
 }
 
 /* The label filter under the table: its input, then its tags beside it */

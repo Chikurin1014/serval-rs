@@ -172,3 +172,25 @@ def test_hide_filters_hide_what_they_match(app: App):
 
     remove_filter(app, "Hide", "message")
     wait_for_rows(app, "temp", "message")
+
+
+def test_columns_and_rows_stay_put_as_values_change(app: App):
+    app.open_port()
+    app.tab("Data")
+    remove_filter(app, "Hide", "raw_bytes")
+    app.add_regex_map()
+    app.wait_for_labels("raw_bytes", "message", "temp", "volt")
+    layouts = set()
+    for _ in range(20):
+        layouts.add(
+            app.page.evaluate(
+                """() => JSON.stringify({
+                    columns: [...document.querySelectorAll('.data-table thead th')]
+                        .map(th => Math.round(th.getBoundingClientRect().left)),
+                    rows: [...document.querySelectorAll('.data-table tbody tr')]
+                        .map(tr => Math.round(tr.getBoundingClientRect().height)),
+                })"""
+            )
+        )
+        app.page.wait_for_timeout(50)
+    assert len(layouts) == 1, layouts
