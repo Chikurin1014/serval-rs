@@ -8,7 +8,7 @@ from playwright.sync_api import ConsoleMessage, Page, expect
 _DATA_ROWS = """() => {
     const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
     if (!table) return {};
-    return Object.fromEntries([...table.querySelectorAll('tbody tr')].map(row => {
+    return Object.fromEntries([...table.querySelectorAll('tbody tr.data-row')].map(row => {
         const [label, ...cells] = [...row.children].slice(0, 4).map(c => c.textContent);
         return [label, cells];
     }));

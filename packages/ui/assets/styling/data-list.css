@@ -91,8 +91,9 @@
   text-transform: uppercase;
 }
 
-.data-table tbody tr:nth-child(even) {
-  background: color-mix(in oklab, var(--dc-text) 3%, transparent);
+/* Rows on the panel background, all alike */
+.data-table tbody tr {
+  background: var(--dc-panel);
 }
 
 .data-table .data-cell {
@@ -228,4 +229,117 @@
   margin: 0;
   color: var(--dc-danger);
   font-size: 0.75rem;
+}
+
+/* A label's row opens to its recent values when clicked */
+.data-table .data-row {
+  cursor: pointer;
+}
+
+.data-row-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.data-row-toggle:focus-visible {
+  outline: 2px solid var(--focused-border-color);
+  outline-offset: 2px;
+}
+
+.data-row-toggle > svg {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--dc-text-muted);
+}
+
+.data-row-toggle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The expanded label stands out, its recent values a shade lighter under it */
+.data-table .data-group > .data-row[data-expanded="true"] {
+  background: color-mix(in oklab, var(--dc-text) 12%, var(--dc-panel));
+}
+
+.data-table .data-row[data-expanded="true"] .data-row-toggle {
+  font-weight: 700;
+}
+
+.data-table .data-history {
+  background: color-mix(in oklab, var(--dc-text) 5%, var(--dc-panel));
+}
+
+/* Always there, of no height while their label is collapsed: they slide open
+ * as their cells' padding and contents grow to their height */
+.data-table .data-history > * {
+  padding-block: 0;
+  border-bottom-width: 0;
+  color: var(--dc-text-muted);
+  transition:
+    padding-block 200ms ease,
+    border-bottom-width 200ms ease;
+}
+
+.data-table .data-group[data-expanded="true"] .data-history > * {
+  padding-block: 0.2rem;
+  border-bottom-width: 1px;
+}
+
+.data-history-slide {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 200ms ease;
+}
+
+.data-group[data-expanded="true"] .data-history-slide {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.data-history-slide > div {
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+ (prefers-reduced-motion: reduce) {
+  .data-table .data-history > *,
+  .data-history-slide {
+    transition: none;
+  }
+}
+
+/* Shown while the row is hovered or focused, and always where there is no
+ * hover (touch screens) */
+.data-row .data-row-delete {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.data-row:hover .data-row-delete,
+.data-row:focus-within .data-row-delete {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .data-row .data-row-delete {
+    opacity: 1;
+  }
 }

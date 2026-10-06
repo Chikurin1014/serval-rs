@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
@@ -9,12 +11,16 @@ use crate::components::{
     input::Input,
     tag_group::{Tag, TagGroup, TagList},
 };
-use crate::data::{DataContext, TypedData, format_number};
+use crate::data::{Data, DataContext, Queue, TypedData, format_number};
 use crate::time::TimeContext;
 
 pub use filter::{FilterContext, FilterKind};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
+
+/// How many of a label's values show under it while it is expanded: those
+/// before the newest, which its row shows, for five in all.
+const HISTORY_LENGTH: usize = 4;
 
 /// Requires `DataContext`, `FilterContext` and `TimeContext` to be provided by an
 /// ancestor.
@@ -23,6 +29,8 @@ pub fn DataList() -> Element {
     let mut data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let time_context = use_context::<TimeContext>();
+    // The labels whose recent values are shown under them
+    let mut expanded = use_signal(HashSet::<String>::new);
     // Read in place: only what is shown is copied out of each queue
     let rows = data_context.with_data(|data| {
         let mut entries = data
@@ -41,26 +49,82 @@ pub fn DataList() -> Element {
                     || "N/A".to_string(),
                     |timestamp| time_context.format_millis(timestamp),
                 );
+                let is_expanded = expanded.read().contains(&label);
+                // Even while collapsed, so they can slide open (see `data-list.css`)
+                let history = values_before_latest(data, HISTORY_LENGTH);
+                let mut toggle = {
+                    let label = label.clone();
+                    move || {
+                        let mut expanded = expanded.write();
+                        if !expanded.remove(&label) {
+                            expanded.insert(label.clone());
+                        }
+                    }
+                };
                 rsx! {
-                    tr {
+                    // A label's row and, under it while expanded, its recent values
+                    tbody {
                         key: "{label}",
-                        th { class: "data-cell", "{label}" }
-                        td { class: "data-cell", "{type_name}" }
-                        // Cut short to one line; all of it on hover
-                        td { class: "data-cell", title: "{preview}", "{preview}" }
-                        td { class: "data-cell", "{time}" }
-                        td {
-                            Button {
-                                variant: ButtonVariant::Ghost,
-                                size: ButtonSize::IconXs,
-                                aria_label: "Delete label",
-                                onclick: {
-                                    let label = label.clone();
-                                    move |_| {
-                                        row_context.remove(&label);
+                        class: "data-group",
+                        "data-expanded": is_expanded,
+                        tr {
+                            class: "data-row",
+                            "data-expanded": is_expanded,
+                            onclick: move |_| toggle(),
+                            th {
+                                class: "data-cell",
+                                button {
+                                    class: "data-row-toggle",
+                                    r#type: "button",
+                                    aria_expanded: is_expanded,
+                                    title: "{label}",
+                                    // The row's click toggles it
+                                    if is_expanded {
+                                        lucide::ChevronDown {}
+                                    } else {
+                                        lucide::ChevronRight {}
                                     }
-                                },
-                                lucide::X {}
+                                    span { "{label}" }
+                                }
+                            }
+                            td { class: "data-cell", "{type_name}" }
+                            // Cut short to one line; all of it on hover
+                            td { class: "data-cell", title: "{preview}", "{preview}" }
+                            td { class: "data-cell", "{time}" }
+                            td {
+                                // Shown while the row is hovered
+                                Button {
+                                    class: "data-row-delete",
+                                    variant: ButtonVariant::Ghost,
+                                    size: ButtonSize::IconXs,
+                                    aria_label: "Delete label",
+                                    onclick: {
+                                        let label = label.clone();
+                                        move |event: MouseEvent| {
+                                            event.stop_propagation();
+                                            row_context.remove(&label);
+                                        }
+                                    },
+                                    lucide::X {}
+                                }
+                            }
+                        }
+                        for (timestamp, value) in history {
+                            tr {
+                                class: "data-history",
+                                aria_hidden: !is_expanded,
+                                th {}
+                                td {}
+                                td {
+                                    class: "data-cell",
+                                    title: "{value}",
+                                    HistorySlide { "{value}" }
+                                }
+                                td {
+                                    class: "data-cell",
+                                    HistorySlide { "{time_context.format_millis(timestamp)}" }
+                                }
+                                td {}
                             }
                         }
                     }
@@ -108,7 +172,7 @@ pub fn DataList() -> Element {
                                 th {}
                             }
                         }
-                        tbody { {rows.into_iter()} }
+                        {rows.into_iter()}
                     }
                 }
                 CardFooter {
@@ -233,6 +297,18 @@ fn FilterKindIcon(kind: FilterKind) -> Element {
     }
 }
 
+/// A history cell's content, which slides open as its label expands (see
+/// `.data-history-slide` in `data-list.css`).
+#[component]
+fn HistorySlide(children: Element) -> Element {
+    rsx! {
+        div {
+            class: "data-history-slide",
+            div { {children} }
+        }
+    }
+}
+
 /// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
     let latest = match data {
@@ -243,6 +319,34 @@ fn latest_value_preview(data: &TypedData) -> String {
             .map(|entry| String::from_utf8_lossy(entry.value()).into_owned()),
     };
     latest.unwrap_or_else(|| "empty".to_string())
+}
+
+/// The `count` entries before the newest, newest first, with when they came.
+fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, String)> {
+    fn before_latest<T>(
+        queue: &Queue<Data<T>>,
+        count: usize,
+        text: impl Fn(&T) -> String,
+    ) -> Vec<(i64, String)>
+    where
+        T: Clone,
+    {
+        let mut values = queue
+            .iter()
+            .skip(queue.len().saturating_sub(count + 1))
+            .map(|entry| (entry.timestamp(), text(entry.value())))
+            .collect::<Vec<_>>();
+        values.pop();
+        values.reverse();
+        values
+    }
+    match data {
+        TypedData::Number(queue) => before_latest(queue, count, |value| format_number(*value)),
+        TypedData::String(queue) => before_latest(queue, count, String::clone),
+        TypedData::Bytes(queue) => before_latest(queue, count, |value| {
+            String::from_utf8_lossy(value).into_owned()
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -268,5 +372,20 @@ mod tests {
         ]));
 
         assert_eq!(latest_value_preview(&data), "second");
+    }
+
+    #[test]
+    fn values_before_latest_are_the_newest_first() {
+        let data = TypedData::String(Queue::from_iter(
+            (1..=7).map(|n| crate::data::StringData::new(n, n.to_string())),
+        ));
+
+        let values = values_before_latest(&data, 4);
+        let expected = (3..=6)
+            .rev()
+            .map(|n| (n, n.to_string()))
+            .collect::<Vec<_>>();
+        assert_eq!(values, expected);
+        assert_eq!(values_before_latest(&data, 10).len(), 6);
     }
 }

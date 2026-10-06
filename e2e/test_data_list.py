@@ -38,7 +38,7 @@ def wait_for_rows(app: App, *labels: str):
     """Waits until the data list shows `labels` and no others."""
     app.page.wait_for_function(
         """labels => {
-            const shown = [...document.querySelectorAll('.data-table tbody th')]
+            const shown = [...document.querySelectorAll('.data-table .data-row th')]
                 .map(th => th.textContent);
             return shown.length === labels.length && labels.every(l => shown.includes(l));
         }""",
@@ -90,7 +90,7 @@ def test_deletes_a_label(app: App):
     app.page.get_by_role("button", name="Close port").click()
     expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
 
-    rows = app.page.locator(".data-grid .data-table tbody tr")
+    rows = app.page.locator(".data-grid .data-table tr.data-row")
     rows.filter(has=app.page.locator("th", has_text="volt")).get_by_role(
         "button", name="Delete label"
     ).click()
@@ -194,3 +194,66 @@ def test_columns_and_rows_stay_put_as_values_change(app: App):
         )
         app.page.wait_for_timeout(50)
     assert len(layouts) == 1, layouts
+
+
+def history_height(group) -> float:
+    """How tall `group`'s history rows are, all together."""
+    return group.evaluate(
+        "g => [...g.querySelectorAll('.data-history')]"
+        ".reduce((sum, tr) => sum + tr.getBoundingClientRect().height, 0)"
+    )
+
+
+def test_a_row_opens_to_its_recent_values(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map()
+    app.wait_for_labels("temp")
+    label = app.page.locator("th", has_text=re.compile("^temp$"))
+    group = app.page.locator(".data-table .data-group").filter(has=label)
+    row = group.locator(".data-row")
+    toggle = row.locator(".data-row-toggle")
+    # The values before the latest, there but of no height until expanded
+    history = group.locator(".data-history")
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+    expect(history).to_have_count(4)
+    # At most the half of the row's border its first one shares
+    assert history_height(group) < 1
+
+    row.click()
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+    expect(row).to_have_attribute("data-expanded", "true")
+    expect(history.last).to_be_visible()
+
+    # Newest first, from the row: each one's time no later than the one above it
+    times = app.page.evaluate(
+        """group => [...group.querySelectorAll('tr td:nth-child(4)')]
+            .map(td => td.textContent)""",
+        group.element_handle(),
+    )
+    assert len(times) == 5
+    assert times == sorted(times, reverse=True), times
+    for value in history.locator("td:nth-child(3)").all_text_contents():
+        assert re.fullmatch(r"[\d.]+", value), value
+
+    toggle.press("Enter")
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+    app.page.wait_for_function(
+        "g => [...g.querySelectorAll('.data-history')]"
+        ".every(tr => tr.getBoundingClientRect().height < 1)",
+        arg=group.element_handle(),
+    )
+
+
+def test_delete_button_shows_on_hover(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.wait_for_labels("message")
+    row = app.page.locator(".data-table .data-row").filter(
+        has=app.page.locator("th", has_text=re.compile("^message$"))
+    )
+    delete = row.get_by_role("button", name="Delete label")
+    app.page.mouse.move(0, 0)
+    expect(delete).to_have_css("opacity", "0")
+    row.hover()
+    expect(delete).to_have_css("opacity", "1")
