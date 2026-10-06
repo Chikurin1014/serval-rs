@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
-const { alignedData, applyMessage, forLogScale, withAlpha } = loadScript(
+const { alignedData, applyMessage, forLogScale, timeOfDay, withAlpha } = loadScript(
   new URL("./time_series_data.js", import.meta.url),
 );
 
@@ -105,4 +105,10 @@ test("forLogScale leaves out values a log scale cannot show", () => {
     plain(forLogScale([[1, 2, 3, 4], [10, 0, -1, null], [0.5, 1, 2, 3]])),
     [[1, 2, 3, 4], [10, null, null, null], [0.5, 1, 2, 3]],
   );
+});
+
+test("timeOfDay is HH:MM:SS.SSS in the local time zone", () => {
+  const ms = new Date(2026, 9, 6, 9, 5, 3, 7).getTime();
+  assert.equal(timeOfDay(ms), "09:05:03.007");
+  assert.equal(timeOfDay(new Date(2026, 9, 6, 23, 59, 59, 999).getTime()), "23:59:59.999");
 });

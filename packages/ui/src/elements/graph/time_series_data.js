@@ -61,6 +61,13 @@ function forLogScale(data) {
   return [xs, ...ys.map((y) => y.map((v) => (v !== null && v > 0 ? v : null)))];
 }
 
+/** `ms` (since the Unix epoch) as `HH:MM:SS.SSS` in the local time zone. */
+function timeOfDay(ms) {
+  const date = new Date(ms);
+  const pad = (n, width = 2) => String(n).padStart(width, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+}
+
 /** `rgb(r, g, b)` (as `getComputedStyle` gives it) with an alpha. */
 function withAlpha(color, alpha) {
   return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);

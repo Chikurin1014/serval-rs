@@ -41,9 +41,8 @@ def test_plots_the_labels_the_data_list_shows(app: App):
 
 def test_graphs_survive_switching_tabs(app: App):
     open_graphs_with_numbers(app)
-    add = app.page.get_by_role("button", name="Add graph")
-    add.click()
-    add.click()
+    app.add_graph()
+    app.add_graph()
     titles = ["Temp", "Volt", "Both"]
     for index, title in enumerate(titles):
         app.set_up_graph(index, title)
@@ -59,9 +58,8 @@ def test_graphs_survive_switching_tabs(app: App):
 
 def test_removing_a_graph_keeps_the_others(app: App):
     open_graphs_with_numbers(app)
-    add = app.page.get_by_role("button", name="Add graph")
-    add.click()
-    add.click()
+    app.add_graph()
+    app.add_graph()
     for index, title in enumerate(["Temp", "Volt", "Both"]):
         app.set_up_graph(index, title)
 
@@ -129,7 +127,7 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
 
 def test_cursor_moves_together_across_graphs(app: App):
     open_graphs_with_numbers(app)
-    app.page.get_by_role("button", name="Add graph").click()
+    app.add_graph()
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
     first, second = app.graphs().nth(0), app.graphs().nth(1)
 
@@ -155,7 +153,7 @@ def test_cursor_moves_together_across_graphs(app: App):
 
 def test_settings_and_legend_toggles_stay(app: App):
     open_graphs_with_numbers(app)
-    app.page.get_by_role("button", name="Add graph").click()
+    app.add_graph()
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
 
     def turned_off(graph):
@@ -192,3 +190,31 @@ def test_settings_and_legend_toggles_stay(app: App):
     app.wait_for_labels("temp", "volt")
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
     check()
+
+
+def test_adds_time_series_graphs_from_their_presets(app: App):
+    open_graphs_with_numbers(app)
+    bar = app.page.locator(".add-graph-bar")
+    trigger = bar.get_by_role("button", name="Time series")
+    trigger.hover()
+    expect(trigger).to_have_attribute("aria-expanded", "true")
+    expect(bar.get_by_role("option")).to_have_text(["Points", "Linear", "Stepped"])
+
+    for preset in ["Points", "Linear", "Stepped"]:
+        app.add_graph(preset)
+    styles = app.graphs().locator(".graph-plot")
+    expect(styles).to_have_count(4)
+    for index, style in enumerate(["points", "linear", "stepped"], start=1):
+        expect(styles.nth(index)).to_have_attribute("data-draw-style", style)
+
+
+def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
+    import re
+
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    over = app.graphs().first.locator(".u-over")
+    box = over.bounding_box()
+    app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    time = app.graphs().first.locator(".u-legend .u-series").first.locator(".u-value")
+    expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))

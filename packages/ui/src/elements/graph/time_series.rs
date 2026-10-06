@@ -2,7 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind};
+use super::{
+    AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
+};
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
@@ -36,7 +38,29 @@ fn series_color(index: usize) -> &'static str {
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
+    // One for each way of drawing the values
+    presets: &[
+        GraphPreset {
+            name: "Points",
+            property: || with_draw_style(DrawStyle::Points),
+        },
+        GraphPreset {
+            name: "Linear",
+            property: || with_draw_style(DrawStyle::Linear),
+        },
+        GraphPreset {
+            name: "Stepped",
+            property: || with_draw_style(DrawStyle::Stepped),
+        },
+    ],
 };
+
+fn with_draw_style(draw_style: DrawStyle) -> GraphProperty {
+    GraphProperty {
+        draw_style,
+        ..GraphProperty::default()
+    }
+}
 
 /// One label's update for `time_series.js`: `(label, reset, [(timestamp_ms, value)])`.
 type Update = (String, bool, Vec<(i64, f64)>);

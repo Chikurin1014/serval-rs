@@ -93,6 +93,13 @@ class App:
             arg=legends,
         )
 
+    def add_graph(self, preset: str = "Linear"):
+        """Adds a time series graph drawn as `preset` (its name in the menu)."""
+        bar = self.page.locator(".add-graph-bar")
+        # The menu opens on hover
+        bar.get_by_role("button", name="Time series").hover()
+        bar.get_by_role("option", name=preset, exact=True).click()
+
     def set_up_graph(self, index: int, title: str):
         """Titles the graph at `index`."""
         graph = self.graphs().nth(index)

@@ -1,5 +1,4 @@
 use dioxus::prelude::*;
-use js_sys::{Object, Reflect};
 
 use ui::TimeContext;
 
@@ -13,18 +12,14 @@ pub fn TimeProvider(children: Element) -> Element {
             if !millis {
                 return date.to_locale_time_string("default").into();
             }
-            // As above, with the milliseconds as the locale writes them
-            let options = Object::new();
-            for (key, value) in [
-                ("hour", "numeric".into()),
-                ("minute", "2-digit".into()),
-                ("second", "2-digit".into()),
-                ("fractionalSecondDigits", 3.into()),
-            ] {
-                let _ = Reflect::set(&options, &key.into(), &value);
-            }
-            date.to_locale_time_string_with_options("default", &options)
-                .into()
+            // `HH:MM:SS.SSS` in the browser's time zone, the same in every locale
+            format!(
+                "{:02}:{:02}:{:02}.{:03}",
+                date.get_hours(),
+                date.get_minutes(),
+                date.get_seconds(),
+                date.get_milliseconds()
+            )
         })
     });
     children

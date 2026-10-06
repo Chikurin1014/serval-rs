@@ -9,6 +9,15 @@ pub struct GraphKind {
     pub name: &'static str,
     /// Draws the graph with the given id in [`GraphContext`].
     pub view: fn(usize) -> Element,
+    /// The settings it can be added with, offered in its add menu.
+    pub presets: &'static [GraphPreset],
+}
+
+/// A kind of graph with ready-made settings.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphPreset {
+    pub name: &'static str,
+    pub property: fn() -> GraphProperty,
 }
 
 impl PartialEq for GraphKind {

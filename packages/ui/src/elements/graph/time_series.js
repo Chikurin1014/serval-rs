@@ -177,7 +177,8 @@ function create() {
       hooks: { setSeries: [onSeriesToggle] },
       axes: [axis, { ...axis }],
       series: [
-        {},
+        // The time pointed at, `HH:MM:SS.SSS` as the Data list shows it
+        { value: (u, seconds) => (seconds == null ? "--" : timeOfDay(seconds * 1000)) },
         ...labels.map((label) => {
           const color = cssColor(colors[label] ?? "--secondary-color-5");
           return {
