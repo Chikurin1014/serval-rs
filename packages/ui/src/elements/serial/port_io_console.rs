@@ -4,11 +4,14 @@ use dioxus_icons::lucide;
 use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
         input::Input,
     },
     data::{ByteData, DataContext, NewEntries, RAW_BYTES_LABEL, SourceCursor},
     serial::SerialContext,
 };
+
+use super::send_format::SendFormat;
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 
@@ -24,6 +27,10 @@ pub fn PortIoConsole() -> Element {
     let data_context = use_context::<DataContext>();
 
     let mut text_to_send = use_signal(String::new);
+    let mut format = use_signal(|| SendFormat::Text);
+    // The bytes to send, or why the input stands for none
+    let bytes = use_memo(move || format().parse(&text_to_send()));
+    let can_send = serial.is_open() && !text_to_send().trim().is_empty() && bytes.read().is_ok();
     // Owns the output text, so each chunk costs the same however long it is
     let output = use_hook(|| document::eval(CONSOLE_JS));
 
@@ -51,7 +58,10 @@ pub fn PortIoConsole() -> Element {
         if !serial.is_open() || text_to_send().trim().is_empty() {
             return;
         }
-        serial.send(text_to_send().into_bytes());
+        let Ok(bytes) = bytes() else {
+            return;
+        };
+        serial.send(bytes);
         *text_to_send.write() = String::new();
     };
 
@@ -67,9 +77,39 @@ pub fn PortIoConsole() -> Element {
             }
             div {
                 class: "console-send",
-                Input {
+                // How the input is read into bytes
+                DropdownMenu {
+                    class: "console-format",
+                    DropdownMenuTrigger {
+                        class: "console-format-trigger",
+                        aria_label: "Send format",
+                        lucide::ChevronUp {}
+                        "{format().name()}"
+                    }
+                    DropdownMenuContent {
+                        class: "console-format-menu",
+                        for (index, option) in SendFormat::ALL.into_iter().enumerate() {
+                            DropdownMenuItem {
+                                value: option,
+                                index,
+                                on_select: move |option| format.set(option),
+                                "{option.name()}"
+                            }
+                        }
+                    }
+                }
+                // The prefix and the input in one box, as the maps' fields
+                label {
+                    class: "console-send-field",
+                    "data-invalid": bytes.read().is_err(),
+                    if let Some(prefix) = format().prefix() {
+                        span { class: "console-send-prefix", "{prefix}" }
+                    }
+                    Input {
                     type: "text",
-                    placeholder: "Type text to send to the active port",
+                    placeholder: format().placeholder(),
+                    aria_invalid: bytes.read().is_err(),
+                    title: bytes.read().as_ref().err().cloned().unwrap_or_default(),
                     value: "{text_to_send()}",
                     oninput: move |event: FormEvent| {
                         *text_to_send.write() = event.value();
@@ -79,12 +119,13 @@ pub fn PortIoConsole() -> Element {
                             send_text();
                         }
                     }
+                    }
                 }
                 Button {
                     variant: ButtonVariant::Primary,
                     size: ButtonSize::Sm,
                     class: "console-send-button",
-                    disabled: !serial.is_open() || text_to_send().trim().is_empty(),
+                    disabled: !can_send,
                     onclick: move |_| {
                         send_text();
                     },
