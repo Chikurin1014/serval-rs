@@ -1,10 +1,9 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use super::{GraphContext, GraphProperty};
+use super::{GraphContext, GraphKind};
 use crate::{
     components::{
-        button::{Button, ButtonSize, ButtonVariant},
         dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
         sidebar::{
             Sidebar, SidebarCollapsible, SidebarContent, SidebarInset, SidebarProvider,
@@ -30,7 +29,7 @@ pub(super) struct GraphDrag {
 /// (it is made for the page edge). Below 768px wide it opens as a sheet instead.
 #[component]
 pub fn GraphBoard() -> Element {
-    let mut context = use_context::<GraphContext>();
+    let context = use_context::<GraphContext>();
     // Graphs compare by id and property; each graph view reads its own property
     let graphs = use_memo(move || context.list());
     let kinds = context.kinds();
@@ -61,37 +60,7 @@ pub fn GraphBoard() -> Element {
                         aria_label: "Toggle data list",
                         title: "Toggle data list",
                     }
-                    // One kind needs no menu; with several, choose like maps
-                    if let [kind] = kinds[..] {
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            size: ButtonSize::Sm,
-                            onclick: move |_| {
-                                context.add(kind, GraphProperty::default());
-                            },
-                            lucide::Plus {}
-                            "Add graph"
-                        }
-                    } else {
-                        DropdownMenu {
-                            DropdownMenuTrigger {
-                                lucide::Plus { size: 20 }
-                                "Add graph"
-                            }
-                            DropdownMenuContent {
-                                for (index, kind) in kinds.into_iter().enumerate() {
-                                    DropdownMenuItem {
-                                        value: kind,
-                                        index,
-                                        on_select: move |kind| {
-                                            context.add(kind, GraphProperty::default());
-                                        },
-                                        "{kind.name}"
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    AddGraphBar { kinds }
                 }
                 div {
                     class: "graph-grid",
@@ -100,7 +69,7 @@ pub fn GraphBoard() -> Element {
                     if graphs.read().is_empty() {
                         p {
                             class: "graph-grid-empty",
-                            "No graphs. Use \"Add graph\" to create one."
+                            "No graphs. Add one from the menu above."
                         }
                     }
                 }
@@ -127,5 +96,87 @@ mod tests {
     fn columns_follow_the_number_of_graphs() {
         let by_count: Vec<_> = (0..=7).map(columns).collect();
         assert_eq!(by_count, [1, 1, 2, 2, 2, 3, 3, 3]);
+    }
+}
+
+/// A menu for each kind of graph, opening on hover as the maps' do, of the
+/// presets it can be added with.
+#[component]
+fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
+    // Which kind's menu is open, and which one the pointer is over
+    let open = use_signal(|| None::<&'static str>);
+    let hovered = use_signal(|| None::<&'static str>);
+
+    rsx! {
+        div {
+            class: "add-graph-bar",
+            for kind in kinds {
+                AddGraphMenu { kind, open, hovered }
+            }
+        }
+    }
+}
+
+#[component]
+fn AddGraphMenu(
+    kind: GraphKind,
+    mut open: Signal<Option<&'static str>>,
+    mut hovered: Signal<Option<&'static str>>,
+) -> Element {
+    let mut context = use_context::<GraphContext>();
+    let name = kind.name;
+    let is_open = open() == Some(name);
+    let mut close = move || {
+        if *open.peek() == Some(name) {
+            open.set(None);
+        }
+    };
+
+    rsx! {
+        div {
+            class: "add-graph-menu",
+            onmouseenter: move |_| {
+                hovered.set(Some(name));
+                open.set(Some(name));
+            },
+            onmouseleave: move |_| {
+                hovered.set(None);
+                close();
+            },
+            DropdownMenu {
+                open: Some(is_open),
+                on_open_change: move |value| {
+                    if value {
+                        open.set(Some(name));
+                    } else if hovered() != Some(name) {
+                        // While hovered it stays open, e.g. when its trigger is clicked
+                        close();
+                    }
+                },
+                DropdownMenuTrigger {
+                    class: "add-graph",
+                    "{name}"
+                    if is_open {
+                        lucide::ChevronUp {}
+                    } else {
+                        lucide::ChevronDown {}
+                    }
+                }
+                DropdownMenuContent {
+                    class: "add-graph-content",
+                    for (index, preset) in kind.presets.iter().enumerate() {
+                        DropdownMenuItem {
+                            value: index,
+                            index,
+                            on_select: move |index: usize| {
+                                context.add(kind, (kind.presets[index].property)());
+                                close();
+                            },
+                            "{preset.name}"
+                        }
+                    }
+                }
+            }
+        }
     }
 }

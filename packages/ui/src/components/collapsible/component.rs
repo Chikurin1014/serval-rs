@@ -13,7 +13,9 @@ struct Styles;
 pub fn Collapsible(props: CollapsibleProps) -> Element {
     rsx! {
         collapsible::Collapsible {
-            keep_mounted: props.keep_mounted,
+            // Always, so the content can slide open and closed (see `style.css`);
+            // closed, it is hidden from focus and assistive technology there
+            keep_mounted: true,
             default_open: props.default_open,
             disabled: props.disabled,
             open: props.open,
@@ -54,7 +56,8 @@ pub fn CollapsibleContent(props: CollapsibleContentProps) -> Element {
             class: Styles::dx_collapsible_content,
             id: props.id,
             attributes: props.attributes,
-            {props.children}
+            // The one row the content grows and shrinks in
+            div { class: Styles::dx_collapsible_content_inner, {props.children} }
         }
     }
 }

@@ -9,6 +9,15 @@ pub struct GraphKind {
     pub name: &'static str,
     /// Draws the graph with the given id in [`GraphContext`].
     pub view: fn(usize) -> Element,
+    /// The settings it can be added with, offered in its add menu.
+    pub presets: &'static [GraphPreset],
+}
+
+/// A kind of graph with ready-made settings.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphPreset {
+    pub name: &'static str,
+    pub property: fn() -> GraphProperty,
 }
 
 impl PartialEq for GraphKind {
@@ -23,8 +32,67 @@ impl PartialEq for GraphKind {
 pub struct GraphProperty {
     /// Name given by the user; views fall back to a numbered default when `None`.
     pub title: Option<String>,
-    /// Labels plotted (views decide their order).
-    pub labels: Vec<String>,
+    /// How the value axis is scaled.
+    pub value_scale: AxisScale,
+    /// How each label's values are drawn.
+    pub draw_style: DrawStyle,
+    /// The labels turned off in the legend, kept by label so they stay off when
+    /// the data is cleared and comes back, or the graph is shown again.
+    pub hidden: Vec<String>,
+}
+
+/// How a graph draws a label's values.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DrawStyle {
+    /// Each value on its own, unjoined.
+    Points,
+    /// Straight lines between the values, filled below.
+    #[default]
+    Linear,
+    /// Steps, each value held until the next, filled below.
+    Stepped,
+}
+
+impl DrawStyle {
+    pub const ALL: [DrawStyle; 3] = [Self::Points, Self::Linear, Self::Stepped];
+
+    /// Also what `time_series.js` is sent.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Points => "points",
+            Self::Linear => "linear",
+            Self::Stepped => "stepped",
+        }
+    }
+
+    /// As the settings show it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Points => "Points",
+            Self::Linear => "Linear",
+            Self::Stepped => "Stepped",
+        }
+    }
+}
+
+/// How an axis spaces its values.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AxisScale {
+    #[default]
+    Linear,
+    /// Base 10; values of 0 or less are left out.
+    Log,
+}
+
+impl AxisScale {
+    pub const ALL: [AxisScale; 2] = [Self::Linear, Self::Log];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Linear => "Linear",
+            Self::Log => "Log",
+        }
+    }
 }
 
 /// One graph in [`GraphContext`].

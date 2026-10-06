@@ -15,8 +15,14 @@
   font-size: 0.75rem;
 }
 
-/* A chosen label's tag in its line's color (`--series-color`, set on each tag) */
-.graph .graph-settings-body [data-selected="true"] {
-  border-color: var(--series-color);
-  background-color: color-mix(in oklab, var(--series-color) 25%, transparent);
+/* Linear or log: the value axis's two toggles, joined */
+.graph-scale {
+  display: flex;
+  justify-self: start;
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+}
+
+.graph-scale button {
+  height: 1.75rem;
+  font-size: 0.75rem;
 }

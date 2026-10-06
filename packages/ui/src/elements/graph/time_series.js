@@ -3,15 +3,25 @@
 //
 // Messages from Rust:
 //   1. the container element id (once, after mount)
-//   2. `[labels, updates, colors]` whenever data changes
-//      - labels:  the selected labels that hold numbers; others are dropped
+//   2. `[labels, updates, colors, log, style, hidden]` whenever data or the
+//      settings change
+//      - labels:  the labels shown (by the Data list's filters) that hold numbers;
+//                 others are dropped
 //      - updates: `[label, reset, [[timestamp_ms, value], ...]]`, only new points
 //                 unless `reset` is set
-//      - colors:  `{label: css custom property}`, each line's color (as its tag's)
+//      - colors:  `{label: css custom property}`, each line's color
+//      - log:     whether the value axis is logarithmic, else linear
+//      - style:   how the values are drawn: "points", "linear" or "stepped"
+//      - hidden:  the labels turned off in the legend
 //   3. `null` when the component unmounts
+//
+// Message to Rust: the labels turned off, whenever one is turned on or off in
+// the legend
 
 // Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
 const MAX_POINTS = 10000;
+// Shared by every graph, so their cursors move together
+const CURSOR_SYNC_KEY = "serval-graphs";
 
 const id = await dioxus.recv();
 const container = document.getElementById(id);
@@ -31,6 +41,15 @@ let plot = null;
 let plotLines = "";
 /** @type {Record<string, string>} */
 let colors = {};
+// Whether the value axis is logarithmic (base 10), else linear
+let logScale = false;
+// How each label's values are drawn: "points", "linear" or "stepped"
+let drawStyle = "linear";
+// The labels turned off in the legend (kept in Rust's `GraphContext`)
+let hiddenLabels = new Set();
+// The list last told to Rust, until Rust sends it back: messages before that
+// still have the old one
+let hiddenSent = null;
 let frame = 0;
 
 // Resolve a CSS custom property (which may use the `--light`/`--dark` switch) to a color
@@ -40,6 +59,78 @@ container.appendChild(probe);
 function cssColor(name) {
   probe.style.color = `var(${name})`;
   return getComputedStyle(probe).color;
+}
+
+// The area under a line, in its colour fading to clear towards the bottom
+function areaFill(color) {
+  return (u) => {
+    const { top, height } = u.bbox;
+    // Before the first layout the plot has no size to fade over yet
+    if (!Number.isFinite(top) || !Number.isFinite(height) || height <= 0) {
+      return withAlpha(color, 0.15);
+    }
+    const gradient = u.ctx.createLinearGradient(0, top, 0, top + height);
+    gradient.addColorStop(0, withAlpha(color, 0.35));
+    gradient.addColorStop(1, withAlpha(color, 0.02));
+    return gradient;
+  };
+}
+
+// A label's series options in `drawStyle`, for its line `color`
+function seriesStyle(color) {
+  if (drawStyle === "points") {
+    // Only the points: no line between them, nothing filled
+    return {
+      paths: () => null,
+      points: { show: true, size: 4, width: 1, stroke: color, fill: color },
+    };
+  }
+  return {
+    // Each value held until the next for "stepped"
+    ...(drawStyle === "stepped" && { paths: uPlot.paths.stepped({ align: 1 }) }),
+    // An area chart: filled down to the bottom of the plot
+    fill: areaFill(color),
+    spanGaps: true,
+    points: { show: false },
+  };
+}
+
+// A series turned on or off in the legend: tells Rust, to keep it
+function onSeriesToggle(u, index, options) {
+  if (index === null || options.show === undefined) {
+    return;
+  }
+  const label = u.series[index].label;
+  if (options.show) {
+    hiddenLabels.delete(label);
+  } else {
+    hiddenLabels.add(label);
+  }
+  const hidden = [...hiddenLabels].sort();
+  hiddenSent = JSON.stringify(hidden);
+  dioxus.send(hidden);
+}
+
+// The series off in Rust, turned off here too, without telling Rust back
+function applyHidden(hidden) {
+  if (hiddenSent !== null) {
+    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
+      return;
+    }
+    hiddenSent = null;
+  }
+  hiddenLabels = new Set(hidden);
+  plot?.series.forEach((s, index) => {
+    if (index > 0 && s.show === hiddenLabels.has(s.label)) {
+      plot.setSeries(index, { show: !hiddenLabels.has(s.label) }, false);
+    }
+  });
+}
+
+// The points to plot, as the value axis can show them
+function plotData(labels) {
+  const data = alignedData(series, labels);
+  return logScale ? forLogScale(data) : data;
 }
 
 function sortedLabels() {
@@ -61,6 +152,9 @@ function fit() {
 
 function create() {
   plot?.destroy();
+  // What the plot was made with, for the page (and its tests) to read
+  container.dataset.valueScale = logScale ? "log" : "linear";
+  container.dataset.drawStyle = drawStyle;
   const labels = sortedLabels();
   plotLines = lines(labels);
 
@@ -76,20 +170,28 @@ function create() {
     {
       width: container.clientWidth,
       height: Math.max(container.clientHeight, 50),
-      scales: { x: { time: true } },
+      scales: { x: { time: true }, y: logScale ? { distr: 3, log: 10 } : {} },
+      // One cursor across the graphs: each follows the time pointed at in another
+      // (Only the cursor: each graph turns its own series on and off)
+      cursor: { sync: { key: CURSOR_SYNC_KEY, setSeries: false } },
+      hooks: { setSeries: [onSeriesToggle] },
       axes: [axis, { ...axis }],
       series: [
-        {},
-        ...labels.map((label) => ({
-          label,
-          stroke: cssColor(colors[label] ?? "--secondary-color-5"),
-          width: 1.5,
-          spanGaps: true,
-          points: { show: false },
-        })),
+        // The time pointed at, `HH:MM:SS.SSS` as the Data list shows it
+        { value: (u, seconds) => (seconds == null ? "--" : timeOfDay(seconds * 1000)) },
+        ...labels.map((label) => {
+          const color = cssColor(colors[label] ?? "--secondary-color-5");
+          return {
+            label,
+            show: !hiddenLabels.has(label),
+            stroke: color,
+            width: 1.5,
+            ...seriesStyle(color),
+          };
+        }),
       ],
     },
-    alignedData(series, labels),
+    plotData(labels),
     container,
   );
   fit();
@@ -103,7 +205,7 @@ function draw() {
   if (!plot || lines(labels) !== plotLines) {
     create();
   } else {
-    plot.setData(alignedData(series, labels));
+    plot.setData(plotData(labels));
   }
 }
 
@@ -134,8 +236,15 @@ while (true) {
     break;
   }
 
-  const [labels, updates, lineColors] = message;
+  const [labels, updates, lineColors, log, style, hidden] = message;
   colors = lineColors;
+  applyHidden(hidden);
+  if (log !== logScale || style !== drawStyle) {
+    logScale = log;
+    drawStyle = style;
+    // These are set at creation, so make the plot again
+    plotLines = null;
+  }
   applyMessage(series, [labels, updates], MAX_POINTS);
   schedule();
 }

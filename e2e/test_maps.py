@@ -182,7 +182,7 @@ def test_cards_open_to_their_settings(app: App):
     app.tab("Data")
     # The initial map starts closed; one added starts open to be set
     initial = app.map_cards().first
-    expect(initial.get_by_placeholder("Input label")).to_have_count(0)
+    expect(initial.get_by_placeholder("Input label")).to_be_hidden()
     app.add_map("Regex", "String", "Number")
     expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
 
@@ -472,3 +472,26 @@ def test_differentiate_and_integrate(app: App):
     expect(derivative.locator(".katex-mathml annotation")).to_have_text(
         r"\frac{d}{dt} f(t)"
     )
+
+
+def test_cards_slide_open_and_closed(app: App):
+    app.tab("Data")
+    card = app.map_cards().first
+    content = card.locator("[data-open]").last
+    field = card.get_by_placeholder("Input label")
+
+    def height():
+        return content.evaluate("el => el.getBoundingClientRect().height")
+
+    assert height() < 1
+    card.locator(".map-title").click()
+    # Part way open, then all the way
+    app.page.wait_for_timeout(80)
+    midway = height()
+    expect(field).to_be_visible()
+    app.page.wait_for_timeout(300)
+    assert 0 < midway < height()
+
+    card.locator(".map-title").click()
+    expect(field).to_be_hidden()
+    app.page.wait_for_function("el => el.getBoundingClientRect().height < 1", arg=content.element_handle())
