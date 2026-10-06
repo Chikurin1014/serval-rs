@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
+mod export;
 mod filter;
 
 use crate::components::{
@@ -14,6 +15,7 @@ use crate::components::{
 use crate::data::{Data, DataContext, Queue, TypedData, format_number};
 use crate::time::TimeContext;
 
+use export::ExportCsvButton;
 pub use filter::{FilterContext, FilterKind};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
@@ -177,6 +179,7 @@ pub fn DataList() -> Element {
                 }
                 CardFooter {
                     LabelFilter {}
+                    ExportCsvButton {}
                 }
             }
         }

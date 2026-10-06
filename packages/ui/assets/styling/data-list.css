@@ -107,6 +107,7 @@
 /* The label filter under the table: its input, then its tags beside it */
 .data-list [data-slot="card-footer"] {
   flex: none;
+  gap: 0.75rem;
   padding: 0.5rem 1rem;
   border-top: 1px solid var(--dc-border);
 }
@@ -116,7 +117,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  width: 100%;
+  flex: 1;
   min-width: 0;
 }
 
@@ -342,4 +343,11 @@
   .data-row .data-row-delete {
     opacity: 1;
   }
+}
+
+/* At the right end of the footer, past the filter and its tags */
+.data-list .data-export {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
 }

@@ -257,3 +257,33 @@ def test_delete_button_shows_on_hover(app: App):
     expect(delete).to_have_css("opacity", "0")
     row.hover()
     expect(delete).to_have_css("opacity", "1")
+
+
+def test_exports_the_data_shown_as_csv(app: App):
+    import csv
+    import io
+
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map()
+    app.wait_for_labels("message", "temp", "volt")
+    add_filter(app, "temp|volt")
+    wait_for_rows(app, "temp", "volt")
+
+    with app.page.expect_download() as info:
+        app.page.get_by_role("button", name="Export as CSV").click()
+    download = info.value
+    assert re.fullmatch(r"serval-\d+\.csv", download.suggested_filename)
+    with open(download.path(), newline="") as file:
+        rows = list(csv.reader(io.StringIO(file.read())))
+
+    # Only the labels shown, each in two columns
+    assert rows[0] == ["timestamp-temp", "value-temp", "timestamp-volt", "value-volt"]
+    for column in (0, 2):
+        entries = [(row[column], row[column + 1]) for row in rows[1:] if row[column]]
+        assert len(entries) > 1
+        # In the order they came
+        timestamps = [int(timestamp) for timestamp, _ in entries]
+        assert timestamps == sorted(timestamps)
+        for _, value in entries:
+            float(value)
