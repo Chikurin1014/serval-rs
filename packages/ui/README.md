@@ -6,8 +6,7 @@ This crate contains all shared components for the workspace. This is a great pla
 ui/
 ├─ src/
 │  ├─ lib.rs # The entrypoint for the ui crate
-│  ├─ hero.rs # The Hero component that will be used in every platform
-│  ├─ navbar.rs # The Navbar component that will be used in the layout of every platform's router
+│  ├─ components
 ```
 
 ## Dependencies

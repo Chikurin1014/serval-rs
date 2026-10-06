@@ -6,12 +6,10 @@
   overflow: hidden;
 }
 
+/* The navbar across the top: the links, then the theme switch at the end */
 .navbar-shell {
-  flex: 0 0 auto;
-}
-
-.navbar-shell #navbar {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 1rem;
   min-height: 2.5rem;
@@ -20,7 +18,11 @@
   background: var(--dc-panel);
 }
 
-.navbar-shell #navbar a {
+.navbar-shell .theme-switch {
+  margin-left: auto;
+}
+
+.navbar-shell a {
   color: var(--dc-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;

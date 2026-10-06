@@ -29,11 +29,7 @@ Each platform crate contains the entry point for the platform, and any assets, c
 desktop/ # The desktop crate contains all platform specific UI, logic and dependencies for the desktop app
 ├─ assets/ # Assets used by the desktop app - Any platform specific assets should go in this folder
 ├─ src/
-│  ├─ main.rs # The entrypoint for the desktop app. It also defines the routes for the desktop platform
-│  ├─ views/ # The views each route will render in the desktop version of the app
-│  │  ├─ mod.rs # Defines the module for the views route and re-exports the components for each route
-│  │  ├─ blog.rs # The component that will render at the /blog/:id route
-│  │  ├─ home.rs # The component that will render at the / route
+│  ├─ main.rs # The entrypoint for the desktop app (a placeholder for now: Serval runs in the browser)
 ├─ Cargo.toml # The desktop crate's Cargo.toml - This should include all desktop specific dependencies
 ```
 
@@ -47,8 +43,7 @@ The workspace contains a `ui` crate with components that are shared between mult
 ui/
 ├─ src/
 │  ├─ lib.rs # The entrypoint for the ui crate
-│  ├─ hero.rs # The Hero component that will be used in every platform
-│  ├─ navbar.rs # The Navbar component that will be used in the layout of every platform's router
+│  ├─ components
 ```
 
 #### Serving Your App
