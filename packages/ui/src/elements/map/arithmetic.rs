@@ -58,7 +58,7 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
             class: "map-form",
             // Centred over the whole form
             Formula {
-                class: "arithmetic-formula",
+                class: "map-formula",
                 latex: operation.latex().to_string(),
                 fallback: format!("a {} b", operation.symbol()),
             }

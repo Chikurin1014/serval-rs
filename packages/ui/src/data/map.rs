@@ -6,6 +6,7 @@
 //! for the built-in ones).
 
 mod arithmetic;
+mod calculus;
 mod concat;
 mod decode;
 mod encode;
@@ -26,6 +27,7 @@ use crate::{
 };
 
 pub use arithmetic::{Arithmetic, ArithmeticSettings, Operation};
+pub use calculus::{Calculus, CalculusMap, CalculusSettings};
 pub use concat::{Concat, ConcatSettings};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};

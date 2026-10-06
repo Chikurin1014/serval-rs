@@ -150,12 +150,11 @@ fn AddMapMenu(
     mut hovered: Signal<Option<DataType>>,
 ) -> Element {
     let mut context = use_context::<MapContext>();
-    // By the first input, then the next
+    // By the first input; those alike as they are in `builtin_map_kinds` (a stable sort)
     kinds.sort_by_key(|kind| {
         kind.from
-            .iter()
-            .map(|&from| TYPE_ORDER.iter().position(|&order| order == from))
-            .collect::<Vec<_>>()
+            .first()
+            .and_then(|&from| TYPE_ORDER.iter().position(|&order| order == from))
     });
     let disabled = kinds.is_empty();
     let is_open = open() == Some(to);

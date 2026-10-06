@@ -116,9 +116,9 @@ def test_add_menus_open_on_hover(app: App):
     number.hover()
     expect(number).to_have_attribute("aria-expanded", "true")
     option = bar.get_by_role("option")
-    # By input type: Number before String
+    # By the first input type: Number before String
     expect(option.locator(".add-map-title")).to_have_text(
-        ["Add", "Subtract", "Multiply", "Divide", "Regex"]
+        ["Add", "Subtract", "Multiply", "Divide", "Differentiate", "Integrate", "Regex"]
     )
     expect(option.locator(".map-types").last).to_have_text("StringNumber")
 
@@ -315,7 +315,9 @@ def test_arithmetic_with_a_constant(app: App):
     assert app.data_rows()["doubled"][0] == "Number"
 
     # The constant shows with no label
-    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(["temp", ""])
+    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
+        ["temp", ""]
+    )
     (value, constant), result = latest_numbers(card)
     # Numbers show to five significant digits
     assert constant == "2.0000"
@@ -331,7 +333,9 @@ def test_arithmetic_prefers_a_label_to_a_number(app: App):
     app.wait_for_labels("10")
     card = add_arithmetic_map(app, "Add", "temp", "10", "sum")
     app.wait_for_labels("sum")
-    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(["temp", "10"])
+    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
+        ["temp", "10"]
+    )
     (first, second), result = latest_numbers(card)
     assert result == pytest.approx(float(first) + float(second), rel=1e-4)
     assert float(second) != 10
@@ -358,7 +362,7 @@ def test_formula_renders_with_katex(app: App):
     app.page.on("requestfailed", lambda request: failed.append(request.url))
     app.tab("Data")
     card = add_arithmetic_map(app, "Divide", "a", "b", "quotient")
-    formula = card.locator(".arithmetic-formula .formula")
+    formula = card.locator(".map-formula .formula")
     expect(formula).to_have_attribute("data-rendered", "true")
     # Division as `a / b`, side by side
     expect(formula.locator(".katex-mathml annotation")).to_have_text("a / b")
@@ -432,4 +436,39 @@ def test_regex_presets_by_keyboard(app: App):
     expect(app.map_cards()).to_have_count(3)
     expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
         "(.+)=(.+)"
+    )
+
+
+def add_calculus_map(app: App, name: str, target: str):
+    app.add_map(name, "Number", "Number")
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("temp")
+    card.get_by_placeholder("Output label").fill(target)
+    card.get_by_role("switch").click()
+    return card
+
+
+def test_differentiate_and_integrate(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map()
+    add_calculus_map(app, "Differentiate", "temp_rate")
+    add_calculus_map(app, "Integrate", "temp_total")
+    derivative = app.map_cards().nth(-2)
+    expect(derivative.locator(".map-title-text")).to_have_text("Differentiate")
+    app.wait_for_labels("temp_rate", "temp_total")
+    rows = app.data_rows()
+    assert rows["temp_rate"][0] == "Number"
+    assert rows["temp_total"][0] == "Number"
+
+    # temp stays around 20, so its integral keeps growing
+    first = float(app.data_rows()["temp_total"][1])
+    app.page.wait_for_timeout(500)
+    assert float(app.data_rows()["temp_total"][1]) > first
+
+    expect(derivative.locator(".map-formula .formula")).to_have_attribute(
+        "data-rendered", "true"
+    )
+    expect(derivative.locator(".katex-mathml annotation")).to_have_text(
+        r"\frac{d}{dt} f(t)"
     )
