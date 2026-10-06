@@ -42,6 +42,21 @@ function cssColor(name) {
   return getComputedStyle(probe).color;
 }
 
+// The area under a line, in its colour fading to clear towards the bottom
+function areaFill(color) {
+  return (u) => {
+    const { top, height } = u.bbox;
+    // Before the first layout the plot has no size to fade over yet
+    if (!Number.isFinite(top) || !Number.isFinite(height) || height <= 0) {
+      return withAlpha(color, 0.15);
+    }
+    const gradient = u.ctx.createLinearGradient(0, top, 0, top + height);
+    gradient.addColorStop(0, withAlpha(color, 0.35));
+    gradient.addColorStop(1, withAlpha(color, 0.02));
+    return gradient;
+  };
+}
+
 function sortedLabels() {
   return [...series.keys()].sort();
 }
@@ -80,13 +95,18 @@ function create() {
       axes: [axis, { ...axis }],
       series: [
         {},
-        ...labels.map((label) => ({
-          label,
-          stroke: cssColor(colors[label] ?? "--secondary-color-5"),
-          width: 1.5,
-          spanGaps: true,
-          points: { show: false },
-        })),
+        ...labels.map((label) => {
+          const color = cssColor(colors[label] ?? "--secondary-color-5");
+          return {
+            label,
+            stroke: color,
+            // An area chart: filled down to the bottom of the plot
+            fill: areaFill(color),
+            width: 1.5,
+            spanGaps: true,
+            points: { show: false },
+          };
+        }),
       ],
     },
     alignedData(series, labels),
