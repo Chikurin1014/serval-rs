@@ -28,9 +28,10 @@ pub fn PortSelector() -> Element {
             class: "port-selector",
             Button {
                 size: ButtonSize::Sm,
-                variant: ButtonVariant::Ghost,
+                variant: ButtonVariant::Outline,
                 onclick: move |_| serial.request_port(),
-                lucide::CirclePlus {}
+                title: "Request Serial Port",
+                lucide::Plug {}
             }
             DropdownMenu {
                 disabled: !has_ports || is_open,
@@ -46,12 +47,11 @@ pub fn PortSelector() -> Element {
                         } else {
                             span {
                                 class: "port-selector-name",
-                                lucide::Unplug {}
                                 "{port.info.name}"
                             }
                         }
                     } else if !has_ports {
-                        "No Devices available"
+                        "No Devices allowed"
                     } else {
                         "No Device selected"
                     }
