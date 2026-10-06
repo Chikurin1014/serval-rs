@@ -12,7 +12,7 @@ use crate::{
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const SPLIT_FROM_BYTE: MapKind = MapKind {
-    name: "Split (from Byte)",
+    name: "Split",
     from: DataType::Bytes,
     to: DataType::String,
     create: || Box::new(SplitFromByte::new("", "")),

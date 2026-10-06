@@ -33,11 +33,70 @@ pub trait MapRunner {
     /// What [`MapKind::form`] edits, typically a `Copy` struct of signals.
     fn settings(&self) -> &dyn Any;
 
+    /// The latest conversion, set by [`MapRunner::run`] (with
+    /// [`set_if_changed`]) and shown in the map's card.
+    fn latest(&self) -> Signal<Option<Conversion>>;
+
     /// Processes new source data while the map is enabled.
     ///
     /// Re-runs whenever anything reactive read here changes: the source data
     /// (read through `data`) and the settings signals.
     fn run(&mut self, data: &mut DataContext, timestamp: i64);
+}
+
+/// One input of a map and what it was turned into.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Conversion {
+    pub from_label: String,
+    pub from_value: String,
+    pub to_label: Vec<Segment>,
+    pub to_value: Vec<Segment>,
+}
+
+/// A piece of a [`Conversion`]'s result.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Segment {
+    pub text: String,
+    /// Taken from the input (e.g. a regex's `$1`), rather than written in
+    /// the map's settings.
+    pub from_input: bool,
+}
+
+impl Segment {
+    pub fn fixed(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            from_input: false,
+        }
+    }
+
+    pub fn from_input(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            from_input: true,
+        }
+    }
+}
+
+/// Trims whitespace around the text that `segments` make up, dropping
+/// segments left empty.
+pub fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
+    segments.retain(|segment| !segment.text.is_empty());
+    while let Some(first) = segments.first_mut() {
+        first.text = first.text.trim_start().to_string();
+        if !first.text.is_empty() {
+            break;
+        }
+        segments.remove(0);
+    }
+    while let Some(last) = segments.last_mut() {
+        last.text = last.text.trim_end().to_string();
+        if !last.text.is_empty() {
+            break;
+        }
+        segments.pop();
+    }
+    segments
 }
 
 /// A kind of map that can be added from the map list.
@@ -77,6 +136,10 @@ pub struct Map {
     pub id: usize,
     pub kind: MapKind,
     pub enabled: Signal<bool>,
+    /// Whether its card shows the settings form, kept here as the card is
+    /// dropped when scrolled out of view.
+    pub open: Signal<bool>,
+    pub latest: Signal<Option<Conversion>>,
     runner: Rc<RefCell<Box<dyn MapRunner>>>,
     /// Owns the signals created by the runner; they are dropped with the map.
     _owner: Owner,
@@ -116,8 +179,9 @@ impl MapContext {
         self.list.read().iter().find(|c| c.id == id).cloned()
     }
 
+    /// Adds a map with default settings, its card open to set them.
     pub fn add(&mut self, kind: MapKind) -> usize {
-        self.push(kind, false, kind.create)
+        self.insert(kind, false, true, kind.create)
     }
 
     /// Adds a map built by `create`, e.g. one with preset settings.
@@ -127,6 +191,16 @@ impl MapContext {
         enabled: bool,
         create: impl FnOnce() -> Box<dyn MapRunner>,
     ) -> usize {
+        self.insert(kind, enabled, false, create)
+    }
+
+    fn insert(
+        &mut self,
+        kind: MapKind,
+        enabled: bool,
+        open: bool,
+        create: impl FnOnce() -> Box<dyn MapRunner>,
+    ) -> usize {
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
         // Signals made here are owned by the map (dropped with it), not by
@@ -134,13 +208,18 @@ impl MapContext {
         // in the provider's scope, so Dioxus sees them used only below where
         // they were made (by runners and forms), and does not warn
         let owner = Owner::default();
-        let (runner, enabled) = Runtime::current().in_scope(self.scope, || {
-            with_owner(owner.clone(), || (create(), Signal::new(enabled)))
+        let (runner, enabled, open) = Runtime::current().in_scope(self.scope, || {
+            with_owner(owner.clone(), || {
+                (create(), Signal::new(enabled), Signal::new(open))
+            })
         });
+        let latest = runner.latest();
         self.list.write().push(Map {
             id,
             kind,
             enabled,
+            open,
+            latest,
             runner: Rc::new(RefCell::new(runner)),
             _owner: owner,
         });
@@ -226,5 +305,25 @@ fn MapTask(id: usize) -> Element {
 pub fn set_if_changed<T: PartialEq + 'static>(signal: &mut Signal<T>, value: T) {
     if *signal.peek() != value {
         signal.set(value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Segment, trim_segments};
+
+    #[test]
+    fn trim_segments_trims_the_whole_text() {
+        let segments = vec![
+            Segment::from_input(" "),
+            Segment::fixed(" led_"),
+            Segment::from_input(""),
+            Segment::from_input("on "),
+            Segment::fixed(" "),
+        ];
+        assert_eq!(
+            trim_segments(segments),
+            vec![Segment::fixed("led_"), Segment::from_input("on")]
+        );
     }
 }

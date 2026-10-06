@@ -2,7 +2,9 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
-use crate::data::{ByteData, DataContext, MapRunner, SourceCursor, StringData};
+use crate::data::{
+    ByteData, Conversion, DataContext, MapRunner, Segment, SourceCursor, StringData, set_if_changed,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct SplitFromByteSettings {
@@ -15,6 +17,7 @@ pub struct SplitFromByteSettings {
 /// Splits a byte stream into strings at a delimiter.
 pub struct SplitFromByte {
     settings: SplitFromByteSettings,
+    latest: Signal<Option<Conversion>>,
     cursor: SourceCursor,
     /// Text after the last delimiter, waiting for the rest of the line.
     buffer: String,
@@ -28,6 +31,7 @@ impl SplitFromByte {
                 to_label: Signal::new(to_label.to_string()),
                 delimiter: Signal::new("\\n".to_string()),
             },
+            latest: Signal::new(None),
             cursor: SourceCursor::default(),
             buffer: String::new(),
         }
@@ -37,6 +41,10 @@ impl SplitFromByte {
 impl MapRunner for SplitFromByte {
     fn settings(&self) -> &dyn Any {
         &self.settings
+    }
+
+    fn latest(&self) -> Signal<Option<Conversion>> {
+        self.latest
     }
 
     fn run(&mut self, data: &mut DataContext, timestamp: i64) {
@@ -65,9 +73,19 @@ impl MapRunner for SplitFromByte {
             return;
         }
 
-        let (pieces, buffer) =
-            split_pending_bytes(&new_entries, &self.buffer, &decode_delimiter(&delimiter()));
+        let delimiter = decode_delimiter(&delimiter());
+        let (pieces, buffer) = split_pending_bytes(&new_entries, &self.buffer, &delimiter);
         self.buffer = buffer;
+        if let Some(last) = pieces.last() {
+            let conversion = Conversion {
+                from_label: source.to_string(),
+                // The bytes that made the line
+                from_value: format!("{last}{delimiter}"),
+                to_label: vec![Segment::fixed(target)],
+                to_value: vec![Segment::from_input(last.as_str())],
+            };
+            set_if_changed(&mut self.latest, Some(conversion));
+        }
         for value in pieces {
             data.push(target, StringData::new(timestamp, value));
         }

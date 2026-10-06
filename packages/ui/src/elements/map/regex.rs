@@ -12,7 +12,7 @@ use crate::{
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const REGEX_TO_STRING: MapKind = MapKind {
-    name: "Regex (to String)",
+    name: "Regex",
     from: DataType::String,
     to: DataType::String,
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
@@ -21,7 +21,7 @@ pub const REGEX_TO_STRING: MapKind = MapKind {
 };
 
 pub const REGEX_TO_NUMBER: MapKind = MapKind {
-    name: "Regex (to Number)",
+    name: "Regex",
     from: DataType::String,
     to: DataType::Number,
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
