@@ -4,7 +4,7 @@ mod map;
 mod queue;
 mod source_cursor;
 
-pub use data_context::{DataContext, DataProvider, RAW_DATA_LABEL};
+pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
     ByteData, DataEntry, DataType, NumberData, SIGNIFICANT_DIGITS, StringData, TypedData,
     format_number,

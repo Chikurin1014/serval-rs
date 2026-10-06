@@ -6,7 +6,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         input::Input,
     },
-    data::{ByteData, DataContext, NewEntries, RAW_DATA_LABEL, SourceCursor},
+    data::{ByteData, DataContext, NewEntries, RAW_BYTES_LABEL, SourceCursor},
     serial::SerialContext,
 };
 
@@ -32,14 +32,14 @@ pub fn PortIoConsole() -> Element {
     use_effect(move || {
         let Some(NewEntries {
             entries, restarted, ..
-        }) = cursor.new_entries::<ByteData>(&data_context, RAW_DATA_LABEL)
+        }) = cursor.new_entries::<ByteData>(&data_context, RAW_BYTES_LABEL)
         else {
             cursor.reset();
             let _ = output.send((true, String::new()));
             return;
         };
         if restarted || !entries.is_empty() {
-            let _ = output.send((restarted, render_raw_data_text(&entries)));
+            let _ = output.send((restarted, render_raw_bytes_text(&entries)));
         }
     });
 
@@ -95,8 +95,8 @@ pub fn PortIoConsole() -> Element {
     }
 }
 
-fn render_raw_data_text(raw_data: &[ByteData]) -> String {
-    raw_data
+fn render_raw_bytes_text(raw_bytes: &[ByteData]) -> String {
+    raw_bytes
         .iter()
         .map(|data| String::from_utf8_lossy(data.value()).into_owned())
         .collect()
@@ -108,13 +108,13 @@ mod tests {
     use crate::data::ByteData;
 
     #[test]
-    fn render_raw_data_text_does_not_repeat_old_chunks() {
-        let raw_data = vec![
+    fn render_raw_bytes_text_does_not_repeat_old_chunks() {
+        let raw_bytes = vec![
             ByteData::new(1, b"led: on\n".to_vec()),
             ByteData::new(2, b"led: off\n".to_vec()),
         ];
 
-        let rendered = render_raw_data_text(&raw_data);
+        let rendered = render_raw_bytes_text(&raw_bytes);
         assert_eq!(rendered, "led: on\nled: off\n");
         assert!(!rendered.contains("led: onled: on"));
     }

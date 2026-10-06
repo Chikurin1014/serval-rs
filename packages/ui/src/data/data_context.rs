@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use crate::data::{DataEntry, DataType, TypedData};
 
 /// The label the bytes received from the serial port go to.
-pub const RAW_DATA_LABEL: &str = "raw_data";
+pub const RAW_BYTES_LABEL: &str = "raw_bytes";
 
 #[derive(Clone, Copy)]
 pub struct DataContext {

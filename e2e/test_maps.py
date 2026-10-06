@@ -14,8 +14,8 @@ def test_initial_map_splits_raw_bytes_into_lines(app: App):
     app.open_port()
     app.tab("Data")
     expect(app.map_cards()).to_have_count(2)
-    app.wait_for_labels("raw_str")
-    assert is_whole_line(app.data_rows()["raw_str"][1])
+    app.wait_for_labels("message")
+    assert is_whole_line(app.data_rows()["message"][1])
 
 
 def test_initial_regex_map_reads_name_value_numbers(app: App):
@@ -24,7 +24,7 @@ def test_initial_regex_map_reads_name_value_numbers(app: App):
     expect(card.locator(".map-title-text")).to_have_text("Regex")
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("raw_str")
+    expect(card.get_by_placeholder("Input label")).to_have_value("message")
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
         r"(\w+): (-?\d+(\.\d+)?(e\d+)?)"
     )
@@ -46,15 +46,15 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.open_port()
     app.tab("Data")
     app.add_regex_map()
-    app.wait_for_labels("raw_str", "temp", "volt")
+    app.wait_for_labels("message", "temp", "volt")
 
     app.page.locator(".data-grid").get_by_role("button", name="Clear all").click()
-    app.wait_for_labels("raw_str", "temp", "volt")
+    app.wait_for_labels("message", "temp", "volt")
 
     # The maps pick up from the new data, without splitting a line in two
     broken = []
     for _ in range(20):
-        line = app.data_rows()["raw_str"][1]
+        line = app.data_rows()["message"][1]
         if not is_whole_line(line):
             broken.append(line)
         app.page.wait_for_timeout(100)
@@ -81,7 +81,7 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
 
     # Run the first one added, so its signals are used before it is removed
     card = app.map_cards().nth(2)
-    card.get_by_placeholder("Input label").fill("raw_str")
+    card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
     card.get_by_placeholder("Output label").fill("$1")
     card.get_by_label("To", exact=True).fill("$2")
@@ -151,7 +151,7 @@ def test_decode_without_delimiter_keeps_each_chunk(app: App):
     app.tab("Data")
     app.add_map("Decode", "Bytes", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("raw_data")
+    card.get_by_placeholder("Input label").fill("raw_bytes")
     card.get_by_placeholder("Output label").fill("chunk")
     card.get_by_label("Delimiter").fill("")
     card.get_by_role("switch").click()
@@ -167,7 +167,7 @@ def test_encode_turns_strings_into_bytes(app: App):
     app.tab("Data")
     app.add_map("Encode", "String", "Bytes")
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("raw_str")
+    card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Output label").fill("line_bytes")
     # Nothing to set but the labels
     expect(card.get_by_label("Delimiter")).to_have_count(0)
@@ -204,7 +204,7 @@ def test_title_shows_the_latest_conversion(app: App):
     app.tab("Data")
     app.add_regex_map()
     latest = app.map_cards().last.locator(".map-latest")
-    expect(latest).to_contain_text("raw_str")
+    expect(latest).to_contain_text("message")
 
     # The label and value both come from the input's groups (`$1`, `$2`)
     taken = latest.locator('.map-segment[data-from-input="true"]')
@@ -238,7 +238,7 @@ def test_card_header_shows_the_types(app: App):
 def add_replace_map(app: App, pattern: str, replacement: str, target: str):
     app.add_map("Replace", "String", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("raw_str")
+    card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Text to be replaced").fill(pattern)
     card.get_by_placeholder("Output label").fill(target)
     card.get_by_label("To", exact=True).fill(replacement)
@@ -266,7 +266,7 @@ def test_concat_joins_the_newest_of_both(app: App):
     add_replace_map(app, ":", "=", "assigned")
     app.add_map("Concat", "String", "String")
     card = app.map_cards().last
-    card.get_by_placeholder("First input label").fill("raw_str")
+    card.get_by_placeholder("First input label").fill("message")
     card.get_by_placeholder("Second input label").fill("assigned")
     card.get_by_placeholder("Output label").fill("joined")
     card.get_by_label("Separator").fill(" | ")
@@ -279,7 +279,7 @@ def test_concat_joins_the_newest_of_both(app: App):
     # Both inputs, one above the other, in the types and the latest conversion
     expect(card.locator(".map-types-from > span")).to_have_text(["String", "String"])
     expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
-        ["raw_str", "assigned"]
+        ["message", "assigned"]
     )
 
 

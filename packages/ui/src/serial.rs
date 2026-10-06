@@ -1,7 +1,7 @@
 //! Serial ports, through the platform's [`SerialBackend`].
 //!
 //! [`SerialContext`] keeps the ports and which one is open, and pushes what
-//! the open port receives to [`RAW_DATA`] in `DataContext`, chunk by chunk.
+//! the open port receives to `RAW_BYTES_LABEL` in `DataContext`, chunk by chunk.
 //!
 //! It reports how connecting goes, and what fails, in toasts and in a log,
 //! and counts the bytes received and sent.
@@ -14,7 +14,7 @@ use dioxus::{
 };
 
 use crate::{
-    data::{ByteData, DataContext, RAW_DATA_LABEL},
+    data::{ByteData, DataContext, RAW_BYTES_LABEL},
     time::TimeContext,
     toast::{Toaster, use_toaster},
 };
@@ -244,7 +244,7 @@ impl SerialContext {
                 *rx_bytes.write() += chunk.len() as u64;
                 // Straight into the data, so no chunk waits for (or is lost
                 // before) a render
-                data.push(RAW_DATA_LABEL, ByteData::new(time.read().current(), chunk));
+                data.push(RAW_BYTES_LABEL, ByteData::new(time.read().current(), chunk));
             });
             let read = port.handle.read(on_chunk).await;
             // Closed, or lost (e.g. unplugged)

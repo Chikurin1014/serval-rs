@@ -54,7 +54,7 @@ class App:
     def add_regex_map(
         self,
         output: str = "Number",
-        source: str = "raw_str",
+        source: str = "message",
         pattern: str = NAME_VALUE,
         target: str = "$1",
         replacement: str = "$2",

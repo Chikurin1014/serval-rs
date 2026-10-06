@@ -1,20 +1,31 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
+mod filter;
+
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
-    card::{Card, CardAction, CardContent, CardHeader, CardTitle},
+    card::{Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle},
+    input::Input,
+    tag_group::{Tag, TagGroup, TagList},
 };
 use crate::data::{DataContext, TypedData, format_number};
 
+pub use filter::{FilterContext, FilterKind};
+
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
+/// Requires `DataContext` and `FilterContext` to be provided by an ancestor.
 #[component]
 pub fn DataList() -> Element {
     let mut data_context = use_context::<DataContext>();
+    let filter_context = use_context::<FilterContext>();
     // Read in place: only what is shown is copied out of each queue
     let rows = data_context.with_data(|data| {
-        let mut entries = data.iter().collect::<Vec<_>>();
+        let mut entries = data
+            .iter()
+            .filter(|(label, _)| filter_context.shows(label))
+            .collect::<Vec<_>>();
         entries.sort_by_key(|(label, _)| *label);
         entries
             .into_iter()
@@ -87,8 +98,125 @@ pub fn DataList() -> Element {
                         tbody { {rows.into_iter()} }
                     }
                 }
+                CardFooter {
+                    LabelFilter {}
+                }
             }
         }
+    }
+}
+
+/// A regex to show or hide labels by, and the filters as tags beside it.
+#[component]
+fn LabelFilter() -> Element {
+    let mut filter_context = use_context::<FilterContext>();
+    let mut kind = use_signal(|| FilterKind::Show);
+    let mut pattern = use_signal(String::new);
+    let mut error = use_signal(|| None::<String>);
+    let mut add = move || {
+        let value = pattern();
+        if value.is_empty() {
+            return;
+        }
+        match filter_context.add(kind(), &value) {
+            Ok(()) => pattern.set(String::new()),
+            Err(message) => error.set(Some(message)),
+        }
+    };
+
+    rsx! {
+        div {
+            class: "label-filter",
+            div {
+                class: "label-filter-input",
+                label {
+                    class: "label-filter-field",
+                    lucide::Funnel {}
+                    Input {
+                        placeholder: "Label filter",
+                        value: "{pattern}",
+                        oninput: move |event: FormEvent| {
+                            pattern.set(event.value());
+                            error.set(None);
+                        },
+                        onkeydown: move |event: KeyboardEvent| {
+                            if event.key() == Key::Enter {
+                                add();
+                            }
+                        },
+                    }
+                }
+                // Which kind of filter the input adds
+                Button {
+                    class: "label-filter-kind",
+                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::Sm,
+                    "data-kind": kind().name(),
+                    title: "Labels matching it are shown or hidden",
+                    onclick: move |_| {
+                        kind.set(match kind() {
+                            FilterKind::Show => FilterKind::Hide,
+                            FilterKind::Hide => FilterKind::Show,
+                        });
+                    },
+                    FilterKindIcon { kind: kind() }
+                    "{kind().name()}"
+                }
+                Button {
+                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::IconSm,
+                    aria_label: "Add filter",
+                    title: "Add filter",
+                    onclick: move |_| add(),
+                    lucide::Plus {}
+                }
+            }
+            // In a div of its own, as the tag group takes no class
+            div {
+                class: "label-filter-tags",
+                TagGroup {
+                    selectable: false,
+                    aria_label: "Label filters",
+                    TagList {
+                        for (index, (kind, pattern)) in filter_context.filters().into_iter().enumerate() {
+                            Tag {
+                                key: "{kind.name()}-{pattern}",
+                                index,
+                                value: format!("{}-{pattern}", kind.name()),
+                                "data-kind": kind.name(),
+                                FilterKindIcon { kind }
+                                span { "{pattern}" }
+                                // Shown while the tag is hovered
+                                Button {
+                                    class: "label-filter-remove",
+                                    variant: ButtonVariant::Ghost,
+                                    size: ButtonSize::IconXs,
+                                    aria_label: "Remove {kind.name()} filter {pattern}",
+                                    title: "Remove filter",
+                                    onclick: move |event: MouseEvent| {
+                                        event.stop_propagation();
+                                        filter_context.remove(kind, &pattern);
+                                    },
+                                    lucide::X {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(error) = error() {
+                p { class: "label-filter-error", "{error}" }
+            }
+        }
+    }
+}
+
+/// An open eye for a filter that shows labels, a closed one for one that hides them.
+#[component]
+fn FilterKindIcon(kind: FilterKind) -> Element {
+    match kind {
+        FilterKind::Show => rsx! { lucide::Eye {} },
+        FilterKind::Hide => rsx! { lucide::EyeOff {} },
     }
 }
 
