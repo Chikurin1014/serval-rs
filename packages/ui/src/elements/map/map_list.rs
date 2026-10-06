@@ -95,7 +95,7 @@ pub fn MapList() -> Element {
     }
 }
 
-/// "+ Map to Bytes / Number / String": a menu of the kinds of map for each
+/// "Map to Bytes / Number / String": a menu of the kinds of map for each
 /// output type, each listing them by input type, opening on hover.
 #[component]
 fn AddMapBar() -> Element {
@@ -109,7 +109,7 @@ fn AddMapBar() -> Element {
             class: "add-map-bar",
             span {
                 class: "add-map-label",
-                lucide::Plus {}
+                lucide::SquareFunction {}
                 "Map to"
             }
             div {
