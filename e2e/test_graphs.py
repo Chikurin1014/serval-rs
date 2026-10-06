@@ -125,3 +125,29 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
         expect(draw.get_by_role("button", name=name)).to_have_attribute("aria-pressed", "true")
         expect(plot).to_have_attribute("data-draw-style", style)
         app.wait_for_graph_legends([["temp", "volt"]])
+
+
+def test_cursor_moves_together_across_graphs(app: App):
+    open_graphs_with_numbers(app)
+    app.page.get_by_role("button", name="Add graph").click()
+    app.wait_for_graph_legends([["temp", "volt"]] * 2)
+    first, second = app.graphs().nth(0), app.graphs().nth(1)
+
+    def legend_values(graph):
+        return graph.locator(".u-legend .u-value").all_text_contents()
+
+    def cursor_offset(graph):
+        """How far into its plot the graph's cursor line is, in pixels."""
+        return graph.locator(".u-over").evaluate(
+            "over => over.parentElement.querySelector('.u-cursor-x').getBoundingClientRect().left"
+            " - over.getBoundingClientRect().left"
+        )
+
+    # Pointing at the first graph points at the same time in the second
+    over = first.locator(".u-over")
+    box = over.bounding_box()
+    app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    expect(second.locator(".u-legend .u-value").first).not_to_have_text("--")
+    assert all(value != "--" for value in legend_values(second))
+    # At the same place in each, as both show the same span of time
+    assert abs(cursor_offset(first) - cursor_offset(second)) < 3

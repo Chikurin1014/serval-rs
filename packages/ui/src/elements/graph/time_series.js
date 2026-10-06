@@ -15,6 +15,8 @@
 
 // Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
 const MAX_POINTS = 10000;
+// Shared by every graph, so their cursors move together
+const CURSOR_SYNC_KEY = "serval-graphs";
 
 const id = await dioxus.recv();
 const container = document.getElementById(id);
@@ -127,6 +129,8 @@ function create() {
       width: container.clientWidth,
       height: Math.max(container.clientHeight, 50),
       scales: { x: { time: true }, y: logScale ? { distr: 3, log: 10 } : {} },
+      // One cursor across the graphs: each follows the time pointed at in another
+      cursor: { sync: { key: CURSOR_SYNC_KEY } },
       axes: [axis, { ...axis }],
       series: [
         {},
