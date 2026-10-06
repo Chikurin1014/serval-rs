@@ -6,26 +6,26 @@ use std::any::Any;
 use super::map_list::BYTES_LABELS_LIST_ID;
 use crate::{
     components::input::Input,
-    data::{DataType, MapKind, SplitFromByte, SplitFromByteSettings},
+    data::{DataType, Decode, DecodeSettings, MapKind},
 };
 
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-pub const SPLIT_FROM_BYTE: MapKind = MapKind {
-    name: "Split",
+pub const DECODE: MapKind = MapKind {
+    name: "Decode",
     from: DataType::Bytes,
     to: DataType::String,
-    create: || Box::new(SplitFromByte::new("", "")),
-    form: |settings: &dyn Any| match settings.downcast_ref::<SplitFromByteSettings>() {
-        Some(&settings) => rsx! { SplitFromByteForm { settings } },
+    create: || Box::new(Decode::new("", "")),
+    form: |settings: &dyn Any| match settings.downcast_ref::<DecodeSettings>() {
+        Some(&settings) => rsx! { DecodeForm { settings } },
         None => VNode::empty(),
     },
 };
 
-/// Settings form of a `SplitFromByte` map.
+/// Settings form of a `Decode` map.
 #[component]
-pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
-    let SplitFromByteSettings {
+pub fn DecodeForm(settings: DecodeSettings) -> Element {
+    let DecodeSettings {
         mut from_label,
         mut to_label,
         mut delimiter,
@@ -55,6 +55,8 @@ pub fn SplitFromByteForm(settings: SplitFromByteSettings) -> Element {
                         class: "field",
                         span { class: "field-label", "Delimiter" }
                         Input {
+                            // Without one, each entry becomes a string as it is
+                            placeholder: "None",
                             value: "{delimiter}",
                             oninput: move |event: FormEvent| delimiter.set(event.value()),
                         }

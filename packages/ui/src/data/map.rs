@@ -5,8 +5,9 @@
 //! [`MapProvider`] (see `crate::elements::map::builtin_map_kinds`
 //! for the built-in ones).
 
+mod decode;
+mod encode;
 mod regex;
-mod split_from_byte;
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 
@@ -21,8 +22,9 @@ use crate::{
     time::TimeContext,
 };
 
+pub use decode::{Decode, DecodeSettings};
+pub use encode::{Encode, EncodeSettings};
 pub use regex::{RegexMatch, RegexOutput, RegexSettings};
-pub use split_from_byte::{SplitFromByte, SplitFromByteSettings};
 
 /// The processing of one map.
 ///
@@ -308,9 +310,26 @@ pub fn set_if_changed<T: PartialEq + 'static>(signal: &mut Signal<T>, value: T) 
     }
 }
 
+/// A delimiter as typed in a form, with its `\n`, `\r`, `\t` and `\\` escapes
+/// turned into the characters they stand for.
+pub(crate) fn unescape(value: &str) -> String {
+    value
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace("\\\\", "\\")
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Segment, trim_segments};
+    use super::{Segment, trim_segments, unescape};
+
+    #[test]
+    fn unescape_supports_escape_sequences() {
+        assert_eq!(unescape("\\n"), "\n");
+        assert_eq!(unescape("\\r\\n"), "\r\n");
+        assert_eq!(unescape(""), "");
+    }
 
     #[test]
     fn trim_segments_trims_the_whole_text() {

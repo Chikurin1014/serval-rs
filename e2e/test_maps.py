@@ -58,7 +58,7 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     start = len(app.console)
     for kind in [
         ("Regex", "String", "Number"),
-        ("Split", "Bytes", "String"),
+        ("Decode", "Bytes", "String"),
         ("Regex", "String", "String"),
     ]:
         app.add_map(*kind)
@@ -119,12 +119,45 @@ def test_add_menus_open_on_hover(app: App):
     expect(bar.get_by_role("option")).to_have_count(0)
 
 
-def test_menu_without_kinds_does_not_open(app: App):
+def test_bytes_menu_offers_encode(app: App):
     app.tab("Data")
-    bytes_menu = app.page.locator(".add-map-bar").get_by_role("button", name="Bytes", exact=True)
-    expect(bytes_menu).to_be_disabled()
-    bytes_menu.hover(force=True)
-    expect(bytes_menu).to_have_attribute("aria-expanded", "false")
+    bar = app.page.locator(".add-map-bar")
+    bar.get_by_role("button", name="Bytes", exact=True).hover()
+    option = bar.get_by_role("option")
+    expect(option.locator(".add-map-title")).to_have_text(["Encode"])
+    expect(option.locator(".map-types")).to_have_text(["StringBytes"])
+
+
+def test_decode_without_delimiter_keeps_each_chunk(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_map("Decode", "Bytes", "String")
+    card = app.map_cards().last
+    card.get_by_placeholder("Source label").fill("raw_data")
+    card.get_by_placeholder("Target label").fill("chunk")
+    card.get_by_label("Delimiter").fill("")
+    card.get_by_role("switch").click()
+    app.wait_for_labels("chunk")
+    # The mock sends both lines in one chunk, which stays whole
+    chunk = app.data_rows()["chunk"]
+    assert chunk[0] == "String"
+    assert re.fullmatch(r"temp:[\d.]+\nvolt:[\d.]+\n", chunk[1])
+
+
+def test_encode_turns_strings_into_bytes(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_map("Encode", "String", "Bytes")
+    card = app.map_cards().last
+    card.get_by_placeholder("Source label").fill("raw_str")
+    card.get_by_placeholder("Target label").fill("line_bytes")
+    # Nothing to set but the labels
+    expect(card.get_by_label("Delimiter")).to_have_count(0)
+    card.get_by_role("switch").click()
+    app.wait_for_labels("line_bytes")
+    line = app.data_rows()["line_bytes"]
+    assert line[0] == "Bytes"
+    assert re.fullmatch(r"(temp|volt):[\d.]+", line[1])
 
 
 def test_cards_open_to_their_settings(app: App):
@@ -176,7 +209,7 @@ def test_fixed_parts_of_the_target_are_not_marked(app: App):
 def test_card_header_shows_the_types(app: App):
     app.tab("Data")
     app.add_map("Regex", "String", "Number")
-    expect(app.map_cards().locator(".map-title-text")).to_have_text(["Split", "Regex"])
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(["Decode", "Regex"])
     expect(app.map_cards().locator(".map-types")).to_have_text(
         ["BytesString", "StringNumber"]
     )
