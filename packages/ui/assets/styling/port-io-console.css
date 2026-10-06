@@ -1,51 +1,121 @@
 .console {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  font-family: ui-monospace, monospace;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: ui-monospace, monospace;
 }
 
 .console-output {
-  flex: 1 1 auto;
-  min-height: 0;
-  box-sizing: border-box;
-  width: 100%;
-  margin: 0;
-  overflow: auto;
-  padding: 1rem;
-  border: 1px solid var(--dc-border);
-  border-bottom: none;
-  background: var(--dc-screen);
-  color: var(--dc-screen-text);
-  font-size: 0.875rem;
-  white-space: pre-wrap;
+    flex: 1 1 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    overflow: auto;
+    padding: 1rem;
+    border: 1px solid var(--dc-border);
+    border-bottom: none;
+    background: var(--dc-screen);
+    color: var(--dc-screen-text);
+    font-size: 0.875rem;
+    white-space: pre-wrap;
 }
 
 /* Input and send button joined under the output */
 .console-send {
-  display: flex;
-  flex: 0 0 auto;
-  width: 100%;
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
 }
 
-.console-send input {
-  flex: 1;
-  min-width: 0;
-  height: 2rem;
-  font-size: 0.875rem;
+/* The prefix and the input in one bordered box, as the maps' fields */
+.console-send-field {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    height: 2rem;
+    box-sizing: border-box;
+    padding: 0 0.5rem;
+    background: var(--dc-panel);
+    box-shadow: inset 0 0 0 1px var(--dc-border);
+}
+
+.console-send-field:focus-within {
+    box-shadow: inset 0 0 0 1px var(--focused-border-color);
+}
+
+/* Bytes the format cannot read: why, on hover */
+.console-send-field[data-invalid="true"] {
+    box-shadow: inset 0 0 0 1px var(--dc-danger);
+}
+
+.console-send-field input,
+.console-send-field input:hover:not(:disabled),
+.console-send-field input:focus-visible {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font-family: ui-monospace, monospace;
+    font-size: 0.875rem;
 }
 
 /* The send button in the success color, hovered as the primary style is */
 .console-send button.console-send-button {
-  background-color: var(--secondary-success-color);
+    background-color: var(--secondary-success-color);
 }
 
 .console-send button.console-send-button:not(:disabled):hover {
-  background-color: color-mix(
-    in oklab,
-    var(--secondary-success-color) 90%,
-    transparent
-  );
+    background-color: color-mix(in oklab,
+            var(--secondary-success-color) 90%,
+            transparent);
+}
+
+/* The send format, joined to the left of the input */
+.console-send .console-format {
+    flex: 0 0 auto;
+}
+
+.console-send button.console-format-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 2rem;
+    padding: 0 0.5rem 0 0.5rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+}
+
+.console-send button.console-format-trigger>svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+/* Up from the trigger, as the console ends at the bottom */
+.console-send .console-format-menu {
+    top: auto;
+    bottom: 100%;
+    min-width: 100%;
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.console-format-menu [role="option"] {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+}
+
+/* `0x` or `0b` before the input, which leaves it out, as the maps' field labels */
+.console-send-prefix {
+    color: var(--dc-text-muted);
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    white-space: nowrap;
 }

@@ -13,6 +13,8 @@
     writable: null,
     // What the app sent, as text; read by the tests
     written: [],
+    // The same, as arrays of bytes
+    writtenBytes: [],
     // How many chunks it sent; read by the tests
     sent: 0,
     // Set by the tests to make it fail: a message for `open` or `write` to
@@ -59,6 +61,7 @@
             throw new DOMException(port.writeError, "NetworkError");
           }
           port.written.push(new TextDecoder().decode(chunk));
+          port.writtenBytes.push(Array.from(chunk));
         },
       });
     },
