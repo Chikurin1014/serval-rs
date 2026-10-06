@@ -27,6 +27,9 @@ pub struct GraphProperty {
     pub value_scale: AxisScale,
     /// How each label's values are drawn.
     pub draw_style: DrawStyle,
+    /// The labels turned off in the legend, kept by label so they stay off when
+    /// the data is cleared and comes back, or the graph is shown again.
+    pub hidden: Vec<String>,
 }
 
 /// How a graph draws a label's values.

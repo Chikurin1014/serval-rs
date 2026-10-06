@@ -151,3 +151,44 @@ def test_cursor_moves_together_across_graphs(app: App):
     assert all(value != "--" for value in legend_values(second))
     # At the same place in each, as both show the same span of time
     assert abs(cursor_offset(first) - cursor_offset(second)) < 3
+
+
+def test_settings_and_legend_toggles_stay(app: App):
+    open_graphs_with_numbers(app)
+    app.page.get_by_role("button", name="Add graph").click()
+    app.wait_for_graph_legends([["temp", "volt"]] * 2)
+
+    def turned_off(graph):
+        """The labels turned off in the graph's legend."""
+        return graph.locator(".u-legend .u-series.u-off th").all_text_contents()
+
+    def check():
+        first, second = app.graphs().nth(0), app.graphs().nth(1)
+        expect(first.locator(".u-legend .u-series.u-off")).to_have_count(1)
+        assert [label.strip() for label in turned_off(first)] == ["temp"]
+        # The other graph has its own
+        expect(second.locator(".u-legend .u-series.u-off")).to_have_count(0)
+        expect(first.locator(".graph-title-text")).to_have_text("Readings")
+        plot = first.locator(".graph-plot")
+        expect(plot).to_have_attribute("data-value-scale", "log")
+        expect(plot).to_have_attribute("data-draw-style", "points")
+
+    first = app.graphs().first
+    app.set_up_graph(0, "Readings")
+    first.locator(".graph-title").click()  # opens the settings
+    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    first.get_by_role("group", name="Draw").get_by_role("button", name="Points").click()
+    first.locator(".graph-title").click()  # closes them
+    first.locator(".u-legend .u-series th", has_text="temp").click()
+    check()
+
+    app.tab("Console")
+    app.tab("Graph")
+    app.wait_for_graph_legends([["temp", "volt"]] * 2)
+    check()
+
+    app.page.get_by_role("button", name="Toggle data list").click()
+    app.page.locator(".graph-board").get_by_role("button", name="Clear all").click()
+    app.wait_for_labels("temp", "volt")
+    app.wait_for_graph_legends([["temp", "volt"]] * 2)
+    check()

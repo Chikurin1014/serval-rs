@@ -3,7 +3,8 @@
 //
 // Messages from Rust:
 //   1. the container element id (once, after mount)
-//   2. `[labels, updates, colors, log, style]` whenever data or the settings change
+//   2. `[labels, updates, colors, log, style, hidden]` whenever data or the
+//      settings change
 //      - labels:  the labels shown (by the Data list's filters) that hold numbers;
 //                 others are dropped
 //      - updates: `[label, reset, [[timestamp_ms, value], ...]]`, only new points
@@ -11,7 +12,11 @@
 //      - colors:  `{label: css custom property}`, each line's color
 //      - log:     whether the value axis is logarithmic, else linear
 //      - style:   how the values are drawn: "points", "linear" or "stepped"
+//      - hidden:  the labels turned off in the legend
 //   3. `null` when the component unmounts
+//
+// Message to Rust: the labels turned off, whenever one is turned on or off in
+// the legend
 
 // Points kept per label: as many as a label keeps in Rust (`MAX_ENTRIES_PER_LABEL`)
 const MAX_POINTS = 10000;
@@ -40,6 +45,11 @@ let colors = {};
 let logScale = false;
 // How each label's values are drawn: "points", "linear" or "stepped"
 let drawStyle = "linear";
+// The labels turned off in the legend (kept in Rust's `GraphContext`)
+let hiddenLabels = new Set();
+// The list last told to Rust, until Rust sends it back: messages before that
+// still have the old one
+let hiddenSent = null;
 let frame = 0;
 
 // Resolve a CSS custom property (which may use the `--light`/`--dark` switch) to a color
@@ -83,6 +93,38 @@ function seriesStyle(color) {
     spanGaps: true,
     points: { show: false },
   };
+}
+
+// A series turned on or off in the legend: tells Rust, to keep it
+function onSeriesToggle(u, index, options) {
+  if (index === null || options.show === undefined) {
+    return;
+  }
+  const label = u.series[index].label;
+  if (options.show) {
+    hiddenLabels.delete(label);
+  } else {
+    hiddenLabels.add(label);
+  }
+  const hidden = [...hiddenLabels].sort();
+  hiddenSent = JSON.stringify(hidden);
+  dioxus.send(hidden);
+}
+
+// The series off in Rust, turned off here too, without telling Rust back
+function applyHidden(hidden) {
+  if (hiddenSent !== null) {
+    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
+      return;
+    }
+    hiddenSent = null;
+  }
+  hiddenLabels = new Set(hidden);
+  plot?.series.forEach((s, index) => {
+    if (index > 0 && s.show === hiddenLabels.has(s.label)) {
+      plot.setSeries(index, { show: !hiddenLabels.has(s.label) }, false);
+    }
+  });
 }
 
 // The points to plot, as the value axis can show them
@@ -130,13 +172,21 @@ function create() {
       height: Math.max(container.clientHeight, 50),
       scales: { x: { time: true }, y: logScale ? { distr: 3, log: 10 } : {} },
       // One cursor across the graphs: each follows the time pointed at in another
-      cursor: { sync: { key: CURSOR_SYNC_KEY } },
+      // (Only the cursor: each graph turns its own series on and off)
+      cursor: { sync: { key: CURSOR_SYNC_KEY, setSeries: false } },
+      hooks: { setSeries: [onSeriesToggle] },
       axes: [axis, { ...axis }],
       series: [
         {},
         ...labels.map((label) => {
           const color = cssColor(colors[label] ?? "--secondary-color-5");
-          return { label, stroke: color, width: 1.5, ...seriesStyle(color) };
+          return {
+            label,
+            show: !hiddenLabels.has(label),
+            stroke: color,
+            width: 1.5,
+            ...seriesStyle(color),
+          };
         }),
       ],
     },
@@ -185,8 +235,9 @@ while (true) {
     break;
   }
 
-  const [labels, updates, lineColors, log, style] = message;
+  const [labels, updates, lineColors, log, style, hidden] = message;
   colors = lineColors;
+  applyHidden(hidden);
   if (log !== logScale || style !== drawStyle) {
     logScale = log;
     drawStyle = style;

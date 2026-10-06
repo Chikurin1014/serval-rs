@@ -108,6 +108,12 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .map(|graph| graph.property.draw_style)
             .unwrap_or_default()
     });
+    let hidden = use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| graph.property.hidden)
+            .unwrap_or_default()
+    });
     // Graph ids are never reused, so this is unique on the page
     let container_id = format!("graph-plot-{id}");
     let plot = use_hook(|| document::eval(TIME_SERIES_JS));
@@ -134,7 +140,20 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .map(|(index, label)| (label.clone(), series_color(index)))
             .collect::<HashMap<_, _>>();
         let log = value_scale() == AxisScale::Log;
-        let _ = plot.send((labels, updates, colors, log, draw_style().name()));
+        let _ = plot.send((labels, updates, colors, log, draw_style().name(), hidden()));
+    });
+
+    // The labels turned off or on in the legend, kept in `GraphContext`
+    use_future(move || async move {
+        let mut plot = plot;
+        while let Ok(labels) = plot.recv::<Vec<String>>().await {
+            if graph_context
+                .get(id)
+                .is_some_and(|graph| graph.property.hidden != labels)
+            {
+                graph_context.update(id, |property| property.hidden = labels);
+            }
+        }
     });
 
     use_drop(move || {
