@@ -13,9 +13,23 @@ def is_whole_line(text: str) -> bool:
 def test_initial_map_splits_raw_bytes_into_lines(app: App):
     app.open_port()
     app.tab("Data")
-    expect(app.map_cards()).to_have_count(1)
+    expect(app.map_cards()).to_have_count(2)
     app.wait_for_labels("raw_str")
     assert is_whole_line(app.data_rows()["raw_str"][1])
+
+
+def test_initial_regex_map_reads_name_value_numbers(app: App):
+    app.tab("Data")
+    card = app.map_cards().nth(1)
+    expect(card.locator(".map-title-text")).to_have_text("Regex")
+    expect(card.get_by_role("switch")).to_be_checked()
+    card.locator(".map-title").click()
+    expect(card.get_by_placeholder("Input label")).to_have_value("raw_str")
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
+        r"(\w+): (-?\d+(\.\d+)?(e\d+)?)"
+    )
+    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
+    expect(card.get_by_label("To", exact=True)).to_have_value("$2")
 
 
 def test_regex_map_extracts_numbers(app: App):
@@ -63,10 +77,10 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
         ("Regex", "String", "String"),
     ]:
         app.add_map(*kind)
-    expect(app.map_cards()).to_have_count(4)
+    expect(app.map_cards()).to_have_count(5)
 
     # Run the first one added, so its signals are used before it is removed
-    card = app.map_cards().nth(1)
+    card = app.map_cards().nth(2)
     card.get_by_placeholder("Input label").fill("raw_str")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
     card.get_by_placeholder("Output label").fill("$1")
@@ -76,7 +90,7 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
 
     for _ in range(3):
         app.map_cards().last.get_by_role("button", name="Delete map").click()
-    expect(app.map_cards()).to_have_count(1)
+    expect(app.map_cards()).to_have_count(2)
 
     warnings = [
         message.text
@@ -213,9 +227,11 @@ def test_fixed_parts_of_the_target_are_not_marked(app: App):
 def test_card_header_shows_the_types(app: App):
     app.tab("Data")
     app.add_map("Regex", "String", "Number")
-    expect(app.map_cards().locator(".map-title-text")).to_have_text(["Decode", "Regex"])
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Decode", "Regex", "Regex"]
+    )
     expect(app.map_cards().locator(".map-types")).to_have_text(
-        ["BytesString", "StringNumber"]
+        ["BytesString", "StringNumber", "StringNumber"]
     )
 
 
@@ -351,3 +367,69 @@ def test_formula_renders_with_katex(app: App):
     app.page.wait_for_function("document.fonts.status === 'loaded'")
     assert app.page.evaluate("document.fonts.check('1em KaTeX_Math')")
     assert failed == []
+
+
+def regex_item(app: App, output: str):
+    """Opens the `output` menu and returns its Regex item."""
+    trigger = app.page.get_by_role("button", name=output, exact=True)
+    # Its own menu: one closing may still be there
+    menu = app.page.locator(".add-map-bar .add-map-menu").filter(has=trigger)
+    trigger.hover()
+    return menu.get_by_role("option").filter(
+        has=app.page.locator(".add-map-title", has_text=re.compile("^Regex$"))
+    )
+
+
+def test_regex_presets_show_beside_the_item(app: App):
+    app.tab("Data")
+    item = regex_item(app, "Number")
+    presets = item.get_by_role("menuitem")
+    expect(presets.first).to_be_hidden()
+    item.hover()
+    expect(presets.locator(".add-map-preset-name")).to_have_text(
+        ["name: value", "name=value", "Teleplot"]
+    )
+
+    item = regex_item(app, "String")
+    item.hover()
+    expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
+        ["name: value", "name=value"]
+    )
+
+
+def test_regex_preset_adds_a_set_map(app: App):
+    app.tab("Data")
+    item = regex_item(app, "Number")
+    item.hover()
+    item.get_by_role("menuitem").filter(has_text="Teleplot").click()
+
+    # Only the preset's map, not a blank one as well
+    expect(app.map_cards()).to_have_count(3)
+    card = app.map_cards().last
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
+        r">(\w+):(-?\d+(\.\d+)?(e\d+)?)"
+    )
+    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
+    expect(card.get_by_label("To", exact=True)).to_have_value("$2")
+    expect(card.locator(".map-types")).to_have_text("StringNumber")
+
+
+def test_regex_presets_by_keyboard(app: App):
+    app.tab("Data")
+    item = regex_item(app, "String")
+    item.focus()
+    app.page.keyboard.press("ArrowRight")
+    presets = item.get_by_role("menuitem")
+    expect(presets.first).to_be_focused()
+    app.page.keyboard.press("ArrowDown")
+    expect(presets.nth(1)).to_be_focused()
+    app.page.keyboard.press("ArrowLeft")
+    expect(item).to_be_focused()
+
+    app.page.keyboard.press("ArrowRight")
+    app.page.keyboard.press("ArrowDown")
+    app.page.keyboard.press("Enter")
+    expect(app.map_cards()).to_have_count(3)
+    expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
+        "(.+)=(.+)"
+    )

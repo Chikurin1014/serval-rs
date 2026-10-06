@@ -133,6 +133,18 @@ pub struct MapKind {
     pub create: fn() -> Box<dyn MapRunner>,
     /// The settings form shown in a map's card, given its [`MapRunner::settings`].
     pub form: fn(&dyn Any) -> Element,
+    /// Ready-made settings offered beside the kind in the add menus.
+    pub presets: &'static [MapPreset],
+}
+
+/// A kind of map with ready-made settings.
+#[derive(Clone, Copy, Debug)]
+pub struct MapPreset {
+    pub name: &'static str,
+    /// What sets it apart, shown beside its name (e.g. a pattern).
+    pub detail: &'static str,
+    /// Creates a map of its kind with these settings.
+    pub create: fn() -> Box<dyn MapRunner>,
 }
 
 impl PartialEq for MapKind {
@@ -206,6 +218,11 @@ impl MapContext {
     /// Adds a map with default settings, its card open to set them.
     pub fn add(&mut self, kind: MapKind) -> usize {
         self.insert(kind, false, true, kind.create)
+    }
+
+    /// Adds a map of `kind` with `preset`'s settings, its card open.
+    pub fn add_preset(&mut self, kind: MapKind, preset: MapPreset) -> usize {
+        self.insert(kind, false, true, preset.create)
     }
 
     /// Adds a map built by `create`, e.g. one with preset settings.

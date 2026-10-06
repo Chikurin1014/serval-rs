@@ -20,6 +20,7 @@ pub const CONCAT: MapKind = MapKind {
         Some(&settings) => rsx! { ConcatForm { settings } },
         None => VNode::empty(),
     },
+    presets: &[],
 };
 
 /// Settings form of a `Concat` map: the two inputs on the left, the

@@ -61,13 +61,25 @@ pub struct RegexMatch {
 
 impl RegexMatch {
     pub fn new(output: RegexOutput) -> Self {
+        Self::with(output, "", "", "", "")
+    }
+
+    /// Reading `from_label` with `pattern`, and the output label and value
+    /// made from its matches.
+    pub fn with(
+        output: RegexOutput,
+        from_label: &str,
+        pattern: &str,
+        to_label: &str,
+        replacement: &str,
+    ) -> Self {
         Self {
             output,
             settings: RegexSettings {
-                from_label: Signal::new(String::new()),
-                to_label: Signal::new(String::new()),
-                pattern: Signal::new(String::new()),
-                replacement: Signal::new(String::new()),
+                from_label: Signal::new(from_label.to_string()),
+                to_label: Signal::new(to_label.to_string()),
+                pattern: Signal::new(pattern.to_string()),
+                replacement: Signal::new(replacement.to_string()),
                 pattern_error: Signal::new(None),
                 replacement_error: Signal::new(None),
             },

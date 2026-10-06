@@ -20,6 +20,7 @@ pub const ENCODE: MapKind = MapKind {
         Some(&settings) => rsx! { EncodeForm { settings } },
         None => VNode::empty(),
     },
+    presets: &[],
 };
 
 /// Settings form of an `Encode` map.

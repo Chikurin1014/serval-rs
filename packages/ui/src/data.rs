@@ -12,9 +12,9 @@ pub use data_type::{
 pub(crate) use map::unescape;
 pub use map::{
     Arithmetic, ArithmeticSettings, Concat, ConcatSettings, Conversion, ConversionInput, Decode,
-    DecodeSettings, Encode, EncodeSettings, InitialMap, Map, MapContext, MapKind, MapProvider,
-    MapRunner, Operation, RegexMatch, RegexOutput, RegexSettings, Replace, ReplaceSettings,
-    Segment, set_if_changed, trim_segments,
+    DecodeSettings, Encode, EncodeSettings, InitialMap, Map, MapContext, MapKind, MapPreset,
+    MapProvider, MapRunner, Operation, RegexMatch, RegexOutput, RegexSettings, Replace,
+    ReplaceSettings, Segment, set_if_changed, trim_segments,
 };
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};
 pub use source_cursor::{NewEntries, SourceCursor};

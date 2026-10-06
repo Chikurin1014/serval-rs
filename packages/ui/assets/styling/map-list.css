@@ -286,3 +286,70 @@
         display: none;
     }
 }
+
+/* An item with presets: a chevron at its end, and the presets beside it while
+ * it is hovered or focus is in them */
+.add-map-content [role="option"][data-presets="true"] {
+    position: relative;
+}
+
+.add-map-content [data-presets="true"] > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-right: -0.25rem;
+    color: var(--dc-text-muted);
+}
+
+/* Padded on the left (transparent), so the pointer stays on the item on the
+ * way over to them */
+.add-map-presets {
+    display: none;
+    position: absolute;
+    z-index: 1;
+    top: -0.25rem;
+    left: 100%;
+    padding-left: 0.25rem;
+}
+
+.add-map-content [data-presets="true"]:hover > .add-map-presets,
+.add-map-content [data-presets="true"]:focus-within > .add-map-presets {
+    display: block;
+}
+
+/* As the menu itself */
+.add-map-presets-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0.25rem;
+    background-color: var(--dark, var(--primary-color-5)) var(--light, var(--primary-color));
+    box-shadow: inset 0 0 0 1px var(--border-color);
+}
+
+.add-map-preset {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: var(--secondary-color-4);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    outline: none;
+}
+
+.add-map-preset:hover,
+.add-map-preset:focus-visible {
+    background: var(--dark, var(--primary-color-7)) var(--light, var(--primary-color-4));
+    color: var(--secondary-color-1);
+}
+
+.add-map-preset-detail {
+    color: var(--dc-text-muted);
+    font-family: ui-monospace, monospace;
+    font-size: 0.7rem;
+}

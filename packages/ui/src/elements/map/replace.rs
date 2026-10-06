@@ -20,6 +20,7 @@ pub const REPLACE: MapKind = MapKind {
         Some(&settings) => rsx! { ReplaceForm { settings } },
         None => VNode::empty(),
     },
+    presets: &[],
 };
 
 /// Settings form of a `Replace` map, laid out as the `Regex` one.

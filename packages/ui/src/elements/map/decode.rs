@@ -20,6 +20,7 @@ pub const DECODE: MapKind = MapKind {
         Some(&settings) => rsx! { DecodeForm { settings } },
         None => VNode::empty(),
     },
+    presets: &[],
 };
 
 /// Settings form of a `Decode` map.

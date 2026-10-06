@@ -35,6 +35,7 @@ const fn arithmetic_kind(
             Some(&settings) => rsx! { ArithmeticForm { settings } },
             None => VNode::empty(),
         },
+        presets: &[],
     }
 }
 

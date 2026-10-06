@@ -20,6 +20,13 @@ pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
 pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
 
+// Moving the focus in and out of an add menu item's presets (see `AddMapMenu`)
+const FOCUS_FIRST_PRESET: &str =
+    "document.activeElement?.querySelector('.add-map-preset')?.focus()";
+const FOCUS_NEXT_PRESET: &str = "document.activeElement?.nextElementSibling?.focus()";
+const FOCUS_PREVIOUS_PRESET: &str = "document.activeElement?.previousElementSibling?.focus()";
+const FOCUS_PRESETS_ITEM: &str = "document.activeElement?.closest('[role=option]')?.focus()";
+
 /// The order of the types in the add menus, by output and then by input.
 const TYPE_ORDER: [DataType; 3] = [DataType::Bytes, DataType::Number, DataType::String];
 
@@ -152,6 +159,8 @@ fn AddMapMenu(
     });
     let disabled = kinds.is_empty();
     let is_open = open() == Some(to);
+    // Focus in a presets panel, which leaves the menu's items unfocused
+    let mut in_presets = use_signal(|| false);
     let mut close = move || {
         if *open.peek() == Some(to) {
             open.set(None);
@@ -171,12 +180,19 @@ fn AddMapMenu(
                 hovered.set(None);
                 close();
             },
+            // Right from an item with presets goes to them
+            onkeydown: move |event: KeyboardEvent| {
+                if event.key() == Key::ArrowRight {
+                    event.prevent_default();
+                    document::eval(FOCUS_FIRST_PRESET);
+                }
+            },
             DropdownMenu {
                 open: Some(is_open),
                 on_open_change: move |value| {
                     if value {
                         open.set(Some(to));
-                    } else if hovered() != Some(to) {
+                    } else if hovered() != Some(to) && !in_presets() {
                         // While hovered it stays open, e.g. when its trigger is clicked
                         close();
                     }
@@ -195,6 +211,7 @@ fn AddMapMenu(
                     class: "add-map-content",
                     for (index, kind) in kinds.into_iter().enumerate() {
                         DropdownMenuItem {
+                            "data-presets": !kind.presets.is_empty(),
                             value: kind,
                             index,
                             on_select: move |kind| {
@@ -204,6 +221,52 @@ fn AddMapMenu(
                             // Title, then `from -> to`
                             span { class: "add-map-title", "{kind.name}" }
                             MapTypes { from: kind.from, to: kind.to }
+                            if !kind.presets.is_empty() {
+                                lucide::ChevronRight {}
+                                // Beside the item while it is hovered or focus is in it
+                                div {
+                                    class: "add-map-presets",
+                                    onfocusin: move |_| in_presets.set(true),
+                                    onfocusout: move |_| in_presets.set(false),
+                                    onkeydown: move |event: KeyboardEvent| {
+                                        let script = match event.key() {
+                                            Key::ArrowDown => FOCUS_NEXT_PRESET,
+                                            Key::ArrowUp => FOCUS_PREVIOUS_PRESET,
+                                            Key::ArrowLeft | Key::Escape => FOCUS_PRESETS_ITEM,
+                                            // The button's, not the item's under it
+                                            Key::Enter => {
+                                                event.stop_propagation();
+                                                return;
+                                            }
+                                            _ => return,
+                                        };
+                                        event.prevent_default();
+                                        event.stop_propagation();
+                                        document::eval(script);
+                                    },
+                                    div {
+                                        class: "add-map-presets-list",
+                                        role: "menu",
+                                        aria_label: "{kind.name} presets",
+                                        for preset in kind.presets {
+                                            button {
+                                                class: "add-map-preset",
+                                                r#type: "button",
+                                                role: "menuitem",
+                                                onclick: move |event: MouseEvent| {
+                                                    // Not the item's own click, which adds it blank
+                                                    event.stop_propagation();
+                                                    context.add_preset(kind, *preset);
+                                                    in_presets.set(false);
+                                                    close();
+                                                },
+                                                span { class: "add-map-preset-name", "{preset.name}" }
+                                                span { class: "add-map-preset-detail", "{preset.detail}" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
