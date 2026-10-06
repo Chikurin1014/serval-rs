@@ -3,7 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    ByteData, Conversion, DataContext, MapRunner, Segment, SourceCursor, StringData, set_if_changed,
+    ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
+    StringData, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -62,8 +63,7 @@ impl MapRunner for Encode {
         };
 
         let conversion = Conversion {
-            from_label: source.to_string(),
-            from_value: last.value().clone(),
+            from: vec![ConversionInput::new(source, last.value().as_str())],
             to_label: vec![Segment::fixed(target)],
             to_value: vec![Segment::from_input(last.value().as_str())],
         };

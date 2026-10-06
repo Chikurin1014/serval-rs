@@ -5,9 +5,11 @@
 //! [`MapProvider`] (see `crate::elements::map::builtin_map_kinds`
 //! for the built-in ones).
 
+mod concat;
 mod decode;
 mod encode;
 mod regex;
+mod replace;
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 
@@ -22,9 +24,11 @@ use crate::{
     time::TimeContext,
 };
 
+pub use concat::{Concat, ConcatSettings};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};
 pub use regex::{RegexMatch, RegexOutput, RegexSettings};
+pub use replace::{Replace, ReplaceSettings};
 
 /// The processing of one map.
 ///
@@ -46,13 +50,28 @@ pub trait MapRunner {
     fn run(&mut self, data: &mut DataContext, timestamp: i64);
 }
 
-/// One input of a map and what it was turned into.
+/// The input of a map (one value of each source) and what it was turned into.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conversion {
-    pub from_label: String,
-    pub from_value: String,
+    pub from: Vec<ConversionInput>,
     pub to_label: Vec<Segment>,
     pub to_value: Vec<Segment>,
+}
+
+/// One source's value in a [`Conversion`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConversionInput {
+    pub label: String,
+    pub value: String,
+}
+
+impl ConversionInput {
+    pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            value: value.into(),
+        }
+    }
 }
 
 /// A piece of a [`Conversion`]'s result.
@@ -105,7 +124,8 @@ pub fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
 #[derive(Clone, Copy, Debug)]
 pub struct MapKind {
     pub name: &'static str,
-    pub from: DataType,
+    /// The type of each source, in order.
+    pub from: &'static [DataType],
     pub to: DataType,
     /// Creates a map with default settings.
     pub create: fn() -> Box<dyn MapRunner>,

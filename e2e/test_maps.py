@@ -213,3 +213,51 @@ def test_card_header_shows_the_types(app: App):
     expect(app.map_cards().locator(".map-types")).to_have_text(
         ["BytesString", "StringNumber"]
     )
+
+
+def add_replace_map(app: App, pattern: str, replacement: str, target: str):
+    app.add_map("Replace", "String", "String")
+    card = app.map_cards().last
+    card.get_by_placeholder("Source label").fill("raw_str")
+    card.get_by_placeholder("Text to be replaced").fill(pattern)
+    card.get_by_placeholder("Target label").fill(target)
+    card.get_by_label("To", exact=True).fill(replacement)
+    card.get_by_role("switch").click()
+
+
+def test_replace_replaces_every_match(app: App):
+    app.open_port()
+    app.tab("Data")
+    add_replace_map(app, r"(\w+):", "$1=", "assigned")
+    app.wait_for_labels("assigned")
+    assert re.fullmatch(r"(temp|volt)=[\d.]+", app.data_rows()["assigned"][1])
+
+    # The group is marked as taken from the input, `=` as written
+    value = app.map_cards().last.locator(".map-latest > .map-latest-value")
+    expect(value.locator('.map-segment[data-from-input="false"]')).to_have_text(["="])
+    expect(value.locator('.map-segment[data-from-input="true"]').first).to_have_text(
+        re.compile(r"^(temp|volt)$")
+    )
+
+
+def test_concat_joins_the_newest_of_both(app: App):
+    app.open_port()
+    app.tab("Data")
+    add_replace_map(app, ":", "=", "assigned")
+    app.add_map("Concat", "String", "String")
+    card = app.map_cards().last
+    card.get_by_placeholder("First source label").fill("raw_str")
+    card.get_by_placeholder("Second source label").fill("assigned")
+    card.get_by_placeholder("Target label").fill("joined")
+    card.get_by_label("Separator").fill(" | ")
+    card.get_by_role("switch").click()
+    app.wait_for_labels("joined")
+    assert re.fullmatch(
+        r"(temp|volt):[\d.]+ \| (temp|volt)=[\d.]+", app.data_rows()["joined"][1]
+    )
+
+    # Both inputs, one above the other, in the types and the latest conversion
+    expect(card.locator(".map-types-from > span")).to_have_text(["String", "String"])
+    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
+        ["raw_str", "assigned"]
+    )

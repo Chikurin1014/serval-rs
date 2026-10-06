@@ -104,6 +104,15 @@
     white-space: nowrap;
 }
 
+/* Each input's label and value on its own row, lined up with the others */
+.map-latest-from {
+    display: grid;
+    flex: 0 1 auto;
+    grid-template-columns: auto minmax(0, auto);
+    column-gap: 0.375rem;
+    min-width: 0;
+}
+
 .map-latest>svg {
     flex: 0 0 auto;
     width: 0.875rem;
@@ -255,8 +264,11 @@
     font-size: 0.7rem;
 }
 
+/* The inputs one above the other */
 .map-types-from {
-    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
 }
 
 .map-types>svg {

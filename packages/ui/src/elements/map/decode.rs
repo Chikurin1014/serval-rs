@@ -13,7 +13,7 @@ const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const DECODE: MapKind = MapKind {
     name: "Decode",
-    from: DataType::Bytes,
+    from: &[DataType::Bytes],
     to: DataType::String,
     create: || Box::new(Decode::new("", "")),
     form: |settings: &dyn Any| match settings.downcast_ref::<DecodeSettings>() {

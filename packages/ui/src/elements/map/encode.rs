@@ -13,7 +13,7 @@ const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const ENCODE: MapKind = MapKind {
     name: "Encode",
-    from: DataType::String,
+    from: &[DataType::String],
     to: DataType::Bytes,
     create: || Box::new(Encode::new("", "")),
     form: |settings: &dyn Any| match settings.downcast_ref::<EncodeSettings>() {

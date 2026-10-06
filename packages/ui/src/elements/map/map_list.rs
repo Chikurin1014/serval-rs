@@ -43,7 +43,12 @@ pub fn MapList() -> Element {
         format!(
             "--map-heading-width: {}rem; --map-from-chars: {}; --map-to-chars: {};",
             kinds.iter().map(heading_width).fold(0.0, f64::max),
-            longest(|kind| kind.from.name().len()),
+            longest(|kind| kind
+                .from
+                .iter()
+                .map(|from| from.name().len())
+                .max()
+                .unwrap_or(0)),
             longest(|kind| kind.to.name().len()),
         )
     });
@@ -138,7 +143,13 @@ fn AddMapMenu(
     mut hovered: Signal<Option<DataType>>,
 ) -> Element {
     let mut context = use_context::<MapContext>();
-    kinds.sort_by_key(|kind| TYPE_ORDER.iter().position(|&from| from == kind.from));
+    // By the first input, then the next
+    kinds.sort_by_key(|kind| {
+        kind.from
+            .iter()
+            .map(|&from| TYPE_ORDER.iter().position(|&order| order == from))
+            .collect::<Vec<_>>()
+    });
     let disabled = kinds.is_empty();
     let is_open = open() == Some(to);
     let mut close = move || {
@@ -266,19 +277,32 @@ fn MapCard(map: Map) -> Element {
 /// rounded up to a quarter.
 fn heading_width(kind: &MapKind) -> f64 {
     let title = kind.name.chars().count() as f64 * 0.75 * 0.65;
-    let types = (kind.from.name().len() + kind.to.name().len()) as f64 * 0.7 * 0.6;
+    // The inputs one above the other, so only the longest counts
+    let from = kind
+        .from
+        .iter()
+        .map(|from| from.name().len())
+        .max()
+        .unwrap_or(0);
+    let types = (from + kind.to.name().len()) as f64 * 0.7 * 0.6;
     // The gaps around the arrow and after the title, and the arrow
     let width = title + types + 0.25 * 2.0 + 0.5 + 0.75;
     (width * 4.0).ceil() / 4.0
 }
 
-/// `from -> to`: the types a kind of map turns data from and to.
+/// `from -> to`: the types a kind of map turns data from and to, its inputs
+/// one above the other.
 #[component]
-fn MapTypes(from: DataType, to: DataType) -> Element {
+fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
     rsx! {
         span {
             class: "map-types",
-            span { class: "map-types-from", "{from.name()}" }
+            span {
+                class: "map-types-from",
+                for from in from {
+                    span { "{from.name()}" }
+                }
+            }
             lucide::MoveRight {}
             span { "{to.name()}" }
         }
@@ -286,12 +310,11 @@ fn MapTypes(from: DataType, to: DataType) -> Element {
 }
 
 /// `input value -> output value`, with the parts of the output taken from
-/// the input marked.
+/// the input marked; the values of several inputs one above the other.
 #[component]
 fn LatestConversion(conversion: Conversion) -> Element {
     let Conversion {
-        from_label,
-        from_value,
+        from,
         to_label,
         to_value,
     } = conversion;
@@ -299,8 +322,13 @@ fn LatestConversion(conversion: Conversion) -> Element {
     rsx! {
         span {
             class: "map-latest",
-            span { class: "map-latest-label", "{from_label}" }
-            span { class: "map-latest-value", {single_line(&from_value)} }
+            span {
+                class: "map-latest-from",
+                for input in from {
+                    span { class: "map-latest-label", "{input.label}" }
+                    span { class: "map-latest-value", {single_line(&input.value)} }
+                }
+            }
             lucide::MoveRight {}
             span {
                 class: "map-latest-label",

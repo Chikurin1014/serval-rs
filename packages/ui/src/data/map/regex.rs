@@ -4,8 +4,8 @@ use dioxus::prelude::*;
 use regex::{Captures, Regex};
 
 use crate::data::{
-    Conversion, DataContext, MapRunner, NumberData, Segment, SourceCursor, StringData,
-    set_if_changed, trim_segments,
+    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
+    StringData, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -157,8 +157,7 @@ impl MapRunner for RegexMatch {
         // Split into segments only for the one shown
         if let Some(input) = latest {
             let conversion = Conversion {
-                from_label: source.trim().to_string(),
-                from_value: input.clone(),
+                from: vec![ConversionInput::new(source.trim(), input.as_str())],
                 to_label: label_segments(&regex, input, &to_label),
                 to_value: regex
                     .captures(input)
@@ -174,7 +173,7 @@ impl MapRunner for RegexMatch {
 
 /// Builds the value for one match from the replacement and its capture groups,
 /// leaving out the text around the match.
-fn expand(captures: &Captures, replacement: &str) -> String {
+pub(super) fn expand(captures: &Captures, replacement: &str) -> String {
     let mut value = String::new();
     captures.expand(replacement, &mut value);
     value
@@ -195,7 +194,7 @@ fn label_segments(regex: &Regex, input: &str, template: &str) -> Vec<Segment> {
 
 /// What [`expand`] builds from `replacement`, split into its own text and
 /// the capture groups (`$1`, `${name}`) filled in from the input.
-fn replacement_segments(captures: &Captures, replacement: &str) -> Vec<Segment> {
+pub(super) fn replacement_segments(captures: &Captures, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut fixed = String::new();
     let mut rest = replacement;

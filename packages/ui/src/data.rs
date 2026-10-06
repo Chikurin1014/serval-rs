@@ -8,9 +8,9 @@ pub use data_context::{DataContext, DataProvider, RAW_DATA_LABEL};
 pub use data_type::{ByteData, DataEntry, DataType, NumberData, StringData, TypedData};
 pub(crate) use map::unescape;
 pub use map::{
-    Conversion, Decode, DecodeSettings, Encode, EncodeSettings, InitialMap, Map, MapContext,
-    MapKind, MapProvider, MapRunner, RegexMatch, RegexOutput, RegexSettings, Segment,
-    set_if_changed, trim_segments,
+    Concat, ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Encode,
+    EncodeSettings, InitialMap, Map, MapContext, MapKind, MapProvider, MapRunner, RegexMatch,
+    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment, set_if_changed, trim_segments,
 };
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};
 pub use source_cursor::{NewEntries, SourceCursor};
