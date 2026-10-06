@@ -76,3 +76,13 @@
   color: var(--dc-danger);
   font-size: 0.75rem;
 }
+
+/* A map's formula (e.g. `a + b`), centred over its form */
+.map-formula {
+  color: var(--dc-text);
+  font-family: ui-monospace, monospace;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+}
+

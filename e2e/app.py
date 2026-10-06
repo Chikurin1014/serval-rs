@@ -1,5 +1,7 @@
 """Operations on the app shared by the tests."""
 
+import re
+
 from playwright.sync_api import ConsoleMessage, Page, expect
 
 # The rows of the data list in view, as {label: [type, latest, timestamp]}
@@ -39,25 +41,30 @@ class App:
     def tab(self, name: str):
         self.page.get_by_role("tab", name=name).click()
 
-    def add_map(self, kind: str):
-        """Adds a map of `kind` (its name in the menu) from the Data tab."""
-        self.page.get_by_text("+ Add map").click()
-        self.page.get_by_text(kind).first.click()
+    def add_map(self, name: str, source: str, output: str):
+        """Adds the map called `name` turning `source` typed data into `output`
+        typed data, from the Data tab."""
+        bar = self.page.locator(".add-map-bar")
+        # The menu of the output type, which opens on hover
+        bar.get_by_role("button", name=output, exact=True).hover()
+        bar.get_by_role("option").filter(
+            has=self.page.locator(".add-map-title", has_text=re.compile(f"^{name}$"))
+        ).filter(has=self.page.locator(".map-types", has_text=f"{source}{output}")).click()
 
     def add_regex_map(
         self,
-        kind: str = "Regex (to Number)",
+        output: str = "Number",
         source: str = "raw_str",
         pattern: str = NAME_VALUE,
         target: str = "$1",
         replacement: str = "$2",
     ):
         """Adds a regex map from the Data tab, sets it and enables it."""
-        self.add_map(kind)
+        self.add_map("Regex", "String", output)
         card = self.map_cards().last
-        card.get_by_placeholder("Source label").fill(source)
+        card.get_by_placeholder("Input label").fill(source)
         card.get_by_placeholder("Text to be matched").fill(pattern)
-        card.get_by_placeholder("Target label").fill(target)
+        card.get_by_placeholder("Output label").fill(target)
         card.get_by_label("To", exact=True).fill(replacement)
         card.get_by_role("switch").click()
 

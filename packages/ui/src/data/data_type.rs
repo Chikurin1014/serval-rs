@@ -43,6 +43,25 @@ impl TypedData {
     }
 }
 
+/// How many significant digits [`format_number`] shows.
+pub const SIGNIFICANT_DIGITS: i32 = 5;
+
+/// `value` to [`SIGNIFICANT_DIGITS`] significant digits for display, e.g.
+/// `4.8950`, or as `1.2346e5` when its integer part has more digits.
+pub fn format_number(value: f64) -> String {
+    // The digits before the point (`log10` has none for 0)
+    let integer_digits = if value == 0.0 {
+        1.0
+    } else {
+        value.abs().log10().floor() + 1.0
+    };
+    if integer_digits > SIGNIFICANT_DIGITS as f64 {
+        return format!("{value:.*e}", SIGNIFICANT_DIGITS as usize - 1);
+    }
+    let decimals = (SIGNIFICANT_DIGITS as f64 - integer_digits).clamp(0.0, 15.0) as usize;
+    format!("{value:.decimals$}")
+}
+
 pub type NumberData = Data<f64>;
 pub type StringData = Data<String>;
 pub type ByteData = Data<Vec<u8>>;
@@ -114,7 +133,19 @@ data_entry!(ByteData, Bytes);
 
 #[cfg(test)]
 mod tests {
-    use super::{ByteData, DataEntry, NumberData, StringData, TypedData};
+    use super::{ByteData, DataEntry, NumberData, StringData, TypedData, format_number};
+
+    #[test]
+    fn format_number_shows_five_significant_digits() {
+        assert_eq!(format_number(4.8949695964621345), "4.8950");
+        assert_eq!(format_number(1234.56789), "1234.6");
+        assert_eq!(format_number(0.000123456), "0.00012346");
+        assert_eq!(format_number(-20.0), "-20.000");
+        assert_eq!(format_number(0.0), "0.0000");
+        assert_eq!(format_number(99999.4), "99999");
+        assert_eq!(format_number(123456.7), "1.2346e5");
+        assert_eq!(format_number(-0.5e9), "-5.0000e8");
+    }
     use crate::data::Queue;
 
     #[test]
