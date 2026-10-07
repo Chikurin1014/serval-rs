@@ -48,7 +48,7 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.add_regex_map()
     app.wait_for_labels("message", "temp", "volt")
 
-    app.page.locator(".data-grid").get_by_role("button", name="Clear all").click()
+    app.clear_all()
     app.wait_for_labels("message", "temp", "volt")
 
     # The maps pick up from the new data, without splitting a line in two

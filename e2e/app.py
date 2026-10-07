@@ -41,6 +41,37 @@ class App:
     def tab(self, name: str):
         self.page.get_by_role("tab", name=name).click()
 
+    def mock(self, expression: str):
+        """Evaluates `expression` on the mock serial port, e.g. `written` or
+        `lose()`."""
+        return self.page.evaluate(f"window.mockSerialPort.{expression}")
+
+    def wait_for_mock(self, condition: str):
+        """Waits until `condition` on the mock serial port holds, e.g.
+        `written.length > 0`."""
+        self.page.wait_for_function(f"() => window.mockSerialPort.{condition}")
+
+    def send_text(self, text: str):
+        """Sends `text` from the console, as text."""
+        field = self.page.get_by_placeholder("Type text to send to the active port")
+        field.fill(text)
+        field.press("Enter")
+
+    def console_text(self) -> str:
+        return self.page.locator(".console-output").text_content()
+
+    def wait_for_console_text(self, longer_than: int = 0):
+        """Waits until the console text is longer than `longer_than`."""
+        self.page.wait_for_function(
+            "length => document.querySelector('.console-output').textContent.length > length",
+            arg=longer_than,
+        )
+
+    def clear_all(self, within: str = ".data-grid"):
+        """Clears all data with the data list's button, in `within` (the
+        Data tab's grid, or the Graph tab's board with its data list open)."""
+        self.page.locator(within).get_by_role("button", name="Clear all").click()
+
     def add_map(self, name: str, source: str, output: str):
         """Adds the map called `name` turning `source` typed data into `output`
         typed data, from the Data tab."""
