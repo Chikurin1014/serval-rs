@@ -159,7 +159,7 @@ impl MapRunner for RegexMatch {
                     continue;
                 }
             };
-            let label = text(&label_segments(&captures, input, to));
+            let label = text(&label_segments(&captures, to));
             if label.is_empty() {
                 continue;
             }
@@ -180,7 +180,7 @@ impl MapRunner for RegexMatch {
             }
             let conversion = Conversion {
                 from: vec![ConversionInput::new(from, input)],
-                to_label: label_segments(&captures, input, to),
+                to_label: label_segments(&captures, to),
                 to_value,
             };
             set_if_changed(&mut self.latest, Some(conversion));
@@ -218,15 +218,10 @@ pub(super) fn expand(captures: &Captures<str>, replacement: &str) -> String {
     value
 }
 
-/// The label `regex.replace(input, template)` gives, trimmed, as segments
-/// (`captures` being the regex's first match in `input`): the text around the
-/// match comes from the input as well.
-fn label_segments(captures: &Captures<str>, input: &str, template: &str) -> Vec<Segment> {
-    let whole = captures.get(0).expect("group 0 is the whole match");
-    let mut segments = vec![Segment::from_input(&input[..whole.start()])];
-    segments.extend(replacement_segments(captures, template));
-    segments.push(Segment::from_input(&input[whole.end()..]));
-    trim_segments(segments)
+/// The label for one match, as segments: `template` with the match's groups
+/// filled in, trimmed. Like the value, it leaves out the text around the match.
+fn label_segments(captures: &Captures<str>, template: &str) -> Vec<Segment> {
+    trim_segments(replacement_segments(captures, template))
 }
 
 /// What [`expand`] builds from `replacement`, split into its own text and
@@ -312,12 +307,6 @@ mod tests {
     }
 
     #[test]
-    fn output_label_can_use_match_groups() {
-        let regex = Regex::new(r"led: (on|off)").unwrap();
-        assert_eq!(regex.replace("led: on", "led_$1"), "led_on");
-    }
-
-    #[test]
     fn replacement_segments_mark_the_groups() {
         let regex = Regex::new(r"(?<name>\w+): (\w+)").unwrap();
         let captures = regex.captures("led: on").unwrap().unwrap();
@@ -356,21 +345,27 @@ mod tests {
     }
 
     #[test]
-    fn label_segments_make_the_trimmed_label() {
-        let regex = Regex::new(r"temp:(\S+)").unwrap();
-        let input = " xx temp:20.5 ";
-        let captures = regex.captures(input).unwrap().unwrap();
-        let segments = label_segments(&captures, input, "t_$1");
+    fn label_leaves_out_the_text_around_the_match() {
+        let regex = Regex::new(r"[\d.]+").unwrap();
+        let captures = regex.captures("temp:20.5 C").unwrap().unwrap();
         assert_eq!(
-            text(&segments),
-            regex.replace(" xx temp:20.5 ", "t_$1").trim()
+            label_segments(&captures, "foo"),
+            vec![Segment::fixed("foo")]
         );
+    }
+
+    #[test]
+    fn label_uses_the_match_groups_trimmed() {
+        let regex = Regex::new(r"(\w+): (\S+)").unwrap();
+        let captures = regex.captures("xx led: on").unwrap().unwrap();
+        let segments = label_segments(&captures, " ${1}_$2 ");
+        assert_eq!(text(&segments), "led_on");
         assert_eq!(
             segments,
             vec![
-                Segment::from_input("xx "),
-                Segment::fixed("t_"),
-                Segment::from_input("20.5"),
+                Segment::from_input("led"),
+                Segment::fixed("_"),
+                Segment::from_input("on"),
             ]
         );
     }

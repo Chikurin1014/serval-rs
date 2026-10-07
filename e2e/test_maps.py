@@ -246,6 +246,18 @@ def test_fixed_parts_of_the_target_are_not_marked(app: App):
     )
 
 
+def test_output_label_leaves_out_the_text_around_the_match(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map(
+        pattern=r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?",
+        target="foo",
+        replacement="$0",
+    )
+    app.wait_for_labels("foo")
+    assert not any(label.endswith(":foo") for label in app.data_rows())
+
+
 def test_card_header_shows_the_types(app: App):
     app.tab("Data")
     app.add_map("Regex", "String", "Number")
@@ -438,6 +450,22 @@ def test_regex_preset_adds_a_set_map(app: App):
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
     expect(card.locator(".map-types")).to_have_text("StringNumber")
+
+
+def test_value_preset_leaves_the_output_label_to_be_set(app: App):
+    app.tab("Data")
+    item = regex_item(app, "Number")
+    item.hover()
+    item.get_by_role("menuitem").filter(
+        has=app.page.locator(".add-map-preset-name", has_text=re.compile("^value$"))
+    ).click()
+
+    card = app.map_cards().last
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
+        r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    )
+    expect(card.get_by_placeholder("Output label")).to_have_value("")
+    expect(card.get_by_label("To", exact=True)).to_have_value("$0")
 
 
 def test_regex_presets_by_keyboard(app: App):

@@ -43,7 +43,7 @@ macro_rules! number {
 /// A value with no label: a number at the start of the line, e.g. `20.5`.
 pub const NUMBER_ONLY: &str = concat!("^", number!());
 
-/// The output label of the values with no label.
+/// The output label of the initial map reading the values with no label.
 pub const ANONYMOUS_LABEL: &str = "anonymous data";
 
 /// `name: value` with a number value, e.g. `temp: 20.5`.
@@ -69,7 +69,8 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
     form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
     presets: &[
-        preset!("value", Number, NUMBER_ONLY, ANONYMOUS_LABEL, "$0"),
+        // The output label is left to be set, as there is no name to take it from
+        preset!("value", Number, NUMBER_ONLY, "", "$0"),
         preset!("name: value", Number, NAME_COLON_NUMBER),
         preset!("name=value", Number, concat!(r"(\w+)=(", number!(), ")")),
         preset!("Teleplot", Number, concat!(r">(\w+):(", number!(), ")")),
