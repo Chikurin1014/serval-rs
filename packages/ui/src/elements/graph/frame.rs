@@ -68,7 +68,7 @@ pub fn GraphFrame(
         document::Link { rel: "stylesheet", href: GRAPH_FRAME_CSS }
 
         div {
-            class: "graph",
+            class: "graph reveals",
             draggable: handle_held(),
             "data-dragging": is_dragging,
             "data-drop-target": is_drop_target,
@@ -115,7 +115,7 @@ pub fn GraphFrame(
             if drag.is_some() {
                 // Over the top left corner of the plot, shown while the graph is hovered
                 Button {
-                    class: "graph-handle",
+                    class: "graph-handle reveal-on-hover",
                     id: "{handle_id}",
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::IconSm,
@@ -150,7 +150,7 @@ pub fn GraphFrame(
             }
             // Over the top right corner of the plot, shown while the graph is hovered
             Button {
-                class: "graph-remove",
+                class: "graph-remove reveal-on-hover",
                 variant: ButtonVariant::Ghost,
                 size: ButtonSize::IconSm,
                 aria_label: "Remove graph",

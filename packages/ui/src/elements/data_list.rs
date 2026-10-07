@@ -70,7 +70,7 @@ pub fn DataList() -> Element {
                         class: "data-group",
                         "data-expanded": is_expanded,
                         tr {
-                            class: "data-row",
+                            class: "data-row reveals",
                             "data-expanded": is_expanded,
                             onclick: move |_| toggle(),
                             th {
@@ -96,7 +96,7 @@ pub fn DataList() -> Element {
                             td {
                                 // Shown while the row is hovered
                                 Button {
-                                    class: "data-row-delete",
+                                    class: "data-row-delete reveal-on-hover",
                                     variant: ButtonVariant::Ghost,
                                     size: ButtonSize::IconXs,
                                     aria_label: "Delete label",
@@ -210,7 +210,7 @@ fn LabelFilter() -> Element {
             div {
                 class: "label-filter-input",
                 label {
-                    class: "label-filter-field",
+                    class: "field label-filter-field",
                     lucide::Funnel {}
                     Input {
                         placeholder: "Label filter",
@@ -268,7 +268,7 @@ fn LabelFilter() -> Element {
                                 span { "{pattern}" }
                                 // Shown while the tag is hovered
                                 Button {
-                                    class: "label-filter-remove",
+                                    class: "label-filter-remove reveal-on-hover",
                                     variant: ButtonVariant::Ghost,
                                     size: ButtonSize::IconXs,
                                     aria_label: "Remove {kind.name()} filter {pattern}",

@@ -3,6 +3,7 @@ mod calculus;
 mod concat;
 mod decode;
 mod encode;
+mod field;
 mod map_list;
 mod regex;
 mod replace;

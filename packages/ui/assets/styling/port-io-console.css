@@ -30,40 +30,11 @@
     width: 100%;
 }
 
-/* The prefix and the input in one bordered box, as the maps' fields */
-.console-send-field {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-    height: 2rem;
-    box-sizing: border-box;
-    padding: 0 0.5rem;
-    background: var(--dc-panel);
-    box-shadow: inset 0 0 0 1px var(--dc-border);
-}
-
-.console-send-field:focus-within {
-    box-shadow: inset 0 0 0 1px var(--focused-border-color);
-}
-
-/* Bytes the format cannot read: why, on hover */
-.console-send-field[data-invalid="true"] {
-    box-shadow: inset 0 0 0 1px var(--dc-danger);
-}
-
+/* The prefix and the input in one field (`.field`), its text as large as the
+ * console's */
 .console-send-field input,
 .console-send-field input:hover:not(:disabled),
 .console-send-field input:focus-visible {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    padding: 0;
-    border-radius: 0;
-    background: none;
-    box-shadow: none;
-    font-family: ui-monospace, monospace;
     font-size: 0.875rem;
 }
 
@@ -110,12 +81,4 @@
 .console-format-menu [role="option"] {
     font-family: ui-monospace, monospace;
     font-size: 0.75rem;
-}
-
-/* `0x` or `0b` before the input, which leaves it out, as the maps' field labels */
-.console-send-prefix {
-    color: var(--dc-text-muted);
-    font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
-    white-space: nowrap;
 }

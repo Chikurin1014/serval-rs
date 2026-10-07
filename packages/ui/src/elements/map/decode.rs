@@ -3,13 +3,9 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
-use super::map_list::BYTES_LABELS_LIST_ID;
-use crate::{
-    components::input::Input,
-    data::{DataType, Decode, DecodeSettings, MapKind},
-};
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
+use super::field::{LabelField, TextField};
+use super::map_list::{BYTES_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
+use crate::data::{DataType, Decode, DecodeSettings, MapKind};
 
 pub const DECODE: MapKind = MapKind {
     name: "Decode",
@@ -27,52 +23,29 @@ pub const DECODE: MapKind = MapKind {
 #[component]
 pub fn DecodeForm(settings: DecodeSettings) -> Element {
     let DecodeSettings {
-        mut from_label,
-        mut to_label,
-        mut delimiter,
+        from_label,
+        to_label,
+        delimiter,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
-            class: "map-form",
+            class: "map-row",
             div {
-                class: "map-row",
-                div {
-                    class: "field-stack",
-                    label {
-                        class: "field",
-                        lucide::Tag {}
-                        Input {
-                            list: BYTES_LABELS_LIST_ID,
-                            placeholder: "Input label",
-                            autocomplete: "on",
-                            value: "{from_label}",
-                            oninput: move |event: FormEvent| from_label.set(event.value()),
-                        }
-                    }
-                    label {
-                        class: "field",
-                        span { class: "field-label", "Delimiter" }
-                        Input {
-                            // Without one, each entry becomes a string as it is
-                            placeholder: "None",
-                            value: "{delimiter}",
-                            oninput: move |event: FormEvent| delimiter.set(event.value()),
-                        }
-                    }
+                class: "field-stack",
+                LabelField {
+                    value: from_label,
+                    list: BYTES_LABELS_LIST_ID,
+                    placeholder: "Input label",
                 }
-                lucide::MoveRight { size: 20 }
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        placeholder: "Output label",
-                        value: "{to_label}",
-                        oninput: move |event: FormEvent| to_label.set(event.value()),
-                    }
-                }
+                // Without one, each entry becomes a string as it is
+                TextField { name: "Delimiter", value: delimiter, placeholder: "None" }
+            }
+            lucide::MoveRight { size: 20 }
+            LabelField {
+                value: to_label,
+                list: STRINGS_LABELS_LIST_ID,
+                placeholder: "Output label",
             }
         }
     }

@@ -100,10 +100,10 @@ pub fn PortIoConsole() -> Element {
                 }
                 // The prefix and the input in one box, as the maps' fields
                 label {
-                    class: "console-send-field",
+                    class: "field console-send-field",
                     "data-invalid": bytes.read().is_err(),
                     if let Some(prefix) = format().prefix() {
-                        span { class: "console-send-prefix", "{prefix}" }
+                        span { class: "field-label console-send-prefix", "{prefix}" }
                     }
                     Input {
                     type: "text",

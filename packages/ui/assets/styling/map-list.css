@@ -137,24 +137,6 @@
     color: var(--dc-accent);
 }
 
-/* At the end of the header, shown while the card is hovered or focused,
- * and always where there is no hover (touch screens) */
-.map-card .map-remove {
-    opacity: 0;
-    transition: opacity 150ms ease;
-}
-
-.map-card:hover .map-remove,
-.map-card:focus-within .map-remove {
-    opacity: 1;
-}
-
-@media (hover: none) {
-    .map-card .map-remove {
-        opacity: 1;
-    }
-}
-
 .map-panel [data-slot="card-content"] {
     min-width: 0;
     padding: 0.75rem 1rem;

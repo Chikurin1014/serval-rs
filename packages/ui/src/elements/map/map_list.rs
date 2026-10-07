@@ -288,7 +288,7 @@ fn MapCard(map: Map) -> Element {
 
     rsx! {
         Collapsible {
-            class: "map-card",
+            class: "map-card reveals",
             open: Some(open()),
             on_open_change: move |value| open.set(value),
             Card {
@@ -311,7 +311,7 @@ fn MapCard(map: Map) -> Element {
                     }
                     // Shown while the card is hovered
                     Button {
-                        class: "map-remove",
+                        class: "map-remove reveal-on-hover",
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::IconSm,
                         aria_label: "Delete map",
