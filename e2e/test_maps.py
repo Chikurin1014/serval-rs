@@ -575,4 +575,6 @@ def test_cards_slide_open_and_closed(app: App):
 
     card.locator(".map-title").click()
     expect(field).to_be_hidden()
-    app.page.wait_for_function("el => el.getBoundingClientRect().height < 1", arg=content.element_handle())
+    app.page.wait_for_function(
+        "el => el.getBoundingClientRect().height < 1", arg=content.element_handle()
+    )

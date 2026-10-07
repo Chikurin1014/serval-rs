@@ -23,7 +23,9 @@ def test_plots_the_labels_the_data_list_shows(app: App):
     expect(app.graphs().first.locator(".graph-title-text")).to_have_text("Readings")
     # No labels to choose in the settings any more
     app.graphs().first.locator(".graph-title").click()
-    expect(app.graphs().first.locator(".graph-settings-body [role=grid]")).to_have_count(0)
+    expect(
+        app.graphs().first.locator(".graph-settings-body [role=grid]")
+    ).to_have_count(0)
 
     # Filtered in the data list beside the graphs, as in the Data tab
     app.page.get_by_role("button", name="Toggle data list").click()
@@ -117,10 +119,18 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
     graph.locator(".graph-title").click()  # opens the settings
     draw = graph.get_by_role("group", name="Draw")
     expect(draw.get_by_role("button")).to_have_text(["Points", "Linear", "Stepped"])
-    expect(draw.get_by_role("button", name="Linear")).to_have_attribute("aria-pressed", "true")
-    for name, style in [("Points", "points"), ("Stepped", "stepped"), ("Linear", "linear")]:
+    expect(draw.get_by_role("button", name="Linear")).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    for name, style in [
+        ("Points", "points"),
+        ("Stepped", "stepped"),
+        ("Linear", "linear"),
+    ]:
         draw.get_by_role("button", name=name).click()
-        expect(draw.get_by_role("button", name=name)).to_have_attribute("aria-pressed", "true")
+        expect(draw.get_by_role("button", name=name)).to_have_attribute(
+            "aria-pressed", "true"
+        )
         expect(plot).to_have_attribute("data-draw-style", style)
         app.wait_for_graph_legends([["temp", "volt"]])
 
@@ -215,7 +225,9 @@ def test_settings_and_legend_toggles_stay(app: App):
     first = app.graphs().first
     app.set_up_graph(0, "Readings")
     first.locator(".graph-title").click()  # opens the settings
-    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    first.get_by_role("group", name="Value axis").get_by_role(
+        "button", name="Log"
+    ).click()
     first.get_by_role("group", name="Draw").get_by_role("button", name="Points").click()
     first.locator(".graph-title").click()  # closes them
     first.locator(".u-legend .u-series th", has_text="temp").click()

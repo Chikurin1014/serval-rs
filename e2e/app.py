@@ -80,7 +80,9 @@ class App:
         bar.get_by_role("button", name=output, exact=True).hover()
         bar.get_by_role("option").filter(
             has=self.page.locator(".add-map-title", has_text=re.compile(f"^{name}$"))
-        ).filter(has=self.page.locator(".map-types", has_text=f"{source}{output}")).click()
+        ).filter(
+            has=self.page.locator(".map-types", has_text=f"{source}{output}")
+        ).click()
 
     def add_regex_map(
         self,

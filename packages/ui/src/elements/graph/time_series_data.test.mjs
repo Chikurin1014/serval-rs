@@ -3,8 +3,14 @@ import { test } from "node:test";
 
 import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
-const { alignedData, applyMessage, forLogScale, timeOfDay, timeRange, withAlpha } =
-  loadScript(new URL("./time_series_data.js", import.meta.url));
+const {
+  alignedData,
+  applyMessage,
+  forLogScale,
+  timeOfDay,
+  timeRange,
+  withAlpha,
+} = loadScript(new URL("./time_series_data.js", import.meta.url));
 
 function asObject(series) {
   return Object.fromEntries([...series].map(([label, s]) => [label, plain(s)]));

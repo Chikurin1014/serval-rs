@@ -195,7 +195,9 @@ function create() {
         setScale: [
           (u, key) => {
             if (key === "x" && u.scales.x.min != null) {
-              container.dataset.timeSpan = String(u.scales.x.max - u.scales.x.min);
+              container.dataset.timeSpan = String(
+                u.scales.x.max - u.scales.x.min,
+              );
             }
           },
         ],
