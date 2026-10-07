@@ -77,10 +77,10 @@ impl SourceCursor {
             self.label = label.to_string();
             self.reset();
         }
-        data.with_data(|data| {
-            let queue = data.get(label).and_then(T::queue)?;
-            Some(self.read(queue))
-        })
+        // Only this label's writes (and labels coming and going) run the
+        // reader again
+        data.with_label(label, |data| T::queue(data).map(|queue| self.read(queue)))
+            .flatten()
     }
 }
 

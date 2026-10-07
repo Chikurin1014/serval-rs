@@ -3,7 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, Input, MapRunner, NumberData, Segment, TypedData,
+    Conversion, ConversionInput, DataContext, DataType, Input, MapRunner, NumberData, Segment,
     format_number, set_if_changed, take_newest_pair,
 };
 
@@ -87,7 +87,7 @@ impl Operand {
     /// A Number label named `text` if there is one, else `text` as a number.
     fn resolve(data: &DataContext, text: &str) -> Result<Self, String> {
         let text = text.trim();
-        let is_label = data.with_data(|data| matches!(data.get(text), Some(TypedData::Number(_))));
+        let is_label = data.data_type_of(text) == Some(DataType::Number);
         if is_label {
             Ok(Operand::Label(text.to_string()))
         } else {

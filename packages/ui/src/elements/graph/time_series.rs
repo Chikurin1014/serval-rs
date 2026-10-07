@@ -80,22 +80,26 @@ impl PlotFeed {
     /// in full, as a reset.
     fn next(
         &mut self,
-        data: &HashMap<String, TypedData>,
+        data: &[(&str, &TypedData)],
         shows: impl Fn(&str) -> bool,
     ) -> (Vec<String>, Vec<Update>) {
         let mut labels = Vec::new();
         let mut updates = Vec::new();
 
-        for (label, data) in data {
+        for &(label, data) in data {
             let TypedData::Number(queue) = data else {
                 continue;
             };
             if !shows(label) {
                 continue;
             }
-            labels.push(label.clone());
+            labels.push(label.to_string());
 
-            let read = self.cursors.entry(label.clone()).or_default().read(queue);
+            let read = self
+                .cursors
+                .entry(label.to_string())
+                .or_default()
+                .read(queue);
             if !read.restarted && read.entries.is_empty() {
                 continue;
             }
@@ -104,7 +108,7 @@ impl PlotFeed {
                 .iter()
                 .map(|data| (data.timestamp(), *data.value()))
                 .collect();
-            updates.push((label.clone(), read.restarted, points));
+            updates.push((label.to_string(), read.restarted, points));
         }
         // Forget the labels no longer shown, so showing one again sends it in full
         self.cursors.retain(|label, _| labels.contains(label));
@@ -160,7 +164,8 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     });
 
     use_effect(move || {
-        let (labels, updates) = data_context.with_data(|data| {
+        // Only the Number labels' writes run this again
+        let (labels, updates) = data_context.with_each(Some(DataType::Number), |data| {
             feed.borrow_mut()
                 .next(data, |label| filter_context.shows(label))
         });
@@ -310,6 +315,13 @@ mod tests {
         )
     }
 
+    /// `data` as `DataContext::with_each` gives it.
+    fn each(data: &HashMap<String, TypedData>) -> Vec<(&str, &TypedData)> {
+        data.iter()
+            .map(|(label, data)| (label.as_str(), data))
+            .collect()
+    }
+
     /// Shows `labels`, as `FilterContext::shows` would.
     fn shown<'a>(labels: &'a [&'a str]) -> impl Fn(&str) -> bool + 'a {
         move |label| labels.contains(&label)
@@ -320,7 +332,7 @@ mod tests {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
 
-        let (labels, updates) = feed.next(&data, shown(&["temp"]));
+        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]));
         assert_eq!(labels, ["temp"]);
         assert_eq!(
             updates,
@@ -332,10 +344,10 @@ mod tests {
             .and_then(NumberData::queue_mut)
             .unwrap();
         temp.push(NumberData::new(3, 3.0));
-        let (_, updates) = feed.next(&data, shown(&["temp"]));
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]));
         assert_eq!(updates, [("temp".to_string(), false, vec![(3, 3.0)])]);
 
-        let (labels, updates) = feed.next(&data, shown(&["temp"]));
+        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]));
         assert_eq!(labels, ["temp"]);
         assert!(updates.is_empty());
     }
@@ -344,11 +356,11 @@ mod tests {
     fn resends_a_cleared_queue_as_a_reset() {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
-        feed.next(&data, shown(&["temp"]));
+        feed.next(&each(&data), shown(&["temp"]));
 
         // Cleared and refilled: another queue, even if as long
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
-        let (_, updates) = feed.next(&data, shown(&["temp"]));
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]));
         assert_eq!(
             updates,
             [("temp".to_string(), true, vec![(5, 5.0), (6, 6.0), (7, 7.0)])]
@@ -364,12 +376,12 @@ mod tests {
             ("message".to_string(), TypedData::String(Queue::new())),
         ]);
 
-        let (labels, _) = feed.next(&data, shown(&["volt", "message"]));
+        let (labels, _) = feed.next(&each(&data), shown(&["volt", "message"]));
         assert_eq!(labels, ["volt"]);
 
         // Hidden, then shown again: sent in full once more
-        feed.next(&data, shown(&[]));
-        let (_, updates) = feed.next(&data, shown(&["volt"]));
+        feed.next(&each(&data), shown(&[]));
+        let (_, updates) = feed.next(&each(&data), shown(&["volt"]));
         assert_eq!(updates, [("volt".to_string(), true, vec![(1, 3.3)])]);
     }
 }

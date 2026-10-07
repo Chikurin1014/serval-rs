@@ -33,16 +33,12 @@ pub fn DataList() -> Element {
     // The labels whose recent values are shown under them
     let mut expanded = use_signal(HashSet::<String>::new);
     // Read in place: only what is shown is copied out of each queue
-    let rows = data_context.with_data(|data| {
-        let mut entries = data
-            .iter()
+    // Sorted by label
+    let rows = data_context.with_each(None, |data| {
+        data.iter()
             .filter(|(label, _)| filter_context.shows(label))
-            .collect::<Vec<_>>();
-        entries.sort_by_key(|(label, _)| *label);
-        entries
-            .into_iter()
-            .map(|(label, data)| {
-                let label = label.clone();
+            .map(|&(label, data)| {
+                let label = label.to_string();
                 let mut row_context = data_context;
                 let type_name = data.data_type().name();
                 let preview = latest_value_preview(data);
@@ -148,7 +144,9 @@ pub fn DataList() -> Element {
                             size: ButtonSize::IconSm,
                             aria_label: "Clear all",
                             title: "Clear all",
-                            onclick: move |_| data_context.clear_all(),
+                            onclick: move |_| {
+                                data_context.clear_all();
+                            },
                             lucide::Trash {}
                         }
                     }

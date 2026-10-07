@@ -28,13 +28,13 @@ pub(super) fn ExportCsvButton() -> Element {
     let time_context = use_context::<TimeContext>();
 
     let export = move |_| {
-        let series = data_context.with_data(|data| {
+        let series = data_context.with_each(None, |data| {
             let mut series = data
                 .iter()
                 .filter(|(label, _)| filter_context.shows(label))
-                .map(|(label, data)| {
+                .map(|&(label, data)| {
                     (
-                        label.clone(),
+                        label.to_string(),
                         data.newest_as_text(usize::MAX, NumberText::Exact),
                     )
                 })
