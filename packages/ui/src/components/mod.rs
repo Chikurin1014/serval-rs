@@ -10,6 +10,7 @@ pub mod separator;
 pub mod sheet;
 pub mod sidebar;
 pub mod skeleton;
+pub mod slider;
 pub mod switch;
 pub mod tabs;
 pub mod tag_group;

@@ -125,6 +125,47 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
         app.wait_for_graph_legends([["temp", "volt"]])
 
 
+def wait_for_time_span(graph, low: float, high: float):
+    """Waits until the graph's time axis spans `low` to `high` seconds."""
+    graph.page.wait_for_function(
+        """([plot, low, high]) => {
+            const span = Number(plot.dataset.timeSpan);
+            return low <= span && span <= high;
+        }""",
+        arg=[graph.locator(".graph-plot").element_handle(), low, high],
+    )
+
+
+def test_time_axis_shows_a_window_of_the_newest_data(app: App):
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    graph = app.graphs().first
+
+    # 10 s: the axis fits the data, still shorter than that
+    wait_for_time_span(graph, 0.01, 9.99)
+
+    graph.locator(".graph-title").click()  # opens the settings
+    slider = graph.get_by_role("slider", name="Time axis")
+    expect(slider).to_have_attribute("aria-valuemin", "10")
+    expect(slider).to_have_attribute("aria-valuemax", "300")
+    expect(slider).to_have_attribute("aria-valuenow", "10")
+    value = graph.locator(".graph-time-window-value")
+    expect(value).to_have_text("10 s")
+
+    # Then always as wide as the window, in steps of 10 s
+    slider.focus()
+    for _ in range(5):
+        app.page.keyboard.press("ArrowRight")
+    expect(slider).to_have_attribute("aria-valuenow", "60")
+    expect(value).to_have_text("60 s")
+    wait_for_time_span(graph, 59.99, 60.01)
+
+    # Kept when the graph is shown again
+    app.tab("Console")
+    app.tab("Graph")
+    wait_for_time_span(app.graphs().first, 59.99, 60.01)
+
+
 def test_cursor_moves_together_across_graphs(app: App):
     open_graphs_with_numbers(app)
     app.add_graph()

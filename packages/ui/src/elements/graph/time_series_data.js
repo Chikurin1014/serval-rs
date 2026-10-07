@@ -54,6 +54,18 @@ function alignedData(series, labels) {
   return [xs, ...ys];
 }
 
+/**
+ * The time axis's range for data from `min` to `max` (seconds): the last
+ * `windowSeconds`, or with `fit`, the data itself up to that long.
+ */
+function timeRange(min, max, windowSeconds, fit) {
+  if (min == null || max == null) {
+    return [min, max];
+  }
+  const from = max - windowSeconds;
+  return [fit ? Math.max(min, from) : from, max];
+}
+
 /** `data` (as `alignedData` gives it) without the values a log scale cannot
  * show, 0 or less, which are gaps instead. */
 function forLogScale(data) {
