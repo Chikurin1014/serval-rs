@@ -5,11 +5,12 @@ use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardHeader},
     collapsible::{Collapsible, CollapsibleContent, CollapsibleTrigger},
-    dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
+    dropdown_menu::DropdownMenuItem,
     switch::Switch,
     virtual_list::VirtualList,
 };
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
+use crate::elements::{HoverMenu, HoverMenus};
 
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 // Linked by the forms too; here so it is loaded before a card first opens
@@ -107,9 +108,7 @@ pub fn MapList() -> Element {
 #[component]
 fn AddMapBar() -> Element {
     let kinds = use_context::<MapContext>().kinds();
-    // Which output type's menu is open, and which one the pointer is over
-    let open = use_signal(|| None::<DataType>);
-    let hovered = use_signal(|| None::<DataType>);
+    let menus = use_hook(HoverMenus::new);
 
     rsx! {
         div {
@@ -131,8 +130,8 @@ fn AddMapBar() -> Element {
                             .filter(|kind| kind.to == to)
                             .copied()
                             .collect::<Vec<_>>(),
-                        open,
-                        hovered,
+                        menus,
+                        menu: index,
                     }
                 }
             }
@@ -142,12 +141,7 @@ fn AddMapBar() -> Element {
 
 /// The menu of the kinds of map giving `to`, ordered by input type.
 #[component]
-fn AddMapMenu(
-    to: DataType,
-    mut kinds: Vec<MapKind>,
-    mut open: Signal<Option<DataType>>,
-    mut hovered: Signal<Option<DataType>>,
-) -> Element {
+fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: usize) -> Element {
     let mut context = use_context::<MapContext>();
     // By the first input; those alike as they are in `builtin_map_kinds` (a stable sort)
     kinds.sort_by_key(|kind| {
@@ -155,29 +149,16 @@ fn AddMapMenu(
             .first()
             .and_then(|&from| TYPE_ORDER.iter().position(|&order| order == from))
     });
-    let disabled = kinds.is_empty();
-    let is_open = open() == Some(to);
     // Focus in a presets panel, which leaves the menu's items unfocused
     let mut in_presets = use_signal(|| false);
-    let mut close = move || {
-        if *open.peek() == Some(to) {
-            open.set(None);
-        }
-    };
 
     rsx! {
-        div {
-            class: "add-map-menu",
-            onmouseenter: move |_| {
-                hovered.set(Some(to));
-                if !disabled {
-                    open.set(Some(to));
-                }
-            },
-            onmouseleave: move |_| {
-                hovered.set(None);
-                close();
-            },
+        HoverMenu {
+            menus,
+            menu,
+            disabled: kinds.is_empty(),
+            content_class: "add-map-content",
+            keep_open: in_presets,
             // Right from an item with presets goes to them
             onkeydown: move |event: KeyboardEvent| {
                 if event.key() == Key::ArrowRight {
@@ -185,83 +166,60 @@ fn AddMapMenu(
                     document::eval(FOCUS_FIRST_PRESET);
                 }
             },
-            DropdownMenu {
-                open: Some(is_open),
-                on_open_change: move |value| {
-                    if value {
-                        open.set(Some(to));
-                    } else if hovered() != Some(to) && !in_presets() {
-                        // While hovered it stays open, e.g. when its trigger is clicked
-                        close();
-                    }
-                },
-                disabled,
-                DropdownMenuTrigger {
-                    class: "add-map",
-                    "{to.name()}"
-                    if is_open {
-                        lucide::ChevronUp {}
-                    } else {
-                        lucide::ChevronDown {}
-                    }
-                }
-                DropdownMenuContent {
-                    class: "add-map-content",
-                    for (index, kind) in kinds.into_iter().enumerate() {
-                        DropdownMenuItem {
-                            "data-presets": !kind.presets.is_empty(),
-                            value: kind,
-                            index,
-                            on_select: move |kind| {
-                                context.add(kind);
-                                close();
-                            },
-                            // Title, then `from -> to`
-                            span { class: "add-map-title", "{kind.name}" }
-                            MapTypes { from: kind.from, to: kind.to }
-                            if !kind.presets.is_empty() {
-                                lucide::ChevronRight {}
-                                // Beside the item while it is hovered or focus is in it
-                                div {
-                                    class: "add-map-presets",
-                                    onfocusin: move |_| in_presets.set(true),
-                                    onfocusout: move |_| in_presets.set(false),
-                                    onkeydown: move |event: KeyboardEvent| {
-                                        let script = match event.key() {
-                                            Key::ArrowDown => FOCUS_NEXT_PRESET,
-                                            Key::ArrowUp => FOCUS_PREVIOUS_PRESET,
-                                            Key::ArrowLeft | Key::Escape => FOCUS_PRESETS_ITEM,
-                                            // The button's, not the item's under it
-                                            Key::Enter => {
-                                                event.stop_propagation();
-                                                return;
-                                            }
-                                            _ => return,
-                                        };
-                                        event.prevent_default();
+            trigger: rsx! { "{to.name()}" },
+            for (index, kind) in kinds.into_iter().enumerate() {
+                DropdownMenuItem {
+                    "data-presets": !kind.presets.is_empty(),
+                    value: kind,
+                    index,
+                    on_select: move |kind| {
+                        context.add(kind);
+                        menus.close(menu);
+                    },
+                    // Title, then `from -> to`
+                    span { class: "add-map-title", "{kind.name}" }
+                    MapTypes { from: kind.from, to: kind.to }
+                    if !kind.presets.is_empty() {
+                        lucide::ChevronRight {}
+                        // Beside the item while it is hovered or focus is in it
+                        div {
+                            class: "add-map-presets",
+                            onfocusin: move |_| in_presets.set(true),
+                            onfocusout: move |_| in_presets.set(false),
+                            onkeydown: move |event: KeyboardEvent| {
+                                let script = match event.key() {
+                                    Key::ArrowDown => FOCUS_NEXT_PRESET,
+                                    Key::ArrowUp => FOCUS_PREVIOUS_PRESET,
+                                    Key::ArrowLeft | Key::Escape => FOCUS_PRESETS_ITEM,
+                                    // The button's, not the item's under it
+                                    Key::Enter => {
                                         event.stop_propagation();
-                                        document::eval(script);
-                                    },
-                                    div {
-                                        class: "add-map-presets-list",
-                                        role: "menu",
-                                        aria_label: "{kind.name} presets",
-                                        for preset in kind.presets {
-                                            button {
-                                                class: "add-map-preset",
-                                                r#type: "button",
-                                                role: "menuitem",
-                                                onclick: move |event: MouseEvent| {
-                                                    // Not the item's own click, which adds it blank
-                                                    event.stop_propagation();
-                                                    context.add_preset(kind, *preset);
-                                                    in_presets.set(false);
-                                                    close();
-                                                },
-                                                span { class: "add-map-preset-name", "{preset.name}" }
-                                                span { class: "add-map-preset-detail", "{preset.detail}" }
-                                            }
-                                        }
+                                        return;
+                                    }
+                                    _ => return,
+                                };
+                                event.prevent_default();
+                                event.stop_propagation();
+                                document::eval(script);
+                            },
+                            div {
+                                class: "add-map-presets-list",
+                                role: "menu",
+                                aria_label: "{kind.name} presets",
+                                for preset in kind.presets {
+                                    button {
+                                        class: "add-map-preset",
+                                        r#type: "button",
+                                        role: "menuitem",
+                                        onclick: move |event: MouseEvent| {
+                                            // Not the item's own click, which adds it blank
+                                            event.stop_propagation();
+                                            context.add_preset(kind, *preset);
+                                            in_presets.set(false);
+                                            menus.close(menu);
+                                        },
+                                        span { class: "add-map-preset-name", "{preset.name}" }
+                                        span { class: "add-map-preset-detail", "{preset.detail}" }
                                     }
                                 }
                             }

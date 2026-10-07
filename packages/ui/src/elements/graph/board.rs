@@ -1,16 +1,15 @@
 use dioxus::prelude::*;
-use dioxus_icons::lucide;
 
 use super::{GraphContext, GraphKind};
 use crate::{
     components::{
-        dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
+        dropdown_menu::DropdownMenuItem,
         sidebar::{
             Sidebar, SidebarCollapsible, SidebarContent, SidebarInset, SidebarProvider,
             SidebarSide, SidebarTrigger,
         },
     },
-    elements::DataList,
+    elements::{DataList, HoverMenu, HoverMenus},
 };
 
 const GRAPH_BOARD_CSS: Asset = asset!("/assets/styling/graph-board.css");
@@ -103,74 +102,24 @@ mod tests {
 /// presets it can be added with.
 #[component]
 fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
-    // Which kind's menu is open, and which one the pointer is over
-    let open = use_signal(|| None::<&'static str>);
-    let hovered = use_signal(|| None::<&'static str>);
+    let mut context = use_context::<GraphContext>();
+    let menus = use_hook(HoverMenus::new);
 
     rsx! {
         div {
             class: "add-graph-bar",
-            for kind in kinds {
-                AddGraphMenu { kind, open, hovered }
-            }
-        }
-    }
-}
-
-#[component]
-fn AddGraphMenu(
-    kind: GraphKind,
-    mut open: Signal<Option<&'static str>>,
-    mut hovered: Signal<Option<&'static str>>,
-) -> Element {
-    let mut context = use_context::<GraphContext>();
-    let name = kind.name;
-    let is_open = open() == Some(name);
-    let mut close = move || {
-        if *open.peek() == Some(name) {
-            open.set(None);
-        }
-    };
-
-    rsx! {
-        div {
-            class: "add-graph-menu",
-            onmouseenter: move |_| {
-                hovered.set(Some(name));
-                open.set(Some(name));
-            },
-            onmouseleave: move |_| {
-                hovered.set(None);
-                close();
-            },
-            DropdownMenu {
-                open: Some(is_open),
-                on_open_change: move |value| {
-                    if value {
-                        open.set(Some(name));
-                    } else if hovered() != Some(name) {
-                        // While hovered it stays open, e.g. when its trigger is clicked
-                        close();
-                    }
-                },
-                DropdownMenuTrigger {
-                    class: "add-graph",
-                    "{name}"
-                    if is_open {
-                        lucide::ChevronUp {}
-                    } else {
-                        lucide::ChevronDown {}
-                    }
-                }
-                DropdownMenuContent {
-                    class: "add-graph-content",
+            for (menu, kind) in kinds.into_iter().enumerate() {
+                HoverMenu {
+                    menus,
+                    menu,
+                    trigger: rsx! { "{kind.name}" },
                     for (index, preset) in kind.presets.iter().enumerate() {
                         DropdownMenuItem {
                             value: index,
                             index,
                             on_select: move |index: usize| {
                                 context.add(kind, (kind.presets[index].property)());
-                                close();
+                                menus.close(menu);
                             },
                             "{preset.name}"
                         }
