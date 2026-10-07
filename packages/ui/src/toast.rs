@@ -8,7 +8,7 @@ use crate::time::TimeContext;
 const INTERVAL_MS: i64 = 5_000;
 
 /// Shows toasts, skipping one with the same title as the last shown until
-/// [`INTERVAL_MS`] has passed, for failures that recur (e.g. on every line).
+/// `INTERVAL_MS` (5 s) has passed, for failures that recur (e.g. on every line).
 ///
 /// Each one remembers its own last toast. Requires `ToastProvider` and
 /// `TimeContext` from an ancestor.
