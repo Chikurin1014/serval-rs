@@ -16,14 +16,10 @@ mod replace;
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 
-use dioxus::{
-    core::{Runtime, current_scope_id, with_owner},
-    prelude::*,
-    signals::Owner,
-};
+use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
 use crate::{
-    data::{DataContext, DataType},
+    data::{DataContext, DataType, make_owned},
     time::TimeContext,
 };
 
@@ -248,15 +244,10 @@ impl MapContext {
     ) -> usize {
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
-        // Signals made here are owned by the map (dropped with it), not by
-        // whichever component handled the event that added it. They are made
-        // in the provider's scope, so Dioxus sees them used only below where
-        // they were made (by runners and forms), and does not warn
-        let owner = Owner::default();
-        let (runner, enabled, open) = Runtime::current().in_scope(self.scope, || {
-            with_owner(owner.clone(), || {
-                (create(), Signal::new(enabled), Signal::new(open))
-            })
+        // Owned by the map (dropped with it), not by whichever component
+        // handled the event that added it
+        let ((runner, enabled, open), owner) = make_owned(self.scope, || {
+            (create(), Signal::new(enabled), Signal::new(open))
         });
         let latest = runner.latest();
         self.list.write().push(Map {

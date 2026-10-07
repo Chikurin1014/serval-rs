@@ -67,6 +67,16 @@ class App:
             arg=longer_than,
         )
 
+    def wait_for_console_lines(self, more_than: int, timeout: float = 30000):
+        """Waits until the console shows more than `more_than` lines, e.g. after
+        a burst of chunks (`timeout` in ms, for a long one)."""
+        self.page.wait_for_function(
+            """lines => document.querySelector('.console-output').textContent
+                .split('\\n').length > lines""",
+            arg=more_than,
+            timeout=timeout,
+        )
+
     def clear_all(self, within: str = ".data-grid"):
         """Clears all data with the data list's button, in `within` (the
         Data tab's grid, or the Graph tab's board with its data list open)."""

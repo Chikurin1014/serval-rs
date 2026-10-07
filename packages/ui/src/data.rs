@@ -1,6 +1,7 @@
 mod data_context;
 mod data_type;
 mod map;
+mod owned;
 mod pattern;
 mod queue;
 mod source_cursor;
@@ -17,6 +18,7 @@ pub use map::{
     RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment, set_if_changed,
 };
 pub(crate) use map::{Input, endpoints, take_newest_pair, trim_segments, unescape};
+pub(crate) use owned::make_owned;
 pub(crate) use pattern::CompiledPattern;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};

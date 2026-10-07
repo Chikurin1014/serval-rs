@@ -46,10 +46,8 @@ def test_keeps_its_text_when_it_renders_again(app: App):
     `MAX_ENTRIES_PER_LABEL` no longer has the start)."""
     app.open_port()
     app.mock("burst(12000)")
-    app.page.wait_for_function(
-        "() => document.querySelector('.console-output').textContent.split('\\n').length > 24000",
-        timeout=30000,
-    )
+    # Two lines a chunk
+    app.wait_for_console_lines(more_than=24000)
     start = app.console_text()[:100]
     app.page.get_by_placeholder("Type text to send to the active port").fill("led on")
     app.page.wait_for_timeout(500)
@@ -63,10 +61,8 @@ def test_keeps_up_past_the_data_limit(app: App):
     console must carry on appending, not mistake that for a clear."""
     app.open_port()
     app.mock("burst(12000)")
-    app.page.wait_for_function(
-        "() => document.querySelector('.console-output').textContent.split('\\n').length > 24000",
-        timeout=30000,
-    )
+    # Two lines a chunk
+    app.wait_for_console_lines(more_than=24000)
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
 

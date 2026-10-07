@@ -1,12 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
-use dioxus::{
-    core::{Runtime, current_scope_id, with_owner},
-    prelude::*,
-    signals::Owner,
-};
+use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
-use crate::data::{DataEntry, DataType, TypedData};
+use crate::data::{DataEntry, DataType, TypedData, make_owned};
 
 /// The label the bytes received from the serial port go to.
 pub const RAW_BYTES_LABEL: &str = "raw_bytes";
@@ -126,12 +122,8 @@ impl DataContext {
         match existing {
             Some(mut data) => data.set(typed),
             None => {
-                // Owned by the label (dropped with it), and made in the
-                // provider's scope, above every reader
-                let owner = Owner::default();
-                let data = Runtime::current().in_scope(self.scope, || {
-                    with_owner(owner.clone(), || Signal::new(typed))
-                });
+                // Owned by the label (dropped with it)
+                let (data, owner) = make_owned(self.scope, || Signal::new(typed));
                 self.queues.write().insert(
                     label.to_string(),
                     LabelData {

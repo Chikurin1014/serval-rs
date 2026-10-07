@@ -117,6 +117,22 @@ impl PlotFeed {
     }
 }
 
+/// One setting of the graph with `id` in `graph_context` (its default once the
+/// graph is gone), as a memo of its own: what reads it runs again only when
+/// that setting changes, not on edits to its other settings or other graphs.
+fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
+    graph_context: GraphContext,
+    id: usize,
+    setting: fn(&GraphProperty) -> T,
+) -> Memo<T> {
+    use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| setting(&graph.property))
+            .unwrap_or_default()
+    })
+}
+
 /// Plots against time the `Number` labels the data list shows (by
 /// `FilterContext`), for the graph with `id` in `GraphContext`.
 #[component]
@@ -125,30 +141,10 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
     // Only this graph's, so edits to other graphs do not re-run the plot
-    let value_scale = use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| graph.property.value_scale)
-            .unwrap_or_default()
-    });
-    let draw_style = use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| graph.property.draw_style)
-            .unwrap_or_default()
-    });
-    let time_window = use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| graph.property.time_window)
-            .unwrap_or_default()
-    });
-    let hidden = use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| graph.property.hidden)
-            .unwrap_or_default()
-    });
+    let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
+    let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
+    let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
+    let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     // Graph ids are never reused, so this is unique on the page
     let container_id = format!("graph-plot-{id}");
     let plot = use_hook(|| document::eval(TIME_SERIES_JS));
