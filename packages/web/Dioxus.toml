@@ -1,0 +1,4 @@
+# Read by `dx` when building this package
+[web.app]
+# The browser tab's title, in the page `dx` generates
+title = "Serval"

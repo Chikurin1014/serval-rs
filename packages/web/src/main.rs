@@ -31,6 +31,8 @@ enum Route {
     Home {},
 }
 
+/// The icon for the browser tab: as SVG where it is supported, else the ICO
+const FAVICON_SVG: Asset = asset!("/assets/favicon.svg");
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 /// The third-party licenses, copied from `public/` as it is
@@ -46,7 +48,8 @@ fn App() -> Element {
 
     rsx! {
         // Global app resources
-        document::Link { rel: "icon", href: FAVICON }
+        document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }
+        document::Link { rel: "icon", href: FAVICON_SVG, r#type: "image/svg+xml" }
 
         ThemeProvider {
             // Outermost after the theme, so any provider below can show toasts
