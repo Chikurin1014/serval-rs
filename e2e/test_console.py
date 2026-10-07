@@ -40,6 +40,24 @@ def test_starts_over_after_clearing_all_data(app: App):
     assert_whole_stream(after)
 
 
+def test_keeps_its_text_when_it_renders_again(app: App):
+    """Typing in the send field renders the console again: what it shows goes
+    on from there, not started over (from the raw data kept, which past
+    `MAX_ENTRIES_PER_LABEL` no longer has the start)."""
+    app.open_port()
+    app.mock("burst(12000)")
+    app.page.wait_for_function(
+        "() => document.querySelector('.console-output').textContent.split('\\n').length > 24000",
+        timeout=30000,
+    )
+    start = app.console_text()[:100]
+    app.page.get_by_placeholder("Type text to send to the active port").fill("led on")
+    app.page.wait_for_timeout(500)
+    text = app.console_text()
+    assert text.startswith(start)
+    assert_whole_stream(text)
+
+
 def test_keeps_up_past_the_data_limit(app: App):
     """Past `MAX_ENTRIES_PER_LABEL`, the oldest raw data is dropped: the
     console must carry on appending, not mistake that for a clear."""

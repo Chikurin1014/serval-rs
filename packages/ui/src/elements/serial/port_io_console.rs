@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
@@ -34,9 +36,12 @@ pub fn PortIoConsole() -> Element {
     // Owns the output text, so each chunk costs the same however long it is
     let output = use_hook(|| document::eval(CONSOLE_JS));
 
-    // Sends only the chunks received since the last run
-    let mut cursor = SourceCursor::default();
+    // Sends only the chunks received since the last run. Kept in a hook, as
+    // the effect takes the closure of each render: one made here would start
+    // over (and the output with it) whenever the console renders again
+    let cursor = use_hook(|| Rc::new(RefCell::new(SourceCursor::default())));
     use_effect(move || {
+        let mut cursor = cursor.borrow_mut();
         let Some(NewEntries {
             entries, restarted, ..
         }) = cursor.new_entries::<ByteData>(&data_context, RAW_BYTES_LABEL)

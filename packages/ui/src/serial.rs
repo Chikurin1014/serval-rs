@@ -1,12 +1,13 @@
 //! Serial ports, through the platform's [`SerialBackend`].
 //!
 //! [`SerialContext`] keeps the ports and which one is open, and pushes what
-//! the open port receives to `RAW_BYTES_LABEL` in `DataContext`, chunk by chunk.
+//! the open port receives to `RAW_BYTES_LABEL` in `DataContext`, chunk by chunk
+//! (gathered for a frame first, see [`Received`]).
 //!
 //! It reports how connecting goes, and what fails, in toasts and in a log,
 //! and counts the bytes received and sent.
 
-use std::{collections::VecDeque, future::Future, pin::Pin, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, future::Future, pin::Pin, rc::Rc};
 
 use dioxus::{
     core::{Runtime, current_scope_id},
@@ -33,6 +34,16 @@ pub const FLOW_CONTROL: &str = "none";
 
 /// Past this, the oldest log entries are dropped.
 const MAX_LOG_ENTRIES: usize = 100;
+
+/// How long received chunks are gathered before they go into the data
+/// together: about a frame, so what reads the data (maps, views) runs at most
+/// about once a frame however fast chunks come.
+const GATHER_MS: u32 = 16;
+
+/// How many chunks are gathered at most: past this, they go into the data at
+/// once, so a flood of them (many within a frame) is not dropped from the
+/// data (see `MAX_ENTRIES_PER_LABEL`) before what reads it gets to them.
+const MAX_GATHERED: usize = 256;
 
 /// Where a platform's serial ports come from.
 pub trait SerialBackend {
@@ -238,13 +249,23 @@ impl SerialContext {
                 &format!("{} at {baudrate} bps", port.info.name),
             );
 
-            let mut data = context.data;
             let time = context.time;
+            let received = Received::new(context.data, rx_bytes);
             let on_chunk = Box::new(move |chunk: Vec<u8>| {
-                *rx_bytes.write() += chunk.len() as u64;
-                // Straight into the data, so no chunk waits for (or is lost
-                // before) a render
-                data.push(RAW_BYTES_LABEL, ByteData::new(time.read().current(), chunk));
+                // Timed as it comes, not as it goes into the data
+                let chunk = ByteData::new(time.read().current(), chunk);
+                match received.gather(chunk) {
+                    Gathered::First => {
+                        let received = received.clone();
+                        let wait = time.read().after_ms(GATHER_MS);
+                        context.spawn(async move {
+                            wait.await;
+                            received.flush();
+                        });
+                    }
+                    Gathered::Full => received.flush(),
+                    Gathered::More => {}
+                }
             });
             let read = port.handle.read(on_chunk).await;
             // Closed, or lost (e.g. unplugged)
@@ -338,6 +359,58 @@ impl SerialContext {
 
     fn spawn(&self, task: impl Future<Output = ()> + 'static) {
         Runtime::current().spawn(self.scope, task);
+    }
+}
+
+/// The chunks received and not yet in the data: gathered, then pushed together
+/// with one write, which what reads the data reacts to once.
+#[derive(Clone)]
+struct Received {
+    chunks: Rc<RefCell<Vec<ByteData>>>,
+    data: DataContext,
+    rx_bytes: Signal<u64>,
+}
+
+/// Where a chunk [`Received::gather`] took leaves the gathered ones.
+enum Gathered {
+    /// The first since they last went into the data: they go after a while.
+    First,
+    /// As many as are gathered: they go now.
+    Full,
+    More,
+}
+
+impl Received {
+    fn new(data: DataContext, rx_bytes: Signal<u64>) -> Self {
+        Self {
+            chunks: Rc::default(),
+            data,
+            rx_bytes,
+        }
+    }
+
+    fn gather(&self, chunk: ByteData) -> Gathered {
+        let mut chunks = self.chunks.borrow_mut();
+        chunks.push(chunk);
+        match chunks.len() {
+            1 => Gathered::First,
+            n if n >= MAX_GATHERED => Gathered::Full,
+            _ => Gathered::More,
+        }
+    }
+
+    /// Pushes the gathered chunks, oldest first, and counts their bytes.
+    fn flush(&self) {
+        let chunks = std::mem::take(&mut *self.chunks.borrow_mut());
+        if chunks.is_empty() {
+            return;
+        }
+        let (mut data, mut rx_bytes) = (self.data, self.rx_bytes);
+        *rx_bytes.write() += chunks
+            .iter()
+            .map(|chunk| chunk.value().len() as u64)
+            .sum::<u64>();
+        data.push_all(RAW_BYTES_LABEL, chunks);
     }
 }
 

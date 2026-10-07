@@ -1,14 +1,20 @@
-use std::rc::Rc;
+use std::{future::Future, pin::Pin, rc::Rc};
 
-/// The clock used to timestamp data, in milliseconds since the Unix epoch.
+/// A wait on the platform's timer (see [`TimeContext::after_ms`]).
+pub type Wait = Pin<Box<dyn Future<Output = ()>>>;
+
+/// The clock used to timestamp data, in milliseconds since the Unix epoch, and
+/// a timer to wait on.
 ///
-/// Each platform provides one with its own clock, so the shared UI does not
-/// depend on a platform API to tell the time.
+/// Each platform provides one with its own clock and timer, so the shared UI
+/// does not depend on a platform API to tell the time.
 #[derive(Clone)]
 pub struct TimeContext {
     now_ms: Rc<dyn Fn() -> i64>,
     /// Given a time and whether to show its milliseconds.
     format_ms: Rc<dyn Fn(i64, bool) -> String>,
+    /// Given how many milliseconds to wait.
+    wait_ms: Rc<dyn Fn(u32) -> Wait>,
 }
 
 impl TimeContext {
@@ -17,6 +23,8 @@ impl TimeContext {
         Self {
             now_ms: Rc::new(now_ms),
             format_ms: Rc::new(utc_time_of_day),
+            // With no platform timer, waits are over at once
+            wait_ms: Rc::new(|_| Box::pin(std::future::ready(()))),
         }
     }
 
@@ -27,6 +35,21 @@ impl TimeContext {
             format_ms: Rc::new(format_ms),
             ..self
         }
+    }
+
+    /// Waits with `wait_ms` instead, the platform's timer, given how many
+    /// milliseconds to wait.
+    pub fn with_timer(self, wait_ms: impl Fn(u32) -> Wait + 'static) -> Self {
+        Self {
+            wait_ms: Rc::new(wait_ms),
+            ..self
+        }
+    }
+
+    /// Resolves after `ms` milliseconds, by the platform's timer (at once
+    /// without one, see [`Self::with_timer`]).
+    pub fn after_ms(&self, ms: u32) -> Wait {
+        (self.wait_ms)(ms)
     }
 
     /// The current time, read from the clock when called.
@@ -103,5 +126,12 @@ mod tests {
         let time = TimeContext::new(|| 0);
         assert!(time == time.clone());
         assert!(time != TimeContext::new(|| 0));
+    }
+
+    #[test]
+    fn without_a_timer_waits_are_over_at_once() {
+        let mut wait = TimeContext::new(|| 0).after_ms(1000);
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(wait.as_mut().poll(&mut cx).is_ready());
     }
 }

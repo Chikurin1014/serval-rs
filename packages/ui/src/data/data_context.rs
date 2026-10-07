@@ -33,11 +33,19 @@ impl DataContext {
     /// Appends `entry` to `label`. If `label` holds another type, its entries
     /// are replaced by this one.
     pub fn push<T: DataEntry>(&mut self, label: &str, entry: T) {
+        self.push_all(label, [entry]);
+    }
+
+    /// Appends `entries` to `label` in order, as [`Self::push`] does each, with
+    /// one write, so what reads the data runs once for them all.
+    pub fn push_all<T: DataEntry>(&mut self, label: &str, entries: impl IntoIterator<Item = T>) {
         let mut data_with_labels = self.data_with_labels.write();
-        if let Some(queue) = data_with_labels.get_mut(label).and_then(T::queue_mut) {
-            queue.push(entry);
-        } else {
-            data_with_labels.insert(label.to_string(), entry.into());
+        for entry in entries {
+            if let Some(queue) = data_with_labels.get_mut(label).and_then(T::queue_mut) {
+                queue.push(entry);
+            } else {
+                data_with_labels.insert(label.to_string(), entry.into());
+            }
         }
     }
 
