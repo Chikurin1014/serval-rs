@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use dioxus::prelude::*;
-use regex::Regex;
+use fancy_regex::Regex;
 
 use super::regex::replacement_segments;
 use crate::data::{
@@ -91,7 +91,6 @@ impl MapRunner for Replace {
                 return;
             }
         };
-        set_if_changed(&mut pattern_error, None);
 
         // A restart needs no special handling: what was replaced before stays
         let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
@@ -108,10 +107,15 @@ impl MapRunner for Replace {
             to_value: replaced_segments(&regex, last.value(), replacement),
         };
         set_if_changed(&mut self.latest, Some(conversion));
+        let mut failure = None;
         for entry in &read.entries {
-            let value = regex.replace_all(entry.value(), replacement.as_str());
-            data.push(to, StringData::new(timestamp, value.into_owned()));
+            match regex.try_replacen(entry.value(), 0, replacement.as_str()) {
+                Ok(value) => data.push(to, StringData::new(timestamp, value.into_owned())),
+                // E.g. backtracking too much on this input
+                Err(failed) => failure = Some(format!("Matching failed: {failed}")),
+            }
         }
+        set_if_changed(&mut pattern_error, failure);
     }
 }
 
@@ -120,7 +124,8 @@ impl MapRunner for Replace {
 fn replaced_segments(regex: &Regex, input: &str, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut end = 0;
-    for captures in regex.captures_iter(input) {
+    // Up to a match that fails, as the replacing does
+    for captures in regex.captures_iter(input).map_while(Result::ok) {
         let whole = captures.get(0).expect("group 0 is the whole match");
         segments.push(Segment::from_input(&input[end..whole.start()]));
         segments.extend(replacement_segments(&captures, replacement));
@@ -133,7 +138,7 @@ fn replaced_segments(regex: &Regex, input: &str, replacement: &str) -> Vec<Segme
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
+    use fancy_regex::Regex;
 
     use super::replaced_segments;
     use crate::data::Segment;

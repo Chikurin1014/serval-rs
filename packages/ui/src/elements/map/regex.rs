@@ -119,14 +119,17 @@ pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
+    use fancy_regex::Regex;
 
     use super::{REGEX_TO_NUMBER, REGEX_TO_STRING};
 
     /// What `preset`'s pattern makes of `input`: its `$1` and `$2`.
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
-        let captures = Regex::new(preset.detail).unwrap().captures(input)?;
+        let captures = Regex::new(preset.detail)
+            .unwrap()
+            .captures(input)
+            .unwrap()?;
         Some((captures[1].to_string(), captures[2].to_string()))
     }
 
