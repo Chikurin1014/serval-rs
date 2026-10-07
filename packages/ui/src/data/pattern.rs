@@ -7,7 +7,9 @@ use fancy_regex::Regex;
 pub const PATTERN_ALIASES: &[(&str, &str)] = &[
     // e.g. `20`, `-0.5`, `.5`, `+1.` or `1.5e-3`
     ("number", r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"),
-    ("word", r"\w+"),
+    // A run of anything but spaces and line breaks, so symbols (`-`, `.`) too;
+    // as short as it can be, so it ends at the first separator after it
+    ("word", r"[^\s]+?"),
 ];
 
 /// Compiles `pattern`, its aliases put in place (see [`expand_aliases`]).
@@ -101,6 +103,31 @@ mod tests {
     }
 
     #[test]
+    fn word_takes_symbols_but_not_spaces() {
+        assert_eq!(
+            captures("({word}): ({number})", "[log] temp-1.a: 20.5"),
+            Some(vec![
+                "temp-1.a: 20.5".to_string(),
+                "temp-1.a".to_string(),
+                "20.5".to_string()
+            ])
+        );
+        assert_eq!(captures("^{word}$", "led\u{2028}on"), None);
+    }
+
+    #[test]
+    fn word_ends_at_the_first_separator() {
+        assert_eq!(
+            captures("({word}):(.+)", "url:http://x"),
+            Some(vec![
+                "url:http://x".to_string(),
+                "url".to_string(),
+                "http://x".to_string()
+            ])
+        );
+    }
+
+    #[test]
     fn aliases_take_no_group_number_of_their_own() {
         // `{word}` before does not move `$1` along
         assert_eq!(
@@ -108,15 +135,15 @@ mod tests {
             Some(vec!["volt=3.3".to_string(), "3.3".to_string()])
         );
         // And a quantifier applies to the whole alias
-        assert_eq!(expand_aliases("{word}?"), r"(?:\w+)?");
+        assert_eq!(expand_aliases("{word}?"), r"(?:[^\s]+?)?");
     }
 
     #[test]
     fn escaped_or_in_a_class_aliases_are_left_alone() {
         assert_eq!(expand_aliases(r"\{word}"), r"\{word}");
-        assert_eq!(expand_aliases(r"\\{word}"), r"\\(?:\w+)");
+        assert_eq!(expand_aliases(r"\\{word}"), r"\\(?:[^\s]+?)");
         assert_eq!(expand_aliases("[{word}]"), "[{word}]");
-        assert_eq!(expand_aliases("[]{word}]{word}"), r"[]{word}](?:\w+)");
+        assert_eq!(expand_aliases("[]{word}]{word}"), r"[]{word}](?:[^\s]+?)");
         assert_eq!(expand_aliases(r"[\]{word}]"), r"[\]{word}]");
     }
 

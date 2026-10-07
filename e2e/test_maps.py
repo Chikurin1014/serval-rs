@@ -423,13 +423,13 @@ def test_regex_presets_show_beside_the_item(app: App):
     expect(presets.first).to_be_hidden()
     item.hover()
     expect(presets.locator(".add-map-preset-name")).to_have_text(
-        ["value", "name: value", "name=value", "Teleplot"]
+        ["value", "name: value", "Arduino", "Teleplot"]
     )
 
     item = regex_item(app, "String")
     item.hover()
     expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
-        ["name: value", "name=value"]
+        ["name: value", "Arduino"]
     )
 
 
@@ -481,7 +481,7 @@ def test_regex_presets_by_keyboard(app: App):
     app.page.keyboard.press("Enter")
     expect(app.map_cards()).to_have_count(4)
     expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
-        "(.+)=(.+)"
+        "({word}):(.+)"
     )
 
 

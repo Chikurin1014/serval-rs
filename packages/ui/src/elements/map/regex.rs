@@ -50,8 +50,9 @@ pub const REGEX_TO_STRING: MapKind = MapKind {
     // Offer the existing labels of the result's type as outputs
     form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
     presets: &[
-        preset!("name: value", String, r"(.+): (.+)"),
-        preset!("name=value", String, r"(.+)=(.+)"),
+        preset!("name: value", String, "({word}): (.+)"),
+        // As the Arduino IDE's serial plotter reads them
+        preset!("Arduino", String, "({word}):(.+)"),
     ],
 };
 
@@ -65,7 +66,8 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
         // The output label is left to be set, as there is no name to take it from
         preset!("value", Number, NUMBER_ONLY, "", "$0"),
         preset!("name: value", Number, NAME_COLON_NUMBER),
-        preset!("name=value", Number, "({word})=({number})"),
+        // As the Arduino IDE's serial plotter reads them
+        preset!("Arduino", Number, "({word}):({number})"),
         preset!("Teleplot", Number, ">({word}):({number})"),
     ],
 };
@@ -156,10 +158,7 @@ mod tests {
             name_value(kind, "name: value", "temp: -20.5"),
             pair("temp", "-20.5")
         );
-        assert_eq!(
-            name_value(kind, "name=value", "volt=3e2"),
-            pair("volt", "3e2")
-        );
+        assert_eq!(name_value(kind, "Arduino", "volt:3e2"), pair("volt", "3e2"));
         assert_eq!(
             name_value(kind, "Teleplot", ">temp:1.5e3"),
             pair("temp", "1.5e3")
@@ -203,8 +202,13 @@ mod tests {
             pair("led", "on")
         );
         assert_eq!(
-            name_value(kind, "name=value", "mode=auto"),
+            name_value(kind, "Arduino", "mode:auto"),
             pair("mode", "auto")
+        );
+        // The name is a word: what comes before it is not part of it
+        assert_eq!(
+            name_value(kind, "name: value", "[log] led: on"),
+            pair("led", "on")
         );
     }
 }
