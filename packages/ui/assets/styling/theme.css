@@ -70,7 +70,7 @@ html[data-theme="dark"] {
   box-shadow: inset 0 0 0 1px var(--dc-danger);
 }
 
-/* Read only (`data-locked`, e.g. a map's pattern while the map is on) */
+/* Read only (`data-locked`: a map's fields while the map is on) */
 .field[data-locked="true"] {
   opacity: 0.6;
 }

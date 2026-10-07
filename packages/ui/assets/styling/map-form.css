@@ -27,6 +27,19 @@
   flex: 0 0 auto;
 }
 
+/* A field in its lock tooltip (`LockTooltip` in field.rs): the tooltip takes
+ * the field's place in the layout, and its trigger and the field fill it */
+div.field-lock,
+div.field-lock > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.field-stack > div.field-lock {
+  flex: 0 0 auto;
+}
+
 /* A map's formula (e.g. `a + b`), centred over its form */
 .map-formula {
   color: var(--dc-text);

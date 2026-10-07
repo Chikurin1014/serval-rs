@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
-use super::field::{LabelField, TextField, use_map_enabled};
+use super::field::{LabelField, TextField};
 use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::data::{
     DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings,
@@ -113,8 +113,6 @@ pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
                     value: pattern,
                     placeholder: "Text to be matched",
                     error: pattern_error,
-                    // Compiled when the map is turned on, so kept as it is while on
-                    locked: use_map_enabled(),
                 }
                 if let Some(error) = pattern_error() {
                     span { class: "field-error", "{error}" }
