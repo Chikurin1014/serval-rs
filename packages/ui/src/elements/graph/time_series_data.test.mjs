@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
-const { alignedData, applyMessage, forLogScale, timeOfDay, withAlpha } =
+const { alignedData, applyMessage, forLogScale, timeOfDay, timeRange, withAlpha } =
   loadScript(new URL("./time_series_data.js", import.meta.url));
 
 function asObject(series) {
@@ -123,4 +123,15 @@ test("timeOfDay is HH:MM:SS.SSS in the local time zone", () => {
     timeOfDay(new Date(2026, 9, 6, 23, 59, 59, 999).getTime()),
     "23:59:59.999",
   );
+});
+
+test("timeRange shows the last window, or fits shorter data", () => {
+  // Always as wide as the window
+  assert.deepEqual(plain(timeRange(100, 103, 60, false)), [43, 103]);
+  assert.deepEqual(plain(timeRange(100, 200, 60, false)), [140, 200]);
+  // Fitting: the data itself, until it is longer than the window
+  assert.deepEqual(plain(timeRange(100, 103, 10, true)), [100, 103]);
+  assert.deepEqual(plain(timeRange(100, 200, 10, true)), [190, 200]);
+  // No data yet: left to uPlot
+  assert.deepEqual(plain(timeRange(null, null, 10, true)), [null, null]);
 });

@@ -36,9 +36,47 @@ pub struct GraphProperty {
     pub value_scale: AxisScale,
     /// How each label's values are drawn.
     pub draw_style: DrawStyle,
+    /// How much of the newest data the time axis shows.
+    pub time_window: TimeWindow,
     /// The labels turned off in the legend, kept by label so they stay off when
     /// the data is cleared and comes back, or the graph is shown again.
     pub hidden: Vec<String>,
+}
+
+/// How many seconds of the newest data a graph's time axis shows: a multiple of
+/// [`TimeWindow::STEP`] from [`TimeWindow::MIN`] to [`TimeWindow::MAX`].
+///
+/// At the smallest, the axis fits the data instead, up to that many seconds;
+/// at any other, it is always that wide.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TimeWindow(u32);
+
+impl TimeWindow {
+    pub const MIN: u32 = 10;
+    pub const MAX: u32 = 300;
+    pub const STEP: u32 = 10;
+
+    /// `seconds` as the nearest window there is.
+    pub fn new(seconds: u32) -> Self {
+        let steps = (seconds.clamp(Self::MIN, Self::MAX) + Self::STEP / 2) / Self::STEP;
+        Self(steps * Self::STEP)
+    }
+
+    pub fn seconds(self) -> u32 {
+        self.0
+    }
+
+    /// Whether the axis fits the data (up to [`Self::seconds`]) rather than
+    /// always being that wide.
+    pub fn fits_data(self) -> bool {
+        self.0 == Self::MIN
+    }
+}
+
+impl Default for TimeWindow {
+    fn default() -> Self {
+        Self(Self::MIN)
+    }
 }
 
 /// How a graph draws a label's values.
@@ -194,5 +232,25 @@ pub fn GraphProvider(
 
     rsx! {
         {children}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TimeWindow;
+
+    #[test]
+    fn time_windows_are_steps_within_their_range() {
+        assert_eq!(TimeWindow::default().seconds(), 10);
+        assert_eq!(TimeWindow::new(64).seconds(), 60);
+        assert_eq!(TimeWindow::new(65).seconds(), 70);
+        assert_eq!(TimeWindow::new(0).seconds(), 10);
+        assert_eq!(TimeWindow::new(1000).seconds(), 300);
+    }
+
+    #[test]
+    fn only_the_smallest_window_fits_the_data() {
+        assert!(TimeWindow::default().fits_data());
+        assert!(!TimeWindow::new(20).fits_data());
     }
 }

@@ -12,7 +12,8 @@ mod time_series;
 
 pub use board::GraphBoard;
 pub use context::{
-    AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty, GraphProvider,
+    AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty,
+    GraphProvider, TimeWindow,
 };
 pub use frame::GraphFrame;
 pub use time_series::{TIME_SERIES, TimeSeriesGraph};
