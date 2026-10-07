@@ -81,7 +81,10 @@
       getPorts: async () => [port],
       requestPort: async () => {
         if (port.cancelRequest) {
-          throw new DOMException("No port selected by the user.", "NotFoundError");
+          throw new DOMException(
+            "No port selected by the user.",
+            "NotFoundError",
+          );
         }
         return port;
       },

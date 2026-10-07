@@ -79,7 +79,9 @@
 }
 
 .dx-navbar-content[data-state="closed"] {
-  transition: opacity 150ms ease-in, transform 150ms ease-in;
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
 }
 
 .dx-navbar-content[data-state="closed"][data-open-menu-direction="start"] {
@@ -98,7 +100,8 @@
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0) translateY(0) scale(1);
-  transition: opacity 200ms ease-out,
+  transition:
+    opacity 200ms ease-out,
     transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 

@@ -7,7 +7,9 @@ edition = "2021"
 dioxus = { workspace = true }
 dioxus-icons = { workspace = true }
 # `router` for `Navbar`, whose items are router links
-dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false, features = ["router"] }
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false, features = [
+  "router",
+] }
 regex = "1"
 
 [dev-dependencies]
