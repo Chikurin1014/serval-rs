@@ -41,6 +41,41 @@ impl TypedData {
             TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
         }
     }
+
+    /// The newest `count` entries, oldest first, with when they came and their
+    /// values as text: numbers as `numbers` says, bytes decoded as UTF-8.
+    pub fn newest_as_text(&self, count: usize, numbers: NumberText) -> Vec<(i64, String)> {
+        fn newest<T: Clone>(
+            queue: &Queue<Data<T>>,
+            count: usize,
+            text: impl Fn(&T) -> String,
+        ) -> Vec<(i64, String)> {
+            queue
+                .iter()
+                .skip(queue.len().saturating_sub(count))
+                .map(|entry| (entry.timestamp(), text(entry.value())))
+                .collect()
+        }
+        match self {
+            TypedData::Number(queue) => newest(queue, count, |value| match numbers {
+                NumberText::Rounded => format_number(*value),
+                NumberText::Exact => value.to_string(),
+            }),
+            TypedData::String(queue) => newest(queue, count, String::clone),
+            TypedData::Bytes(queue) => newest(queue, count, |value| {
+                String::from_utf8_lossy(value).into_owned()
+            }),
+        }
+    }
+}
+
+/// How [`TypedData::newest_as_text`] writes numbers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NumberText {
+    /// With [`format_number`], for display.
+    Rounded,
+    /// In full, e.g. for export.
+    Exact,
 }
 
 /// How many significant digits [`format_number`] shows.
@@ -133,7 +168,9 @@ data_entry!(ByteData, Bytes);
 
 #[cfg(test)]
 mod tests {
-    use super::{ByteData, DataEntry, NumberData, StringData, TypedData, format_number};
+    use super::{
+        ByteData, DataEntry, NumberData, NumberText, StringData, TypedData, format_number,
+    };
 
     #[test]
     fn format_number_shows_five_significant_digits() {
@@ -170,5 +207,30 @@ mod tests {
             .push(StringData::new(20, "b".to_string()));
         assert_eq!(strings.latest_timestamp(), Some(20));
         assert_eq!(TypedData::Bytes(Queue::new()).latest_timestamp(), None);
+    }
+
+    #[test]
+    fn newest_as_text_takes_the_newest_oldest_first() {
+        let numbers = TypedData::Number(Queue::from_iter(
+            (1..=3).map(|n| NumberData::new(n, n as f64 / 3.0)),
+        ));
+        assert_eq!(
+            numbers.newest_as_text(2, NumberText::Rounded),
+            vec![(2, "0.66667".to_string()), (3, "1.0000".to_string())]
+        );
+        assert_eq!(
+            numbers.newest_as_text(1, NumberText::Exact),
+            vec![(3, "1".to_string())]
+        );
+        assert_eq!(
+            numbers.newest_as_text(usize::MAX, NumberText::Exact).len(),
+            3
+        );
+
+        let bytes = TypedData::Bytes(Queue::from_iter([ByteData::new(1, b"ok\xff".to_vec())]));
+        assert_eq!(
+            bytes.newest_as_text(1, NumberText::Exact),
+            vec![(1, "ok\u{fffd}".to_string())]
+        );
     }
 }

@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::FilterContext;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::data::{DataContext, TypedData};
+use crate::data::{DataContext, NumberText};
 use crate::time::TimeContext;
 
 /// Saves `[file name, text]` sent from Rust as a CSV file, by a link to it.
@@ -32,7 +32,12 @@ pub(super) fn ExportCsvButton() -> Element {
             let mut series = data
                 .iter()
                 .filter(|(label, _)| filter_context.shows(label))
-                .map(|(label, data)| (label.clone(), entries_as_text(data)))
+                .map(|(label, data)| {
+                    (
+                        label.clone(),
+                        data.newest_as_text(usize::MAX, NumberText::Exact),
+                    )
+                })
                 .collect::<Vec<_>>();
             series.sort_by(|(a, _), (b, _)| a.cmp(b));
             series
@@ -53,27 +58,6 @@ pub(super) fn ExportCsvButton() -> Element {
             onclick: export,
             lucide::Download {}
         }
-    }
-}
-
-/// Each entry of `data` with when it came, its value in full as text.
-fn entries_as_text(data: &TypedData) -> Vec<(i64, String)> {
-    match data {
-        TypedData::Number(queue) => queue
-            .iter()
-            .map(|entry| (entry.timestamp(), entry.value().to_string()))
-            .collect(),
-        TypedData::String(queue) => queue
-            .iter()
-            .map(|entry| (entry.timestamp(), entry.value().clone()))
-            .collect(),
-        TypedData::Bytes(queue) => queue
-            .iter()
-            .map(|entry| {
-                let text = String::from_utf8_lossy(entry.value()).into_owned();
-                (entry.timestamp(), text)
-            })
-            .collect(),
     }
 }
 

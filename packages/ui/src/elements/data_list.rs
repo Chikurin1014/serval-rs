@@ -12,7 +12,7 @@ use crate::components::{
     input::Input,
     tag_group::{Tag, TagGroup, TagList},
 };
-use crate::data::{Data, DataContext, Queue, TypedData, format_number};
+use crate::data::{DataContext, NumberText, TypedData};
 use crate::time::TimeContext;
 
 use export::ExportCsvButton;
@@ -314,42 +314,17 @@ fn HistorySlide(children: Element) -> Element {
 
 /// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
-    let latest = match data {
-        TypedData::Number(queue) => queue.back().map(|entry| format_number(*entry.value())),
-        TypedData::String(queue) => queue.back().map(|entry| entry.value().clone()),
-        TypedData::Bytes(queue) => queue
-            .back()
-            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned()),
-    };
-    latest.unwrap_or_else(|| "empty".to_string())
+    data.newest_as_text(1, NumberText::Rounded)
+        .pop()
+        .map_or_else(|| "empty".to_string(), |(_, text)| text)
 }
 
 /// The `count` entries before the newest, newest first, with when they came.
 fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, String)> {
-    fn before_latest<T>(
-        queue: &Queue<Data<T>>,
-        count: usize,
-        text: impl Fn(&T) -> String,
-    ) -> Vec<(i64, String)>
-    where
-        T: Clone,
-    {
-        let mut values = queue
-            .iter()
-            .skip(queue.len().saturating_sub(count + 1))
-            .map(|entry| (entry.timestamp(), text(entry.value())))
-            .collect::<Vec<_>>();
-        values.pop();
-        values.reverse();
-        values
-    }
-    match data {
-        TypedData::Number(queue) => before_latest(queue, count, |value| format_number(*value)),
-        TypedData::String(queue) => before_latest(queue, count, String::clone),
-        TypedData::Bytes(queue) => before_latest(queue, count, |value| {
-            String::from_utf8_lossy(value).into_owned()
-        }),
-    }
+    let mut values = data.newest_as_text(count + 1, NumberText::Rounded);
+    values.pop();
+    values.reverse();
+    values
 }
 
 #[cfg(test)]
