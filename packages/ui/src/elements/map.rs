@@ -16,7 +16,9 @@ pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
 pub use map_list::MapList;
-pub use regex::{NAME_COLON_NUMBER, REGEX_TO_NUMBER, REGEX_TO_STRING};
+pub use regex::{
+    ANONYMOUS_LABEL, NAME_COLON_NUMBER, NUMBER_ONLY, REGEX_TO_NUMBER, REGEX_TO_STRING,
+};
 pub use replace::{REPLACE, ReplaceForm};
 
 /// The label the initial maps decode the raw bytes into, as text.
@@ -41,14 +43,27 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
 }
 
 /// For `MapProvider`'s `initial`: decodes the raw serial bytes into lines,
-/// so there is text to work with from the start, and reads `name: value`
-/// numbers from them (as the `Regex` preset).
+/// so there is text to work with from the start, and reads the numbers with
+/// no label and the `name: value` ones from them (as the `Regex` presets).
 pub fn initial_maps() -> Vec<InitialMap> {
     vec![
         InitialMap {
             kind: DECODE,
             enabled: true,
             create: || Box::new(Decode::new(RAW_BYTES_LABEL, MESSAGE_LABEL)),
+        },
+        InitialMap {
+            kind: REGEX_TO_NUMBER,
+            enabled: true,
+            create: || {
+                Box::new(RegexMatch::with(
+                    RegexOutput::Number,
+                    MESSAGE_LABEL,
+                    NUMBER_ONLY,
+                    ANONYMOUS_LABEL,
+                    "$0",
+                ))
+            },
         },
         InitialMap {
             kind: REGEX_TO_NUMBER,

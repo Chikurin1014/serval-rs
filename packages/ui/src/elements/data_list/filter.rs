@@ -1,12 +1,13 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
-use regex::Regex;
+use fancy_regex::Regex;
 
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     input::Input,
     tag_group::{Tag, TagGroup, TagList},
 };
+use crate::data::compile_pattern;
 
 /// What a filter does to the labels it matches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,8 +105,8 @@ impl Default for FilterContext {
 }
 
 /// A regex matching only the whole of a label, not a part of it.
-fn whole_match(pattern: &str) -> Result<Regex, regex::Error> {
-    Regex::new(&format!("^(?:{pattern})$"))
+fn whole_match(pattern: &str) -> Result<Regex, fancy_regex::Error> {
+    compile_pattern(&format!("^(?:{pattern})$"))
 }
 
 fn shows(filters: &[Filter], label: &str) -> bool {
@@ -113,11 +114,17 @@ fn shows(filters: &[Filter], label: &str) -> bool {
         .iter()
         .filter(|filter| filter.kind == FilterKind::Show)
         .peekable();
-    let shown = show.peek().is_none() || show.any(|filter| filter.regex.is_match(label));
+    let shown = show.peek().is_none() || show.any(|filter| matches(filter, label));
     let hidden = filters
         .iter()
-        .any(|filter| filter.kind == FilterKind::Hide && filter.regex.is_match(label));
+        .any(|filter| filter.kind == FilterKind::Hide && matches(filter, label));
     shown && !hidden
+}
+
+/// Whether `filter` matches `label`; not if matching fails (e.g. backtracking
+/// too much).
+fn matches(filter: &Filter, label: &str) -> bool {
+    filter.regex.is_match(label).unwrap_or(false)
 }
 
 /// A regex to show or hide labels by, and the filters as tags beside it.
@@ -268,6 +275,21 @@ mod tests {
         assert!(shows(&filters, "volt"));
         assert!(!shows(&filters, "temp_rate"));
         assert!(!shows(&filters, "my_volt"));
+    }
+
+    #[test]
+    fn filters_can_look_around() {
+        // Every label but those ending in `_rate`
+        let filters = filters(&[(FilterKind::Show, r"(?!.*_rate$).*")]);
+        assert!(shows(&filters, "temp"));
+        assert!(!shows(&filters, "temp_rate"));
+    }
+
+    #[test]
+    fn filters_can_use_aliases() {
+        let filters = filters(&[(FilterKind::Hide, "{word}_rate")]);
+        assert!(!shows(&filters, "temp_rate"));
+        assert!(shows(&filters, "temp"));
     }
 
     #[test]

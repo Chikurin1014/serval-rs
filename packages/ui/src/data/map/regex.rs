@@ -1,11 +1,11 @@
 use std::any::Any;
 
 use dioxus::prelude::*;
-use regex::{Captures, Regex};
+use fancy_regex::Captures;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, endpoints, format_number, set_if_changed, trim_segments,
+    StringData, compile_pattern, endpoints, format_number, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -125,7 +125,7 @@ impl MapRunner for RegexMatch {
             return;
         }
 
-        let regex = match Regex::new(pattern) {
+        let regex = match compile_pattern(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
@@ -146,55 +146,62 @@ impl MapRunner for RegexMatch {
         }
 
         let mut error = None;
+        let mut failure = None;
         let mut latest = None;
         for entry in &entries {
-            let input = entry.value();
-            let Some(captures) = regex.captures(input) else {
-                continue;
+            let input = entry.value().as_str();
+            let captures = match regex.captures(input) {
+                Ok(Some(captures)) => captures,
+                Ok(None) => continue,
+                // E.g. backtracking too much on this input
+                Err(failed) => {
+                    failure = Some(format!("Matching failed: {failed}"));
+                    continue;
+                }
             };
-            let label = regex.replace(input, to);
-            let label = label.trim();
+            let label = text(&label_segments(&captures, to));
             if label.is_empty() {
                 continue;
             }
             let value = expand(&captures, replacement);
             match self
                 .output
-                .push_to_data_context(data, label, value, timestamp)
+                .push_to_data_context(data, &label, value, timestamp)
             {
-                Ok(()) => latest = Some(input),
+                Ok(()) => latest = Some((input, captures)),
                 Err(message) => error = Some(message),
             }
         }
         // Split into segments only for the one shown
-        if let Some(input) = latest {
-            let mut to_value = regex
-                .captures(input)
-                .map(|captures| replacement_segments(&captures, replacement))
-                .unwrap_or_default();
+        if let Some((input, captures)) = latest {
+            let mut to_value = replacement_segments(&captures, replacement);
             if self.output == RegexOutput::Number {
                 to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
             }
             let conversion = Conversion {
-                from: vec![ConversionInput::new(from, input.as_str())],
-                to_label: label_segments(&regex, input, to),
+                from: vec![ConversionInput::new(from, input)],
+                to_label: label_segments(&captures, to),
                 to_value,
             };
             set_if_changed(&mut self.latest, Some(conversion));
         }
-        set_if_changed(&mut pattern_error, None);
+        set_if_changed(&mut pattern_error, failure);
         set_if_changed(&mut replacement_error, error);
     }
+}
+
+/// The text that `segments` make up.
+fn text(segments: &[Segment]) -> String {
+    segments
+        .iter()
+        .map(|segment| segment.text.as_str())
+        .collect()
 }
 
 /// The number that `segments` make up, shown as numbers are: one segment,
 /// taken from the input if any part of it was.
 fn number_segment(segments: &[Segment]) -> Option<Segment> {
-    let text = segments
-        .iter()
-        .map(|segment| segment.text.as_str())
-        .collect::<String>();
-    let number = text.parse::<f64>().ok()?;
+    let number = text(segments).parse::<f64>().ok()?;
     let text = format_number(number);
     Some(if segments.iter().any(|segment| segment.from_input) {
         Segment::from_input(text)
@@ -205,28 +212,21 @@ fn number_segment(segments: &[Segment]) -> Option<Segment> {
 
 /// Builds the value for one match from the replacement and its capture groups,
 /// leaving out the text around the match.
-pub(super) fn expand(captures: &Captures, replacement: &str) -> String {
+pub(super) fn expand(captures: &Captures<str>, replacement: &str) -> String {
     let mut value = String::new();
     captures.expand(replacement, &mut value);
     value
 }
 
-/// The label `regex.replace(input, template)` gives, trimmed, as segments:
-/// the text around the match comes from the input as well.
-fn label_segments(regex: &Regex, input: &str, template: &str) -> Vec<Segment> {
-    let Some(captures) = regex.captures(input) else {
-        return Vec::new();
-    };
-    let whole = captures.get(0).expect("group 0 is the whole match");
-    let mut segments = vec![Segment::from_input(&input[..whole.start()])];
-    segments.extend(replacement_segments(&captures, template));
-    segments.push(Segment::from_input(&input[whole.end()..]));
-    trim_segments(segments)
+/// The label for one match, as segments: `template` with the match's groups
+/// filled in, trimmed. Like the value, it leaves out the text around the match.
+fn label_segments(captures: &Captures<str>, template: &str) -> Vec<Segment> {
+    trim_segments(replacement_segments(captures, template))
 }
 
 /// What [`expand`] builds from `replacement`, split into its own text and
 /// the capture groups (`$1`, `${name}`) filled in from the input.
-pub(super) fn replacement_segments(captures: &Captures, replacement: &str) -> Vec<Segment> {
+pub(super) fn replacement_segments(captures: &Captures<str>, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut fixed = String::new();
     let mut rest = replacement;
@@ -273,21 +273,14 @@ fn group_reference_end(text: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
+    use fancy_regex::Regex;
 
-    use super::{expand, label_segments, replacement_segments};
+    use super::{expand, label_segments, replacement_segments, text};
     use crate::data::Segment;
-
-    fn text(segments: &[Segment]) -> String {
-        segments
-            .iter()
-            .map(|segment| segment.text.as_str())
-            .collect()
-    }
 
     fn expand_first(pattern: &str, input: &str, replacement: &str) -> String {
         let regex = Regex::new(pattern).unwrap();
-        expand(&regex.captures(input).unwrap(), replacement)
+        expand(&regex.captures(input).unwrap().unwrap(), replacement)
     }
 
     #[test]
@@ -300,6 +293,11 @@ mod tests {
     }
 
     #[test]
+    fn value_can_be_the_whole_match() {
+        assert_eq!(expand_first(r"[\d.]+", "20.5 x", "$0"), "20.5");
+    }
+
+    #[test]
     fn value_parses_as_number() {
         assert!(
             expand_first(r"(\d+)", "abc123def", "$1")
@@ -309,15 +307,9 @@ mod tests {
     }
 
     #[test]
-    fn output_label_can_use_match_groups() {
-        let regex = Regex::new(r"led: (on|off)").unwrap();
-        assert_eq!(regex.replace("led: on", "led_$1"), "led_on");
-    }
-
-    #[test]
     fn replacement_segments_mark_the_groups() {
         let regex = Regex::new(r"(?<name>\w+): (\w+)").unwrap();
-        let captures = regex.captures("led: on").unwrap();
+        let captures = regex.captures("led: on").unwrap().unwrap();
         assert_eq!(
             replacement_segments(&captures, "${name}_$2!"),
             vec![
@@ -332,7 +324,7 @@ mod tests {
     #[test]
     fn replacement_segments_make_what_expand_makes() {
         let regex = Regex::new(r"(?<name>\w+): (\w+)").unwrap();
-        let captures = regex.captures("led: on").unwrap();
+        let captures = regex.captures("led: on").unwrap().unwrap();
         for replacement in [
             "$1",
             "a$$b",
@@ -353,19 +345,27 @@ mod tests {
     }
 
     #[test]
-    fn label_segments_make_the_trimmed_label() {
-        let regex = Regex::new(r"temp:(\S+)").unwrap();
-        let segments = label_segments(&regex, " xx temp:20.5 ", "t_$1");
+    fn label_leaves_out_the_text_around_the_match() {
+        let regex = Regex::new(r"[\d.]+").unwrap();
+        let captures = regex.captures("temp:20.5 C").unwrap().unwrap();
         assert_eq!(
-            text(&segments),
-            regex.replace(" xx temp:20.5 ", "t_$1").trim()
+            label_segments(&captures, "foo"),
+            vec![Segment::fixed("foo")]
         );
+    }
+
+    #[test]
+    fn label_uses_the_match_groups_trimmed() {
+        let regex = Regex::new(r"(\w+): (\S+)").unwrap();
+        let captures = regex.captures("xx led: on").unwrap().unwrap();
+        let segments = label_segments(&captures, " ${1}_$2 ");
+        assert_eq!(text(&segments), "led_on");
         assert_eq!(
             segments,
             vec![
-                Segment::from_input("xx "),
-                Segment::fixed("t_"),
-                Segment::from_input("20.5"),
+                Segment::from_input("led"),
+                Segment::fixed("_"),
+                Segment::from_input("on"),
             ]
         );
     }

@@ -44,6 +44,8 @@
               new DOMException("The device has been lost.", "NetworkError"),
             );
           };
+          // Sends `text` as a chunk of its own, between the readings; for the tests
+          port.receive = (text) => controller.enqueue(encoder.encode(text));
           // Sends `count` chunks at once, as a fast device would; for the tests
           port.burst = (count) => {
             for (let i = 0; i < count; i++) {
