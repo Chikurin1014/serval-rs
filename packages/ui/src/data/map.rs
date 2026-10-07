@@ -10,6 +10,7 @@ mod calculus;
 mod concat;
 mod decode;
 mod encode;
+mod input;
 mod regex;
 mod replace;
 
@@ -31,6 +32,7 @@ pub use calculus::{Calculus, CalculusMap, CalculusSettings};
 pub use concat::{Concat, ConcatSettings};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};
+pub(crate) use input::{Input, endpoints, take_newest_pair};
 pub use regex::{RegexMatch, RegexOutput, RegexSettings};
 pub use replace::{Replace, ReplaceSettings};
 

@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    TypedData, format_number, set_if_changed,
+    Conversion, ConversionInput, DataContext, Input, MapRunner, NumberData, Segment, TypedData,
+    format_number, set_if_changed, take_newest_pair,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,8 +67,9 @@ pub struct ArithmeticSettings {
 pub struct Arithmetic {
     settings: ArithmeticSettings,
     latest: Signal<Option<Conversion>>,
-    first: Input,
-    second: Input,
+    /// The operands' labels, read as far as they were used
+    first: Input<f64>,
+    second: Input<f64>,
     /// The constants of the last result from two of them.
     last_constants: Option<(f64, f64)>,
     /// Why the last pair gave no result, shown until one does.
@@ -105,37 +106,6 @@ impl Operand {
     }
 }
 
-/// An operand's label, read as far as it was used.
-#[derive(Default)]
-struct Input {
-    cursor: SourceCursor,
-    /// The newest number not used yet, when the other operand is a label too.
-    newest: Option<f64>,
-}
-
-impl Input {
-    /// The numbers added under `label` since the last read.
-    fn read(&mut self, data: &DataContext, label: &str) -> Vec<f64> {
-        match self.cursor.new_entries::<NumberData>(data, label) {
-            Some(read) => {
-                if read.restarted {
-                    self.newest = None;
-                }
-                read.entries.iter().map(|entry| *entry.value()).collect()
-            }
-            None => {
-                self.forget();
-                Vec::new()
-            }
-        }
-    }
-
-    fn forget(&mut self) {
-        self.cursor.reset();
-        self.newest = None;
-    }
-}
-
 impl Arithmetic {
     pub fn new(operation: Operation) -> Self {
         Self {
@@ -164,20 +134,11 @@ impl Arithmetic {
         }
         match (first, second) {
             (Operand::Label(first), Operand::Label(second)) => {
-                if let Some(&newest) = self.first.read(data, first).last() {
-                    self.first.newest = Some(newest);
-                }
-                if let Some(&newest) = self.second.read(data, second).last() {
-                    self.second.newest = Some(newest);
-                }
-                match (self.first.newest, self.second.newest) {
-                    (Some(first), Some(second)) => {
-                        self.first.newest = None;
-                        self.second.newest = None;
-                        vec![(first, second)]
-                    }
-                    _ => Vec::new(),
-                }
+                self.first.read_newest(data, first);
+                self.second.read_newest(data, second);
+                take_newest_pair(&mut self.first, &mut self.second)
+                    .into_iter()
+                    .collect()
             }
             (Operand::Label(first), &Operand::Constant(second)) => {
                 self.second.forget();

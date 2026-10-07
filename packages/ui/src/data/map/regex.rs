@@ -5,7 +5,7 @@ use regex::{Captures, Regex};
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, format_number, set_if_changed, trim_segments,
+    StringData, endpoints, format_number, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -116,16 +116,16 @@ impl MapRunner for RegexMatch {
             set_if_changed(&mut pattern_error, None);
             set_if_changed(&mut replacement_error, None);
         }
-        let [from, to, pattern, replacement] = current;
-        if from.trim().is_empty()
-            || to.trim().is_empty()
-            || from.trim() == to.trim()
-            || pattern.trim().is_empty()
-        {
+        let [from, to, pattern, replacement] = &current;
+        // `to` may use the pattern's groups (`$1`), so it is a template, not a label
+        let Some((from, to)) = endpoints(from, to) else {
+            return;
+        };
+        if pattern.trim().is_empty() {
             return;
         }
 
-        let regex = match Regex::new(&pattern) {
+        let regex = match Regex::new(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
@@ -136,7 +136,7 @@ impl MapRunner for RegexMatch {
         // A restart needs no special handling: what was converted before stays
         let Some(entries) = self
             .cursor
-            .new_entries::<StringData>(data, &from)
+            .new_entries::<StringData>(data, from)
             .map(|read| read.entries)
         else {
             return;
@@ -152,12 +152,12 @@ impl MapRunner for RegexMatch {
             let Some(captures) = regex.captures(input) else {
                 continue;
             };
-            let label = regex.replace(input, to.as_str());
+            let label = regex.replace(input, to);
             let label = label.trim();
             if label.is_empty() {
                 continue;
             }
-            let value = expand(&captures, &replacement);
+            let value = expand(&captures, replacement);
             match self
                 .output
                 .push_to_data_context(data, label, value, timestamp)
@@ -170,14 +170,14 @@ impl MapRunner for RegexMatch {
         if let Some(input) = latest {
             let mut to_value = regex
                 .captures(input)
-                .map(|captures| replacement_segments(&captures, &replacement))
+                .map(|captures| replacement_segments(&captures, replacement))
                 .unwrap_or_default();
             if self.output == RegexOutput::Number {
                 to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
             }
             let conversion = Conversion {
-                from: vec![ConversionInput::new(from.trim(), input.as_str())],
-                to_label: label_segments(&regex, input, &to),
+                from: vec![ConversionInput::new(from, input.as_str())],
+                to_label: label_segments(&regex, input, to),
                 to_value,
             };
             set_if_changed(&mut self.latest, Some(conversion));

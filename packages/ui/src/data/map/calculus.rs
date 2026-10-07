@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    format_number, set_if_changed,
+    endpoints, format_number, set_if_changed,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,10 +112,9 @@ impl MapRunner for CalculusMap {
             to_label,
         } = self.settings;
         let (from, to) = (from_label(), to_label());
-        let (from, to) = (from.trim(), to.trim());
-        if from.is_empty() || to.is_empty() || from == to {
+        let Some((from, to)) = endpoints(&from, &to) else {
             return;
-        }
+        };
 
         let Some(read) = self.cursor.new_entries::<NumberData>(data, from) else {
             self.cursor.reset();
