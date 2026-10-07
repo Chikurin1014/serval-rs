@@ -85,3 +85,14 @@ pytest e2e
 ```
 
 To test an existing build instead, point `SERVAL_E2E_APP` at its `public/` directory.
+
+## License
+
+Serval is licensed under the [MIT License](LICENSE).
+
+It bundles third-party software (KaTeX, uPlot, the Dioxus components, the USB ID Repository and the Rust crates compiled into it), whose licenses are listed in [`third-party-licenses.html`](packages/web/public/third-party-licenses.html), served with the app at `/third-party-licenses.html`.
+After changing dependencies, regenerate it in `nix develop` (see [`about.toml`](about.toml)):
+
+```bash
+cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o packages/web/public/third-party-licenses.html
+```

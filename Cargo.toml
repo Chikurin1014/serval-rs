@@ -5,6 +5,7 @@ members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile"]
 # One version for the whole app, which release-please bumps
 [workspace.package]
 version = "0.1.0"
+license = "MIT"
 
 [workspace.dependencies]
 dioxus = { version = "0.7.1" }

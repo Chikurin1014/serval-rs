@@ -204,6 +204,7 @@
               inputsFrom = [ config.packages.${name} ];
               packages = [
                 rustToolchain
+                pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
                 pkgs.nodejs
                 pkgs.prettier
                 pkgs.pyright

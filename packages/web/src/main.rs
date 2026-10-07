@@ -31,6 +31,8 @@ enum Route {
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
+/// The third-party licenses, copied from `public/` as it is
+const LICENSES_PAGE: &str = "/third-party-licenses.html";
 
 fn main() {
     dioxus::launch(App);
@@ -85,6 +87,15 @@ fn WebNavbar() -> Element {
                         value: "home".to_string(),
                         to: Route::Home {},
                         "Home"
+                    }
+                    // A static page beside the app (see `about.toml`); in a new
+                    // tab, so the open port and its data stay
+                    NavbarItem {
+                        index: 1usize,
+                        value: "licenses".to_string(),
+                        to: NavigationTarget::<Route>::External(LICENSES_PAGE.to_string()),
+                        new_tab: true,
+                        "Licenses"
                     }
                 }
                 ThemeSwitch {}
