@@ -10,9 +10,12 @@ use crate::data::{
 };
 
 /// A preset whose `pattern` matches a name (`$1`, the output label) and a
-/// value (`$2`).
+/// value (`$2`), or with the output label and value given.
 macro_rules! preset {
     ($name:literal, $output:ident, $pattern:expr) => {
+        preset!($name, $output, $pattern, "$1", "$2")
+    };
+    ($name:literal, $output:ident, $pattern:expr, $to_label:expr, $replacement:expr) => {
         MapPreset {
             name: $name,
             detail: $pattern,
@@ -21,16 +24,30 @@ macro_rules! preset {
                     RegexOutput::$output,
                     "",
                     $pattern,
-                    "$1",
-                    "$2",
+                    $to_label,
+                    $replacement,
                 ))
             },
         }
     };
 }
 
+/// A number, e.g. `20`, `-0.5`, `.5`, `+1.` or `1.5e-3`, with no groups of its
+/// own; a macro, so the presets can `concat!` it.
+macro_rules! number {
+    () => {
+        r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    };
+}
+
+/// A value with no label: a number at the start of the line, e.g. `20.5`.
+pub const NUMBER_ONLY: &str = concat!("^", number!());
+
+/// The output label of the values with no label.
+pub const ANONYMOUS_LABEL: &str = "anonymous data";
+
 /// `name: value` with a number value, e.g. `temp: 20.5`.
-pub const NAME_COLON_NUMBER: &str = r"(\w+): (-?\d+(\.\d+)?(e\d+)?)";
+pub const NAME_COLON_NUMBER: &str = concat!(r"(\w+): (", number!(), ")");
 
 pub const REGEX_TO_STRING: MapKind = MapKind {
     name: "Regex",
@@ -52,9 +69,10 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
     form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
     presets: &[
+        preset!("value", Number, NUMBER_ONLY, ANONYMOUS_LABEL, "$0"),
         preset!("name: value", Number, NAME_COLON_NUMBER),
-        preset!("name=value", Number, r"(\w+)=(-?\d+(\.\d+)?(e\d+)?)"),
-        preset!("Teleplot", Number, r">(\w+):(-?\d+(\.\d+)?(e\d+)?)"),
+        preset!("name=value", Number, concat!(r"(\w+)=(", number!(), ")")),
+        preset!("Teleplot", Number, concat!(r">(\w+):(", number!(), ")")),
     ],
 };
 
@@ -152,8 +170,35 @@ mod tests {
             name_value(kind, "Teleplot", ">temp:1.5e3"),
             pair("temp", "1.5e3")
         );
+        for value in ["20", "+20", "-0.5", ".5", "1.", "1.5E-3", "-2e+10"] {
+            assert_eq!(
+                name_value(kind, "name: value", &format!("temp: {value}")),
+                pair("temp", value)
+            );
+            assert!(value.parse::<f64>().is_ok(), "{value}");
+        }
         assert_eq!(name_value(kind, "name: value", "temp: on"), None);
+        assert_eq!(name_value(kind, "name: value", "temp: ."), None);
         assert_eq!(name_value(kind, "Teleplot", "temp:20"), None);
+    }
+
+    #[test]
+    fn value_preset_takes_a_number_with_no_label() {
+        let preset = REGEX_TO_NUMBER
+            .presets
+            .iter()
+            .find(|p| p.name == "value")
+            .unwrap();
+        let regex = Regex::new(preset.detail).unwrap();
+        let value = |input: &str| {
+            regex
+                .captures(input)
+                .unwrap()
+                .map(|captures| captures[0].to_string())
+        };
+        assert_eq!(value("-20.5"), Some("-20.5".to_string()));
+        assert_eq!(value("1.5e3"), Some("1.5e3".to_string()));
+        assert_eq!(value("temp: 20.5"), None);
     }
 
     #[test]

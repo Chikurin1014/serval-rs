@@ -298,6 +298,11 @@ mod tests {
     }
 
     #[test]
+    fn value_can_be_the_whole_match() {
+        assert_eq!(expand_first(r"[\d.]+", "20.5 x", "$0"), "20.5");
+    }
+
+    #[test]
     fn value_parses_as_number() {
         assert!(
             expand_first(r"(\d+)", "abc123def", "$1")

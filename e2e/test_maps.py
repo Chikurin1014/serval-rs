@@ -13,12 +13,12 @@ def is_whole_line(text: str) -> bool:
 def test_initial_map_splits_raw_bytes_into_lines(app: App):
     app.open_port()
     app.tab("Data")
-    expect(app.map_cards()).to_have_count(2)
+    expect(app.map_cards()).to_have_count(3)
     app.wait_for_labels("message")
     assert is_whole_line(app.data_rows()["message"][1])
 
 
-def test_initial_regex_map_reads_name_value_numbers(app: App):
+def test_initial_regex_map_reads_numbers_with_no_label(app: App):
     app.tab("Data")
     card = app.map_cards().nth(1)
     expect(card.locator(".map-title-text")).to_have_text("Regex")
@@ -26,7 +26,29 @@ def test_initial_regex_map_reads_name_value_numbers(app: App):
     card.locator(".map-title").click()
     expect(card.get_by_placeholder("Input label")).to_have_value("message")
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r"(\w+): (-?\d+(\.\d+)?(e\d+)?)"
+        r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    )
+    expect(card.get_by_placeholder("Output label")).to_have_value("anonymous data")
+    expect(card.get_by_label("To", exact=True)).to_have_value("$0")
+
+    app.open_port()
+    app.mock("receive('-1.5e2\\n')")
+    app.wait_for_labels("anonymous data")
+    assert app.data_rows()["anonymous data"][1] == "-150.00"
+    # Labelled lines, which keep coming, are not taken for values
+    app.page.wait_for_timeout(300)
+    assert app.data_rows()["anonymous data"][1] == "-150.00"
+
+
+def test_initial_regex_map_reads_name_value_numbers(app: App):
+    app.tab("Data")
+    card = app.map_cards().nth(2)
+    expect(card.locator(".map-title-text")).to_have_text("Regex")
+    expect(card.get_by_role("switch")).to_be_checked()
+    card.locator(".map-title").click()
+    expect(card.get_by_placeholder("Input label")).to_have_value("message")
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
+        r"(\w+): ([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
     )
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
@@ -77,10 +99,10 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
         ("Regex", "String", "String"),
     ]:
         app.add_map(*kind)
-    expect(app.map_cards()).to_have_count(5)
+    expect(app.map_cards()).to_have_count(6)
 
     # Run the first one added, so its signals are used before it is removed
-    card = app.map_cards().nth(2)
+    card = app.map_cards().nth(3)
     card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
     card.get_by_placeholder("Output label").fill("$1")
@@ -90,7 +112,7 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
 
     for _ in range(3):
         app.map_cards().last.get_by_role("button", name="Delete map").click()
-    expect(app.map_cards()).to_have_count(2)
+    expect(app.map_cards()).to_have_count(3)
 
     warnings = [
         message.text
@@ -228,10 +250,10 @@ def test_card_header_shows_the_types(app: App):
     app.tab("Data")
     app.add_map("Regex", "String", "Number")
     expect(app.map_cards().locator(".map-title-text")).to_have_text(
-        ["Decode", "Regex", "Regex"]
+        ["Decode", "Regex", "Regex", "Regex"]
     )
     expect(app.map_cards().locator(".map-types")).to_have_text(
-        ["BytesString", "StringNumber", "StringNumber"]
+        ["BytesString", "StringNumber", "StringNumber", "StringNumber"]
     )
 
 
@@ -391,7 +413,7 @@ def test_regex_presets_show_beside_the_item(app: App):
     expect(presets.first).to_be_hidden()
     item.hover()
     expect(presets.locator(".add-map-preset-name")).to_have_text(
-        ["name: value", "name=value", "Teleplot"]
+        ["value", "name: value", "name=value", "Teleplot"]
     )
 
     item = regex_item(app, "String")
@@ -408,10 +430,10 @@ def test_regex_preset_adds_a_set_map(app: App):
     item.get_by_role("menuitem").filter(has_text="Teleplot").click()
 
     # Only the preset's map, not a blank one as well
-    expect(app.map_cards()).to_have_count(3)
+    expect(app.map_cards()).to_have_count(4)
     card = app.map_cards().last
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r">(\w+):(-?\d+(\.\d+)?(e\d+)?)"
+        r">(\w+):([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
     )
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
@@ -433,7 +455,7 @@ def test_regex_presets_by_keyboard(app: App):
     app.page.keyboard.press("ArrowRight")
     app.page.keyboard.press("ArrowDown")
     app.page.keyboard.press("Enter")
-    expect(app.map_cards()).to_have_count(3)
+    expect(app.map_cards()).to_have_count(4)
     expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
         "(.+)=(.+)"
     )
