@@ -12,6 +12,8 @@ use crate::components::{
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
 use crate::elements::{HoverMenu, HoverMenus};
 
+use super::field::MapEnabled;
+
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 // Linked by the forms too; here so it is loaded before a card first opens
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
@@ -243,6 +245,8 @@ fn MapCard(map: Map) -> Element {
         latest,
         ..
     } = map;
+    // For its form to lock what the map cannot take in while on (see `MapEnabled`)
+    use_context_provider(|| MapEnabled(enabled.into()));
 
     rsx! {
         Collapsible {

@@ -87,6 +87,31 @@ def test_invalid_regex_shows_an_error(app: App):
     expect(app.page.locator(".field-error")).to_contain_text("Invalid regex")
 
 
+def test_pattern_is_locked_while_the_map_is_on(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map(target="all_$1")
+    app.wait_for_labels("all_temp", "all_volt")
+    card = app.map_cards().last
+    pattern = card.get_by_placeholder("Text to be matched")
+    switch = card.get_by_role("switch")
+
+    # Compiled when the map was turned on, so kept as it is while on
+    expect(pattern).not_to_be_editable()
+
+    switch.click()
+    expect(pattern).to_be_editable()
+    pattern.fill(r"(temp):({number})")
+    card.get_by_placeholder("Output label").fill("only_$1")
+    switch.click()
+    expect(pattern).not_to_be_editable()
+
+    # The new pattern is the one in use
+    app.wait_for_labels("only_temp")
+    app.page.wait_for_timeout(300)
+    assert "only_volt" not in app.data_rows()
+
+
 def test_adding_and_removing_maps_warns_nothing(app: App):
     app.open_port()
     app.tab("Data")

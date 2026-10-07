@@ -4,8 +4,8 @@ use dioxus::prelude::*;
 use fancy_regex::Captures;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, compile_pattern, endpoints, format_number, set_if_changed, trim_segments,
+    CompiledPattern, Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment,
+    SourceCursor, StringData, endpoints, format_number, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,6 +57,9 @@ pub struct RegexMatch {
     /// Settings of the previous run; a change restarts from the start of the input.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
+    /// The pattern's regex, compiled when it changes (the map is turned on
+    /// after an edit: its form allows none while it is on)
+    pattern_regex: CompiledPattern,
 }
 
 impl RegexMatch {
@@ -86,6 +89,7 @@ impl RegexMatch {
             latest: Signal::new(None),
             last_settings: None,
             cursor: SourceCursor::default(),
+            pattern_regex: CompiledPattern::default(),
         }
     }
 }
@@ -125,7 +129,7 @@ impl MapRunner for RegexMatch {
             return;
         }
 
-        let regex = match compile_pattern(pattern) {
+        let regex = match self.pattern_regex.get(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));

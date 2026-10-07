@@ -5,8 +5,8 @@ use fancy_regex::Regex;
 
 use super::regex::replacement_segments;
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    compile_pattern, endpoints, set_if_changed,
+    CompiledPattern, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
+    StringData, endpoints, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -27,6 +27,9 @@ pub struct Replace {
     /// Settings of the previous run; a change restarts from the start of the input.
     last_settings: Option<[String; 4]>,
     cursor: SourceCursor,
+    /// The pattern's regex, compiled when it changes (the map is turned on
+    /// after an edit: its form allows none while it is on)
+    pattern_regex: CompiledPattern,
 }
 
 impl Replace {
@@ -42,6 +45,7 @@ impl Replace {
             latest: Signal::new(None),
             last_settings: None,
             cursor: SourceCursor::default(),
+            pattern_regex: CompiledPattern::default(),
         }
     }
 }
@@ -84,7 +88,7 @@ impl MapRunner for Replace {
             return;
         }
 
-        let regex = match compile_pattern(pattern) {
+        let regex = match self.pattern_regex.get(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
@@ -104,7 +108,7 @@ impl MapRunner for Replace {
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
             to_label: vec![Segment::fixed(to)],
-            to_value: replaced_segments(&regex, last.value(), replacement),
+            to_value: replaced_segments(regex, last.value(), replacement),
         };
         set_if_changed(&mut self.latest, Some(conversion));
         let mut failure = None;
