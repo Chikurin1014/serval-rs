@@ -2,13 +2,16 @@ use dioxus::prelude::*;
 
 use ui::{
     ThemeProvider,
-    components::toast::ToastProvider,
+    components::{
+        navbar::{Navbar, NavbarItem},
+        toast::ToastProvider,
+    },
     data::{DataProvider, MapProvider},
     elements::{
-        Navbar,
         graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
         map::{builtin_map_kinds, initial_maps},
     },
+    theme::ThemeSwitch,
     views::Home,
 };
 
@@ -64,8 +67,8 @@ fn App() -> Element {
     }
 }
 
-/// A web-specific Router around the shared `Navbar` component
-/// which allows us to use the web-specific `Route` enum.
+/// The page: the navbar with the routes' links and the theme switch, then the
+/// route's view.
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
@@ -76,11 +79,15 @@ fn WebNavbar() -> Element {
             div {
                 class: "navbar-shell",
                 Navbar {
-                    Link {
+                    aria_label: "Pages",
+                    NavbarItem {
+                        index: 0usize,
+                        value: "home".to_string(),
                         to: Route::Home {},
                         "Home"
                     }
                 }
+                ThemeSwitch {}
             }
             div {
                 class: "route-shell",

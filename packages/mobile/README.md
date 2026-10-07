@@ -6,11 +6,7 @@ The mobile crate defines the entrypoint for the mobile app along with any assets
 mobile/
 ├─ assets/ # Assets used by the mobile app - Any platform specific assets should go in this folder
 ├─ src/
-│  ├─ main.rs # The entrypoint for the mobile app.It also defines the routes for the mobile platform
-│  ├─ views/ # The views each route will render in the mobile version of the app
-│  │  ├─ mod.rs # Defines the module for the views route and re-exports the components for each route
-│  │  ├─ blog.rs # The component that will render at the /blog/:id route
-│  │  ├─ home.rs # The component that will render at the / route
+│  ├─ main.rs # The entrypoint for the mobile app (a placeholder for now: Serval runs in the browser)
 ├─ Cargo.toml # The mobile crate's Cargo.toml - This should include all mobile specific dependencies
 ```
 

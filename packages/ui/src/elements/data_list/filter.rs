@@ -1,5 +1,12 @@
 use dioxus::prelude::*;
+use dioxus_icons::lucide;
 use regex::Regex;
+
+use crate::components::{
+    button::{Button, ButtonSize, ButtonVariant},
+    input::Input,
+    tag_group::{Tag, TagGroup, TagList},
+};
 
 /// What a filter does to the labels it matches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,6 +118,120 @@ fn shows(filters: &[Filter], label: &str) -> bool {
         .iter()
         .any(|filter| filter.kind == FilterKind::Hide && filter.regex.is_match(label));
     shown && !hidden
+}
+
+/// A regex to show or hide labels by, and the filters as tags beside it.
+#[component]
+pub(super) fn LabelFilter() -> Element {
+    let mut filter_context = use_context::<FilterContext>();
+    let mut kind = use_signal(|| FilterKind::Show);
+    let mut pattern = use_signal(String::new);
+    let mut error = use_signal(|| None::<String>);
+    let mut add = move || {
+        let value = pattern();
+        if value.is_empty() {
+            return;
+        }
+        match filter_context.add(kind(), &value) {
+            Ok(()) => pattern.set(String::new()),
+            Err(message) => error.set(Some(message)),
+        }
+    };
+
+    rsx! {
+        div {
+            class: "label-filter",
+            div {
+                class: "label-filter-input",
+                label {
+                    class: "field label-filter-field",
+                    lucide::Funnel {}
+                    Input {
+                        placeholder: "Label filter",
+                        value: "{pattern}",
+                        oninput: move |event: FormEvent| {
+                            pattern.set(event.value());
+                            error.set(None);
+                        },
+                        onkeydown: move |event: KeyboardEvent| {
+                            if event.key() == Key::Enter {
+                                add();
+                            }
+                        },
+                    }
+                }
+                // Which kind of filter the input adds
+                Button {
+                    class: "label-filter-kind",
+                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::Sm,
+                    "data-kind": kind().name(),
+                    title: "Labels matching it are shown or hidden",
+                    onclick: move |_| {
+                        kind.set(match kind() {
+                            FilterKind::Show => FilterKind::Hide,
+                            FilterKind::Hide => FilterKind::Show,
+                        });
+                    },
+                    FilterKindIcon { kind: kind() }
+                    "{kind().name()}"
+                }
+                Button {
+                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::IconSm,
+                    aria_label: "Add filter",
+                    title: "Add filter",
+                    onclick: move |_| add(),
+                    lucide::Plus {}
+                }
+            }
+            // In a div of its own, as the tag group takes no class
+            div {
+                class: "label-filter-tags",
+                TagGroup {
+                    selectable: false,
+                    aria_label: "Label filters",
+                    TagList {
+                        for (index, (kind, pattern)) in filter_context.filters().into_iter().enumerate() {
+                            Tag {
+                                key: "{kind.name()}-{pattern}",
+                                index,
+                                value: format!("{}-{pattern}", kind.name()),
+                                "data-kind": kind.name(),
+                                FilterKindIcon { kind }
+                                span { "{pattern}" }
+                                // Shown while the tag is hovered
+                                Button {
+                                    class: "label-filter-remove reveal-on-hover",
+                                    variant: ButtonVariant::Ghost,
+                                    size: ButtonSize::IconXs,
+                                    aria_label: "Remove {kind.name()} filter {pattern}",
+                                    title: "Remove filter",
+                                    onclick: move |event: MouseEvent| {
+                                        event.stop_propagation();
+                                        filter_context.remove(kind, &pattern);
+                                    },
+                                    lucide::X {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(error) = error() {
+                p { class: "label-filter-error", "{error}" }
+            }
+        }
+    }
+}
+
+/// An open eye for a filter that shows labels, a closed one for one that hides them.
+#[component]
+fn FilterKindIcon(kind: FilterKind) -> Element {
+    match kind {
+        FilterKind::Show => rsx! { lucide::Eye {} },
+        FilterKind::Hide => rsx! { lucide::EyeOff {} },
+    }
 }
 
 #[cfg(test)]

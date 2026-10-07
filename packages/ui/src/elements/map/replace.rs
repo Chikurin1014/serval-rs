@@ -3,13 +3,9 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::field::{LabelField, TextField};
 use super::map_list::STRINGS_LABELS_LIST_ID;
-use crate::{
-    components::input::Input,
-    data::{DataType, MapKind, Replace, ReplaceSettings},
-};
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
+use crate::data::{DataType, MapKind, Replace, ReplaceSettings};
 
 pub const REPLACE: MapKind = MapKind {
     name: "Replace",
@@ -27,43 +23,29 @@ pub const REPLACE: MapKind = MapKind {
 #[component]
 pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
     let ReplaceSettings {
-        mut from_label,
-        mut to_label,
-        mut pattern,
-        mut replacement,
-        mut pattern_error,
+        from_label,
+        to_label,
+        pattern,
+        replacement,
+        pattern_error,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
             class: "map-row",
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Input label",
-                        autocomplete: "on",
-                        value: "{from_label}",
-                        oninput: move |event: FormEvent| from_label.set(event.value()),
-                    }
+                LabelField {
+                    value: from_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "Input label",
                 }
-                label {
-                    class: "field",
-                    span { class: "field-label", "From" }
-                    lucide::Regex {}
-                    Input {
-                        placeholder: "Text to be replaced",
-                        value: "{pattern}",
-                        oninput: move |event: FormEvent| {
-                            pattern.set(event.value());
-                            pattern_error.set(None);
-                        },
-                    }
+                TextField {
+                    name: "From",
+                    icon: rsx! { lucide::Regex {} },
+                    value: pattern,
+                    placeholder: "Text to be replaced",
+                    error: pattern_error,
                 }
                 if let Some(error) = pattern_error() {
                     span { class: "field-error", "{error}" }
@@ -72,24 +54,12 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
             lucide::MoveRight { size: 20 }
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        placeholder: "Output label",
-                        list: STRINGS_LABELS_LIST_ID,
-                        value: "{to_label}",
-                        oninput: move |event: FormEvent| to_label.set(event.value()),
-                    }
+                LabelField {
+                    value: to_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "Output label",
                 }
-                label {
-                    class: "field",
-                    span { class: "field-label", "To" }
-                    Input {
-                        value: "{replacement}",
-                        oninput: move |event: FormEvent| replacement.set(event.value()),
-                    }
-                }
+                TextField { name: "To", value: replacement }
             }
         }
     }

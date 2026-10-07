@@ -3,13 +3,9 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::field::{LabelField, TextField};
 use super::map_list::STRINGS_LABELS_LIST_ID;
-use crate::{
-    components::input::Input,
-    data::{Concat, ConcatSettings, DataType, MapKind},
-};
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
+use crate::data::{Concat, ConcatSettings, DataType, MapKind};
 
 pub const CONCAT: MapKind = MapKind {
     name: "Concat",
@@ -28,64 +24,37 @@ pub const CONCAT: MapKind = MapKind {
 #[component]
 pub fn ConcatForm(settings: ConcatSettings) -> Element {
     let ConcatSettings {
-        mut first_label,
-        mut second_label,
-        mut to_label,
-        mut separator,
+        first_label,
+        second_label,
+        to_label,
+        separator,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
             class: "map-row",
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "First input label",
-                        autocomplete: "on",
-                        value: "{first_label}",
-                        oninput: move |event: FormEvent| first_label.set(event.value()),
-                    }
+                LabelField {
+                    value: first_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "First input label",
                 }
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Second input label",
-                        autocomplete: "on",
-                        value: "{second_label}",
-                        oninput: move |event: FormEvent| second_label.set(event.value()),
-                    }
+                LabelField {
+                    value: second_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "Second input label",
                 }
             }
             lucide::MoveRight { size: 20 }
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        placeholder: "Output label",
-                        list: STRINGS_LABELS_LIST_ID,
-                        value: "{to_label}",
-                        oninput: move |event: FormEvent| to_label.set(event.value()),
-                    }
+                LabelField {
+                    value: to_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "Output label",
                 }
-                label {
-                    class: "field",
-                    span { class: "field-label", "Separator" }
-                    Input {
-                        placeholder: "None",
-                        value: "{separator}",
-                        oninput: move |event: FormEvent| separator.set(event.value()),
-                    }
-                }
+                TextField { name: "Separator", value: separator, placeholder: "None" }
             }
         }
     }

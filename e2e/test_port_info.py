@@ -41,23 +41,17 @@ def test_counts_the_bytes_received_and_sent(app: App):
         "() => [...document.querySelectorAll('.port-info dt')]"
         ".find(dt => dt.textContent === 'Received').nextElementSibling.textContent !== '0 B'"
     )
-    field = app.page.get_by_placeholder("Type text to send to the active port")
-    field.fill("led on")
-    field.press("Enter")
-    app.page.wait_for_function("() => window.mockSerialPort.written.length > 0")
+    app.send_text("led on")
+    app.wait_for_mock("written.length > 0")
     app.page.wait_for_timeout(100)
     assert details(app)["Sent"] == "6 B"
 
 
 def test_logs_connecting_and_failures(app: App):
     app.open_port()
-    app.page.evaluate(
-        "window.mockSerialPort.writeError = 'The device did not respond.'"
-    )
-    field = app.page.get_by_placeholder("Type text to send to the active port")
+    app.mock("writeError = 'The device did not respond.'")
     for text in ["one", "two"]:
-        field.fill(text)
-        field.press("Enter")
+        app.send_text(text)
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
     app.page.wait_for_timeout(200)

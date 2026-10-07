@@ -77,7 +77,7 @@ def test_clearing_data_from_the_sidebar_keeps_plotting(app: App):
     app.wait_for_graph_legends([["temp", "volt"]])
 
     app.page.get_by_role("button", name="Toggle data list").click()
-    app.page.locator(".graph-board").get_by_role("button", name="Clear all").click()
+    app.clear_all(".graph-board")
 
     app.wait_for_labels("temp")
     app.wait_for_graph_legends([["temp", "volt"]])
@@ -186,7 +186,7 @@ def test_settings_and_legend_toggles_stay(app: App):
     check()
 
     app.page.get_by_role("button", name="Toggle data list").click()
-    app.page.locator(".graph-board").get_by_role("button", name="Clear all").click()
+    app.clear_all(".graph-board")
     app.wait_for_labels("temp", "volt")
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
     check()

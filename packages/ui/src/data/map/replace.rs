@@ -6,7 +6,7 @@ use regex::Regex;
 use super::regex::replacement_segments;
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    set_if_changed,
+    endpoints, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -76,13 +76,15 @@ impl MapRunner for Replace {
             self.cursor.reset();
             set_if_changed(&mut pattern_error, None);
         }
-        let [from, to, pattern, replacement] = current;
-        let (from, to) = (from.trim(), to.trim());
-        if from.is_empty() || to.is_empty() || from == to || pattern.is_empty() {
+        let [from, to, pattern, replacement] = &current;
+        let Some((from, to)) = endpoints(from, to) else {
+            return;
+        };
+        if pattern.is_empty() {
             return;
         }
 
-        let regex = match Regex::new(&pattern) {
+        let regex = match Regex::new(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
@@ -103,7 +105,7 @@ impl MapRunner for Replace {
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
             to_label: vec![Segment::fixed(to)],
-            to_value: replaced_segments(&regex, last.value(), &replacement),
+            to_value: replaced_segments(&regex, last.value(), replacement),
         };
         set_if_changed(&mut self.latest, Some(conversion));
         for entry in &read.entries {

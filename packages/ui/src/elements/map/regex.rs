@@ -3,13 +3,11 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::field::{LabelField, TextField};
 use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
-use crate::{
-    components::input::Input,
-    data::{DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings},
+use crate::data::{
+    DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings,
 };
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 /// A preset whose `pattern` matches a name (`$1`, the output label) and a
 /// value (`$2`).
@@ -77,44 +75,30 @@ fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
 #[component]
 pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
     let RegexSettings {
-        mut from_label,
-        mut to_label,
-        mut pattern,
-        mut replacement,
-        mut pattern_error,
-        mut replacement_error,
+        from_label,
+        to_label,
+        pattern,
+        replacement,
+        pattern_error,
+        replacement_error,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
             class: "map-row",
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        list: STRINGS_LABELS_LIST_ID,
-                        placeholder: "Input label",
-                        autocomplete: "on",
-                        value: "{from_label}",
-                        oninput: move |event: FormEvent| from_label.set(event.value()),
-                    }
+                LabelField {
+                    value: from_label,
+                    list: STRINGS_LABELS_LIST_ID,
+                    placeholder: "Input label",
                 }
-                label {
-                    class: "field",
-                    span { class: "field-label", "From" }
-                    lucide::Regex {}
-                    Input {
-                        placeholder: "Text to be matched",
-                        value: "{pattern}",
-                        oninput: move |event: FormEvent| {
-                            pattern.set(event.value());
-                            pattern_error.set(None);
-                        },
-                    }
+                TextField {
+                    name: "From",
+                    icon: rsx! { lucide::Regex {} },
+                    value: pattern,
+                    placeholder: "Text to be matched",
+                    error: pattern_error,
                 }
                 if let Some(error) = pattern_error() {
                     span { class: "field-error", "{error}" }
@@ -123,27 +107,8 @@ pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
             lucide::MoveRight { size: 20 }
             div {
                 class: "field-stack",
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        placeholder: "Output label",
-                        list: output_list,
-                        value: "{to_label}",
-                        oninput: move |event: FormEvent| to_label.set(event.value()),
-                    }
-                }
-                label {
-                    class: "field",
-                    span { class: "field-label", "To" }
-                    Input {
-                        value: "{replacement}",
-                        oninput: move |event: FormEvent| {
-                            replacement.set(event.value());
-                            replacement_error.set(None);
-                        },
-                    }
-                }
+                LabelField { value: to_label, list: output_list, placeholder: "Output label" }
+                TextField { name: "To", value: replacement, error: replacement_error }
                 if let Some(error) = replacement_error() {
                     span { class: "field-error", "{error}" }
                 }

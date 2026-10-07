@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    set_if_changed, unescape,
+    Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
+    set_if_changed, take_newest_pair, unescape,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -21,35 +21,8 @@ pub struct ConcatSettings {
 pub struct Concat {
     settings: ConcatSettings,
     latest: Signal<Option<Conversion>>,
-    first: Input,
-    second: Input,
-}
-
-/// One of the inputs and its newest string since the last join.
-#[derive(Default)]
-struct Input {
-    cursor: SourceCursor,
-    newest: Option<String>,
-}
-
-impl Input {
-    /// Takes in what is new under `label`.
-    fn read(&mut self, data: &DataContext, label: &str) {
-        match self.cursor.new_entries::<StringData>(data, label) {
-            Some(read) => {
-                if read.restarted {
-                    self.newest = None;
-                }
-                if let Some(last) = read.entries.last() {
-                    self.newest = Some(last.value().clone());
-                }
-            }
-            None => {
-                self.cursor.reset();
-                self.newest = None;
-            }
-        }
-    }
+    first: Input<String>,
+    second: Input<String>,
 }
 
 impl Concat {
@@ -91,18 +64,15 @@ impl MapRunner for Concat {
             separator,
         } = self.settings;
         let (first, second, to) = (first_label(), second_label(), to_label());
-        let (first, second, to) = (first.trim(), second.trim(), to.trim());
-        if first.is_empty() || second.is_empty() || to.is_empty() {
+        let (Some((first, to)), Some((second, _))) =
+            (endpoints(&first, &to), endpoints(&second, &to))
+        else {
             return;
-        }
-        if to == first || to == second {
-            return;
-        }
+        };
 
-        self.first.read(data, first);
-        self.second.read(data, second);
-        let (Some(first_value), Some(second_value)) =
-            (self.first.newest.clone(), self.second.newest.clone())
+        self.first.read_newest(data, first);
+        self.second.read_newest(data, second);
+        let Some((first_value, second_value)) = take_newest_pair(&mut self.first, &mut self.second)
         else {
             return;
         };
@@ -117,8 +87,6 @@ impl MapRunner for Concat {
             to_value: concat_segments(&first_value, &separator, &second_value),
         };
         let value = format!("{first_value}{separator}{second_value}");
-        self.first.newest = None;
-        self.second.newest = None;
         set_if_changed(&mut self.latest, Some(conversion));
         data.push(to, StringData::new(timestamp, value));
     }

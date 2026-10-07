@@ -6,15 +6,15 @@ mod source_cursor;
 
 pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
-    ByteData, Data, DataEntry, DataType, NumberData, SIGNIFICANT_DIGITS, StringData, TypedData,
+    ByteData, Data, DataEntry, DataType, NumberData, NumberText, StringData, TypedData,
     format_number,
 };
-pub(crate) use map::unescape;
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Concat,
     ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Encode, EncodeSettings,
     InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Operation, RegexMatch,
-    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment, set_if_changed, trim_segments,
+    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment, set_if_changed,
 };
+pub(crate) use map::{Input, endpoints, take_newest_pair, trim_segments, unescape};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};
 pub use source_cursor::{NewEntries, SourceCursor};

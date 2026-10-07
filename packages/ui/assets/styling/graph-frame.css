@@ -14,15 +14,12 @@
 }
 
 /* Over the plot's top corners: the move handle on the left, the remove button
- * on the right. They appear while the graph is hovered or focused, and always
- * where there is no hover (touch screens) */
+ * on the right, shown while the graph is hovered or focused (`.reveal-on-hover`) */
 .graph .graph-handle,
 .graph .graph-remove {
   position: absolute;
   z-index: 1;
   top: 0.375rem;
-  opacity: 0;
-  transition: opacity 150ms ease;
 }
 
 .graph .graph-handle {
@@ -32,17 +29,6 @@
 
 .graph .graph-remove {
   right: 0.375rem;
-}
-
-.graph:hover :is(.graph-handle, .graph-remove),
-.graph:focus-within :is(.graph-handle, .graph-remove) {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  .graph :is(.graph-handle, .graph-remove) {
-    opacity: 1;
-  }
 }
 
 /* While moving a graph: the one being dragged fades, the one it would take
@@ -95,8 +81,8 @@
   justify-self: end;
 }
 
-/* Settings as label | control rows. The title `label` and dx's tag group
- * (its label div, then the tag grid) give their parts to this grid */
+/* Settings as label | control rows: the title `label` and each `.graph-setting`
+ * give their parts to this grid */
 .graph-settings-body {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -106,13 +92,11 @@
 }
 
 .graph-settings-body > label,
-.graph-settings-body > .graph-setting,
-.graph-settings-body > div:has(> [role="grid"]) {
+.graph-settings-body > .graph-setting {
   display: contents;
 }
 
-.graph-setting-label,
-.graph-settings-body div:has(+ [role="grid"]) {
+.graph-setting-label {
   padding: 0;
   color: var(--dc-text-muted);
   font-size: 0.7rem;

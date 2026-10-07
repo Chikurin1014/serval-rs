@@ -9,13 +9,12 @@ mod filter;
 use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle},
-    input::Input,
-    tag_group::{Tag, TagGroup, TagList},
 };
-use crate::data::{Data, DataContext, Queue, TypedData, format_number};
+use crate::data::{DataContext, NumberText, TypedData};
 use crate::time::TimeContext;
 
 use export::ExportCsvButton;
+use filter::LabelFilter;
 pub use filter::{FilterContext, FilterKind};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
@@ -70,7 +69,7 @@ pub fn DataList() -> Element {
                         class: "data-group",
                         "data-expanded": is_expanded,
                         tr {
-                            class: "data-row",
+                            class: "data-row reveals",
                             "data-expanded": is_expanded,
                             onclick: move |_| toggle(),
                             th {
@@ -96,7 +95,7 @@ pub fn DataList() -> Element {
                             td {
                                 // Shown while the row is hovered
                                 Button {
-                                    class: "data-row-delete",
+                                    class: "data-row-delete reveal-on-hover",
                                     variant: ButtonVariant::Ghost,
                                     size: ButtonSize::IconXs,
                                     aria_label: "Delete label",
@@ -186,120 +185,6 @@ pub fn DataList() -> Element {
     }
 }
 
-/// A regex to show or hide labels by, and the filters as tags beside it.
-#[component]
-fn LabelFilter() -> Element {
-    let mut filter_context = use_context::<FilterContext>();
-    let mut kind = use_signal(|| FilterKind::Show);
-    let mut pattern = use_signal(String::new);
-    let mut error = use_signal(|| None::<String>);
-    let mut add = move || {
-        let value = pattern();
-        if value.is_empty() {
-            return;
-        }
-        match filter_context.add(kind(), &value) {
-            Ok(()) => pattern.set(String::new()),
-            Err(message) => error.set(Some(message)),
-        }
-    };
-
-    rsx! {
-        div {
-            class: "label-filter",
-            div {
-                class: "label-filter-input",
-                label {
-                    class: "label-filter-field",
-                    lucide::Funnel {}
-                    Input {
-                        placeholder: "Label filter",
-                        value: "{pattern}",
-                        oninput: move |event: FormEvent| {
-                            pattern.set(event.value());
-                            error.set(None);
-                        },
-                        onkeydown: move |event: KeyboardEvent| {
-                            if event.key() == Key::Enter {
-                                add();
-                            }
-                        },
-                    }
-                }
-                // Which kind of filter the input adds
-                Button {
-                    class: "label-filter-kind",
-                    variant: ButtonVariant::Outline,
-                    size: ButtonSize::Sm,
-                    "data-kind": kind().name(),
-                    title: "Labels matching it are shown or hidden",
-                    onclick: move |_| {
-                        kind.set(match kind() {
-                            FilterKind::Show => FilterKind::Hide,
-                            FilterKind::Hide => FilterKind::Show,
-                        });
-                    },
-                    FilterKindIcon { kind: kind() }
-                    "{kind().name()}"
-                }
-                Button {
-                    variant: ButtonVariant::Outline,
-                    size: ButtonSize::IconSm,
-                    aria_label: "Add filter",
-                    title: "Add filter",
-                    onclick: move |_| add(),
-                    lucide::Plus {}
-                }
-            }
-            // In a div of its own, as the tag group takes no class
-            div {
-                class: "label-filter-tags",
-                TagGroup {
-                    selectable: false,
-                    aria_label: "Label filters",
-                    TagList {
-                        for (index, (kind, pattern)) in filter_context.filters().into_iter().enumerate() {
-                            Tag {
-                                key: "{kind.name()}-{pattern}",
-                                index,
-                                value: format!("{}-{pattern}", kind.name()),
-                                "data-kind": kind.name(),
-                                FilterKindIcon { kind }
-                                span { "{pattern}" }
-                                // Shown while the tag is hovered
-                                Button {
-                                    class: "label-filter-remove",
-                                    variant: ButtonVariant::Ghost,
-                                    size: ButtonSize::IconXs,
-                                    aria_label: "Remove {kind.name()} filter {pattern}",
-                                    title: "Remove filter",
-                                    onclick: move |event: MouseEvent| {
-                                        event.stop_propagation();
-                                        filter_context.remove(kind, &pattern);
-                                    },
-                                    lucide::X {}
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if let Some(error) = error() {
-                p { class: "label-filter-error", "{error}" }
-            }
-        }
-    }
-}
-
-/// An open eye for a filter that shows labels, a closed one for one that hides them.
-#[component]
-fn FilterKindIcon(kind: FilterKind) -> Element {
-    match kind {
-        FilterKind::Show => rsx! { lucide::Eye {} },
-        FilterKind::Hide => rsx! { lucide::EyeOff {} },
-    }
-}
-
 /// A history cell's content, which slides open as its label expands (see
 /// `.data-history-slide` in `data-list.css`).
 #[component]
@@ -314,42 +199,17 @@ fn HistorySlide(children: Element) -> Element {
 
 /// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
-    let latest = match data {
-        TypedData::Number(queue) => queue.back().map(|entry| format_number(*entry.value())),
-        TypedData::String(queue) => queue.back().map(|entry| entry.value().clone()),
-        TypedData::Bytes(queue) => queue
-            .back()
-            .map(|entry| String::from_utf8_lossy(entry.value()).into_owned()),
-    };
-    latest.unwrap_or_else(|| "empty".to_string())
+    data.newest_as_text(1, NumberText::Rounded)
+        .pop()
+        .map_or_else(|| "empty".to_string(), |(_, text)| text)
 }
 
 /// The `count` entries before the newest, newest first, with when they came.
 fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, String)> {
-    fn before_latest<T>(
-        queue: &Queue<Data<T>>,
-        count: usize,
-        text: impl Fn(&T) -> String,
-    ) -> Vec<(i64, String)>
-    where
-        T: Clone,
-    {
-        let mut values = queue
-            .iter()
-            .skip(queue.len().saturating_sub(count + 1))
-            .map(|entry| (entry.timestamp(), text(entry.value())))
-            .collect::<Vec<_>>();
-        values.pop();
-        values.reverse();
-        values
-    }
-    match data {
-        TypedData::Number(queue) => before_latest(queue, count, |value| format_number(*value)),
-        TypedData::String(queue) => before_latest(queue, count, String::clone),
-        TypedData::Bytes(queue) => before_latest(queue, count, |value| {
-            String::from_utf8_lossy(value).into_owned()
-        }),
-    }
+    let mut values = data.newest_as_text(count + 1, NumberText::Rounded);
+    values.pop();
+    values.reverse();
+    values
 }
 
 #[cfg(test)]

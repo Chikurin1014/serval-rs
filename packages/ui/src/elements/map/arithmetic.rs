@@ -3,14 +3,12 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::field::LabelField;
 use super::map_list::NUMBERS_LABELS_LIST_ID;
 use crate::{
-    components::input::Input,
     data::{Arithmetic, ArithmeticSettings, DataType, MapKind, Operation},
     elements::Formula,
 };
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const ADD: MapKind = arithmetic_kind("Add", || Box::new(Arithmetic::new(Operation::Add)));
 pub const SUBTRACT: MapKind = arithmetic_kind("Subtract", || {
@@ -45,15 +43,13 @@ const fn arithmetic_kind(
 pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
     let ArithmeticSettings {
         operation,
-        mut first,
-        mut second,
-        mut to_label,
+        first,
+        second,
+        to_label,
         error,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
             class: "map-form",
             // Centred over the whole form
@@ -63,49 +59,32 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                 fallback: format!("a {} b", operation.symbol()),
             }
             div {
-            class: "map-row",
-            div {
-                class: "field-stack",
-                label {
-                    class: "field",
-                    span { class: "field-label", "a" }
-                    lucide::Tag {}
-                    Input {
+                class: "map-row",
+                div {
+                    class: "field-stack",
+                    LabelField {
+                        name: "a",
+                        value: first,
                         list: NUMBERS_LABELS_LIST_ID,
                         placeholder: "Label or number",
-                        autocomplete: "on",
-                        value: "{first}",
-                        oninput: move |event: FormEvent| first.set(event.value()),
                     }
-                }
-                label {
-                    class: "field",
-                    span { class: "field-label", "b" }
-                    lucide::Tag {}
-                    Input {
+                    LabelField {
+                        name: "b",
+                        value: second,
                         list: NUMBERS_LABELS_LIST_ID,
                         placeholder: "Label or number",
-                        autocomplete: "on",
-                        value: "{second}",
-                        oninput: move |event: FormEvent| second.set(event.value()),
+                    }
+                    if let Some(error) = error() {
+                        span { class: "field-error", "{error}" }
                     }
                 }
-                if let Some(error) = error() {
-                    span { class: "field-error", "{error}" }
-                }
-            }
-            lucide::MoveRight { size: 20 }
-            label {
-                class: "field",
-                lucide::Tag {}
-                Input {
-                    placeholder: "Output label",
+                lucide::MoveRight { size: 20 }
+                LabelField {
+                    value: to_label,
                     list: NUMBERS_LABELS_LIST_ID,
-                    value: "{to_label}",
-                    oninput: move |event: FormEvent| to_label.set(event.value()),
+                    placeholder: "Output label",
                 }
             }
-        }
         }
     }
 }

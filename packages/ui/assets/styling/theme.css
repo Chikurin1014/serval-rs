@@ -45,3 +45,79 @@ html[data-theme="light"] {
 html[data-theme="dark"] {
   color-scheme: dark;
 }
+
+/* A field: a bordered box holding an input, after an icon or a short label
+ * (`.field-label`), as in the maps' forms, the label filter and the console */
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  height: 2rem;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+  background: var(--dc-panel);
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+}
+
+.field:focus-within {
+  box-shadow: inset 0 0 0 1px var(--focused-border-color);
+}
+
+/* Input it cannot use (`data-invalid`, e.g. bytes the console cannot read) */
+.field[data-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--dc-danger);
+}
+
+.field > svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: var(--dc-text-muted);
+}
+
+.field input,
+.field input:hover:not(:disabled),
+.field input:focus-visible {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 300;
+}
+
+.field-label {
+  color: var(--dc-text-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.field-error {
+  color: var(--dc-danger);
+  font-size: 0.75rem;
+}
+
+/* Controls shown while their `.reveals` ancestor (a card, a row) is hovered or
+ * has focus, and always where there is no hover (touch screens) */
+.reveal-on-hover {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.reveals:hover .reveal-on-hover,
+.reveals:focus-within .reveal-on-hover {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .reveal-on-hover {
+    opacity: 1;
+  }
+}

@@ -87,7 +87,9 @@ function seriesStyle(color) {
   }
   return {
     // Each value held until the next for "stepped"
-    ...(drawStyle === "stepped" && { paths: uPlot.paths.stepped({ align: 1 }) }),
+    ...(drawStyle === "stepped" && {
+      paths: uPlot.paths.stepped({ align: 1 }),
+    }),
     // An area chart: filled down to the bottom of the plot
     fill: areaFill(color),
     spanGaps: true,
@@ -178,7 +180,10 @@ function create() {
       axes: [axis, { ...axis }],
       series: [
         // The time pointed at, `HH:MM:SS.SSS` as the Data list shows it
-        { value: (u, seconds) => (seconds == null ? "--" : timeOfDay(seconds * 1000)) },
+        {
+          value: (u, seconds) =>
+            seconds == null ? "--" : timeOfDay(seconds * 1000),
+        },
         ...labels.map((label) => {
           const color = cssColor(colors[label] ?? "--secondary-color-5");
           return {

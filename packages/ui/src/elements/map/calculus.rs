@@ -3,14 +3,12 @@ use dioxus_icons::lucide;
 
 use std::any::Any;
 
+use super::field::LabelField;
 use super::map_list::NUMBERS_LABELS_LIST_ID;
 use crate::{
-    components::input::Input,
     data::{Calculus, CalculusMap, CalculusSettings, DataType, MapKind, MapRunner},
     elements::Formula,
 };
-
-const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub const DIFFERENTIATE: MapKind = calculus_kind("Differentiate", || {
     Box::new(CalculusMap::new(Calculus::Differentiate))
@@ -39,13 +37,11 @@ const fn calculus_kind(name: &'static str, create: fn() -> Box<dyn MapRunner>) -
 pub fn CalculusForm(settings: CalculusSettings) -> Element {
     let CalculusSettings {
         calculus,
-        mut from_label,
-        mut to_label,
+        from_label,
+        to_label,
     } = settings;
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_FORM_CSS }
-
         div {
             class: "map-form",
             Formula {
@@ -55,28 +51,17 @@ pub fn CalculusForm(settings: CalculusSettings) -> Element {
             }
             div {
                 class: "map-row",
-                label {
-                    class: "field",
-                    span { class: "field-label", "f(t)" }
-                    lucide::Tag {}
-                    Input {
-                        list: NUMBERS_LABELS_LIST_ID,
-                        placeholder: "Input label",
-                        autocomplete: "on",
-                        value: "{from_label}",
-                        oninput: move |event: FormEvent| from_label.set(event.value()),
-                    }
+                LabelField {
+                    name: "f(t)",
+                    value: from_label,
+                    list: NUMBERS_LABELS_LIST_ID,
+                    placeholder: "Input label",
                 }
                 lucide::MoveRight { size: 20 }
-                label {
-                    class: "field",
-                    lucide::Tag {}
-                    Input {
-                        placeholder: "Output label",
-                        list: NUMBERS_LABELS_LIST_ID,
-                        value: "{to_label}",
-                        oninput: move |event: FormEvent| to_label.set(event.value()),
-                    }
+                LabelField {
+                    value: to_label,
+                    list: NUMBERS_LABELS_LIST_ID,
+                    placeholder: "Output label",
                 }
             }
         }

@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, set_if_changed,
+    StringData, endpoints, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -49,10 +49,9 @@ impl MapRunner for Encode {
             to_label,
         } = self.settings;
         let (from, to) = (from_label(), to_label());
-        let (from, to) = (from.trim(), to.trim());
-        if from.is_empty() || to.is_empty() || from == to {
+        let Some((from, to)) = endpoints(&from, &to) else {
             return;
-        }
+        };
 
         let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
             self.cursor.reset();

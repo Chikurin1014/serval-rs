@@ -1,0 +1,45 @@
+/* The full height of its bar, so the menu opens below the bar and the pointer
+ * stays on the menu on the way down to it */
+.hover-menu {
+  display: flex;
+}
+
+.hover-menu > div {
+  display: flex;
+  align-items: center;
+}
+
+.hover-menu button.hover-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+  background: none;
+  box-shadow: none;
+  font-size: 0.75rem;
+}
+
+.hover-menu button.hover-menu-trigger:hover:not(:disabled),
+.hover-menu button.hover-menu-trigger[data-state="open"] {
+  background-color: var(--primary-color-4);
+  color: var(--secondary-color-1);
+}
+
+.hover-menu button.hover-menu-trigger > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.hover-menu button.hover-menu-trigger:disabled {
+  color: var(--dc-text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.hover-menu .hover-menu-content {
+  margin-top: 0;
+}
+
+.hover-menu-content [role="option"] {
+  white-space: nowrap;
+}

@@ -48,7 +48,7 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.add_regex_map()
     app.wait_for_labels("message", "temp", "volt")
 
-    app.page.locator(".data-grid").get_by_role("button", name="Clear all").click()
+    app.clear_all()
     app.wait_for_labels("message", "temp", "volt")
 
     # The maps pick up from the new data, without splitting a line in two
@@ -377,7 +377,7 @@ def regex_item(app: App, output: str):
     """Opens the `output` menu and returns its Regex item."""
     trigger = app.page.get_by_role("button", name=output, exact=True)
     # Its own menu: one closing may still be there
-    menu = app.page.locator(".add-map-bar .add-map-menu").filter(has=trigger)
+    menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
     trigger.hover()
     return menu.get_by_role("option").filter(
         has=app.page.locator(".add-map-title", has_text=re.compile("^Regex$"))

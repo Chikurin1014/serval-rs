@@ -50,7 +50,7 @@
   overflow: hidden;
 }
 
- (prefers-reduced-motion: reduce) {
+(prefers-reduced-motion: reduce) {
   .dx-collapsible-content,
   .dx-collapsible-content[data-open="true"] {
     transition: none;
