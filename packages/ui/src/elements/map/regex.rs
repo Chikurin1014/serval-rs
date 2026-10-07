@@ -32,22 +32,15 @@ macro_rules! preset {
     };
 }
 
-/// A number, e.g. `20`, `-0.5`, `.5`, `+1.` or `1.5e-3`, with no groups of its
-/// own; a macro, so the presets can `concat!` it.
-macro_rules! number {
-    () => {
-        r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
-    };
-}
-
 /// A value with no label: a number at the start of the line, e.g. `20.5`.
-pub const NUMBER_ONLY: &str = concat!("^", number!());
+/// The presets use the aliases (see `crate::data::PATTERN_ALIASES`).
+pub const NUMBER_ONLY: &str = "^{number}";
 
 /// The output label of the initial map reading the values with no label.
 pub const ANONYMOUS_LABEL: &str = "anonymous data";
 
 /// `name: value` with a number value, e.g. `temp: 20.5`.
-pub const NAME_COLON_NUMBER: &str = concat!(r"(\w+): (", number!(), ")");
+pub const NAME_COLON_NUMBER: &str = "({word}): ({number})";
 
 pub const REGEX_TO_STRING: MapKind = MapKind {
     name: "Regex",
@@ -72,8 +65,8 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
         // The output label is left to be set, as there is no name to take it from
         preset!("value", Number, NUMBER_ONLY, "", "$0"),
         preset!("name: value", Number, NAME_COLON_NUMBER),
-        preset!("name=value", Number, concat!(r"(\w+)=(", number!(), ")")),
-        preset!("Teleplot", Number, concat!(r">(\w+):(", number!(), ")")),
+        preset!("name=value", Number, "({word})=({number})"),
+        preset!("Teleplot", Number, ">({word}):({number})"),
     ],
 };
 
@@ -138,14 +131,14 @@ pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
+    use crate::data::compile_pattern;
 
     use super::{REGEX_TO_NUMBER, REGEX_TO_STRING};
 
     /// What `preset`'s pattern makes of `input`: its `$1` and `$2`.
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
-        let captures = Regex::new(preset.detail)
+        let captures = compile_pattern(preset.detail)
             .unwrap()
             .captures(input)
             .unwrap()?;
@@ -190,7 +183,7 @@ mod tests {
             .iter()
             .find(|p| p.name == "value")
             .unwrap();
-        let regex = Regex::new(preset.detail).unwrap();
+        let regex = compile_pattern(preset.detail).unwrap();
         let value = |input: &str| {
             regex
                 .captures(input)

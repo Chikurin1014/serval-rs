@@ -1,11 +1,11 @@
 use std::any::Any;
 
 use dioxus::prelude::*;
-use fancy_regex::{Captures, Regex};
+use fancy_regex::Captures;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, endpoints, format_number, set_if_changed, trim_segments,
+    StringData, compile_pattern, endpoints, format_number, set_if_changed, trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -125,7 +125,7 @@ impl MapRunner for RegexMatch {
             return;
         }
 
-        let regex = match Regex::new(pattern) {
+        let regex = match compile_pattern(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));

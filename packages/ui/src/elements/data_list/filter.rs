@@ -7,6 +7,7 @@ use crate::components::{
     input::Input,
     tag_group::{Tag, TagGroup, TagList},
 };
+use crate::data::compile_pattern;
 
 /// What a filter does to the labels it matches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,7 +106,7 @@ impl Default for FilterContext {
 
 /// A regex matching only the whole of a label, not a part of it.
 fn whole_match(pattern: &str) -> Result<Regex, fancy_regex::Error> {
-    Regex::new(&format!("^(?:{pattern})$"))
+    compile_pattern(&format!("^(?:{pattern})$"))
 }
 
 fn shows(filters: &[Filter], label: &str) -> bool {
@@ -282,6 +283,13 @@ mod tests {
         let filters = filters(&[(FilterKind::Show, r"(?!.*_rate$).*")]);
         assert!(shows(&filters, "temp"));
         assert!(!shows(&filters, "temp_rate"));
+    }
+
+    #[test]
+    fn filters_can_use_aliases() {
+        let filters = filters(&[(FilterKind::Hide, "{word}_rate")]);
+        assert!(!shows(&filters, "temp_rate"));
+        assert!(shows(&filters, "temp"));
     }
 
     #[test]

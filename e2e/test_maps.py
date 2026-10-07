@@ -25,9 +25,7 @@ def test_initial_regex_map_reads_numbers_with_no_label(app: App):
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
     expect(card.get_by_placeholder("Input label")).to_have_value("message")
-    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
-    )
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value("^{number}")
     expect(card.get_by_placeholder("Output label")).to_have_value("anonymous data")
     expect(card.get_by_label("To", exact=True)).to_have_value("$0")
 
@@ -48,7 +46,7 @@ def test_initial_regex_map_reads_name_value_numbers(app: App):
     card.locator(".map-title").click()
     expect(card.get_by_placeholder("Input label")).to_have_value("message")
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r"(\w+): ([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
+        "({word}): ({number})"
     )
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
@@ -250,7 +248,7 @@ def test_output_label_leaves_out_the_text_around_the_match(app: App):
     app.open_port()
     app.tab("Data")
     app.add_regex_map(
-        pattern=r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?",
+        pattern="{number}",
         target="foo",
         replacement="$0",
     )
@@ -445,7 +443,7 @@ def test_regex_preset_adds_a_set_map(app: App):
     expect(app.map_cards()).to_have_count(4)
     card = app.map_cards().last
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r">(\w+):([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
+        ">({word}):({number})"
     )
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
@@ -461,9 +459,7 @@ def test_value_preset_leaves_the_output_label_to_be_set(app: App):
     ).click()
 
     card = app.map_cards().last
-    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
-    )
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value("^{number}")
     expect(card.get_by_placeholder("Output label")).to_have_value("")
     expect(card.get_by_label("To", exact=True)).to_have_value("$0")
 

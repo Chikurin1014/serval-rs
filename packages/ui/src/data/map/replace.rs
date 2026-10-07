@@ -6,7 +6,7 @@ use fancy_regex::Regex;
 use super::regex::replacement_segments;
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    endpoints, set_if_changed,
+    compile_pattern, endpoints, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -84,7 +84,7 @@ impl MapRunner for Replace {
             return;
         }
 
-        let regex = match Regex::new(pattern) {
+        let regex = match compile_pattern(pattern) {
             Ok(regex) => regex,
             Err(error) => {
                 set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
