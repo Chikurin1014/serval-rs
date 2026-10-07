@@ -107,7 +107,7 @@ impl Segment {
 
 /// Trims whitespace around the text that `segments` make up, dropping
 /// segments left empty.
-pub fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
+pub(crate) fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
     segments.retain(|segment| !segment.text.is_empty());
     while let Some(first) = segments.first_mut() {
         first.text = first.text.trim_start().to_string();

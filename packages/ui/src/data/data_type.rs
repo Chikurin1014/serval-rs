@@ -79,9 +79,9 @@ pub enum NumberText {
 }
 
 /// How many significant digits [`format_number`] shows.
-pub const SIGNIFICANT_DIGITS: i32 = 5;
+const SIGNIFICANT_DIGITS: i32 = 5;
 
-/// `value` to [`SIGNIFICANT_DIGITS`] significant digits for display, e.g.
+/// `value` to five significant digits for display, e.g.
 /// `4.8950`, or as `1.2346e5` when its integer part has more digits.
 pub fn format_number(value: f64) -> String {
     // The digits before the point (`log10` has none for 0)
