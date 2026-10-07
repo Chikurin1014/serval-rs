@@ -1,10 +1,13 @@
 [package]
 name = "web"
 version.workspace = true
+license.workspace = true
+publish = false
 edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }
+dioxus-icons = { workspace = true }
 ui = { workspace = true }
 
 js-sys = "0.3"

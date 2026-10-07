@@ -5954,6 +5954,7 @@ name = "web"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "dioxus-icons",
  "js-sys",
  "ui",
  "usb-ids",

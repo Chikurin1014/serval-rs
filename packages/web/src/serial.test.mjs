@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   closePort,
   getPorts,
+  isSupported,
   openPort,
   readLoop,
   requestPort,
@@ -164,4 +165,9 @@ test("closePort closes a port that is not being read", async () => {
   const port = streamingPort();
   await closePort(port);
   assert.equal(port.closed, true);
+});
+
+test("isSupported is whether the browser has Web Serial", () => {
+  assert.equal(isSupported({ serial: {} }), true);
+  assert.equal(isSupported({}), false);
 });

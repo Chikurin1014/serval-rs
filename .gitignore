@@ -20,3 +20,6 @@
 # Python (end-to-end tests)
 __pycache__/
 .pytest_cache/
+
+# wrangler (Cloudflare Pages deploys) cache
+/.wrangler

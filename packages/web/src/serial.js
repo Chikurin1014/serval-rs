@@ -2,6 +2,12 @@
 //
 // Functions taking `serial` default to `navigator.serial`; tests pass a fake.
 
+/** Whether this browser has Web Serial (Chromium-based ones on desktop, on an
+ * HTTPS page or `localhost`). */
+export function isSupported(nav = navigator) {
+  return "serial" in nav;
+}
+
 /** Ports this page was granted access to before. */
 export async function getPorts(serial = navigator.serial) {
   return [...(await serial.getPorts())];
