@@ -17,9 +17,11 @@ use ui::{
 
 mod serial;
 mod time;
+mod unsupported;
 
 use serial::SerialProvider;
 use time::TimeProvider;
+use unsupported::UnsupportedBrowserDialog;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -59,6 +61,7 @@ fn App() -> Element {
                                     kinds: builtin_graph_kinds(),
                                     initial: initial_graphs(),
                                     Router::<Route> {}
+                                    UnsupportedBrowserDialog {}
                                 }
                             }
                         }

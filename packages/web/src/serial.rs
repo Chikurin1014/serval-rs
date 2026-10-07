@@ -17,6 +17,11 @@ pub fn SerialProvider(children: Element) -> Element {
     children
 }
 
+/// Whether this browser has Web Serial, without which no port can be opened.
+pub fn is_supported() -> bool {
+    web_serial::is_supported()
+}
+
 struct WebSerial;
 
 impl SerialBackend for WebSerial {
@@ -101,6 +106,9 @@ mod web_serial {
 
     #[wasm_bindgen(module = "/src/serial.js")]
     extern "C" {
+        #[wasm_bindgen(js_name = isSupported)]
+        pub fn is_supported() -> bool;
+
         /// Resolves to an array of the ports this page was granted before.
         #[wasm_bindgen(catch, js_name = getPorts)]
         pub async fn get_ports() -> Result<JsValue, JsValue>;

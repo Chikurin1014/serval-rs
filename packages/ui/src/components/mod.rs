@@ -18,3 +18,4 @@ pub mod toast;
 pub mod toggle;
 pub mod tooltip;
 pub mod virtual_list;
+pub mod dialog;
