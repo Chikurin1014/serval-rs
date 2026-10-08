@@ -1,11 +1,9 @@
-/* uPlot sizes itself to this box (see `fit` in time_series.js) */
 .graph-plot {
   position: absolute;
   inset: 0.5rem 1rem 0;
   overflow: hidden;
 }
 
-/* An empty plot would still show its axes and legend */
 .graph-plot:has(~ .graph-empty) {
   visibility: hidden;
 }
@@ -15,7 +13,6 @@
   font-size: 0.75rem;
 }
 
-/* Linear or log: the value axis's two toggles, joined */
 .graph-scale {
   display: flex;
   justify-self: start;
@@ -28,7 +25,6 @@
   font-size: 0.75rem;
 }
 
-/* Rounded at the group's ends only, where they meet its corners */
 .graph-scale button:first-child {
   border-top-left-radius: 0.125rem;
   border-bottom-left-radius: 0.125rem;
@@ -39,7 +35,6 @@
   border-bottom-right-radius: 0.125rem;
 }
 
-/* The time axis's window: a slider, and its value beside it */
 .graph-time-window {
   display: flex;
   align-items: center;

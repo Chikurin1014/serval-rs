@@ -1,28 +1,23 @@
-//! The regexes typed in maps and filters, which may use aliases for the parts
-//! common in serial data.
+//! Regexes typed in maps and filters, with aliases such as `{number}`.
 
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
 use crate::helper::set_if_changed;
 
-/// The aliases a pattern may use, by name: `{name}` stands for its regex.
 pub const PATTERN_ALIASES: &[(&str, &str)] = &[
     // e.g. `20`, `-0.5`, `.5`, `+1.` or `1.5e-3`
     ("number", r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"),
-    // A run of anything but spaces and line breaks, so symbols (`-`, `.`) too;
-    // as short as it can be, so it ends at the first separator after it
+    // Lazy, so it ends at the first separator after it
     ("word", r"[^\s]+?"),
 ];
 
-/// Compiles `pattern`, its aliases put in place (see [`expand_aliases`]).
+/// Compiles `pattern` with its aliases expanded.
 pub fn compile_pattern(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     Regex::new(&expand_aliases(pattern))
 }
 
-/// Compiles a map's `pattern` as the map is turned on (see
-/// `MapRunner::start`): `None` for an empty one, or one that does not compile,
-/// with why in `error` (cleared otherwise).
+/// Compiles a map's `pattern`; `None` if empty or invalid (with why in `error`).
 pub(crate) fn compile_for_map(pattern: &str, error: &mut Signal<Option<String>>) -> Option<Regex> {
     let compiled = if pattern.is_empty() {
         Ok(None)
@@ -41,22 +36,20 @@ pub(crate) fn compile_for_map(pattern: &str, error: &mut Signal<Option<String>>)
     }
 }
 
-/// `pattern` with each alias (`{number}`) put in place by its regex, as a group
-/// of its own with no capture (so `{word}?` makes the whole word optional).
-/// One escaped (`\{number}`) or in a character class is left as it is.
+/// `pattern` with each alias replaced by its regex as a non-capturing group,
+/// except escaped or inside a character class.
 pub fn expand_aliases(pattern: &str) -> String {
     let mut expanded = String::with_capacity(pattern.len());
     let mut rest = pattern;
-    // How deep in character classes, which may nest (`[a-z&&[^x]]`)
+    // Classes may nest (`[a-z&&[^x]]`)
     let mut class_depth = 0usize;
     while let Some(c) = rest.chars().next() {
         let mut taken = c.len_utf8();
         match c {
-            // Escapes are copied whole, so `\{` and `\[` stay literal
             '\\' => taken += rest[1..].chars().next().map_or(0, char::len_utf8),
             '[' => {
                 class_depth += 1;
-                // A `]` first in a class is literal (`[]a]`, `[^]a]`)
+                // A `]` first in a class is literal
                 let after = &rest[1..];
                 let negated = usize::from(after.starts_with('^'));
                 if after[negated..].starts_with(']') {
@@ -153,12 +146,10 @@ mod tests {
 
     #[test]
     fn aliases_take_no_group_number_of_their_own() {
-        // `{word}` before does not move `$1` along
         assert_eq!(
             captures("{word}=({number})", "volt=3.3"),
             Some(vec!["volt=3.3".to_string(), "3.3".to_string()])
         );
-        // And a quantifier applies to the whole alias
         assert_eq!(expand_aliases("{word}?"), r"(?:[^\s]+?)?");
     }
 

@@ -50,7 +50,6 @@ test("toggleTheme switches away from the system preference until one is chosen",
   assert.equal(root.dataset.theme, "light");
   assert.equal(storage.items.get("theme"), "light");
 
-  // The chosen theme now wins over the system preference
   assert.equal(toggleTheme(root, storage, true), "dark");
   assert.equal(toggleTheme({ dataset: {} }, fakeStorage(), false), "dark");
 });

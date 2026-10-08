@@ -9,8 +9,7 @@ use crate::{
 
 const PORT_INFO_PANEL_CSS: Asset = asset!("/assets/styling/port-info-panel.css");
 
-/// The selected port's device and settings, the bytes received and sent, and
-/// the log of what happened with the ports.
+/// The selected port's details, byte counts and log.
 #[component]
 pub fn PortInfoPanel() -> Element {
     let serial = use_context::<SerialContext>();
@@ -41,8 +40,7 @@ pub fn PortInfoPanel() -> Element {
             Card {
                 CardHeader { CardTitle { "Port Info" } }
                 CardContent {
-                    // Shown instead of the details and the log when the panel is
-                    // too short for them (see `port-info-panel.css`)
+                    // Shown instead when the panel is too short
                     div {
                         class: "port-summary",
                         span { "{product} · {vendor}" }
@@ -97,7 +95,7 @@ pub fn PortInfoPanel() -> Element {
     }
 }
 
-/// The frame ports are opened with, as e.g. "8N1".
+/// e.g. "8N1"
 fn frame() -> String {
     let parity = PARITY.chars().next().unwrap_or('N').to_ascii_uppercase();
     format!("{DATA_BITS}{parity}{STOP_BITS}")

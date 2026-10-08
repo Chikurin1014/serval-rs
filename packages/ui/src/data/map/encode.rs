@@ -13,11 +13,9 @@ pub struct EncodeSettings {
     pub to_label: Signal<String>,
 }
 
-/// Turns each string into its UTF-8 bytes: the reverse of [`Decode`](super::Decode)
-/// without a delimiter.
+/// Turns each string into its UTF-8 bytes.
 pub struct Encode {
     settings: EncodeSettings,
-    /// The labels, as taken in when turned on: `None` if not set or not apart
     endpoints: Option<Endpoints>,
     cursor: SourceCursor,
 }

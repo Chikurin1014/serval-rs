@@ -7,14 +7,11 @@ const DX_COMPONENTS_THEME_CSS: Asset = asset!("/assets/dx-components-theme.css")
 const THEME_CSS: Asset = asset!("/assets/styling/theme.css");
 const THEME_SWITCH_CSS: Asset = asset!("/assets/styling/theme-switch.css");
 
-/// Re-applies the theme chosen with `ThemeSwitch` in a previous session.
 const RESTORE_THEME_JS: &str = concat!(
     include_str!("theme.js"),
     "\nrestoreTheme(document.documentElement, browserStorage());\n",
 );
 
-/// Flips `data-theme` on `<html>`, which `dx-components-theme.css` switches on.
-/// Without an explicit choice the current theme is the system preference.
 const TOGGLE_THEME_JS: &str = concat!(
     include_str!("theme.js"),
     "\ntoggleTheme(\n",
@@ -37,8 +34,7 @@ pub fn ThemeProvider(children: Element) -> Element {
     }
 }
 
-/// Button that toggles between the light and dark theme.
-/// Both icons are rendered; CSS shows the one matching the active theme.
+/// Toggles the light and dark theme.
 #[component]
 pub fn ThemeSwitch() -> Element {
     rsx! {

@@ -13,7 +13,6 @@ import {
   writePort,
 } from "./serial.js";
 
-/** A port whose reader yields `chunks`, then ends (or throws `error`). */
 function fakePort({ chunks = [], error, info } = {}) {
   const port = { released: { reader: false, writer: false }, written: [] };
   port.readable = {
@@ -125,10 +124,7 @@ test("port selection and opening go through the given serial API", async () => {
   });
 });
 
-/**
- * A port that streams until its reader is cancelled and, like a real one,
- * fails to close while its stream is locked to a reader.
- */
+/** A port that, like a real one, fails to close while its stream is locked. */
 function streamingPort() {
   const port = { locked: false, closed: false };
   let endRead;

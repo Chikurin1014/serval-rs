@@ -1,8 +1,4 @@
-//! The fields of the maps' settings forms, styled by `.field` (`theme.css`).
-//!
-//! A map's settings are fixed while it is on (it takes them in, e.g. compiles
-//! its pattern, when turned on): its fields can then be read and copied but
-//! not edited, and say so on hover.
+//! The fields of the maps' forms; read-only while the map is on.
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
@@ -13,17 +9,14 @@ use crate::components::{
     tooltip::{Tooltip, TooltipContent, TooltipTrigger},
 };
 
-/// Whether the map whose form this is is on, provided by its card (`MapCard`).
+/// Whether the map of the form is on, provided by its card.
 #[derive(Clone, Copy)]
 pub(super) struct MapEnabled(pub ReadSignal<bool>);
 
-/// Whether the map of the form calling this is on (see [`MapEnabled`]), when
-/// its fields are locked.
 fn use_map_enabled() -> bool {
     try_use_context::<MapEnabled>().is_some_and(|MapEnabled(enabled)| enabled())
 }
 
-/// `field`, telling on hover while `locked` that it is so, and how to edit it.
 #[component]
 fn LockTooltip(locked: bool, field: Element) -> Element {
     rsx! {
@@ -32,7 +25,7 @@ fn LockTooltip(locked: bool, field: Element) -> Element {
             disabled: !locked,
             TooltipTrigger {
                 r#as: move |attributes: Vec<Attribute>| rsx! {
-                    // Classed by the tooltip (styled as `.field-lock > div`)
+                    // Classed by the tooltip; styled as `.field-lock > div`
                     div { ..attributes, {field.clone()} }
                 },
             }
@@ -41,8 +34,7 @@ fn LockTooltip(locked: bool, field: Element) -> Element {
     }
 }
 
-/// A field for a label: an optional name (e.g. `a`), the tag icon, then an
-/// input offering the labels in the `datalist` with id `list` (see `MapList`).
+/// A field for a label, offering those in the `datalist` with id `list`.
 #[component]
 pub(super) fn LabelField(
     value: Signal<String>,
@@ -78,8 +70,7 @@ pub(super) fn LabelField(
     }
 }
 
-/// A field for a setting: its name, an optional icon, then an input. Typing in
-/// it clears `error`, if given, as what it was about has changed.
+/// A field for a setting; typing clears `error`.
 #[component]
 pub(super) fn TextField(
     name: String,

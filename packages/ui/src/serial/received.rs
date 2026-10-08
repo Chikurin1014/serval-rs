@@ -1,5 +1,4 @@
-//! The chunks a port receives, gathered for about a frame before they go
-//! into the data together (see `SerialContext::open`).
+//! Received chunks, gathered for about a frame before they go into the data.
 
 use std::{cell::RefCell, rc::Rc};
 
@@ -7,18 +6,11 @@ use dioxus::prelude::*;
 
 use crate::data::{ByteData, DataContext, RAW_BYTES_LABEL};
 
-/// How long received chunks are gathered before they go into the data
-/// together: about a frame, so what reads the data (maps, views) runs at most
-/// about once a frame however fast chunks come.
 pub(super) const GATHER_MS: u32 = 16;
 
-/// How many chunks are gathered at most: past this, they go into the data at
-/// once, so a flood of them (many within a frame) is not dropped from the
-/// data (see `MAX_ENTRIES_PER_LABEL`) before what reads it gets to them.
+/// Past this, they go at once, so a flood is not dropped before it is read.
 const MAX_GATHERED: usize = 256;
 
-/// The chunks received and not yet in the data: gathered, then pushed together
-/// with one write, which what reads the data reacts to once.
 #[derive(Clone)]
 pub(super) struct Received {
     chunks: Rc<RefCell<Vec<ByteData>>>,
@@ -26,11 +18,10 @@ pub(super) struct Received {
     rx_bytes: Signal<u64>,
 }
 
-/// Where a chunk [`Received::gather`] took leaves the gathered ones.
 pub(super) enum Gathered {
-    /// The first since they last went into the data: they go after a while.
+    /// The first: they go after `GATHER_MS`.
     First,
-    /// As many as are gathered: they go now.
+    /// They go now.
     Full,
     More,
 }
@@ -54,7 +45,6 @@ impl Received {
         }
     }
 
-    /// Pushes the gathered chunks, oldest first, and counts their bytes.
     pub(super) fn flush(&self) {
         let chunks = std::mem::take(&mut *self.chunks.borrow_mut());
         if chunks.is_empty() {

@@ -25,18 +25,15 @@ pub use regex::{
 };
 pub use replace::{REPLACE, ReplaceForm};
 
-/// A map's settings form for `MapKind::form`: `form` given `settings` as the
-/// kind's own type `S`, or nothing if they are of another kind.
+/// For `MapKind::form`: `form` given `settings` downcast to `S`.
 fn form_of<S: Copy + 'static>(settings: &dyn Any, form: impl FnOnce(S) -> Element) -> Element {
     settings
         .downcast_ref::<S>()
         .map_or_else(VNode::empty, |&settings| form(settings))
 }
 
-/// The label the initial maps decode the raw bytes into, as text.
 pub const MESSAGE_LABEL: &str = "message";
 
-/// The built-in kinds, for `MapProvider`'s `kinds`.
 pub fn builtin_map_kinds() -> Vec<MapKind> {
     vec![
         DECODE,
@@ -54,9 +51,7 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
     ]
 }
 
-/// For `MapProvider`'s `initial`: decodes the raw serial bytes into lines,
-/// so there is text to work with from the start, and reads the numbers with
-/// no label and the `name: value` ones from them (as the `Regex` presets).
+/// Decodes the raw bytes into lines, and reads numbers from them.
 pub fn initial_maps() -> Vec<InitialMap> {
     vec![
         InitialMap {

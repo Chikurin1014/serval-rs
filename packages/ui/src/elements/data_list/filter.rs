@@ -9,7 +9,6 @@ use crate::components::{
 };
 use crate::data::compile_pattern;
 
-/// What a filter does to the labels it matches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FilterKind {
     Show,
@@ -25,10 +24,8 @@ impl FilterKind {
     }
 }
 
-/// The regexes the data list shows labels by: a label shows if any `Show`
-/// filter matches the whole of it (or there is none), and no `Hide` filter does.
-/// Provided above the tabs (see `Home`), so they stay when the data list is
-/// left and shown again.
+/// Which labels the data list shows: those a `Show` filter matches (if any) and
+/// no `Hide` filter does.
 #[derive(Clone, Copy, PartialEq)]
 pub struct FilterContext {
     filters: Signal<Vec<Filter>>,
@@ -42,14 +39,12 @@ struct Filter {
 }
 
 impl FilterContext {
-    /// No filters yet; call in the providing component, as it makes a signal.
     pub fn new() -> Self {
         Self {
             filters: Signal::new(Vec::new()),
         }
     }
 
-    /// As [`Self::new`], with the filters to start with (valid patterns).
     pub fn with(filters: &[(FilterKind, &str)]) -> Self {
         let mut context = Self::new();
         for &(kind, pattern) in filters {
@@ -58,7 +53,6 @@ impl FilterContext {
         context
     }
 
-    /// The filters' kinds and patterns, in the order they were added.
     pub fn filters(&self) -> Vec<(FilterKind, String)> {
         self.filters
             .read()
@@ -67,8 +61,7 @@ impl FilterContext {
             .collect()
     }
 
-    /// Adds a `kind` filter by `pattern`, unless there is one already; an
-    /// error if `pattern` is not a regex.
+    /// Adds a filter unless there is one already; an error for an invalid regex.
     pub fn add(&mut self, kind: FilterKind, pattern: &str) -> Result<(), String> {
         let regex = whole_match(pattern).map_err(|error| format!("Invalid regex: {error}"))?;
         if !self
@@ -92,7 +85,6 @@ impl FilterContext {
             .retain(|filter| !(filter.kind == kind && filter.pattern == pattern));
     }
 
-    /// Whether the data list shows `label`.
     pub fn shows(&self, label: &str) -> bool {
         shows(&self.filters.read(), label)
     }
@@ -104,7 +96,6 @@ impl Default for FilterContext {
     }
 }
 
-/// A regex matching only the whole of a label, not a part of it.
 fn whole_match(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     compile_pattern(&format!("^(?:{pattern})$"))
 }
@@ -121,13 +112,10 @@ fn shows(filters: &[Filter], label: &str) -> bool {
     shown && !hidden
 }
 
-/// Whether `filter` matches `label`; not if matching fails (e.g. backtracking
-/// too much).
 fn matches(filter: &Filter, label: &str) -> bool {
     filter.regex.is_match(label).unwrap_or(false)
 }
 
-/// A regex to show or hide labels by, and the filters as tags beside it.
 #[component]
 pub(super) fn LabelFilter() -> Element {
     let mut filter_context = use_context::<FilterContext>();
@@ -167,7 +155,6 @@ pub(super) fn LabelFilter() -> Element {
                         },
                     }
                 }
-                // Which kind of filter the input adds
                 Button {
                     class: "label-filter-kind",
                     variant: ButtonVariant::Outline,
@@ -192,7 +179,7 @@ pub(super) fn LabelFilter() -> Element {
                     lucide::Plus {}
                 }
             }
-            // In a div of its own, as the tag group takes no class
+            // The tag group takes no class
             div {
                 class: "label-filter-tags",
                 TagGroup {
@@ -207,7 +194,6 @@ pub(super) fn LabelFilter() -> Element {
                                 "data-kind": kind.name(),
                                 FilterKindIcon { kind }
                                 span { "{pattern}" }
-                                // Shown while the tag is hovered
                                 Button {
                                     class: "label-filter-remove reveal-on-hover",
                                     variant: ButtonVariant::Ghost,
@@ -232,7 +218,6 @@ pub(super) fn LabelFilter() -> Element {
     }
 }
 
-/// An open eye for a filter that shows labels, a closed one for one that hides them.
 #[component]
 fn FilterKindIcon(kind: FilterKind) -> Element {
     match kind {
@@ -279,7 +264,6 @@ mod tests {
 
     #[test]
     fn filters_can_look_around() {
-        // Every label but those ending in `_rate`
         let filters = filters(&[(FilterKind::Show, r"(?!.*_rate$).*")]);
         assert!(shows(&filters, "temp"));
         assert!(!shows(&filters, "temp_rate"));

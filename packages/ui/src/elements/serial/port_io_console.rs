@@ -17,7 +17,6 @@ use super::send_format::SendFormat;
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 
-/// The text handling, then the output, which uses it (see both files)
 const CONSOLE_JS: &str = concat!(
     include_str!("console_output.js"),
     include_str!("port_io_console.js"),
@@ -30,15 +29,13 @@ pub fn PortIoConsole() -> Element {
 
     let mut text_to_send = use_signal(String::new);
     let mut format = use_signal(|| SendFormat::Text);
-    // The bytes to send, or why the input stands for none
     let bytes = use_memo(move || format().parse(&text_to_send()));
     let can_send = serial.is_open() && !text_to_send().trim().is_empty() && bytes.read().is_ok();
-    // Owns the output text, so each chunk costs the same however long it is
+    // Owns the output text, so a chunk costs the same however long it is
     let output = use_hook(|| document::eval(CONSOLE_JS));
 
-    // Sends only the chunks received since the last run. Kept in a hook, as
-    // the effect takes the closure of each render: one made here would start
-    // over (and the output with it) whenever the console renders again
+    // In a hook: the effect takes each render's closure, and a fresh cursor
+    // would redraw the output from the start
     let cursor = use_hook(|| Rc::new(RefCell::new(SourceCursor::default())));
     use_effect(move || {
         let mut cursor = cursor.borrow_mut();
@@ -78,11 +75,9 @@ pub fn PortIoConsole() -> Element {
             pre {
                 "data-port-io-console": true,
                 class: "console-output",
-                // Filled by `port_io_console.js`
             }
             div {
                 class: "console-send",
-                // How the input is read into bytes
                 DropdownMenu {
                     class: "console-format",
                     DropdownMenuTrigger {
@@ -103,7 +98,6 @@ pub fn PortIoConsole() -> Element {
                         }
                     }
                 }
-                // The prefix and the input in one box, as the maps' fields
                 label {
                     class: "field console-send-field",
                     "data-invalid": bytes.read().is_err(),

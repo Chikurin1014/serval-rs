@@ -1,8 +1,5 @@
-// A Web Serial port for the end-to-end tests, injected before the app loads.
-//
-// Once opened, it sends a `temp` and a `volt` reading every 50 ms, as one
-// chunk of two lines: "temp:20.00\nvolt:3.700\n". Cancelling the reader ends the
-// stream.
+// A Web Serial port for the e2e tests: once opened, it sends
+// "temp:20.00\nvolt:3.700\n" every 50 ms.
 (() => {
   const encoder = new TextEncoder();
   let tick = 0;
@@ -11,14 +8,10 @@
   const port = {
     readable: null,
     writable: null,
-    // What the app sent, as text; read by the tests
     written: [],
-    // The same, as arrays of bytes
     writtenBytes: [],
-    // How many chunks it sent; read by the tests
     sent: 0,
-    // Set by the tests to make it fail: a message for `open` or `write` to
-    // fail with, or `cancelRequest` for the user closing the port chooser
+    // Set by the tests to make it fail
     openError: null,
     writeError: null,
     cancelRequest: false,
@@ -37,16 +30,14 @@
             controller.enqueue(encoder.encode(`temp:${temp}\nvolt:${volt}\n`));
           };
           timer = setInterval(send, 50);
-          // As unplugging the device does: reading fails
+          // As unplugging the device
           port.lose = () => {
             clearInterval(timer);
             controller.error(
               new DOMException("The device has been lost.", "NetworkError"),
             );
           };
-          // Sends `text` as a chunk of its own, between the readings; for the tests
           port.receive = (text) => controller.enqueue(encoder.encode(text));
-          // Sends `count` chunks at once, as a fast device would; for the tests
           port.burst = (count) => {
             for (let i = 0; i < count; i++) {
               send();
@@ -68,7 +59,7 @@
       });
     },
     close: async () => {
-      // As a real port does, so the app must stop reading first
+      // As a real port does
       if (port.readable.locked) {
         throw new TypeError("The port's stream is locked");
       }

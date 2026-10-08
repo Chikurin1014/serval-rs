@@ -1,18 +1,12 @@
-# Response headers for Cloudflare Pages, which reads this file from the site's
-# root (`dx` copies `public/` there): https://developers.cloudflare.com/pages/configuration/headers/
-# A request matching more than one rule gets the headers of each.
+# https://developers.cloudflare.com/pages/configuration/headers/
 
-# Every response
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  # Web Serial for this page only; nothing else it does not use
   Permissions-Policy: serial=(self), usb=(), camera=(), microphone=(), geolocation=()
 
-# The files `dx` names after their content (e.g. `web_bg-dxh….wasm`): a new
-# build gives new names, so these never change. Only those right in `assets/`
-# (`:file` stops at `/`), not KaTeX's in `assets/katex/`, whose names stay;
-# those and the pages keep Pages' default, checked again on each load
+# Named after their content by `dx`; not KaTeX's in `assets/katex/` (`:file`
+# stops at `/`)
 /assets/:file
   Cache-Control: public, max-age=31536000, immutable

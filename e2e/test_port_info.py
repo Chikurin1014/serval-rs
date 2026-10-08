@@ -11,7 +11,7 @@ def details(app: App) -> dict[str, str]:
 
 
 def log(app: App) -> list[tuple[str, str]]:
-    """The log, newest first, as `(kind, title)`."""
+    """Newest first, as `(kind, title)`."""
     return [
         tuple(entry)
         for entry in app.page.evaluate(
@@ -56,7 +56,6 @@ def test_logs_connecting_and_failures(app: App):
     app.page.get_by_role("button", name="Open port").wait_for()
     app.page.wait_for_timeout(200)
 
-    # Every failure is logged, though the toast holds back repeats
     assert log(app) == [
         ("info", "Port closed"),
         ("error", "Failed to send"),
@@ -72,7 +71,6 @@ def test_shows_a_summary_when_too_short_for_the_details(app: App):
     expect(details).to_be_visible()
     expect(summary).to_be_hidden()
 
-    # Narrow: the panel goes under the console, too short for the details
     app.page.set_viewport_size({"width": 800, "height": 600})
     expect(details).to_be_hidden()
     expect(summary).to_be_visible()

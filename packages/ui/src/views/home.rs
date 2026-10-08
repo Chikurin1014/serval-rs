@@ -17,12 +17,10 @@ use crate::{
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
 
-/// Requires `SerialContext`, `DataContext` and `MapContext` to be
-/// provided by an ancestor.
+/// Requires `SerialContext`, `DataContext` and `MapContext`.
 #[component]
 pub fn Home() -> Element {
-    // Here, above the tabs, so the data list's filters stay when it is left;
-    // the raw bytes are hidden, as they show decoded in `message`
+    // Above the tabs, so the filters stay when the data list is left
     use_context_provider(|| FilterContext::with(&[(FilterKind::Hide, RAW_BYTES_LABEL)]));
 
     rsx! {

@@ -38,8 +38,6 @@ const fn arithmetic_kind(
     }
 }
 
-/// Settings form of an `Arithmetic` map: the formula (`a + b`) over the
-/// form, then the operands `a` and `b` one above the other.
 #[component]
 pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
     let ArithmeticSettings {
@@ -53,7 +51,6 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
     rsx! {
         div {
             class: "map-form",
-            // Centred over the whole form
             Formula {
                 class: "map-formula",
                 latex: operation.latex().to_string(),

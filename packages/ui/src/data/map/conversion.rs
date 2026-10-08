@@ -1,7 +1,4 @@
-//! What a map shows of its latest conversion: the input values it took, and
-//! the label and value it made, in segments marking what came from the input.
-
-/// What a map took in (one value of each input) and what it was turned into.
+/// A map's latest conversion, as shown in its card.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conversion {
     pub from: Vec<ConversionInput>,
@@ -9,7 +6,6 @@ pub struct Conversion {
     pub to_value: Vec<Segment>,
 }
 
-/// One input's value in a [`Conversion`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConversionInput {
     pub label: String,
@@ -25,12 +21,10 @@ impl ConversionInput {
     }
 }
 
-/// A piece of a [`Conversion`]'s result.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Segment {
     pub text: String,
-    /// Taken from the input (e.g. a regex's `$1`), rather than written in
-    /// the map's settings.
+    /// From the input (e.g. a regex's `$1`), not the settings.
     pub from_input: bool,
 }
 
@@ -50,8 +44,7 @@ impl Segment {
     }
 }
 
-/// Trims whitespace around the text that `segments` make up, dropping
-/// segments left empty.
+/// Trims the whitespace around the text of `segments`.
 pub(crate) fn trim_segments(mut segments: Vec<Segment>) -> Vec<Segment> {
     segments.retain(|segment| !segment.text.is_empty());
     while let Some(first) = segments.first_mut() {

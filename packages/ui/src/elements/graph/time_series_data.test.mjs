@@ -101,7 +101,6 @@ test("withAlpha turns a computed rgb colour translucent", () => {
     withAlpha("rgb(176, 176, 176)", 0.35),
     "rgba(176, 176, 176, 0.35)",
   );
-  // Colours that already have an alpha are left alone
   assert.equal(withAlpha("rgba(0, 0, 0, 0.5)", 0.35), "rgba(0, 0, 0, 0.5)");
 });
 
@@ -132,12 +131,9 @@ test("timeOfDay is HH:MM:SS.SSS in the local time zone", () => {
 });
 
 test("timeRange shows the last window, or fits shorter data", () => {
-  // Always as wide as the window
   assert.deepEqual(plain(timeRange(100, 103, 60, false)), [43, 103]);
   assert.deepEqual(plain(timeRange(100, 200, 60, false)), [140, 200]);
-  // Fitting: the data itself, until it is longer than the window
   assert.deepEqual(plain(timeRange(100, 103, 10, true)), [100, 103]);
   assert.deepEqual(plain(timeRange(100, 200, 10, true)), [190, 200]);
-  // No data yet: left to uPlot
   assert.deepEqual(plain(timeRange(null, null, 10, true)), [null, null]);
 });

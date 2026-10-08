@@ -3,16 +3,11 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-/// How many entries a label keeps; past this, the oldest are dropped.
-///
-/// As Tera Term's default scroll buffer, and where SerialPlot starts to warn.
+/// How many entries a label keeps (as Tera Term's default scroll buffer).
 pub const MAX_ENTRIES_PER_LABEL: usize = 10_000;
 
-/// A label's entries, oldest first, keeping at most [`MAX_ENTRIES_PER_LABEL`].
-///
-/// Each queue has an id of its own, and counts what it dropped from the
-/// front, so a reader can tell new entries apart from a queue that was
-/// trimmed, or replaced by another (see `SourceCursor`).
+/// A label's entries, oldest first, at most [`MAX_ENTRIES_PER_LABEL`]. Its id and
+/// drop count let a `SourceCursor` tell new entries from a replaced queue.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Queue<T> {
     id: u64,
@@ -30,7 +25,6 @@ impl<T> Queue<T> {
         }
     }
 
-    /// Appends `entry`, dropping the oldest entries past the limit.
     pub fn push(&mut self, entry: T) {
         self.push_within(entry, MAX_ENTRIES_PER_LABEL);
     }
@@ -59,17 +53,16 @@ impl<T> Queue<T> {
         self.entries.iter()
     }
 
-    /// Identifies this queue among all queues, clones aside.
+    /// Unique among queues, clones aside.
     pub fn id(&self) -> u64 {
         self.id
     }
 
-    /// How many entries were dropped from the front so far.
     pub fn dropped(&self) -> u64 {
         self.dropped
     }
 
-    /// How many entries were ever pushed: the position after the newest.
+    /// How many entries were ever pushed.
     pub fn end(&self) -> u64 {
         self.dropped + self.entries.len() as u64
     }

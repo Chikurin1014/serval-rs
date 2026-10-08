@@ -8,12 +8,10 @@ edition = "2021"
 [dependencies]
 dioxus = { workspace = true }
 dioxus-icons = { workspace = true }
-# `router` for `Navbar`, whose items are router links
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false, features = [
   "router",
 ] }
 fancy-regex = "0.19"
 
 [dev-dependencies]
-# Renders components to HTML in tests (used by `components::toast`)
 dioxus-ssr = "0.7"

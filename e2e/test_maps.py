@@ -33,7 +33,6 @@ def test_initial_regex_map_reads_numbers_with_no_label(app: App):
     app.mock("receive('-1.5e2\\n')")
     app.wait_for_labels("anonymous data")
     assert app.data_rows()["anonymous data"][1] == "-150.00"
-    # Labelled lines, which keep coming, are not taken for values
     app.page.wait_for_timeout(300)
     assert app.data_rows()["anonymous data"][1] == "-150.00"
 
@@ -71,7 +70,6 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.clear_all()
     app.wait_for_labels("message", "temp", "volt")
 
-    # The maps pick up from the new data, without splitting a line in two
     broken = []
     for _ in range(20):
         line = app.data_rows()["message"][1]
@@ -98,8 +96,6 @@ def test_settings_are_locked_while_the_map_is_on(app: App):
     switch = card.get_by_role("switch")
     tip = card.locator(".field-lock [role=tooltip]")
 
-    # Taken in (the pattern compiled) when the map was turned on, so every
-    # field is kept as it is while on, and says so on hover
     expect(fields).to_have_count(4)
     for field in fields.all():
         expect(field).not_to_be_editable()
@@ -116,7 +112,6 @@ def test_settings_are_locked_while_the_map_is_on(app: App):
     switch.click()
     expect(pattern).not_to_be_editable()
 
-    # The new pattern is the one in use
     app.wait_for_labels("only_temp")
     app.page.wait_for_timeout(300)
     assert "only_volt" not in app.data_rows()
@@ -127,7 +122,6 @@ def test_changed_settings_read_the_input_again(app: App):
     app.tab("Data")
     app.add_regex_map(target="first_$1")
     app.wait_for_labels("first_temp", "first_volt")
-    # No more input from here on
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
 
@@ -137,7 +131,7 @@ def test_changed_settings_read_the_input_again(app: App):
     card.get_by_placeholder("Output label").fill("again_$1")
     switch.click()
 
-    # Made from what was already received: read again from the start
+    # Only possible by reading again from the start
     app.wait_for_labels("again_temp", "again_volt")
 
 
@@ -153,7 +147,6 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
         app.add_map(*kind)
     expect(app.map_cards()).to_have_count(6)
 
-    # Run the first one added, so its signals are used before it is removed
     card = app.map_cards().nth(3)
     card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
@@ -169,9 +162,7 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     warnings = [
         message.text
         for message in app.console[start:]
-        if message.type in ("warning", "error")
-        # `dx serve`'s hot reload, absent from a static server
-        and "/_dioxus" not in message.text
+        if message.type in ("warning", "error") and "/_dioxus" not in message.text
     ]
     assert warnings == []
 
@@ -190,17 +181,14 @@ def test_add_menus_open_on_hover(app: App):
     number.hover()
     expect(number).to_have_attribute("aria-expanded", "true")
     option = bar.get_by_role("option")
-    # By the first input type: Number before String
     expect(option.locator(".add-map-title")).to_have_text(
         ["Add", "Subtract", "Multiply", "Divide", "Differentiate", "Integrate", "Regex"]
     )
     expect(option.locator(".map-types").last).to_have_text("StringNumber")
 
-    # Clicking the trigger of the open menu keeps it open
     number.click()
     expect(number).to_have_attribute("aria-expanded", "true")
 
-    # Moving to another trigger opens its menu instead
     string = bar.get_by_role("button", name="String", exact=True)
     string.hover()
     expect(number).to_have_attribute("aria-expanded", "false")
@@ -230,7 +218,6 @@ def test_decode_without_delimiter_keeps_each_chunk(app: App):
     card.get_by_label("Delimiter").fill("")
     card.get_by_role("switch").click()
     app.wait_for_labels("chunk")
-    # The mock sends both lines in one chunk, which stays whole
     chunk = app.data_rows()["chunk"]
     assert chunk[0] == "String"
     assert re.fullmatch(r"temp:[\d.]+\nvolt:[\d.]+\n", chunk[1])
@@ -243,7 +230,6 @@ def test_encode_turns_strings_into_bytes(app: App):
     card = app.map_cards().last
     card.get_by_placeholder("Input label").fill("message")
     card.get_by_placeholder("Output label").fill("line_bytes")
-    # Nothing to set but the labels
     expect(card.get_by_label("Delimiter")).to_have_count(0)
     card.get_by_role("switch").click()
     app.wait_for_labels("line_bytes")
@@ -254,7 +240,6 @@ def test_encode_turns_strings_into_bytes(app: App):
 
 def test_cards_open_to_their_settings(app: App):
     app.tab("Data")
-    # The initial map starts closed; one added starts open to be set
     initial = app.map_cards().first
     expect(initial.get_by_placeholder("Input label")).to_be_hidden()
     app.add_map("Regex", "String", "Number")
@@ -280,7 +265,6 @@ def test_title_shows_the_latest_conversion(app: App):
     latest = app.map_cards().last.locator(".map-latest")
     expect(latest).to_contain_text("message")
 
-    # The label and value both come from the input's groups (`$1`, `$2`)
     taken = latest.locator('.map-segment[data-from-input="true"]')
     expect(taken).to_have_count(2)
     assert taken.nth(0).text_content() in ("temp", "volt")
@@ -338,7 +322,6 @@ def test_replace_replaces_every_match(app: App):
     app.wait_for_labels("assigned")
     assert re.fullmatch(r"(temp|volt)=[\d.]+", app.data_rows()["assigned"][1])
 
-    # The group is marked as taken from the input, `=` as written
     value = app.map_cards().last.locator(".map-latest > .map-latest-value")
     expect(value.locator('.map-segment[data-from-input="false"]')).to_have_text(["="])
     expect(value.locator('.map-segment[data-from-input="true"]').first).to_have_text(
@@ -362,7 +345,6 @@ def test_concat_joins_the_newest_of_both(app: App):
         r"(temp|volt):[\d.]+ \| (temp|volt)=[\d.]+", app.data_rows()["joined"][1]
     )
 
-    # Both inputs, one above the other, in the types and the latest conversion
     expect(card.locator(".map-types-from > span")).to_have_text(["String", "String"])
     expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
         ["message", "assigned"]
@@ -381,8 +363,7 @@ def add_arithmetic_map(app: App, name: str, first: str, second: str, target: str
 
 
 def latest_numbers(card) -> tuple[list[str], float]:
-    """The latest conversion's input values and result, read at once as they
-    change while data comes in."""
+    """The latest conversion's inputs and result, read at once."""
     inputs, result = card.evaluate(
         """card => [
             [...card.querySelectorAll(".map-latest-from .map-latest-value")].map(v => v.textContent),
@@ -400,12 +381,10 @@ def test_arithmetic_with_a_constant(app: App):
     app.wait_for_labels("doubled")
     assert app.data_rows()["doubled"][0] == "Number"
 
-    # The constant shows with no label
     expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
         ["temp", ""]
     )
     (value, constant), result = latest_numbers(card)
-    # Numbers show to five significant digits
     assert constant == "2.0000"
     assert result == pytest.approx(float(value) * 2, rel=1e-4)
 
@@ -414,7 +393,6 @@ def test_arithmetic_prefers_a_label_to_a_number(app: App):
     app.open_port()
     app.tab("Data")
     app.add_regex_map()
-    # A Number label called "10"
     app.add_regex_map(target="10")
     app.wait_for_labels("10")
     card = add_arithmetic_map(app, "Add", "temp", "10", "sum")
@@ -450,19 +428,15 @@ def test_formula_renders_with_katex(app: App):
     card = add_arithmetic_map(app, "Divide", "a", "b", "quotient")
     formula = card.locator(".map-formula .formula")
     expect(formula).to_have_attribute("data-rendered", "true")
-    # Division as `a / b`, side by side
     expect(formula.locator(".katex-mathml annotation")).to_have_text("a / b")
     expect(formula.locator(".formula-fallback")).to_be_hidden()
-    # Its fonts load from beside its CSS
     app.page.wait_for_function("document.fonts.status === 'loaded'")
     assert app.page.evaluate("document.fonts.check('1em KaTeX_Math')")
     assert failed == []
 
 
 def regex_item(app: App, output: str):
-    """Opens the `output` menu and returns its Regex item."""
     trigger = app.page.get_by_role("button", name=output, exact=True)
-    # Its own menu: one closing may still be there
     menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
     trigger.hover()
     return menu.get_by_role("option").filter(
@@ -493,7 +467,6 @@ def test_regex_preset_adds_a_set_map(app: App):
     item.hover()
     item.get_by_role("menuitem").filter(has_text="Teleplot").click()
 
-    # Only the preset's map, not a blank one as well
     expect(app.map_cards()).to_have_count(4)
     card = app.map_cards().last
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
@@ -561,7 +534,6 @@ def test_differentiate_and_integrate(app: App):
     assert rows["temp_rate"][0] == "Number"
     assert rows["temp_total"][0] == "Number"
 
-    # temp stays around 20, so its integral keeps growing
     first = float(app.data_rows()["temp_total"][1])
     app.page.wait_for_timeout(500)
     assert float(app.data_rows()["temp_total"][1]) > first
@@ -585,7 +557,6 @@ def test_cards_slide_open_and_closed(app: App):
 
     assert height() < 1
     card.locator(".map-title").click()
-    # Part way open, then all the way
     app.page.wait_for_timeout(80)
     midway = height()
     expect(field).to_be_visible()

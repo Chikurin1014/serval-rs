@@ -11,22 +11,17 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    # For jobs to come that publish a release (see `needs` and `if` in them)
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      # Opens or updates the release pull request from the commits on `main`,
-      # and tags and releases once it is merged (see release-please-config.json)
       - uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # release-please bumps the version in Cargo.toml, but cannot in
-      # Cargo.lock, which `--locked` builds would then reject: catch it up on
-      # the release pull request
+      # release-please cannot bump Cargo.lock, which `--locked` builds need
       - if: steps.release.outputs.pr
         uses: actions/checkout@v7
         with:
@@ -35,8 +30,7 @@ jobs:
       - if: steps.release.outputs.pr
         name: Update the crates' versions in Cargo.lock
         env:
-          # The runner's own toolchain will do for this, not the one
-          # rust-toolchain.toml asks for, with its targets to download
+          # Not the one rust-toolchain.toml asks for, with its targets
           RUSTUP_TOOLCHAIN: stable
         run: |
           cargo update --workspace
@@ -47,8 +41,7 @@ jobs:
             git push
           fi
 
-  # A release made here does not start other workflows' `on: release` (it is
-  # made with GITHUB_TOKEN), so the release is deployed from here
+  # A release made with GITHUB_TOKEN starts no other workflow
   deploy:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'

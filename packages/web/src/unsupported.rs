@@ -10,8 +10,7 @@ use crate::serial;
 
 const WEB_SERIAL_DOCS: &str = "https://developer.mozilla.org/docs/Web/API/Web_Serial_API";
 
-/// Tells, once the page opens, that this browser cannot open serial ports, and
-/// which ones can. Shows nothing where Web Serial is available.
+/// Shown on opening the page where Web Serial is not available.
 #[component]
 pub fn UnsupportedBrowserDialog() -> Element {
     let mut open = use_signal(|| !serial::is_supported());
@@ -20,7 +19,6 @@ pub fn UnsupportedBrowserDialog() -> Element {
         Dialog {
             open: open(),
             on_open_change: move |value| open.set(value),
-            // At the top right corner of the dialog
             div {
                 position: "absolute",
                 top: "0.75rem",
@@ -35,8 +33,7 @@ pub fn UnsupportedBrowserDialog() -> Element {
                 }
             }
             DialogTitle { "This browser cannot open serial ports" }
-            // Paragraphs as blocks of spans, as the description is a `p`; 30% of
-            // a line apart
+            // Spans, as the description is a `p`
             DialogDescription {
                 span { display: "block", "Serval uses Web Serial API." }
                 span {
@@ -48,12 +45,10 @@ pub fn UnsupportedBrowserDialog() -> Element {
                     display: "block",
                     margin_top: "0.3lh",
                     "About Web Serial API, see "
-                    // In a new tab, so this page stays
                     a {
                         href: WEB_SERIAL_DOCS,
                         target: "_blank",
                         rel: "noopener noreferrer",
-                        // A URL has no spaces to wrap at, and is wider than the dialog
                         overflow_wrap: "anywhere",
                         "{WEB_SERIAL_DOCS}"
                     }

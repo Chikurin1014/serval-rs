@@ -7,7 +7,6 @@ use crate::data::{DataContext, NumberText};
 use crate::helper::csv_field;
 use crate::time::TimeContext;
 
-/// Saves `[file name, text]` sent from Rust as a CSV file, by a link to it.
 const DOWNLOAD_JS: &str = r#"
 const [name, text] = await dioxus.recv();
 const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
@@ -20,8 +19,7 @@ link.remove();
 URL.revokeObjectURL(url);
 "#;
 
-/// Saves the data of the labels the data list shows (by `FilterContext`) as
-/// a CSV file.
+/// Saves the labels the data list shows as a CSV file.
 #[component]
 pub(super) fn ExportCsvButton() -> Element {
     let data_context = use_context::<DataContext>();
@@ -62,9 +60,7 @@ pub(super) fn ExportCsvButton() -> Element {
     }
 }
 
-/// Two columns per label, `timestamp-<label>` and `value-<label>`, side by side:
-/// row by row, each label's entries in the order they came, those of a label
-/// with fewer left empty below its last.
+/// Two columns per label, `timestamp-<label>` and `value-<label>`.
 fn to_csv(series: &[(String, Vec<(i64, String)>)]) -> String {
     let header = series
         .iter()

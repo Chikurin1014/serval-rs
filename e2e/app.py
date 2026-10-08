@@ -4,7 +4,7 @@ import re
 
 from playwright.sync_api import ConsoleMessage, Page, expect
 
-# The rows of the data list in view, as {label: [type, latest, time]}
+# {label: [type, latest, time]} of the data list in view
 _DATA_ROWS = """() => {
     const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
     if (!table) return {};
@@ -14,11 +14,9 @@ _DATA_ROWS = """() => {
     }));
 }"""
 
-# The labels plotted by each graph, in order
 _GRAPH_LEGENDS = """() => [...document.querySelectorAll('.graph-grid .graph')].map(graph =>
     [...graph.querySelectorAll('.u-legend .u-series th')].map(th => th.textContent.trim()).slice(1))"""
 
-# Splits a "name:value" line into `name` labelling the number `value`
 NAME_VALUE = r"(\w+):([\d.]+)"
 
 
@@ -32,7 +30,6 @@ class App:
 
     def open_port(self):
         page = self.page
-        # The port selector asks for a port, which the mock grants
         page.locator(".toolbar-port button").first.click()
         page.get_by_placeholder("Baudrate (e.g. 9600)").fill("9600")
         page.get_by_role("button", name="Open port").click()
@@ -42,17 +39,13 @@ class App:
         self.page.get_by_role("tab", name=name).click()
 
     def mock(self, expression: str):
-        """Evaluates `expression` on the mock serial port, e.g. `written` or
-        `lose()`."""
+        """Evaluates `expression` on the mock port, e.g. `written`."""
         return self.page.evaluate(f"window.mockSerialPort.{expression}")
 
     def wait_for_mock(self, condition: str):
-        """Waits until `condition` on the mock serial port holds, e.g.
-        `written.length > 0`."""
         self.page.wait_for_function(f"() => window.mockSerialPort.{condition}")
 
     def send_text(self, text: str):
-        """Sends `text` from the console, as text."""
         field = self.page.get_by_placeholder("Type text to send to the active port")
         field.fill(text)
         field.press("Enter")
@@ -61,15 +54,12 @@ class App:
         return self.page.locator(".console-output").text_content()
 
     def wait_for_console_text(self, longer_than: int = 0):
-        """Waits until the console text is longer than `longer_than`."""
         self.page.wait_for_function(
             "length => document.querySelector('.console-output').textContent.length > length",
             arg=longer_than,
         )
 
     def wait_for_console_lines(self, more_than: int, timeout: float = 30000):
-        """Waits until the console shows more than `more_than` lines, e.g. after
-        a burst of chunks (`timeout` in ms, for a long one)."""
         self.page.wait_for_function(
             """lines => document.querySelector('.console-output').textContent
                 .split('\\n').length > lines""",
@@ -78,15 +68,12 @@ class App:
         )
 
     def clear_all(self, within: str = ".data-grid"):
-        """Clears all data with the data list's button, in `within` (the
-        Data tab's grid, or the Graph tab's board with its data list open)."""
+        """Clears all data with the data list's button in `within`."""
         self.page.locator(within).get_by_role("button", name="Clear all").click()
 
     def add_map(self, name: str, source: str, output: str):
-        """Adds the map called `name` turning `source` typed data into `output`
-        typed data, from the Data tab."""
+        """Adds the map `name` from `source` to `output` type, from the Data tab."""
         bar = self.page.locator(".add-map-bar")
-        # The menu of the output type, which opens on hover
         bar.get_by_role("button", name=output, exact=True).hover()
         bar.get_by_role("option").filter(
             has=self.page.locator(".add-map-title", has_text=re.compile(f"^{name}$"))
@@ -102,7 +89,6 @@ class App:
         target: str = "$1",
         replacement: str = "$2",
     ):
-        """Adds a regex map from the Data tab, sets it and enables it."""
         self.add_map("Regex", "String", output)
         card = self.map_cards().last
         card.get_by_placeholder("Input label").fill(source)
@@ -118,7 +104,6 @@ class App:
         return self.page.evaluate(_DATA_ROWS)
 
     def wait_for_labels(self, *labels: str):
-        """Waits until the data list in view shows every one of `labels`."""
         self.page.wait_for_function(
             f"labels => {{ const rows = ({_DATA_ROWS})(); return labels.every(l => l in rows); }}",
             arg=list(labels),
@@ -137,21 +122,18 @@ class App:
         )
 
     def add_graph(self, preset: str = "Linear"):
-        """Adds a time series graph drawn as `preset` (its name in the menu)."""
         bar = self.page.locator(".add-graph-bar")
-        # The menu opens on hover
         bar.get_by_role("button", name="Time series").hover()
         bar.get_by_role("option", name=preset, exact=True).click()
 
     def set_up_graph(self, index: int, title: str):
-        """Titles the graph at `index`."""
         graph = self.graphs().nth(index)
         graph.locator(".graph-title").click()  # opens the settings
         graph.locator(".graph-settings-body input").fill(title)
         graph.locator(".graph-title").click()  # closes them
 
     def toasts(self) -> list[tuple[str, str, str]]:
-        """The toasts showing, newest first, as `(type, title, description)`."""
+        """Newest first, as `(type, title, description)`."""
         toasts = self.page.evaluate(
             """() => [...document.querySelectorAll('[role=alertdialog]')].map(toast => {
                 const [title, description] = toast.querySelector('[role=alert]').children;
@@ -161,7 +143,6 @@ class App:
         return [tuple(toast) for toast in toasts]
 
     def wait_for_toast(self, title: str):
-        """Waits until the newest toast has `title`."""
         self.page.wait_for_function(
             """title => document.querySelector('[role=alertdialog] [role=alert]')
                 ?.firstElementChild.textContent === title""",

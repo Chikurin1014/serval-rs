@@ -8,16 +8,13 @@ use ui::serial::{
     self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, use_serial_provider,
 };
 
-/// Provides `SerialContext` with the browser's Web Serial.
-///
-/// Requires `DataContext` and `TimeContext` to be provided by an ancestor.
+/// Provides `SerialContext` with Web Serial. Requires `DataContext` and `TimeContext`.
 #[component]
 pub fn SerialProvider(children: Element) -> Element {
     use_serial_provider(|| Rc::new(WebSerial));
     children
 }
 
-/// Whether this browser has Web Serial, without which no port can be opened.
 pub fn is_supported() -> bool {
     web_serial::is_supported()
 }
@@ -29,7 +26,6 @@ impl SerialBackend for WebSerial {
         Box::pin(async {
             match web_serial::request_port().await {
                 Ok(port) => Ok(Some(Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)),
-                // The user closed the chooser without picking a port
                 Err(error) if error_name(&error).as_deref() == Some("NotFoundError") => Ok(None),
                 Err(error) => Err(message(error)),
             }
@@ -47,7 +43,6 @@ impl SerialBackend for WebSerial {
     }
 }
 
-/// A `SerialPort` object of Web Serial.
 struct WebSerialPort(JsValue);
 
 impl SerialPort for WebSerialPort {
@@ -77,7 +72,6 @@ impl SerialPort for WebSerialPort {
             let on_chunk =
                 Closure::wrap(Box::new(move |chunk: Uint8Array| on_chunk(chunk.to_vec()))
                     as Box<dyn FnMut(Uint8Array)>);
-            // `on_chunk` is dropped once the loop ends, as JS calls it no more
             web_serial::read_loop(&port, &on_chunk)
                 .await
                 .map_err(message)
@@ -99,7 +93,6 @@ impl SerialPort for WebSerialPort {
     }
 }
 
-/// Web Serial calls, see `serial.js`.
 mod web_serial {
     use js_sys::Uint8Array;
     use wasm_bindgen::{JsValue, closure::Closure, prelude::wasm_bindgen};
@@ -109,7 +102,6 @@ mod web_serial {
         #[wasm_bindgen(js_name = isSupported)]
         pub fn is_supported() -> bool;
 
-        /// Resolves to an array of the ports this page was granted before.
         #[wasm_bindgen(catch, js_name = getPorts)]
         pub async fn get_ports() -> Result<JsValue, JsValue>;
 
@@ -126,19 +118,16 @@ mod web_serial {
             flow_control: &str,
         ) -> Result<(), JsValue>;
 
-        /// Stops `readLoop` on the port first, if it is running.
         #[wasm_bindgen(catch, js_name = closePort)]
         pub async fn close_port(port: &JsValue) -> Result<(), JsValue>;
 
-        /// Calls `on_chunk` with each chunk read until the stream ends.
         #[wasm_bindgen(catch, js_name = readLoop)]
         pub async fn read_loop(
             port: &JsValue,
             on_chunk: &Closure<dyn FnMut(Uint8Array)>,
         ) -> Result<(), JsValue>;
 
-        /// Takes a `Uint8Array` copy rather than a view into wasm memory, which
-        /// could move while the write is pending.
+        /// A copy, as wasm memory could move while the write is pending.
         #[wasm_bindgen(catch, js_name = writePort)]
         pub async fn write_port(port: &JsValue, bytes: Uint8Array) -> Result<(), JsValue>;
 
@@ -150,7 +139,6 @@ mod web_serial {
     }
 }
 
-/// The USB device's vendor and product names, from their ids.
 fn port_info(port: &JsValue) -> PortInfo {
     let vendor_id = web_serial::usb_vendor_id(port);
     let device = vendor_id
@@ -169,14 +157,12 @@ fn port_info(port: &JsValue) -> PortInfo {
     }
 }
 
-/// The `name` of a JS error (e.g. a `DOMException`'s), if it has one.
 fn error_name(error: &JsValue) -> Option<String> {
     js_sys::Reflect::get(error, &JsValue::from_str("name"))
         .ok()?
         .as_string()
 }
 
-/// A JS error as a message.
 fn message(error: JsValue) -> String {
     match error.dyn_ref::<js_sys::Error>() {
         Some(error) => error.message().into(),

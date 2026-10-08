@@ -39,31 +39,23 @@ impl RegexOutput {
 #[derive(Clone, Copy, PartialEq)]
 pub struct RegexSettings {
     pub from_label: Signal<String>,
-    /// May use the pattern's capture groups (`$1`).
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
-    /// Regex replacement producing the value.
     pub replacement: Signal<String>,
     pub pattern_error: Signal<Option<String>>,
     pub replacement_error: Signal<Option<String>>,
 }
 
-/// Converts each string matching a regex, labelling the result with
-/// `to_label` expanded from the same match (so one map can fan out to
-/// several labels).
+/// Converts each string matching a regex; the output label may use its groups.
 pub struct RegexMatch {
     output: RegexOutput,
     settings: RegexSettings,
-    /// The input label, output label (a template), pattern and replacement,
-    /// as taken in when turned on
     taken: [String; 4],
-    /// What they make ready to use, if they do
     matching: Option<Matching>,
     cursor: SourceCursor,
 }
 
-/// What a map matching a pattern ([`RegexMatch`], `Replace`) takes in of its
-/// settings as it is turned on: its labels checked, its pattern compiled.
+/// The settings of a map matching a pattern, checked and compiled.
 pub(super) struct Matching {
     pub(super) endpoints: Endpoints,
     pub(super) regex: Regex,
@@ -71,15 +63,13 @@ pub(super) struct Matching {
 }
 
 impl Matching {
-    /// From `settings` (input label, output label, pattern, replacement), or
-    /// `None` if the labels are not set or not apart, or the pattern is empty
-    /// or does not compile (with why in `pattern_error`).
+    /// From the input label, output label, pattern and replacement, if valid.
     pub(super) fn new(
         settings: &[String; 4],
         pattern_error: &mut Signal<Option<String>>,
     ) -> Option<Self> {
         let [from, to, pattern, replacement] = settings;
-        // Compiled even with labels missing, to tell what is wrong with it
+        // Even with labels missing, to report pattern errors
         let regex = compile_for_map(pattern, pattern_error);
         Some(Self {
             endpoints: Endpoints::new(from, to)?,
@@ -94,8 +84,6 @@ impl RegexMatch {
         Self::with(output, "", "", "", "")
     }
 
-    /// Reading `from_label` with `pattern`, and the output label and value
-    /// made from its matches.
     pub fn with(
         output: RegexOutput,
         from_label: &str,
@@ -136,7 +124,7 @@ impl MapRunner for RegexMatch {
         } = self.settings;
         let mut taken =
             [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
-        // One of only spaces matches next to nothing, so it is none
+        // Whitespace only counts as none
         if taken[2].trim().is_empty() {
             taken[2].clear();
         }
@@ -153,7 +141,6 @@ impl MapRunner for RegexMatch {
             mut replacement_error,
             ..
         } = self.settings;
-        // `to` may use the pattern's groups (`$1`), so it is a template, not a label
         let Matching {
             endpoints: Endpoints { from, to },
             regex,
@@ -173,7 +160,6 @@ impl MapRunner for RegexMatch {
             let captures = match regex.captures(input) {
                 Ok(Some(captures)) => captures,
                 Ok(None) => continue,
-                // E.g. backtracking too much on this input
                 Err(failed) => {
                     failure = Some(format!("Matching failed: {failed}"));
                     continue;
@@ -195,7 +181,6 @@ impl MapRunner for RegexMatch {
         set_if_changed(&mut pattern_error, failure);
         set_if_changed(&mut replacement_error, error);
 
-        // Split into segments only for the one shown
         let (input, captures) = latest?;
         let mut to_value = replacement_segments(&captures, replacement);
         if self.output == RegexOutput::Number {
@@ -209,7 +194,6 @@ impl MapRunner for RegexMatch {
     }
 }
 
-/// The text that `segments` make up.
 fn text(segments: &[Segment]) -> String {
     segments
         .iter()
@@ -217,8 +201,7 @@ fn text(segments: &[Segment]) -> String {
         .collect()
 }
 
-/// The number that `segments` make up, shown as numbers are: one segment,
-/// taken from the input if any part of it was.
+/// The number that `segments` make up, as one formatted segment.
 fn number_segment(segments: &[Segment]) -> Option<Segment> {
     let number = text(segments).parse::<f64>().ok()?;
     let text = format_number(number);
@@ -229,22 +212,18 @@ fn number_segment(segments: &[Segment]) -> Option<Segment> {
     })
 }
 
-/// Builds the value for one match from the replacement and its capture groups,
-/// leaving out the text around the match.
+/// `replacement` with the groups of `captures` filled in.
 pub(super) fn expand(captures: &Captures<str>, replacement: &str) -> String {
     let mut value = String::new();
     captures.expand(replacement, &mut value);
     value
 }
 
-/// The label for one match, as segments: `template` with the match's groups
-/// filled in, trimmed. Like the value, it leaves out the text around the match.
 fn label_segments(captures: &Captures<str>, template: &str) -> Vec<Segment> {
     trim_segments(replacement_segments(captures, template))
 }
 
-/// What [`expand`] builds from `replacement`, split into its own text and
-/// the capture groups (`$1`, `${name}`) filled in from the input.
+/// What [`expand`] builds, split into fixed text and filled-in groups.
 pub(super) fn replacement_segments(captures: &Captures<str>, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut fixed = String::new();
@@ -252,7 +231,6 @@ pub(super) fn replacement_segments(captures: &Captures<str>, replacement: &str) 
     while let Some(dollar) = rest.find('$') {
         fixed.push_str(&rest[..dollar]);
         rest = &rest[dollar..];
-        // `$$` is a `$`, as is a `$` naming no group
         if rest[1..].starts_with('$') {
             fixed.push('$');
             rest = &rest[2..];
@@ -275,9 +253,7 @@ pub(super) fn replacement_segments(captures: &Captures<str>, replacement: &str) 
     segments
 }
 
-/// The length of the group reference that `text` starts with (from its
-/// `$`), by `regex`'s replacement syntax: `${...}`, or the longest run of
-/// letters, digits and `_`.
+/// The length of the group reference (`$1`, `${name}`) `text` starts with.
 fn group_reference_end(text: &str) -> Option<usize> {
     let rest = &text[1..];
     if let Some(braced) = rest.strip_prefix('{') {

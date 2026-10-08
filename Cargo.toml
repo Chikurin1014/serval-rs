@@ -2,7 +2,7 @@
 resolver = "2"
 members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile"]
 
-# One version for the whole app, which release-please bumps
+# Bumped by release-please
 [workspace.package]
 version = "0.2.0"
 license = "MIT"

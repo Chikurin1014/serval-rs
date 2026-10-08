@@ -7,7 +7,6 @@
   min-height: 0;
 }
 
-/* `VirtualList` sizes its canvas inline; the container only has to scroll */
 .map-panel .map-list {
   position: relative;
   flex: 1 1 auto;
@@ -16,8 +15,7 @@
   contain: layout paint;
 }
 
-/* Spacing on every list item, so the virtual list measures it with each card
- * (only a window of items is in the DOM, so `:last-child` would shift sizes) */
+/* On every item, so the virtual list measures it with each card */
 .map-list [role="listitem"] {
   padding-bottom: 0.3rem;
 }
@@ -28,7 +26,6 @@
   padding: 0;
 }
 
-/* Switch, title and delete button on one row */
 .map-panel [data-slot="card-header"] {
   display: flex;
   align-items: center;
@@ -40,7 +37,6 @@
   border-bottom: 1px solid var(--dc-border);
 }
 
-/* The trigger: title, the latest conversion, then the dx chevron */
 .map-card .map-title {
   flex: 1;
   justify-content: flex-start;
@@ -50,7 +46,6 @@
   color: var(--dc-text);
 }
 
-/* Only the title is underlined on hover, not the conversion */
 .map-card .map-title:hover {
   text-decoration-line: none;
 }
@@ -59,9 +54,7 @@
   text-decoration-line: underline;
 }
 
-/* The title with its types right after it, as wide as the widest of them
- * (`--map-heading-width`, set by `MapList`), so the latest conversions line
- * up across the cards */
+/* As wide as the widest (set by `MapList`), so the conversions line up */
 .map-heading {
   display: flex;
   flex: 0 0 auto;
@@ -88,7 +81,6 @@
   white-space: nowrap;
 }
 
-/* `label value -> label value`, cut short to fit the row */
 .map-latest {
   display: flex;
   flex: 0 1 auto;
@@ -96,7 +88,6 @@
   gap: 0.375rem;
   min-width: 0;
   overflow: hidden;
-  /* Between the text and the muted types */
   color: color-mix(in oklab, var(--dc-text) 65%, var(--dc-text-muted));
   font-family: ui-monospace, monospace;
   font-size: 0.7rem;
@@ -104,7 +95,6 @@
   white-space: nowrap;
 }
 
-/* Each input's label and value on its own row, lined up with the others */
 .map-latest-from {
   display: grid;
   flex: 0 1 auto;
@@ -131,8 +121,6 @@
   font-weight: 600;
 }
 
-/* Input and output alike, above the types; what the output takes from the
- * input stands out by colour */
 .map-latest .map-segment[data-from-input="true"] {
   color: var(--dc-accent);
 }
@@ -142,7 +130,6 @@
   padding: 0.75rem 1rem;
 }
 
-/* "Map to Bytes / Number / String", in a box as the inputs are */
 .add-map-bar {
   display: flex;
   flex: 0 0 auto;
@@ -180,12 +167,10 @@
   color: var(--dc-text-muted);
 }
 
-/* Its menus (`.hover-menu`), their types in monospace */
 .add-map-bar .hover-menu-trigger {
   font-family: ui-monospace, monospace;
 }
 
-/* Title, then `from -> to` at the end */
 .add-map-content [role="option"] {
   gap: 1rem;
   white-space: nowrap;
@@ -195,8 +180,6 @@
   flex: 1;
 }
 
-/* `from -> to`, in the add menus and the cards' headers. The
- * type names are as wide as the longest of them, so the arrows line up */
 .map-types {
   display: grid;
   grid-template-columns: calc(var(--map-from-chars, 6) * 1ch) auto calc(
@@ -209,7 +192,6 @@
   font-size: 0.7rem;
 }
 
-/* The inputs one above the other */
 .map-types-from {
   display: flex;
   flex-direction: column;
@@ -221,7 +203,6 @@
   height: 0.75rem;
 }
 
-/* Too narrow for the latest conversion as well: the title and types only */
 .map-panel [data-slot="card-header"] {
   container: map-header / inline-size;
 }
@@ -232,8 +213,6 @@
   }
 }
 
-/* An item with presets: a chevron at its end, and the presets beside it while
- * it is hovered or focus is in them */
 .add-map-content [role="option"][data-presets="true"] {
   position: relative;
 }
@@ -245,8 +224,7 @@
   color: var(--dc-text-muted);
 }
 
-/* Padded on the left (transparent), so the pointer stays on the item on the
- * way over to them */
+/* Padded, so the pointer stays on the item on the way over */
 .add-map-presets {
   display: none;
   position: absolute;
@@ -261,7 +239,6 @@
   display: block;
 }
 
-/* As the menu itself */
 .add-map-presets-list {
   display: flex;
   flex-direction: column;

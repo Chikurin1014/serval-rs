@@ -19,21 +19,16 @@ pub use filter::{FilterContext, FilterKind};
 
 const DATA_LIST_CSS: Asset = asset!("/assets/styling/data-list.css");
 
-/// How many of a label's values show under it while it is expanded: those
-/// before the newest, which its row shows, for five in all.
+/// How many earlier values an expanded row shows.
 const HISTORY_LENGTH: usize = 4;
 
-/// Requires `DataContext`, `FilterContext` and `TimeContext` to be provided by an
-/// ancestor.
+/// Requires `DataContext`, `FilterContext` and `TimeContext`.
 #[component]
 pub fn DataList() -> Element {
     let mut data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let time_context = use_context::<TimeContext>();
-    // The labels whose recent values are shown under them
     let mut expanded = use_signal(HashSet::<String>::new);
-    // Read in place: only what is shown is copied out of each queue
-    // Sorted by label
     let rows = data_context.with_each(None, |data| {
         data.iter()
             .filter(|(label, _)| filter_context.shows(label))
@@ -47,7 +42,7 @@ pub fn DataList() -> Element {
                     |timestamp| time_context.format_millis(timestamp),
                 );
                 let is_expanded = expanded.read().contains(&label);
-                // Even while collapsed, so they can slide open (see `data-list.css`)
+                // Even while collapsed, so they can slide open
                 let history = values_before_latest(data, HISTORY_LENGTH);
                 let mut toggle = {
                     let label = label.clone();
@@ -59,7 +54,6 @@ pub fn DataList() -> Element {
                     }
                 };
                 rsx! {
-                    // A label's row and, under it while expanded, its recent values
                     tbody {
                         key: "{label}",
                         class: "data-group",
@@ -75,7 +69,6 @@ pub fn DataList() -> Element {
                                     r#type: "button",
                                     aria_expanded: is_expanded,
                                     title: "{label}",
-                                    // The row's click toggles it
                                     if is_expanded {
                                         lucide::ChevronDown {}
                                     } else {
@@ -85,11 +78,9 @@ pub fn DataList() -> Element {
                                 }
                             }
                             td { class: "data-cell", "{type_name}" }
-                            // Cut short to one line; all of it on hover
                             td { class: "data-cell", title: "{preview}", "{preview}" }
                             td { class: "data-cell", "{time}" }
                             td {
-                                // Shown while the row is hovered
                                 Button {
                                     class: "data-row-delete reveal-on-hover",
                                     variant: ButtonVariant::Ghost,
@@ -154,7 +145,7 @@ pub fn DataList() -> Element {
                 CardContent {
                     table {
                         class: "data-table",
-                        // Set widths, so the columns stay put as the values change
+                        // Fixed widths, so columns stay put as values change
                         colgroup {
                             col { class: "data-col-label" }
                             col { class: "data-col-type" }
@@ -183,8 +174,6 @@ pub fn DataList() -> Element {
     }
 }
 
-/// A history cell's content, which slides open as its label expands (see
-/// `.data-history-slide` in `data-list.css`).
 #[component]
 fn HistorySlide(children: Element) -> Element {
     rsx! {
@@ -195,14 +184,13 @@ fn HistorySlide(children: Element) -> Element {
     }
 }
 
-/// The newest entry as text, or "empty".
 fn latest_value_preview(data: &TypedData) -> String {
     data.newest_as_text(1, NumberText::Rounded)
         .pop()
         .map_or_else(|| "empty".to_string(), |(_, text)| text)
 }
 
-/// The `count` entries before the newest, newest first, with when they came.
+/// The `count` entries before the newest, newest first.
 fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, String)> {
     let mut values = data.newest_as_text(count + 1, NumberText::Rounded);
     values.pop();

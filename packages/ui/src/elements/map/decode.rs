@@ -20,7 +20,6 @@ pub const DECODE: MapKind = MapKind {
     presets: &[],
 };
 
-/// Settings form of a `Decode` map.
 #[component]
 pub fn DecodeForm(settings: DecodeSettings) -> Element {
     let DecodeSettings {
@@ -39,7 +38,6 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
                     list: BYTES_LABELS_LIST_ID,
                     placeholder: "Input label",
                 }
-                // Without one, each entry becomes a string as it is
                 TextField { name: "Delimiter", value: delimiter, placeholder: "None" }
             }
             lucide::MoveRight { size: 20 }

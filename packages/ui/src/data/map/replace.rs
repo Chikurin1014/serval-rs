@@ -15,19 +15,14 @@ pub struct ReplaceSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
-    /// Put in place of each match; may use its capture groups (`$1`).
     pub replacement: Signal<String>,
     pub pattern_error: Signal<Option<String>>,
 }
 
-/// Replaces every match of a regex in each string, passing on the rest of
-/// the string (and strings with no match) as they are.
+/// Replaces every match of a regex in each string.
 pub struct Replace {
     settings: ReplaceSettings,
-    /// The input label, output label, pattern and replacement, as taken in
-    /// when turned on
     taken: [String; 4],
-    /// What they make ready to use, if they do
     matching: Option<Matching>,
     cursor: SourceCursor,
 }
@@ -86,7 +81,6 @@ impl MapRunner for Replace {
         let read = self.cursor.new_entries::<StringData>(data, from)?;
         let last = read.entries.last()?;
 
-        // Split into segments only for the one shown
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
             to_label: vec![Segment::fixed(to)],
@@ -96,7 +90,6 @@ impl MapRunner for Replace {
         for entry in &read.entries {
             match regex.try_replacen(entry.value(), 0, replacement.as_str()) {
                 Ok(value) => data.push(to, StringData::new(timestamp, value.into_owned())),
-                // E.g. backtracking too much on this input
                 Err(failed) => failure = Some(format!("Matching failed: {failed}")),
             }
         }
@@ -105,12 +98,10 @@ impl MapRunner for Replace {
     }
 }
 
-/// What `regex.replace_all(input, replacement)` gives, as segments: the text
-/// around the matches and their groups come from the input.
+/// What `regex.replace_all(input, replacement)` gives, as segments.
 fn replaced_segments(regex: &Regex, input: &str, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut end = 0;
-    // Up to a match that fails, as the replacing does
     for captures in regex.captures_iter(input).map_while(Result::ok) {
         let whole = captures.get(0).expect("group 0 is the whole match");
         segments.push(Segment::from_input(&input[end..whole.start()]));

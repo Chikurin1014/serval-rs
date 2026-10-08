@@ -13,23 +13,18 @@ pub struct ConcatSettings {
     pub first_label: Signal<String>,
     pub second_label: Signal<String>,
     pub to_label: Signal<String>,
-    /// Put between the two; `\n`-style escapes allowed, empty for nothing
+    /// With `\n`-style escapes.
     pub separator: Signal<String>,
 }
 
-/// Joins two strings, one from each input, once both have a new one:
-/// the newest of each, dropping any older ones that came in between.
+/// Joins the newest strings of two inputs, once both have a new one.
 pub struct Concat {
     settings: ConcatSettings,
-    /// The settings, as taken in when turned on: `None` if a label is not set,
-    /// or an input is the output
     taken: Option<Taken>,
     first: Input<String>,
     second: Input<String>,
 }
 
-/// What a [`Concat`] takes in of its settings: its labels checked, its
-/// separator unescaped.
 #[derive(PartialEq)]
 struct Taken {
     first: String,
@@ -113,8 +108,6 @@ impl MapRunner for Concat {
     }
 }
 
-/// `first`, `separator` and `second` as segments: the two values come from
-/// the input, the separator from the settings.
 fn concat_segments(first: &str, separator: &str, second: &str) -> Vec<Segment> {
     let mut segments = vec![
         Segment::from_input(first),

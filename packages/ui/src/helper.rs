@@ -1,5 +1,4 @@
-//! Utilities that do not depend on what the app is about: wrappers around
-//! Dioxus, and text handling.
+//! Utilities independent of the app.
 
 mod signal;
 mod text;

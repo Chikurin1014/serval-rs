@@ -2,16 +2,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use dioxus::prelude::*;
 
-/// KaTeX with its fonts, as a folder so its CSS finds the fonts beside it
+/// A folder, so its CSS finds the fonts beside it
 const KATEX: Asset = asset!("/assets/vendor/katex", AssetOptions::folder());
 const FORMULA_CSS: Asset = asset!("/assets/styling/formula.css");
 const FORMULA_JS: &str = include_str!("formula.js");
 
-/// Numbers the formulas, for their element ids.
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
-/// A formula written in LaTeX, rendered by KaTeX; `fallback` shows until
-/// KaTeX has loaded.
+/// A LaTeX formula rendered by KaTeX; `fallback` shows until it loads.
 #[component]
 pub fn Formula(
     latex: ReadSignal<String>,
@@ -33,14 +31,13 @@ pub fn Formula(
         document::Link { rel: "stylesheet", href: FORMULA_CSS }
         document::Script { src: "{KATEX}/katex.min.js" }
 
-        // The caller's attributes (its class too) on a span of their own
         span {
             ..attributes,
             span {
                 class: "formula",
                 id: "{id}",
                 span { class: "formula-fallback", "{fallback}" }
-                // Filled by KaTeX; Dioxus leaves it empty
+                // Filled by KaTeX
                 span { class: "formula-math" }
             }
         }

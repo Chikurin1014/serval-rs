@@ -12,21 +12,18 @@ use crate::helper::{decode_utf8, unescape};
 pub struct DecodeSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
-    /// `\n`-style escapes allowed; empty to turn each entry into a string as it is
+    /// With `\n`-style escapes; empty for one string per entry.
     pub delimiter: Signal<String>,
 }
 
-/// Turns a byte stream into UTF-8 strings: split at a delimiter, or one
-/// string per entry without one.
+/// Turns a byte stream into UTF-8 strings, split at a delimiter.
 pub struct Decode {
     settings: DecodeSettings,
-    /// The labels and the delimiter (unescaped), as taken in when turned on:
-    /// `None` if the labels are not set or not apart
     taken: Option<(Endpoints, String)>,
     cursor: SourceCursor,
-    /// The start of a character the previous entry ended in the middle of.
+    /// The start of a character cut off at the end of the previous entry.
     pending: Vec<u8>,
-    /// Text after the last delimiter, waiting for the rest of the line.
+    /// Text after the last delimiter.
     buffer: String,
 }
 
@@ -75,7 +72,6 @@ impl MapRunner for Decode {
             return None;
         };
         if read.restarted {
-            // A partial line from the previous queue does not continue in this one
             self.pending.clear();
             self.buffer.clear();
         }
@@ -85,7 +81,6 @@ impl MapRunner for Decode {
         }
 
         let (pieces, from_value) = if delimiter.is_empty() {
-            // Each entry as it is; what was buffered for a delimiter goes first
             let mut pieces = Vec::new();
             if !self.buffer.is_empty() {
                 pieces.push(std::mem::take(&mut self.buffer));
@@ -105,7 +100,6 @@ impl MapRunner for Decode {
             }
             let (pieces, buffer) = split_complete(&text, delimiter);
             self.buffer = buffer;
-            // The bytes that made the line
             let from_value = pieces.last().map(|last| format!("{last}{delimiter}"));
             (pieces, from_value)
         };
@@ -125,7 +119,7 @@ impl MapRunner for Decode {
     }
 }
 
-/// The pieces of `text` ended by `delimiter`, and the text after the last one.
+/// The pieces of `text` ended by `delimiter`, and the rest.
 fn split_complete(text: &str, delimiter: &str) -> (Vec<String>, String) {
     let mut pieces = text
         .split(delimiter)

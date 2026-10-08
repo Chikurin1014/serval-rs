@@ -17,7 +17,6 @@ pub enum Operation {
 }
 
 impl Operation {
-    /// The sign written between the operands.
     pub fn symbol(self) -> &'static str {
         match self {
             Operation::Add => "+",
@@ -27,7 +26,7 @@ impl Operation {
         }
     }
 
-    /// The formula of the operands `a` and `b`, in LaTeX.
+    /// Its formula in LaTeX.
     pub fn latex(self) -> &'static str {
         match self {
             Operation::Add => "a + b",
@@ -51,37 +50,27 @@ impl Operation {
 #[derive(Clone, Copy, PartialEq)]
 pub struct ArithmeticSettings {
     pub operation: Operation,
-    /// A Number label, or a number if there is no such label.
+    /// A Number label, or else a number.
     pub first: Signal<String>,
-    /// As `first`.
     pub second: Signal<String>,
     pub to_label: Signal<String>,
     pub error: Signal<Option<String>>,
 }
 
-/// Adds, subtracts, multiplies or divides two numbers, each from a label or
-/// a constant.
-///
-/// With one label, each of its numbers gives a result. With two, a result
-/// comes once both have a new number, from the newest of each (as `Concat`).
-/// With two constants, the one result comes when they are set.
+/// Adds, subtracts, multiplies or divides two numbers, each from a label or a
+/// constant. With two labels, a result comes once both have a new number.
 pub struct Arithmetic {
     settings: ArithmeticSettings,
-    /// The operands and output label, as taken in when turned on (trimmed):
-    /// `None` if one is not set
     taken: Option<[String; 3]>,
     operands: Operands,
-    /// Why the last pair gave no result, shown until one does.
     failure: Option<String>,
 }
 
-/// How far the operands are read.
 #[derive(Default)]
 struct Operands {
-    /// The operands' labels, read as far as they were used
     first: Input<f64>,
     second: Input<f64>,
-    /// The constants of the last result from two of them.
+    /// The last pair of constants used, so it gives one result.
     last_constants: Option<(f64, f64)>,
 }
 
@@ -93,7 +82,6 @@ enum Operand {
 }
 
 impl Operand {
-    /// A Number label named `text` if there is one, else `text` as a number.
     fn resolve(data: &DataContext, text: &str) -> Result<Self, String> {
         let text = text.trim();
         let is_label = data.data_type_of(text) == Some(DataType::Number);
@@ -106,7 +94,6 @@ impl Operand {
         }
     }
 
-    /// How it shows as an input of the latest conversion.
     fn input(&self, value: f64) -> ConversionInput {
         match self {
             Operand::Label(label) => ConversionInput::new(label.as_str(), format_number(value)),
@@ -133,7 +120,6 @@ impl Arithmetic {
 }
 
 impl Operands {
-    /// The pairs of numbers that give results now.
     fn pairs(&mut self, data: &DataContext, first: &Operand, second: &Operand) -> Vec<(f64, f64)> {
         if !matches!(
             (first, second),
@@ -202,7 +188,7 @@ impl MapRunner for Arithmetic {
         } = self.settings;
         let [first, second, to] = self.taken.as_ref()?;
 
-        // Resolved on each run: a label may come after the map is turned on
+        // On each run: a label may come after the map is turned on
         let operands = Operand::resolve(data, first)
             .and_then(|first| Ok((first, Operand::resolve(data, second)?)));
         let (first, second) = match operands {

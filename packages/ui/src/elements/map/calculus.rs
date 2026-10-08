@@ -32,8 +32,6 @@ const fn calculus_kind(name: &'static str, create: fn() -> Box<dyn MapRunner>) -
     }
 }
 
-/// Settings form of a `CalculusMap`: its formula over the form, as
-/// `Arithmetic`'s, then the input `f(t)` and the output.
 #[component]
 pub fn CalculusForm(settings: CalculusSettings) -> Element {
     let CalculusSettings {

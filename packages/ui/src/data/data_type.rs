@@ -42,8 +42,7 @@ impl TypedData {
         }
     }
 
-    /// The newest `count` entries, oldest first, with when they came and their
-    /// values as text: numbers as `numbers` says, bytes decoded as UTF-8.
+    /// The newest `count` entries as `(timestamp, text)`, oldest first.
     pub fn newest_as_text(&self, count: usize, numbers: NumberText) -> Vec<(i64, String)> {
         fn newest<T: Clone>(
             queue: &Queue<Data<T>>,
@@ -72,19 +71,15 @@ impl TypedData {
 /// How [`TypedData::newest_as_text`] writes numbers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NumberText {
-    /// With [`format_number`], for display.
     Rounded,
-    /// In full, e.g. for export.
     Exact,
 }
 
 /// How many significant digits [`format_number`] shows.
 const SIGNIFICANT_DIGITS: i32 = 5;
 
-/// `value` to five significant digits for display, e.g.
-/// `4.8950`, or as `1.2346e5` when its integer part has more digits.
+/// `value` to five significant digits, e.g. `4.8950` or `1.2346e5`.
 pub fn format_number(value: f64) -> String {
-    // The digits before the point (`log10` has none for 0)
     let integer_digits = if value == 0.0 {
         1.0
     } else {
@@ -121,14 +116,12 @@ impl<T: Clone> Data<T> {
     }
 }
 
-/// An entry type of [`TypedData`]: each one is stored in its own variant.
+/// An entry type of [`TypedData`], stored in a variant of its own.
 pub trait DataEntry: Clone + Into<TypedData> {
     fn timestamp(&self) -> i64;
 
-    /// The queue of entries of this type in `data`, if it holds this type.
     fn queue(data: &TypedData) -> Option<&Queue<Self>>;
 
-    /// Like [`DataEntry::queue`], to change the queue.
     fn queue_mut(data: &mut TypedData) -> Option<&mut Queue<Self>>;
 }
 

@@ -2,7 +2,6 @@ button.theme-switch {
   color: var(--dc-text);
 }
 
-/* Same light/dark switch as `dx-components-theme.css` */
 .theme-switch-sun {
   display: var(--light, inline-flex) var(--dark, none);
 }

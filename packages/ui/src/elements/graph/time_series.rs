@@ -16,14 +16,12 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-/// The data handling, then the plot, which uses it (see both files)
 const TIME_SERIES_JS: &str = concat!(
     include_str!("time_series_data.js"),
     include_str!("time_series.js"),
 );
 
-/// Line colors, as CSS custom properties. A label takes the one at its place
-/// among the number labels, which its tag shows too, so tags and lines match.
+/// Line colors, by a label's place among the number labels.
 const SERIES_COLORS: [&str; 5] = [
     "--dc-accent",
     "--focused-border-color",
@@ -39,7 +37,6 @@ fn series_color(index: usize) -> &'static str {
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
-    // One for each way of drawing the values
     presets: &[
         GraphPreset {
             name: "Points",
@@ -63,21 +60,16 @@ fn with_draw_style(draw_style: DrawStyle) -> GraphProperty {
     }
 }
 
-/// One label's update for `time_series.js`: `(label, reset, [(timestamp_ms, value)])`.
+/// `(label, reset, [(timestamp_ms, value)])`
 type Update = (String, bool, Vec<(i64, f64)>);
 
-/// Feeds the plot only the points it does not have yet.
 #[derive(Default)]
 struct PlotFeed {
-    /// How far the plot has each label it shows.
     cursors: HashMap<String, SourceCursor>,
 }
 
 impl PlotFeed {
-    /// The next message for `time_series.js`: the labels that hold numbers and
-    /// `shows` lets through, and an update for each one the plot is behind on. A
-    /// label newly shown, or whose queue was cleared or replaced, is sent again
-    /// in full, as a reset.
+    /// The shown number labels, and their points the plot does not have yet.
     fn next(
         &mut self,
         data: &[(&str, &TypedData)],
@@ -110,16 +102,14 @@ impl PlotFeed {
                 .collect();
             updates.push((label.to_string(), read.restarted, points));
         }
-        // Forget the labels no longer shown, so showing one again sends it in full
+        // So a label shown again is sent in full
         self.cursors.retain(|label, _| labels.contains(label));
 
         (labels, updates)
     }
 }
 
-/// One setting of the graph with `id` in `graph_context` (its default once the
-/// graph is gone), as a memo of its own: what reads it runs again only when
-/// that setting changes, not on edits to its other settings or other graphs.
+/// One setting of a graph, as a memo of its own.
 fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
     graph_context: GraphContext,
     id: usize,
@@ -133,19 +123,16 @@ fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
     })
 }
 
-/// Plots against time the `Number` labels the data list shows (by
-/// `FilterContext`), for the graph with `id` in `GraphContext`.
+/// Plots the number labels the data list shows against time.
 #[component]
 pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
-    // Only this graph's, so edits to other graphs do not re-run the plot
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
     let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
-    // Graph ids are never reused, so this is unique on the page
     let container_id = format!("graph-plot-{id}");
     let plot = use_hook(|| document::eval(TIME_SERIES_JS));
     let feed = use_hook(|| Rc::new(RefCell::new(PlotFeed::default())));
@@ -160,7 +147,6 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     });
 
     use_effect(move || {
-        // Only the Number labels' writes run this again
         let (labels, updates) = data_context.with_each(Some(DataType::Number), |data| {
             feed.borrow_mut()
                 .next(data, |label| filter_context.shows(label))
@@ -184,7 +170,6 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
         ));
     });
 
-    // The labels turned off or on in the legend, kept in `GraphContext`
     use_future(move || async move {
         let mut plot = plot;
         while let Ok(labels) = plot.recv::<Vec<String>>().await {
@@ -311,14 +296,12 @@ mod tests {
         )
     }
 
-    /// `data` as `DataContext::with_each` gives it.
     fn each(data: &HashMap<String, TypedData>) -> Vec<(&str, &TypedData)> {
         data.iter()
             .map(|(label, data)| (label.as_str(), data))
             .collect()
     }
 
-    /// Shows `labels`, as `FilterContext::shows` would.
     fn shown<'a>(labels: &'a [&'a str]) -> impl Fn(&str) -> bool + 'a {
         move |label| labels.contains(&label)
     }
@@ -354,7 +337,6 @@ mod tests {
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
         feed.next(&each(&data), shown(&["temp"]));
 
-        // Cleared and refilled: another queue, even if as long
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
         let (_, updates) = feed.next(&each(&data), shown(&["temp"]));
         assert_eq!(
@@ -375,7 +357,6 @@ mod tests {
         let (labels, _) = feed.next(&each(&data), shown(&["volt", "message"]));
         assert_eq!(labels, ["volt"]);
 
-        // Hidden, then shown again: sent in full once more
         feed.next(&each(&data), shown(&[]));
         let (_, updates) = feed.next(&each(&data), shown(&["volt"]));
         assert_eq!(updates, [("volt".to_string(), true, vec![(1, 3.3)])]);

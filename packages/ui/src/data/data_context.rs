@@ -10,25 +10,17 @@ use crate::{
 /// The label the bytes received from the serial port go to.
 pub const RAW_BYTES_LABEL: &str = "raw_bytes";
 
-/// The data, by label.
-///
-/// Each label's entries are a signal of their own, so what reads one label (a
-/// map, the console) runs again only when that label changes, not on writes to
-/// others. What label holds what type is a signal apart, written only as
-/// labels come, go or change type; every read subscribes to it too, so a
-/// reader also runs again when its label is removed, or added.
+/// The data, by label. Each label is its own signal, so a reader runs again only
+/// for writes to the labels it reads (and for labels coming and going).
 #[derive(Clone, Copy)]
 pub struct DataContext {
-    /// Each label's type, sorted by label.
+    /// Each label's type; written only as labels come, go or change type.
     labels: Signal<BTreeMap<String, DataType>>,
-    /// Each label's entries, looked up without subscribing: only the label's
-    /// own signal is read.
+    /// Not reactive: only each label's own signal is.
     queues: CopyValue<HashMap<String, LabelData>>,
-    /// `DataProvider`'s scope, where the labels' signals are made.
     scope: ScopeId,
 }
 
-/// A label's entries, and what owns their signal (dropped with the label).
 struct LabelData {
     data: Signal<TypedData>,
     _owner: Owner,
@@ -50,8 +42,7 @@ impl DataContext {
         self.labels.read().get(label).copied()
     }
 
-    /// Runs `f` on `label`'s entries without cloning them, or gives `None` if
-    /// there is no such label.
+    /// Runs `f` on `label`'s entries, if there is such a label.
     pub fn with_label<R>(&self, label: &str, f: impl FnOnce(&TypedData) -> R) -> Option<R> {
         if !self.labels.read().contains_key(label) {
             return None;
@@ -61,8 +52,7 @@ impl DataContext {
         Some(f(&read))
     }
 
-    /// Runs `f` on the labels, sorted, with their entries (only those holding
-    /// `data_type`, if given), without cloning them.
+    /// Runs `f` on the labels (of `data_type`, if given), sorted, with their entries.
     pub fn with_each<R>(
         &self,
         data_type: Option<DataType>,
@@ -88,14 +78,12 @@ impl DataContext {
         f(&data)
     }
 
-    /// Appends `entry` to `label`. If `label` holds another type, its entries
-    /// are replaced by this one.
+    /// Appends `entry` to `label`, replacing what it held if of another type.
     pub fn push<T: DataEntry>(&mut self, label: &str, entry: T) {
         self.push_all(label, [entry]);
     }
 
-    /// Appends `entries` to `label` in order, as [`Self::push`] does each, with
-    /// one write, so what reads the label runs once for them all.
+    /// As [`Self::push`] for each of `entries`, in one write.
     pub fn push_all<T: DataEntry>(&mut self, label: &str, entries: impl IntoIterator<Item = T>) {
         let mut entries = entries.into_iter().peekable();
         if entries.peek().is_none() {
@@ -115,7 +103,6 @@ impl DataContext {
             return;
         }
 
-        // A new label, or one holding another type: replaced
         let mut typed: TypedData = entries.next().expect("checked above").into();
         let queue = T::queue_mut(&mut typed).expect("made of a `T`");
         for entry in entries {
@@ -125,7 +112,6 @@ impl DataContext {
         match existing {
             Some(mut data) => data.set(typed),
             None => {
-                // Owned by the label (dropped with it)
                 let (data, owner) = make_owned(self.scope, || Signal::new(typed));
                 self.queues.write().insert(
                     label.to_string(),
@@ -139,7 +125,7 @@ impl DataContext {
         self.labels.write().insert(label.to_string(), data_type);
     }
 
-    /// Removes `label` with its entries; whether there was such a label.
+    /// Whether there was such a label.
     pub fn remove(&mut self, label: &str) -> bool {
         let label_removed = self.labels.write().remove(label).is_some();
         let queue_removed = self.queues.write().remove(label).is_some();
@@ -150,7 +136,7 @@ impl DataContext {
         label_removed || queue_removed
     }
 
-    /// Removes every label with its entries; whether there was any.
+    /// Whether there was any label.
     pub fn clear_all(&mut self) -> bool {
         let had_labels = !std::mem::take(&mut *self.labels.write()).is_empty();
         let had_queues = !std::mem::take(&mut *self.queues.write()).is_empty();
@@ -181,7 +167,6 @@ mod tests {
 
     thread_local! {
         static DATA: RefCell<Option<DataContext>> = const { RefCell::new(None) };
-        /// How often `TempReader` rendered, and the length of `temp` it saw
         static RENDERS: Cell<u32> = const { Cell::new(0) };
         static TEMP_LEN: Cell<Option<usize>> = const { Cell::new(None) };
     }
@@ -205,8 +190,7 @@ mod tests {
         rsx! {}
     }
 
-    /// Runs `write` on the data, then renders what it made dirty; how often
-    /// `TempReader` rendered then, and what it saw.
+    /// How often `TempReader` rendered after `write`, and the `temp` length it saw.
     fn write(dom: &mut VirtualDom, write: impl FnOnce(&mut DataContext)) -> (u32, Option<usize>) {
         let before = RENDERS.with(Cell::get);
         dom.in_runtime(|| {
@@ -236,7 +220,6 @@ mod tests {
         let mut dom = dom();
         assert_eq!(TEMP_LEN.with(Cell::get), None);
 
-        // Its label coming
         assert_eq!(
             write(&mut dom, |data| data.push("temp", NumberData::new(1, 1.0))),
             (1, Some(1))
@@ -246,7 +229,7 @@ mod tests {
             (1, Some(2))
         );
 
-        // Another label: only its coming (a new label) is seen, not its writes
+        // Another label: only its creation is seen, not its writes
         assert_eq!(
             write(&mut dom, |data| data.push("other", NumberData::new(1, 1.0))).0,
             1
@@ -276,7 +259,6 @@ mod tests {
             assert_eq!(data.data_type_of("message"), Some(DataType::String));
         });
 
-        // Another type replaces what the label held
         assert_eq!(
             write(&mut dom, |data| data
                 .push("temp", StringData::new(3, "x".to_string()))),
@@ -293,7 +275,6 @@ mod tests {
             });
         });
 
-        // Gone, then back
         assert_eq!(
             write(&mut dom, |data| assert!(data.remove("temp"))),
             (1, None)

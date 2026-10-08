@@ -20,7 +20,6 @@ pub const ENCODE: MapKind = MapKind {
     presets: &[],
 };
 
-/// Settings form of an `Encode` map.
 #[component]
 pub fn EncodeForm(settings: EncodeSettings) -> Element {
     let EncodeSettings {

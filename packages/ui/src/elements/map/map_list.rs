@@ -16,38 +16,31 @@ use crate::helper::single_line;
 use super::field::MapEnabled;
 
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
-// Linked by the forms too; here so it is loaded before a card first opens
+// Loaded here so it is ready before a card first opens
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-// `datalist` ids of the labels of each type, offered by the maps' forms
 pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
 pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
 
-// Moving the focus in and out of an add menu item's presets (see `AddMapMenu`)
 const FOCUS_FIRST_PRESET: &str =
     "document.activeElement?.querySelector('.add-map-preset')?.focus()";
 const FOCUS_NEXT_PRESET: &str = "document.activeElement?.nextElementSibling?.focus()";
 const FOCUS_PREVIOUS_PRESET: &str = "document.activeElement?.previousElementSibling?.focus()";
 const FOCUS_PRESETS_ITEM: &str = "document.activeElement?.closest('[role=option]')?.focus()";
 
-/// The order of the types in the add menus, by output and then by input.
 const TYPE_ORDER: [DataType; 3] = [DataType::Bytes, DataType::Number, DataType::String];
 
-/// Lists the maps in `MapContext` for editing.
-/// The maps run in `MapProvider`, whether or not this is mounted.
+/// Lists the maps for editing; they run in `MapProvider` regardless.
 #[component]
 pub fn MapList() -> Element {
     let data_context = use_context::<DataContext>();
     let context = use_context::<MapContext>();
-    // Maps compare by id, so typing in a form does not re-render the list
     let maps = use_memo(move || context.list());
-    // Memos, so the list re-renders when labels come and go, not on every entry
     let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
     let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
     let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
-    // The widest title with its types, so the cards' latest conversions line up,
-    // and the longest type names, so the add menus' arrows do (see `map-list.css`)
+    // So the latest conversions and the add menus' arrows line up
     let columns = use_memo(move || {
         let kinds = context.kinds();
         let longest = |length: fn(&MapKind) -> usize| kinds.iter().map(length).max().unwrap_or(0);
@@ -72,7 +65,6 @@ pub fn MapList() -> Element {
             class: "map-panel",
             style: columns,
             AddMapBar {}
-            // Only the cards in view are rendered
             VirtualList {
                 class: "map-list",
                 count: maps.read().len(),
@@ -80,7 +72,6 @@ pub fn MapList() -> Element {
                     let Some(map) = maps.read().get(index).cloned() else {
                         return VNode::empty();
                     };
-                    // By id, so removing a map does not hand its card to the next one
                     rsx! { MapCard { key: "{map.id}", map } }
                 },
             }
@@ -106,8 +97,7 @@ pub fn MapList() -> Element {
     }
 }
 
-/// "Map to Bytes / Number / String": a menu of the kinds of map for each
-/// output type, each listing them by input type, opening on hover.
+/// A menu of the kinds of map for each output type.
 #[component]
 fn AddMapBar() -> Element {
     let kinds = use_context::<MapContext>().kinds();
@@ -142,17 +132,14 @@ fn AddMapBar() -> Element {
     }
 }
 
-/// The menu of the kinds of map giving `to`, ordered by input type.
 #[component]
 fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: usize) -> Element {
     let mut context = use_context::<MapContext>();
-    // By the first input; those alike as they are in `builtin_map_kinds` (a stable sort)
     kinds.sort_by_key(|kind| {
         kind.from
             .first()
             .and_then(|&from| TYPE_ORDER.iter().position(|&order| order == from))
     });
-    // Focus in a presets panel, which leaves the menu's items unfocused
     let mut in_presets = use_signal(|| false);
 
     rsx! {
@@ -162,7 +149,6 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
             disabled: kinds.is_empty(),
             content_class: "add-map-content",
             keep_open: in_presets,
-            // Right from an item with presets goes to them
             onkeydown: move |event: KeyboardEvent| {
                 if event.key() == Key::ArrowRight {
                     event.prevent_default();
@@ -179,12 +165,10 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                         context.add(kind);
                         menus.close(menu);
                     },
-                    // Title, then `from -> to`
                     span { class: "add-map-title", "{kind.name}" }
                     MapTypes { from: kind.from, to: kind.to }
                     if !kind.presets.is_empty() {
                         lucide::ChevronRight {}
-                        // Beside the item while it is hovered or focus is in it
                         div {
                             class: "add-map-presets",
                             onfocusin: move |_| in_presets.set(true),
@@ -194,7 +178,6 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                                     Key::ArrowDown => FOCUS_NEXT_PRESET,
                                     Key::ArrowUp => FOCUS_PREVIOUS_PRESET,
                                     Key::ArrowLeft | Key::Escape => FOCUS_PRESETS_ITEM,
-                                    // The button's, not the item's under it
                                     Key::Enter => {
                                         event.stop_propagation();
                                         return;
@@ -215,7 +198,6 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                                         r#type: "button",
                                         role: "menuitem",
                                         onclick: move |event: MouseEvent| {
-                                            // Not the item's own click, which adds it blank
                                             event.stop_propagation();
                                             context.add_preset(kind, *preset);
                                             in_presets.set(false);
@@ -234,7 +216,6 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
     }
 }
 
-/// A map's card: its title and latest conversion, opening to its settings.
 #[component]
 fn MapCard(map: Map) -> Element {
     let mut context = use_context::<MapContext>();
@@ -246,7 +227,6 @@ fn MapCard(map: Map) -> Element {
         latest,
         ..
     } = map;
-    // For its form to lock what the map cannot take in while on (see `MapEnabled`)
     use_context_provider(|| MapEnabled(enabled.into()));
 
     rsx! {
@@ -272,7 +252,6 @@ fn MapCard(map: Map) -> Element {
                             LatestConversion { conversion }
                         }
                     }
-                    // Shown while the card is hovered
                     Button {
                         class: "map-remove reveal-on-hover",
                         variant: ButtonVariant::Ghost,
@@ -296,12 +275,9 @@ fn MapCard(map: Map) -> Element {
     }
 }
 
-/// Roughly how wide a card's title and types are, in rem: by the average
-/// width of a character in their fonts (see `.map-heading` in `map-list.css`),
-/// rounded up to a quarter.
+/// Roughly how wide a card's title and types are, in rem.
 fn heading_width(kind: &MapKind) -> f64 {
     let title = kind.name.chars().count() as f64 * 0.75 * 0.65;
-    // The inputs one above the other, so only the longest counts
     let from = kind
         .from
         .iter()
@@ -309,13 +285,11 @@ fn heading_width(kind: &MapKind) -> f64 {
         .max()
         .unwrap_or(0);
     let types = (from + kind.to.name().len()) as f64 * 0.7 * 0.6;
-    // The gaps around the arrow and after the title, and the arrow
     let width = title + types + 0.25 * 2.0 + 0.5 + 0.75;
     (width * 4.0).ceil() / 4.0
 }
 
-/// `from -> to`: the types a kind of map turns data from and to, its inputs
-/// one above the other.
+/// `from -> to` of a kind of map.
 #[component]
 fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
     rsx! {
@@ -333,8 +307,7 @@ fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
     }
 }
 
-/// `input value -> output value`, with the parts of the output taken from
-/// the input marked; the values of several inputs one above the other.
+/// `input -> output`, marking the parts of the output taken from the input.
 #[component]
 fn LatestConversion(conversion: Conversion) -> Element {
     let Conversion {

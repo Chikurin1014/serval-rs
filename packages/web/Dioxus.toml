@@ -1,10 +1,6 @@
-# Read by `dx` when building this package
-
 [application]
-# Copied as it is to the site's root (e.g. `third-party-licenses.html`). Only
-# the default without a `Dioxus.toml`, so it is named here
+# Only the default without a `Dioxus.toml`
 public_dir = "public"
 
 [web.app]
-# The browser tab's title, in the page `dx` generates
 title = "Serval"

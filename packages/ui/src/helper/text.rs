@@ -1,7 +1,4 @@
-//! Text: escapes, formatting and decoding.
-
-/// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into the characters
-/// they stand for (e.g. a delimiter as typed in a form).
+/// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into characters.
 pub(crate) fn unescape(value: &str) -> String {
     value
         .replace("\\n", "\n")
@@ -10,8 +7,7 @@ pub(crate) fn unescape(value: &str) -> String {
         .replace("\\\\", "\\")
 }
 
-/// `text` with its line breaks and tabs escaped, to fit on one line: the
-/// reverse of [`unescape`].
+/// `text` escaped to one line: the reverse of [`unescape`].
 pub(crate) fn single_line(text: &str) -> String {
     text.replace('\\', "\\\\")
         .replace('\r', "\\r")
@@ -32,7 +28,7 @@ pub(crate) fn format_bytes(bytes: u64) -> String {
     format!("{grouped} B")
 }
 
-/// `field`, quoted if it holds a comma, a quote or a line break (RFC 4180).
+/// `field` quoted as RFC 4180 needs.
 pub(crate) fn csv_field(field: &str) -> String {
     if field.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", field.replace('"', "\"\""))
@@ -41,8 +37,7 @@ pub(crate) fn csv_field(field: &str) -> String {
     }
 }
 
-/// Decodes `bytes` following `pending` as UTF-8, invalid bytes as `�`. A
-/// character cut off at the end is left in `pending` for the next bytes.
+/// Decodes `pending` then `bytes` as UTF-8, leaving a cut-off character in `pending`.
 pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
     pending.extend_from_slice(bytes);
     let mut text = String::new();
@@ -61,7 +56,6 @@ pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
                         text.push(char::REPLACEMENT_CHARACTER);
                         rest = &after[invalid..];
                     }
-                    // Cut off: the rest of it comes with the next bytes
                     None => {
                         rest = after;
                         break;

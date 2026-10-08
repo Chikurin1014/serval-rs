@@ -7,7 +7,6 @@ const { appendOutput, cutPoint, isAtBottom } = loadScript(
   new URL("./console_output.js", import.meta.url),
 );
 
-/** Like a DOM `Text`, for what `appendOutput` uses of it. */
 function fakeText(data = "") {
   return {
     data,
@@ -42,13 +41,11 @@ test("appendOutput drops a tenth at once, not a little on every chunk", () => {
     appendOutput(node, "123456789\n", 1000);
     assert.ok(node.length <= 1000);
   }
-  // 1000 characters in all: the limit is reached, not passed
   assert.equal(node.deletes, undefined);
 
   for (let i = 0; i < 100; i++) {
     appendOutput(node, "123456789\n", 1000);
   }
-  // Each drop leaves 900, room for 10 more lines before the next
   assert.equal(node.deletes, 10);
   assert.match(node.data, /^(123456789\n)+$/);
 });
@@ -64,10 +61,8 @@ test("cutPoint without line breaks cuts right after the excess", () => {
 });
 
 test("isAtBottom allows a little short of the end", () => {
-  // 1000px of content in a 200px view: the end is at 800
   assert.equal(isAtBottom(800, 1000, 200), true);
   assert.equal(isAtBottom(790, 1000, 200), true);
   assert.equal(isAtBottom(700, 1000, 200), false);
-  // All of it in view
   assert.equal(isAtBottom(0, 100, 200), true);
 });

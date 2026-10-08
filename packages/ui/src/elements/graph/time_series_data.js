@@ -1,13 +1,7 @@
-// The data side of `time_series.js`, kept free of the page and uPlot so it can
-// be tested; `time_series.rs` runs this ahead of `time_series.js`.
-//
-// `series` maps each plotted label to its points, as parallel arrays of times
-// (in seconds, uPlot's unit) and values: `Map<string, {t: number[], v: number[]}>`.
+// The data side of `time_series.js`, apart so it can be tested.
+// `series`: `Map<label, {t: seconds[], v: values[]}>`.
 
-/**
- * Applies a `[labels, updates]` message from Rust (see `time_series.js`) to
- * `series`, keeping at most `maxPoints` per label (the latest).
- */
+/** Applies a `[labels, updates]` message, keeping at most `maxPoints` a label. */
 function applyMessage(series, [labels, updates], maxPoints) {
   for (const label of [...series.keys()]) {
     if (!labels.includes(label)) {
@@ -34,10 +28,7 @@ function applyMessage(series, [labels, updates], maxPoints) {
   }
 }
 
-/**
- * uPlot's data for `labels`: one shared, sorted array of times, then each
- * label's values at those times, `null` where it has no point.
- */
+/** uPlot's data for `labels`: shared times, then each label's values or `null`. */
 function alignedData(series, labels) {
   const xs = [...new Set(labels.flatMap((label) => series.get(label).t))].sort(
     (a, b) => a - b,
@@ -54,10 +45,7 @@ function alignedData(series, labels) {
   return [xs, ...ys];
 }
 
-/**
- * The time axis's range for data from `min` to `max` (seconds): the last
- * `windowSeconds`, or with `fit`, the data itself up to that long.
- */
+/** The last `windowSeconds`, or with `fit`, the data up to that long. */
 function timeRange(min, max, windowSeconds, fit) {
   if (min == null || max == null) {
     return [min, max];
@@ -66,21 +54,19 @@ function timeRange(min, max, windowSeconds, fit) {
   return [fit ? Math.max(min, from) : from, max];
 }
 
-/** `data` (as `alignedData` gives it) without the values a log scale cannot
- * show, 0 or less, which are gaps instead. */
+/** `data` with values of 0 or less as gaps. */
 function forLogScale(data) {
   const [xs, ...ys] = data;
   return [xs, ...ys.map((y) => y.map((v) => (v !== null && v > 0 ? v : null)))];
 }
 
-/** `ms` (since the Unix epoch) as `HH:MM:SS.SSS` in the local time zone. */
+/** `HH:MM:SS.SSS` in the local time zone. */
 function timeOfDay(ms) {
   const date = new Date(ms);
   const pad = (n, width = 2) => String(n).padStart(width, "0");
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 }
 
-/** `rgb(r, g, b)` (as `getComputedStyle` gives it) with an alpha. */
 function withAlpha(color, alpha) {
   return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);
 }

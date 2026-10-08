@@ -9,8 +9,7 @@ def test_closes_and_reopens_the_port(app: App):
     app.open_port()
     app.wait_for_console_text()
 
-    # A port does not close while it is being read, so this checks that
-    # reading stops first
+    # A port does not close while it is being read
     app.page.get_by_role("button", name="Close port").click()
     expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
     stopped = len(app.console_text())

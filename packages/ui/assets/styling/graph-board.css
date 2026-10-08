@@ -1,7 +1,5 @@
-/* The dx `Sidebar` is made for the page edge (`position: fixed`,
- * `100svh`); keep it inside the board instead. Its own `left` offsets and
- * transitions then work relative to the board. dx class names are hashed,
- * so these target its `data-slot`s */
+/* The dx `Sidebar` is made for the page edge; keep it inside the board.
+ * dx class names are hashed, so these target its `data-slot`s */
 .graph-board[data-slot="sidebar-wrapper"] {
   position: relative;
   container-type: inline-size;
@@ -10,7 +8,6 @@
   min-height: 0;
 }
 
-/* Wide enough for the data list table (the dx default is 16rem) */
 .graph-board [data-slot="sidebar"] {
   --dx-sidebar-width: min(24rem, 45cqw);
 }
@@ -25,15 +22,12 @@
   padding-right: 0.5rem;
 }
 
-/* Below 768px the sidebar opens as a dx `Sheet`. dx means to hide the sheet's
- * close button there, but its sidebar and sheet rules tie and the sheet's wins,
- * leaving the button over the data list's clear button. Escape or a tap
- * outside still closes it */
+/* dx means to hide the sheet's close button but its rules tie; it would cover
+ * the clear button */
 [data-slot="sidebar"][data-mobile="true"] > button {
   display: none;
 }
 
-/* Keep the graphs clear of the expanded sidebar's divider */
 .graph-board [data-slot="sidebar"][data-state="expanded"] ~ .graph-main {
   padding-left: 0.5rem;
 }
@@ -55,8 +49,6 @@
   gap: 0.5rem;
 }
 
-/* 1 graph: 1 column, 2-4: 2 columns, 5+: 3 columns (`data-columns` from `GraphBoard`).
- * Rows share the height; past that the grid scrolls */
 .graph-grid {
   display: grid;
   flex: 1 1 auto;
@@ -84,7 +76,6 @@
   font-size: 0.85rem;
 }
 
-/* A menu for each kind of graph, on the bar itself */
 .add-graph-bar {
   display: flex;
   align-items: stretch;

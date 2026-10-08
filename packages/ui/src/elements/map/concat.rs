@@ -20,8 +20,6 @@ pub const CONCAT: MapKind = MapKind {
     presets: &[],
 };
 
-/// Settings form of a `Concat` map: the two inputs on the left, the
-/// output and what goes between them on the right.
 #[component]
 pub fn ConcatForm(settings: ConcatSettings) -> Element {
     let ConcatSettings {

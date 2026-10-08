@@ -8,11 +8,9 @@
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  /* None at the bottom, where the footer pads itself evenly */
   padding: 0.5rem 0 0;
 }
 
-/* Title and clear button on one row, vertically centred */
 .data-list [data-slot="card-header"] {
   display: flex;
   align-items: center;
@@ -29,18 +27,15 @@
   text-transform: uppercase;
 }
 
-/* Only the table scrolls; the card header stays in place */
 .data-list [data-slot="card-content"] {
   flex: 1;
   min-height: 0;
-  /* Let a table wider than the card scroll instead of overflowing it */
   min-width: 0;
   overflow: auto;
   padding: 0 1rem;
 }
 
-/* Laid out by the set column widths, not by the values, which change all the
- * time; scrolls sideways where narrower than its least width */
+/* Fixed layout, so columns do not move as values change */
 .data-table {
   width: 100%;
   min-width: 28rem;
@@ -71,7 +66,6 @@
   border-bottom: 1px solid var(--dc-border);
   text-align: left;
   vertical-align: middle;
-  /* One line each, so the rows keep their height */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -91,7 +85,6 @@
   text-transform: uppercase;
 }
 
-/* Rows on the panel background, all alike */
 .data-table tbody tr {
   background: var(--dc-panel);
 }
@@ -100,11 +93,9 @@
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
   font-weight: 400;
-  /* Digits as wide as each other, so a changing number keeps its width */
   font-variant-numeric: tabular-nums;
 }
 
-/* The label filter under the table: its input, then its tags beside it */
 .data-list [data-slot="card-footer"] {
   flex: none;
   gap: 0.75rem;
@@ -129,7 +120,6 @@
   min-width: 15rem;
 }
 
-/* Show or Hide: what the input adds; as wide for either, so the input stays put */
 .label-filter-input .label-filter-kind {
   flex: 0 0 auto;
   width: 4.5rem;
@@ -147,7 +137,6 @@
 
 .label-filter-tags [role="row"] {
   font-family: ui-monospace, monospace;
-  /* A little darker than the dx tag's */
   border-color: color-mix(
     in oklab,
     var(--primary-color-6),
@@ -161,7 +150,6 @@
   color: var(--dc-text-muted);
 }
 
-/* A filter hiding labels: dashed, its eye closed and in the danger colour */
 .label-filter-tags [role="row"][data-kind="Hide"] {
   border-style: dashed;
 }
@@ -170,8 +158,7 @@
   color: var(--dc-danger);
 }
 
-/* Shown while the tag is hovered or focused (`.reveal-on-hover`; the tag
- * takes no class, so it is matched by its role) */
+/* The tag takes no class, so it is matched by its role */
 .label-filter-tags [role="row"] .label-filter-remove {
   width: 1rem;
   height: 1rem;
@@ -190,7 +177,6 @@
   font-size: 0.75rem;
 }
 
-/* A label's row opens to its recent values when clicked */
 .data-table .data-row {
   cursor: pointer;
 }
@@ -228,7 +214,6 @@
   text-overflow: ellipsis;
 }
 
-/* The expanded label stands out, its recent values a shade lighter under it */
 .data-table .data-group > .data-row[data-expanded="true"] {
   background: color-mix(in oklab, var(--dc-text) 12%, var(--dc-panel));
 }
@@ -241,8 +226,7 @@
   background: color-mix(in oklab, var(--dc-text) 5%, var(--dc-panel));
 }
 
-/* Always there, of no height while their label is collapsed: they slide open
- * as their cells' padding and contents grow to their height */
+/* Always rendered; they slide open as their padding and content grow */
 .data-table .data-history > * {
   padding-block: 0;
   border-bottom-width: 0;
@@ -285,7 +269,6 @@
   }
 }
 
-/* At the right end of the footer, past the filter and its tags */
 .data-list .data-export {
   flex: 0 0 auto;
   align-self: center;

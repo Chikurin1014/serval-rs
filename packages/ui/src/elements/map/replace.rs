@@ -20,7 +20,6 @@ pub const REPLACE: MapKind = MapKind {
     presets: &[],
 };
 
-/// Settings form of a `Replace` map, laid out as the `Regex` one.
 #[component]
 pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
     let ReplaceSettings {

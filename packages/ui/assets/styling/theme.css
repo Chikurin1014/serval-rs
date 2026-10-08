@@ -1,11 +1,9 @@
 :root {
   color-scheme: light dark;
 
-  /* Borders of the components' styles (card, input, button, dropdown menu).
-     * Not part of the default `dx-components-theme.css`, so defined here */
+  /* Not in `dx-components-theme.css` */
   --border-color: var(--primary-color-7);
 
-  /* Follow the same light/dark switch as `dx-components-theme.css` */
   --dc-accent: var(--light, #45756b) var(--dark, #84a78e);
   --dc-panel: var(--primary-color-2);
   --dc-border: var(--border-color);
@@ -37,7 +35,6 @@ textarea {
   font: inherit;
 }
 
-/* Keep native controls and scrollbars in step with an explicit theme choice */
 html[data-theme="light"] {
   color-scheme: light;
 }
@@ -46,8 +43,6 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
-/* A field: a bordered box holding an input, after an icon or a short label
- * (`.field-label`), as in the maps' forms, the label filter and the console */
 .field {
   display: flex;
   flex: 1;
@@ -65,12 +60,10 @@ html[data-theme="dark"] {
   box-shadow: inset 0 0 0 1px var(--focused-border-color);
 }
 
-/* Input it cannot use (`data-invalid`, e.g. bytes the console cannot read) */
 .field[data-invalid="true"] {
   box-shadow: inset 0 0 0 1px var(--dc-danger);
 }
 
-/* Read only (`data-locked`: a map's fields while the map is on) */
 .field[data-locked="true"] {
   opacity: 0.6;
 }
@@ -109,8 +102,8 @@ html[data-theme="dark"] {
   font-size: 0.75rem;
 }
 
-/* Controls shown while their `.reveals` ancestor (a card, a row) is hovered or
- * has focus, and always where there is no hover (touch screens) */
+/* Shown while their `.reveals` ancestor is hovered or focused, and always
+ * on touch screens */
 .reveal-on-hover {
   opacity: 0;
   transition: opacity 150ms ease;

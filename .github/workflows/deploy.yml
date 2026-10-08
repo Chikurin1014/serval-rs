@@ -1,11 +1,7 @@
 name: Deploy
 
-# Publishes the web app to Cloudflare Pages: when release-please releases (see
-# the `deploy` job in release-please.yml), or by hand from the Actions tab.
-#
-# Needs these repository secrets:
-#   CLOUDFLARE_API_TOKEN   an API token with only "Account > Cloudflare Pages > Edit"
-#   CLOUDFLARE_ACCOUNT_ID  the account the `serval` Pages project is in
+# Needs the secrets CLOUDFLARE_API_TOKEN ("Cloudflare Pages: Edit" only) and
+# CLOUDFLARE_ACCOUNT_ID.
 on:
   workflow_call:
     inputs:
@@ -18,7 +14,6 @@ on:
 permissions:
   contents: read
 
-# One deploy at a time, each to the end: the last one started is what is live
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -34,20 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The release's tag, or the branch chosen when run by hand
           ref: ${{ inputs.ref || github.ref }}
 
       - uses: cachix/install-nix-action@v31
 
-      # The Nix store CI saved (see ci.yml), to build on; saved only by CI
+      # Saved only by CI
       - uses: nix-community/cache-nix-action@v7
         with:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
           save: false
 
-      # The release build of the web app, as static files in
-      # result/share/serval-web (see `mkPackage` in flake-parts/serval.nix)
       - name: Build the web app
         run: nix build .#web --print-build-logs
 
@@ -57,5 +49,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # To production (the project's production branch), whichever ref was built
+          # To production, whichever ref was built
           command: pages deploy result/share/serval-web --project-name serval --branch main --commit-hash ${{ github.sha }}
