@@ -5,7 +5,6 @@ pub mod collapsible;
 pub mod dropdown_menu;
 pub mod input;
 pub mod navbar;
-pub mod scroll_area;
 pub mod separator;
 pub mod sheet;
 pub mod sidebar;
