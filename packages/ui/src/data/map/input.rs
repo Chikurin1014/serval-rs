@@ -9,6 +9,24 @@ pub(crate) fn endpoints<'a>(from: &'a str, to: &'a str) -> Option<(&'a str, &'a 
     (!from.is_empty() && !to.is_empty() && from != to).then_some((from, to))
 }
 
+/// A map's input and output labels, checked (see [`endpoints`]): what a map
+/// takes in of them as it is turned on.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Endpoints {
+    pub(crate) from: String,
+    pub(crate) to: String,
+}
+
+impl Endpoints {
+    /// `from` and `to`, if a map can run with them (see [`endpoints`]).
+    pub(crate) fn new(from: &str, to: &str) -> Option<Self> {
+        endpoints(from, to).map(|(from, to)| Self {
+            from: from.to_string(),
+            to: to.to_string(),
+        })
+    }
+}
+
 /// One of a map's inputs: how far its label is read, and for maps joining two
 /// inputs, its newest value not used yet (see [`take_newest_pair`]).
 pub(crate) struct Input<T> {

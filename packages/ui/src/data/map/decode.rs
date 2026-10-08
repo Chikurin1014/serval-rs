@@ -3,10 +3,10 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, keep_taken,
+    ByteData, Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment,
+    SourceCursor, StringData, keep_taken,
 };
-use crate::helper::{decode_utf8, set_if_changed, unescape};
+use crate::helper::{decode_utf8, unescape};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct DecodeSettings {
@@ -20,10 +20,9 @@ pub struct DecodeSettings {
 /// string per entry without one.
 pub struct Decode {
     settings: DecodeSettings,
-    latest: Signal<Option<Conversion>>,
-    /// The input and output labels and the delimiter (unescaped), as taken in
-    /// when turned on
-    taken: Option<(String, String, String)>,
+    /// The labels and the delimiter (unescaped), as taken in when turned on:
+    /// `None` if the labels are not set or not apart
+    taken: Option<(Endpoints, String)>,
     cursor: SourceCursor,
     /// The start of a character the previous entry ended in the middle of.
     pending: Vec<u8>,
@@ -39,7 +38,6 @@ impl Decode {
                 to_label: Signal::new(to_label.to_string()),
                 delimiter: Signal::new("\\n".to_string()),
             },
-            latest: Signal::new(None),
             taken: None,
             cursor: SourceCursor::default(),
             pending: Vec::new(),
@@ -53,21 +51,14 @@ impl MapRunner for Decode {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
     fn start(&mut self) {
         let DecodeSettings {
             from_label,
             to_label,
             delimiter,
         } = self.settings;
-        let taken = (
-            from_label.peek().clone(),
-            to_label.peek().clone(),
-            unescape(&delimiter.peek()),
-        );
+        let taken = Endpoints::new(&from_label.peek(), &to_label.peek())
+            .map(|endpoints| (endpoints, unescape(&delimiter.peek())));
         if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
             self.pending.clear();
@@ -75,19 +66,13 @@ impl MapRunner for Decode {
         }
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
-        let Some((from, to, delimiter)) = self.taken.as_ref() else {
-            return;
-        };
-        let Some((from, to)) = endpoints(from, to) else {
-            return;
-        };
-
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
+        let (Endpoints { from, to }, delimiter) = self.taken.as_ref()?;
         let Some(read) = self.cursor.new_entries::<ByteData>(data, from) else {
             self.cursor.reset();
             self.pending.clear();
             self.buffer.clear();
-            return;
+            return None;
         };
         if read.restarted {
             // A partial line from the previous queue does not continue in this one
@@ -96,7 +81,7 @@ impl MapRunner for Decode {
         }
         let new_entries = read.entries;
         if new_entries.is_empty() {
-            return;
+            return None;
         }
 
         let (pieces, from_value) = if delimiter.is_empty() {
@@ -125,17 +110,18 @@ impl MapRunner for Decode {
             (pieces, from_value)
         };
 
-        if let (Some(last), Some(from_value)) = (pieces.last(), from_value) {
-            let conversion = Conversion {
+        let conversion = match (pieces.last(), from_value) {
+            (Some(last), Some(from_value)) => Some(Conversion {
                 from: vec![ConversionInput::new(from, from_value)],
                 to_label: vec![Segment::fixed(to)],
                 to_value: vec![Segment::from_input(last.as_str())],
-            };
-            set_if_changed(&mut self.latest, Some(conversion));
-        }
+            }),
+            _ => None,
+        };
         for value in pieces {
             data.push(to, StringData::new(timestamp, value));
         }
+        conversion
     }
 }
 

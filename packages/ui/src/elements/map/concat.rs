@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::{LabelField, TextField};
+use super::form_of;
 use super::map_list::STRINGS_LABELS_LIST_ID;
 use crate::data::{Concat, ConcatSettings, DataType, MapKind};
 
@@ -12,9 +11,11 @@ pub const CONCAT: MapKind = MapKind {
     from: &[DataType::String, DataType::String],
     to: DataType::String,
     create: || Box::new(Concat::new()),
-    form: |settings: &dyn Any| match settings.downcast_ref::<ConcatSettings>() {
-        Some(&settings) => rsx! { ConcatForm { settings } },
-        None => VNode::empty(),
+    form: |settings| {
+        form_of(
+            settings,
+            |settings: ConcatSettings| rsx! { ConcatForm { settings } },
+        )
     },
     presets: &[],
 };

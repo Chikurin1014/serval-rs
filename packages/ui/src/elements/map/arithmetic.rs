@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::LabelField;
+use super::form_of;
 use super::map_list::NUMBERS_LABELS_LIST_ID;
 use crate::{
     data::{Arithmetic, ArithmeticSettings, DataType, MapKind, Operation},
@@ -29,9 +28,11 @@ const fn arithmetic_kind(
         from: &[DataType::Number, DataType::Number],
         to: DataType::Number,
         create,
-        form: |settings: &dyn Any| match settings.downcast_ref::<ArithmeticSettings>() {
-            Some(&settings) => rsx! { ArithmeticForm { settings } },
-            None => VNode::empty(),
+        form: |settings| {
+            form_of(
+                settings,
+                |settings: ArithmeticSettings| rsx! { ArithmeticForm { settings } },
+            )
         },
         presets: &[],
     }

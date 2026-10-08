@@ -67,16 +67,22 @@ pub struct ArithmeticSettings {
 /// With two constants, the one result comes when they are set.
 pub struct Arithmetic {
     settings: ArithmeticSettings,
-    latest: Signal<Option<Conversion>>,
-    /// The operands and the output label, as taken in when turned on
+    /// The operands and output label, as taken in when turned on (trimmed):
+    /// `None` if one is not set
     taken: Option<[String; 3]>,
+    operands: Operands,
+    /// Why the last pair gave no result, shown until one does.
+    failure: Option<String>,
+}
+
+/// How far the operands are read.
+#[derive(Default)]
+struct Operands {
     /// The operands' labels, read as far as they were used
     first: Input<f64>,
     second: Input<f64>,
     /// The constants of the last result from two of them.
     last_constants: Option<(f64, f64)>,
-    /// Why the last pair gave no result, shown until one does.
-    failure: Option<String>,
 }
 
 /// Where an operand comes from.
@@ -119,15 +125,14 @@ impl Arithmetic {
                 to_label: Signal::new(String::new()),
                 error: Signal::new(None),
             },
-            latest: Signal::new(None),
             taken: None,
-            first: Input::default(),
-            second: Input::default(),
-            last_constants: None,
+            operands: Operands::default(),
             failure: None,
         }
     }
+}
 
+impl Operands {
     /// The pairs of numbers that give results now.
     fn pairs(&mut self, data: &DataContext, first: &Operand, second: &Operand) -> Vec<(f64, f64)> {
         if !matches!(
@@ -172,10 +177,6 @@ impl MapRunner for Arithmetic {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
     fn start(&mut self) {
         let ArithmeticSettings {
             first,
@@ -184,45 +185,39 @@ impl MapRunner for Arithmetic {
             mut error,
             ..
         } = self.settings;
-        let taken = [first, second, to_label].map(|text| text.peek().trim().to_string());
+        let texts = [first, second, to_label].map(|text| text.peek().trim().to_string());
+        let taken = (!texts.iter().any(String::is_empty)).then_some(texts);
         if keep_taken(&mut self.taken, taken) {
-            self.first.forget();
-            self.second.forget();
-            self.last_constants = None;
+            self.operands = Operands::default();
             self.failure = None;
         }
         set_if_changed(&mut error, None);
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
         let ArithmeticSettings {
             operation,
             mut error,
             ..
         } = self.settings;
-        let Some([first, second, to]) = self.taken.clone() else {
-            return;
-        };
-        let to = to.as_str();
-        if first.is_empty() || second.is_empty() || to.is_empty() {
-            return;
-        }
+        let [first, second, to] = self.taken.as_ref()?;
 
-        let operands = Operand::resolve(data, &first)
-            .and_then(|first| Ok((first, Operand::resolve(data, &second)?)));
+        // Resolved on each run: a label may come after the map is turned on
+        let operands = Operand::resolve(data, first)
+            .and_then(|first| Ok((first, Operand::resolve(data, second)?)));
         let (first, second) = match operands {
             Ok(operands) => operands,
             Err(message) => {
                 set_if_changed(&mut error, Some(message));
-                return;
+                return None;
             }
         };
-        if [&first, &second].contains(&&Operand::Label(to.to_string())) {
-            return;
+        if [&first, &second].contains(&&Operand::Label(to.clone())) {
+            return None;
         }
 
         let mut latest = None;
-        for (first_value, second_value) in self.pairs(data, &first, &second) {
+        for (first_value, second_value) in self.operands.pairs(data, &first, &second) {
             match operation.apply(first_value, second_value) {
                 Ok(result) => {
                     data.push(to, NumberData::new(timestamp, result));
@@ -233,14 +228,12 @@ impl MapRunner for Arithmetic {
             }
         }
         set_if_changed(&mut error, self.failure.clone());
-        if let Some((first_value, second_value, result)) = latest {
-            let conversion = Conversion {
-                from: vec![first.input(first_value), second.input(second_value)],
-                to_label: vec![Segment::fixed(to)],
-                to_value: vec![Segment::from_input(format_number(result))],
-            };
-            set_if_changed(&mut self.latest, Some(conversion));
-        }
+        let (first_value, second_value, result) = latest?;
+        Some(Conversion {
+            from: vec![first.input(first_value), second.input(second_value)],
+            to_label: vec![Segment::fixed(to)],
+            to_value: vec![Segment::from_input(format_number(result))],
+        })
     }
 }
 

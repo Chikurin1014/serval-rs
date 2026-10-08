@@ -4,8 +4,8 @@ use dioxus::prelude::*;
 use fancy_regex::{Captures, Regex};
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, compile_for_map, endpoints, format_number, keep_taken, trim_segments,
+    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, NumberData, Segment,
+    SourceCursor, StringData, compile_for_map, format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
@@ -54,13 +54,39 @@ pub struct RegexSettings {
 pub struct RegexMatch {
     output: RegexOutput,
     settings: RegexSettings,
-    latest: Signal<Option<Conversion>>,
     /// The input label, output label (a template), pattern and replacement,
     /// as taken in when turned on
-    taken: Option<[String; 4]>,
-    /// The pattern, compiled as the map was turned on
-    regex: Option<Regex>,
+    taken: [String; 4],
+    /// What they make ready to use, if they do
+    matching: Option<Matching>,
     cursor: SourceCursor,
+}
+
+/// What a map matching a pattern ([`RegexMatch`], `Replace`) takes in of its
+/// settings as it is turned on: its labels checked, its pattern compiled.
+pub(super) struct Matching {
+    pub(super) endpoints: Endpoints,
+    pub(super) regex: Regex,
+    pub(super) replacement: String,
+}
+
+impl Matching {
+    /// From `settings` (input label, output label, pattern, replacement), or
+    /// `None` if the labels are not set or not apart, or the pattern is empty
+    /// or does not compile (with why in `pattern_error`).
+    pub(super) fn new(
+        settings: &[String; 4],
+        pattern_error: &mut Signal<Option<String>>,
+    ) -> Option<Self> {
+        let [from, to, pattern, replacement] = settings;
+        // Compiled even with labels missing, to tell what is wrong with it
+        let regex = compile_for_map(pattern, pattern_error);
+        Some(Self {
+            endpoints: Endpoints::new(from, to)?,
+            regex: regex?,
+            replacement: replacement.clone(),
+        })
+    }
 }
 
 impl RegexMatch {
@@ -87,9 +113,8 @@ impl RegexMatch {
                 pattern_error: Signal::new(None),
                 replacement_error: Signal::new(None),
             },
-            latest: Signal::new(None),
-            taken: None,
-            regex: None,
+            taken: Default::default(),
+            matching: None,
             cursor: SourceCursor::default(),
         }
     }
@@ -98,10 +123,6 @@ impl RegexMatch {
 impl MapRunner for RegexMatch {
     fn settings(&self) -> &dyn Any {
         &self.settings
-    }
-
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
     }
 
     fn start(&mut self) {
@@ -113,43 +134,35 @@ impl MapRunner for RegexMatch {
             mut pattern_error,
             mut replacement_error,
         } = self.settings;
-        let taken = [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
+        let mut taken =
+            [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
         // One of only spaces matches next to nothing, so it is none
-        let pattern = if taken[2].trim().is_empty() {
-            String::new()
-        } else {
-            taken[2].clone()
-        };
+        if taken[2].trim().is_empty() {
+            taken[2].clear();
+        }
         if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
-            self.regex = compile_for_map(&pattern, &mut pattern_error);
+            self.matching = Matching::new(&self.taken, &mut pattern_error);
         }
         set_if_changed(&mut replacement_error, None);
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
         let RegexSettings {
             mut pattern_error,
             mut replacement_error,
             ..
         } = self.settings;
-        let (Some([from, to, _, replacement]), Some(regex)) = (&self.taken, &self.regex) else {
-            return;
-        };
         // `to` may use the pattern's groups (`$1`), so it is a template, not a label
-        let Some((from, to)) = endpoints(from, to) else {
-            return;
-        };
+        let Matching {
+            endpoints: Endpoints { from, to },
+            regex,
+            replacement,
+        } = self.matching.as_ref()?;
 
-        let Some(entries) = self
-            .cursor
-            .new_entries::<StringData>(data, from)
-            .map(|read| read.entries)
-        else {
-            return;
-        };
+        let entries = self.cursor.new_entries::<StringData>(data, from)?.entries;
         if entries.is_empty() {
-            return;
+            return None;
         }
 
         let mut error = None;
@@ -179,21 +192,20 @@ impl MapRunner for RegexMatch {
                 Err(message) => error = Some(message),
             }
         }
-        // Split into segments only for the one shown
-        if let Some((input, captures)) = latest {
-            let mut to_value = replacement_segments(&captures, replacement);
-            if self.output == RegexOutput::Number {
-                to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
-            }
-            let conversion = Conversion {
-                from: vec![ConversionInput::new(from, input)],
-                to_label: label_segments(&captures, to),
-                to_value,
-            };
-            set_if_changed(&mut self.latest, Some(conversion));
-        }
         set_if_changed(&mut pattern_error, failure);
         set_if_changed(&mut replacement_error, error);
+
+        // Split into segments only for the one shown
+        let (input, captures) = latest?;
+        let mut to_value = replacement_segments(&captures, replacement);
+        if self.output == RegexOutput::Number {
+            to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
+        }
+        Some(Conversion {
+            from: vec![ConversionInput::new(from, input)],
+            to_label: label_segments(&captures, to),
+            to_value,
+        })
     }
 }
 

@@ -16,7 +16,7 @@ pub use map::{
     InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Operation, RegexMatch,
     RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment,
 };
-pub(crate) use map::{Input, endpoints, keep_taken, take_newest_pair, trim_segments};
+pub(crate) use map::{Endpoints, Input, endpoints, keep_taken, take_newest_pair, trim_segments};
 pub(crate) use pattern::compile_for_map;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};

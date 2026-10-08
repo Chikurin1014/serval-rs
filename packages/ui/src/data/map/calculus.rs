@@ -3,10 +3,9 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    endpoints, format_number, keep_taken,
+    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, NumberData, Segment,
+    SourceCursor, format_number, keep_taken,
 };
-use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Calculus {
@@ -44,9 +43,8 @@ pub struct CalculusSettings {
 /// Differentiates or integrates a Number label over time, in seconds.
 pub struct CalculusMap {
     settings: CalculusSettings,
-    latest: Signal<Option<Conversion>>,
-    /// The input and output labels, as taken in when turned on
-    taken: Option<(String, String)>,
+    /// The labels, as taken in when turned on: `None` if not set or not apart
+    endpoints: Option<Endpoints>,
     cursor: SourceCursor,
     state: State,
 }
@@ -92,8 +90,7 @@ impl CalculusMap {
                 from_label: Signal::new(String::new()),
                 to_label: Signal::new(String::new()),
             },
-            latest: Signal::new(None),
-            taken: None,
+            endpoints: None,
             cursor: SourceCursor::default(),
             state: State::default(),
         }
@@ -105,37 +102,26 @@ impl MapRunner for CalculusMap {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
     fn start(&mut self) {
         let CalculusSettings {
             from_label,
             to_label,
             ..
         } = self.settings;
-        let taken = (from_label.peek().clone(), to_label.peek().clone());
-        if keep_taken(&mut self.taken, taken) {
+        let endpoints = Endpoints::new(&from_label.peek(), &to_label.peek());
+        if keep_taken(&mut self.endpoints, endpoints) {
             self.cursor.reset();
             self.state = State::default();
         }
     }
 
-    fn run(&mut self, data: &mut DataContext, _timestamp: i64) {
+    fn run(&mut self, data: &mut DataContext, _timestamp: i64) -> Option<Conversion> {
         let calculus = self.settings.calculus;
-        let Some((from, to)) = self
-            .taken
-            .as_ref()
-            .and_then(|(from, to)| endpoints(from, to))
-        else {
-            return;
-        };
-
+        let Endpoints { from, to } = self.endpoints.as_ref()?;
         let Some(read) = self.cursor.new_entries::<NumberData>(data, from) else {
             self.cursor.reset();
             self.state = State::default();
-            return;
+            return None;
         };
         if read.restarted {
             // The numbers start over, and so does what is made of them
@@ -151,14 +137,12 @@ impl MapRunner for CalculusMap {
                 latest = Some((value, result));
             }
         }
-        if let Some((value, result)) = latest {
-            let conversion = Conversion {
-                from: vec![ConversionInput::new(from, format_number(value))],
-                to_label: vec![Segment::fixed(to)],
-                to_value: vec![Segment::from_input(format_number(result))],
-            };
-            set_if_changed(&mut self.latest, Some(conversion));
-        }
+        let (value, result) = latest?;
+        Some(Conversion {
+            from: vec![ConversionInput::new(from, format_number(value))],
+            to_label: vec![Segment::fixed(to)],
+            to_value: vec![Segment::from_input(format_number(result))],
+        })
     }
 }
 

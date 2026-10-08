@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::{LabelField, TextField};
+use super::form_of;
 use super::map_list::STRINGS_LABELS_LIST_ID;
 use crate::data::{DataType, MapKind, Replace, ReplaceSettings};
 
@@ -12,9 +11,11 @@ pub const REPLACE: MapKind = MapKind {
     from: &[DataType::String],
     to: DataType::String,
     create: || Box::new(Replace::new()),
-    form: |settings: &dyn Any| match settings.downcast_ref::<ReplaceSettings>() {
-        Some(&settings) => rsx! { ReplaceForm { settings } },
-        None => VNode::empty(),
+    form: |settings| {
+        form_of(
+            settings,
+            |settings: ReplaceSettings| rsx! { ReplaceForm { settings } },
+        )
     },
     presets: &[],
 };

@@ -4,6 +4,7 @@ use dioxus_icons::lucide;
 use std::any::Any;
 
 use super::field::{LabelField, TextField};
+use super::form_of;
 use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::data::{
     DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings,
@@ -72,17 +73,17 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     ],
 };
 
-/// `output_list`: `datalist` id offered for the output label (defined in `MapList`).
+/// The settings form of a `Regex` kind, offering the labels in the
+/// `datalist` with id `output_list` (defined in `MapList`) for its output.
 fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
-    match settings.downcast_ref::<RegexSettings>() {
-        Some(&settings) => rsx! {
+    form_of(settings, |settings: RegexSettings| {
+        rsx! {
             RegexMatchForm {
                 settings,
                 output_list: output_list.to_string(),
             }
-        },
-        None => VNode::empty(),
-    }
+        }
+    })
 }
 
 /// Settings form of a `Regex` map.

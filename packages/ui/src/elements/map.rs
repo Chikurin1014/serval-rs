@@ -8,6 +8,10 @@ mod map_list;
 mod regex;
 mod replace;
 
+use std::any::Any;
+
+use dioxus::prelude::*;
+
 use crate::data::{Decode, InitialMap, MapKind, RAW_BYTES_LABEL, RegexMatch, RegexOutput};
 
 pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
@@ -20,6 +24,14 @@ pub use regex::{
     ANONYMOUS_LABEL, NAME_COLON_NUMBER, NUMBER_ONLY, REGEX_TO_NUMBER, REGEX_TO_STRING,
 };
 pub use replace::{REPLACE, ReplaceForm};
+
+/// A map's settings form for `MapKind::form`: `form` given `settings` as the
+/// kind's own type `S`, or nothing if they are of another kind.
+fn form_of<S: Copy + 'static>(settings: &dyn Any, form: impl FnOnce(S) -> Element) -> Element {
+    settings
+        .downcast_ref::<S>()
+        .map_or_else(VNode::empty, |&settings| form(settings))
+}
 
 /// The label the initial maps decode the raw bytes into, as text.
 pub const MESSAGE_LABEL: &str = "message";

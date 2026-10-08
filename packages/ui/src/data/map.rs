@@ -25,7 +25,7 @@ use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
 use crate::{
     data::{DataContext, DataType},
-    helper::make_owned,
+    helper::{make_owned, set_if_changed},
     time::TimeContext,
 };
 
@@ -36,7 +36,7 @@ pub(crate) use conversion::trim_segments;
 pub use conversion::{Conversion, ConversionInput, Segment};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};
-pub(crate) use input::{Input, endpoints, take_newest_pair};
+pub(crate) use input::{Endpoints, Input, endpoints, take_newest_pair};
 pub use regex::{RegexMatch, RegexOutput, RegexSettings};
 pub use replace::{Replace, ReplaceSettings};
 
@@ -49,24 +49,22 @@ pub trait MapRunner {
     /// What [`MapKind::form`] edits, typically a `Copy` struct of signals.
     fn settings(&self) -> &dyn Any;
 
-    /// The latest conversion, set by [`MapRunner::run`] (with
-    /// [`set_if_changed`](crate::helper::set_if_changed)) and shown in the map's card.
-    fn latest(&self) -> Signal<Option<Conversion>>;
-
     /// Takes in the settings, as the map is turned on: what
     /// [`MapRunner::run`] works with until it is next turned on (its form
     /// allows no edits while it is on). Read without subscribing (`peek`), and
-    /// checked, e.g. a pattern compiled, with errors shown in the form.
+    /// checked (labels set and apart, a pattern compiled), with errors shown in
+    /// the form: `run` gets them ready to use.
     ///
     /// If they differ from those taken in last time (see `keep_taken`),
     /// the input is read again from the start.
     fn start(&mut self);
 
     /// Processes new input data while the map is enabled, with the settings
-    /// [`MapRunner::start`] took in.
+    /// [`MapRunner::start`] took in; the latest conversion it made, if any,
+    /// shown in the map's card.
     ///
     /// Re-runs whenever the input data it reads (through `data`) changes.
-    fn run(&mut self, data: &mut DataContext, timestamp: i64);
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion>;
 }
 
 /// A kind of map that can be added from the map list.
@@ -193,10 +191,14 @@ impl MapContext {
         self.next_id.set(id + 1);
         // Owned by the map (dropped with it), not by whichever component
         // handled the event that added it
-        let ((runner, enabled, open), owner) = make_owned(self.scope, || {
-            (create(), Signal::new(enabled), Signal::new(open))
+        let ((runner, enabled, open, latest), owner) = make_owned(self.scope, || {
+            (
+                create(),
+                Signal::new(enabled),
+                Signal::new(open),
+                Signal::new(None),
+            )
         });
-        let latest = runner.latest();
         self.list.write().push(Map {
             id,
             kind,
@@ -281,9 +283,15 @@ fn MapTask(id: usize) -> Element {
         if !enabled {
             return;
         }
-        map.runner
+        let latest = map
+            .runner
             .borrow_mut()
             .run(&mut data_context, time_context.current());
+        // Kept while a run makes none, so the card goes on showing the last one
+        if let Some(conversion) = latest {
+            let mut shown = map.latest;
+            set_if_changed(&mut shown, Some(conversion));
+        }
     });
 
     rsx! {}
@@ -292,8 +300,8 @@ fn MapTask(id: usize) -> Element {
 /// Keeps `taken`, a map's settings as it is turned on (see
 /// [`MapRunner::start`]), in `kept`: whether they differ from those kept
 /// before, when the map is to read its input again from the start.
-pub(crate) fn keep_taken<S: PartialEq>(kept: &mut Option<S>, taken: S) -> bool {
-    let changed = kept.as_ref() != Some(&taken);
-    *kept = Some(taken);
+pub(crate) fn keep_taken<S: PartialEq>(kept: &mut S, taken: S) -> bool {
+    let changed = *kept != taken;
+    *kept = taken;
     changed
 }

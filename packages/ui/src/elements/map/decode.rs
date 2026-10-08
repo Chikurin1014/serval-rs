@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::{LabelField, TextField};
+use super::form_of;
 use super::map_list::{BYTES_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::data::{DataType, Decode, DecodeSettings, MapKind};
 
@@ -12,9 +11,11 @@ pub const DECODE: MapKind = MapKind {
     from: &[DataType::Bytes],
     to: DataType::String,
     create: || Box::new(Decode::new("", "")),
-    form: |settings: &dyn Any| match settings.downcast_ref::<DecodeSettings>() {
-        Some(&settings) => rsx! { DecodeForm { settings } },
-        None => VNode::empty(),
+    form: |settings| {
+        form_of(
+            settings,
+            |settings: DecodeSettings| rsx! { DecodeForm { settings } },
+        )
     },
     presets: &[],
 };

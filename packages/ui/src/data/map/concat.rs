@@ -6,7 +6,7 @@ use crate::data::{
     Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
     keep_taken, take_newest_pair,
 };
-use crate::helper::{set_if_changed, unescape};
+use crate::helper::unescape;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct ConcatSettings {
@@ -21,12 +21,21 @@ pub struct ConcatSettings {
 /// the newest of each, dropping any older ones that came in between.
 pub struct Concat {
     settings: ConcatSettings,
-    latest: Signal<Option<Conversion>>,
-    /// The two input labels, the output label and the separator (unescaped),
-    /// as taken in when turned on
-    taken: Option<[String; 4]>,
+    /// The settings, as taken in when turned on: `None` if a label is not set,
+    /// or an input is the output
+    taken: Option<Taken>,
     first: Input<String>,
     second: Input<String>,
+}
+
+/// What a [`Concat`] takes in of its settings: its labels checked, its
+/// separator unescaped.
+#[derive(PartialEq)]
+struct Taken {
+    first: String,
+    second: String,
+    to: String,
+    separator: String,
 }
 
 impl Concat {
@@ -38,7 +47,6 @@ impl Concat {
                 to_label: Signal::new(String::new()),
                 separator: Signal::new(String::new()),
             },
-            latest: Signal::new(None),
             taken: None,
             first: Input::default(),
             second: Input::default(),
@@ -57,10 +65,6 @@ impl MapRunner for Concat {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
     fn start(&mut self) {
         let ConcatSettings {
             first_label,
@@ -68,33 +72,32 @@ impl MapRunner for Concat {
             to_label,
             separator,
         } = self.settings;
-        let taken = [
-            first_label.peek().clone(),
-            second_label.peek().clone(),
-            to_label.peek().clone(),
-            unescape(&separator.peek()),
-        ];
+        let (first, second, to) = (first_label.peek(), second_label.peek(), to_label.peek());
+        let taken = match (endpoints(&first, &to), endpoints(&second, &to)) {
+            (Some((first, to)), Some((second, _))) => Some(Taken {
+                first: first.to_string(),
+                second: second.to_string(),
+                to: to.to_string(),
+                separator: unescape(&separator.peek()),
+            }),
+            _ => None,
+        };
         if keep_taken(&mut self.taken, taken) {
             self.first.forget();
             self.second.forget();
         }
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
-        let Some([first, second, to, separator]) = self.taken.as_ref() else {
-            return;
-        };
-        let (Some((first, to)), Some((second, _))) = (endpoints(first, to), endpoints(second, to))
-        else {
-            return;
-        };
-
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
+        let Taken {
+            first,
+            second,
+            to,
+            separator,
+        } = self.taken.as_ref()?;
         self.first.read_newest(data, first);
         self.second.read_newest(data, second);
-        let Some((first_value, second_value)) = take_newest_pair(&mut self.first, &mut self.second)
-        else {
-            return;
-        };
+        let (first_value, second_value) = take_newest_pair(&mut self.first, &mut self.second)?;
 
         let conversion = Conversion {
             from: vec![
@@ -105,8 +108,8 @@ impl MapRunner for Concat {
             to_value: concat_segments(&first_value, separator, &second_value),
         };
         let value = format!("{first_value}{separator}{second_value}");
-        set_if_changed(&mut self.latest, Some(conversion));
         data.push(to, StringData::new(timestamp, value));
+        Some(conversion)
     }
 }
 
