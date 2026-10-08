@@ -41,6 +41,17 @@ pub trait SerialBackend {
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
+
+    /// A file the user picks for a log, named with `extension`: a new one, or
+    /// with `append`, one to add to. `None` if they cancel.
+    fn open_log_file(
+        &self,
+        extension: &str,
+        append: bool,
+    ) -> LocalFuture<SerialResult<Option<Rc<dyn LogSink>>>> {
+        let _ = (extension, append);
+        Box::pin(async { Err("Saving a log is not supported here".to_string()) })
+    }
 }
 
 pub trait SerialPort {
@@ -173,13 +184,42 @@ impl SerialContext {
         log_format.set(Some(format));
     }
 
+    /// Asks for a file (see [`SerialBackend::open_log_file`]) and logs to it
+    /// in `format`. Call it as the user asks: browsers pick files only then.
+    pub fn open_log(&self, format: LogFormat, append: bool) {
+        let context = *self;
+        self.spawn(async move {
+            let backend = context.backend.cloned();
+            match backend.open_log_file(log::extension(format), append).await {
+                Ok(Some(sink)) => {
+                    context.start_log(format, sink);
+                    context.report(NotificationKind::Info, "Logging started", "");
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    context.report(NotificationKind::Error, "Failed to open the log", &error)
+                }
+            }
+        });
+    }
+
     /// Ends the log file, with its unfinished lines.
     pub fn stop_log(&self) {
         let (mut logger, mut log_format) = (self.logger, self.log_format);
-        if let Some(logger) = logger.write().take() {
-            logger.close();
-        }
+        let Some(logger) = logger.write().take() else {
+            return;
+        };
         log_format.set(None);
+        let closed = logger.close();
+        let context = *self;
+        self.spawn(async move {
+            match closed.await {
+                Ok(()) => context.report(NotificationKind::Info, "Logging stopped", ""),
+                Err(error) => {
+                    context.report(NotificationKind::Error, "Failed to save the log", &error)
+                }
+            }
+        });
     }
 
     /// The sends not yet sent, or sent in the last `OUTGOING_MS`, oldest first.

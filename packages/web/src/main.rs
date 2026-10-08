@@ -15,6 +15,7 @@ use ui::{
     views::Home,
 };
 
+mod log_file;
 mod serial;
 mod time;
 mod unsupported;

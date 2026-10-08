@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use super::{LocalFuture, SerialResult};
 use crate::{
     data::ByteData,
     helper::{AnsiStripper, Delimiter, decode_utf8, split_lines},
@@ -10,10 +11,20 @@ use crate::{
 
 /// Where a log's bytes go as they are made: a file, by the platform.
 pub trait LogSink {
+    /// In order after the earlier writes; a failure shows when it closes.
     fn write(&self, bytes: Vec<u8>);
 
-    /// The log has ended: nothing more is written.
-    fn close(&self);
+    /// After the writes: nothing more is written. Fails if any write did.
+    fn close(&self) -> LocalFuture<SerialResult<()>>;
+}
+
+/// What a log file in `format` is named with.
+pub fn extension(format: LogFormat) -> &'static str {
+    match format {
+        LogFormat::Raw => "bin",
+        LogFormat::Text { .. } => "log",
+        LogFormat::Hex { .. } => "tsv",
+    }
 }
 
 /// A log being written: what the port receives and sends, to its sink.
@@ -45,10 +56,10 @@ impl Logger {
     }
 
     /// Writes the unfinished lines, then closes the sink.
-    pub(crate) fn close(mut self) {
+    pub(crate) fn close(mut self) -> LocalFuture<SerialResult<()>> {
         let rest = self.serializer.finish();
         self.write(rest);
-        self.sink.close();
+        self.sink.close()
     }
 
     fn write(&self, bytes: Vec<u8>) {
@@ -266,8 +277,9 @@ pub(crate) mod tests {
             self.writes.borrow_mut().push(bytes);
         }
 
-        fn close(&self) {
+        fn close(&self) -> LocalFuture<SerialResult<()>> {
             *self.closed.borrow_mut() = true;
+            Box::pin(async { Ok(()) })
         }
     }
 
@@ -312,7 +324,7 @@ pub(crate) mod tests {
         );
         logger.received(&[ByteData::new(1, b"login: ".to_vec())]);
         assert!(!*sink.closed.borrow());
-        logger.close();
+        drop(logger.close());
         assert_eq!(sink.text(), "login: \n");
         assert!(*sink.closed.borrow());
     }
