@@ -2,13 +2,24 @@ import re
 
 from app import App
 
-WHOLE_STREAM = re.compile(r"(temp:[\d.]+\nvolt:[\d.]+\n)*")
+CHUNK = r"temp:[\d.]+\nvolt:[\d.]+\n"
+WHOLE_STREAM = re.compile(f"({CHUNK})*")
 
 
 def assert_whole_stream(text: str):
     assert WHOLE_STREAM.fullmatch(text)
-    chunks = re.findall(r"temp:[\d.]+\nvolt:[\d.]+\n", text)
+    chunks = re.findall(CHUNK, text)
     assert all(a != b for a, b in zip(chunks, chunks[1:]))
+
+
+def wait_for_full_scrollback(app: App):
+    app.page.wait_for_function(
+        """() => {
+            const term = document.querySelector('.console-output').xterm;
+            return term.buffer.active.length >= term.options.scrollback + term.rows;
+        }""",
+        timeout=30000,
+    )
 
 
 def test_shows_the_received_text_as_it_arrives(app: App):
@@ -39,47 +50,68 @@ def test_starts_over_after_clearing_all_data(app: App):
 
 
 def test_keeps_its_text_when_it_renders_again(app: App):
-    """Rendering again (typing in the send field) does not start the output over."""
+    """Rendering again (the port closed and opened) does not reset the terminal."""
     app.open_port()
-    app.mock("burst(12000)")
-    app.wait_for_console_lines(more_than=24000)
-    start = app.console_text()[:100]
-    app.page.get_by_placeholder("Type text to send to the active port").fill("led on")
+    app.wait_for_console_text()
+    app.page.evaluate(
+        """() => {
+            const term = document.querySelector('.console-output').xterm;
+            const reset = term.reset.bind(term);
+            window.consoleResets = 0;
+            term.reset = () => { window.consoleResets++; reset(); };
+        }"""
+    )
+    start = app.console_text()[:40]
+
+    app.page.get_by_role("button", name="Close port").click()
+    app.page.get_by_role("button", name="Open port").click()
+    app.send_text("led on")
     app.page.wait_for_timeout(500)
-    text = app.console_text()
-    assert text.startswith(start)
-    assert_whole_stream(text)
+
+    assert app.page.evaluate("window.consoleResets") == 0
+    assert app.console_text().startswith(start)
 
 
-def test_keeps_up_past_the_data_limit(app: App):
-    """Dropping the oldest raw data is not taken for a clear."""
+def test_keeps_the_newest_lines_past_its_scrollback(app: App):
     app.open_port()
     app.mock("burst(12000)")
-    app.wait_for_console_lines(more_than=24000)
+    wait_for_full_scrollback(app)
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
+    app.page.wait_for_timeout(500)
 
     text = app.console_text()
-    assert WHOLE_STREAM.fullmatch(text)
-    chunks = text.count("temp:")
-    assert chunks == app.mock("sent")
+    # The oldest lines dropped, the first kept may be either reading
+    assert_whole_stream(re.sub(r"^volt:[\d.]+\n", "", text))
+    lines = app.page.evaluate(
+        """() => {
+            const term = document.querySelector('.console-output').xterm;
+            return [term.buffer.active.length, term.options.scrollback, term.rows];
+        }"""
+    )
+    assert lines[0] == lines[1] + lines[2]
 
 
 def test_stops_scrolling_while_the_user_reads_back(app: App):
-    output = app.page.locator(".console-output")
+    viewport = """() => {
+        const buffer = document.querySelector('.console-output').xterm.buffer.active;
+        return [buffer.viewportY, buffer.baseY];
+    }"""
     app.open_port()
     app.mock("burst(200)")
     app.page.wait_for_function(
-        "() => { const o = document.querySelector('.console-output');"
-        " return o.scrollTop > 0 && o.scrollHeight - o.scrollTop - o.clientHeight < 16; }"
+        f"() => {{ const [y, base] = ({viewport})(); return base > 0 && y === base; }}"
     )
 
-    output.evaluate("o => { o.scrollTop = 0; }")
+    term = "document.querySelector('.console-output').xterm"
+    app.page.evaluate(f"() => {term}.scrollLines(-20)")
+    held, _ = app.page.evaluate(viewport)
     app.page.wait_for_timeout(500)
-    assert output.evaluate("o => o.scrollTop") == 0
+    y, base = app.page.evaluate(viewport)
+    assert y == held < base
 
-    output.evaluate("o => { o.scrollTop = o.scrollHeight; }")
-    before = output.evaluate("o => o.scrollTop")
+    app.page.evaluate(f"() => {term}.scrollToBottom()")
     app.page.wait_for_function(
-        f"() => document.querySelector('.console-output').scrollTop > {before}"
+        f"base => {{ const [y, now] = ({viewport})(); return now > base && y === now; }}",
+        arg=base,
     )

@@ -1,66 +1,85 @@
-// Appends the text `PortIoConsole` receives to a text node of its own.
-// From Rust: `[reset, text]`, then `null` on unmount.
+// The console: an xterm.js terminal.
+// From Rust: the container id, then `[reset, bytes]`, then `null` on unmount.
+// To Rust: what is typed, to send.
 
-// As Arduino IDE 2's serial monitor
-const MAX_CONSOLE_TEXT = 1000000;
+const id = await dioxus.recv();
+const container = document.getElementById(id);
+if (!container) {
+  return;
+}
 
-const node = document.createTextNode("");
-let frame = 0;
-// Follows new text only while at the bottom; checked on scrolling, as reading
-// the height lays out all the text
-let following = true;
-let watched = null;
-let lastTop = 0;
-const onScroll = () => {
-  const top = watched.scrollTop;
-  if (top < lastTop) {
-    following = false;
-  } else if (top > lastTop) {
-    following = isAtBottom(
-      top,
-      watched.scrollHeight,
-      watched.clientHeight,
-      watched.clientHeight / 4,
-    );
-  }
-  lastTop = top;
+// Their <script> tags may not have run yet
+while (!window.Terminal || !window.FitAddon || !window.WebglAddon) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+
+const probe = document.createElement("span");
+probe.style.display = "none";
+container.appendChild(probe);
+function cssColor(name) {
+  probe.style.color = `var(${name})`;
+  return getComputedStyle(probe).color;
+}
+const theme = () => ({
+  background: cssColor("--dc-screen"),
+  foreground: cssColor("--dc-screen-text"),
+  cursor: cssColor("--dc-screen-text"),
+});
+
+const term = new Terminal({
+  // A lone LF starts a new line too
+  convertEol: true,
+  cursorBlink: true,
+  // Named fonts: the WebGL renderer does not know `ui-monospace`
+  fontFamily:
+    'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace',
+  fontSize: 14,
+  theme: theme(),
+});
+const fit = new FitAddon.FitAddon();
+term.loadAddon(fit);
+term.open(container);
+try {
+  const webgl = new WebglAddon.WebglAddon();
+  webgl.onContextLoss(() => webgl.dispose());
+  term.loadAddon(webgl);
+} catch {
+  // The DOM renderer then
+}
+fit.fit();
+// For tests
+container.xterm = term;
+
+const resize = new ResizeObserver(() => fit.fit());
+resize.observe(container);
+const updateTheme = () => {
+  term.options.theme = theme();
 };
+const themeObserver = new MutationObserver(updateTheme);
+themeObserver.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-theme"],
+});
+const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+systemTheme.addEventListener("change", updateTheme);
+
+term.onData((data) => dioxus.send(data));
 
 while (true) {
   const message = await dioxus.recv();
   if (message === null) {
     break;
   }
-  const [reset, text] = message;
-
-  const output = document.querySelector("[data-port-io-console]");
-  if (!output) {
-    continue;
-  }
-  if (node.parentNode !== output) {
-    output.replaceChildren(node);
-    watched?.removeEventListener("scroll", onScroll);
-    watched = output;
-    watched.addEventListener("scroll", onScroll);
-  }
+  const [reset, bytes] = message;
   if (reset) {
-    node.data = "";
-    following = true;
-    lastTop = 0;
+    term.reset();
   }
-  appendOutput(node, text, MAX_CONSOLE_TEXT);
-
-  // At most once a frame
-  if (following && !frame) {
-    frame = requestAnimationFrame(() => {
-      frame = 0;
-      if (following) {
-        output.scrollTop = output.scrollHeight;
-        lastTop = output.scrollTop;
-      }
-    });
+  if (bytes.length > 0) {
+    term.write(new Uint8Array(bytes));
   }
 }
 
-cancelAnimationFrame(frame);
-watched?.removeEventListener("scroll", onScroll);
+resize.disconnect();
+themeObserver.disconnect();
+systemTheme.removeEventListener("change", updateTheme);
+term.dispose();

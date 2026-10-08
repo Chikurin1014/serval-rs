@@ -162,7 +162,10 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     warnings = [
         message.text
         for message in app.console[start:]
-        if message.type in ("warning", "error") and "/_dioxus" not in message.text
+        if message.type in ("warning", "error")
+        and "/_dioxus" not in message.text
+        # The headless browser's GPU driver, under the console's WebGL renderer
+        and "GL Driver Message" not in message.text
     ]
     assert warnings == []
 

@@ -4,77 +4,15 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: ui-monospace, monospace;
 }
 
+/* xterm.js fits the terminal to this box (`FitAddon`) */
 .console-output {
   flex: 1 1 auto;
   min-height: 0;
   box-sizing: border-box;
   width: 100%;
-  margin: 0;
-  overflow: auto;
-  padding: 1rem;
+  padding: 0.5rem;
   border: 1px solid var(--dc-border);
-  border-bottom: none;
   background: var(--dc-screen);
-  color: var(--dc-screen-text);
-  font-size: 0.875rem;
-  white-space: pre-wrap;
-}
-
-.console-send {
-  display: flex;
-  flex: 0 0 auto;
-  width: 100%;
-}
-
-.console-send-field input,
-.console-send-field input:hover:not(:disabled),
-.console-send-field input:focus-visible {
-  font-size: 0.875rem;
-}
-
-.console-send button.console-send-button {
-  background-color: var(--secondary-success-color);
-}
-
-.console-send button.console-send-button:not(:disabled):hover {
-  background-color: color-mix(
-    in oklab,
-    var(--secondary-success-color) 90%,
-    transparent
-  );
-}
-
-.console-send .console-format {
-  flex: 0 0 auto;
-}
-
-.console-send button.console-format-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  height: 2rem;
-  padding: 0 0.5rem 0 0.5rem;
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
-}
-
-.console-send button.console-format-trigger > svg {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
-.console-send .console-format-menu {
-  top: auto;
-  bottom: 100%;
-  min-width: 100%;
-  margin-top: 0;
-  margin-bottom: 4px;
-}
-
-.console-format-menu [role="option"] {
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
 }
