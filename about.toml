@@ -1,8 +1,3 @@
-# What `cargo about` lists in `packages/web/public/third-party-licenses.html`:
-# the crates compiled into the web app, by the licenses we accept for them
-# (in order of preference, for crates offering a choice). The page also lists
-# what is bundled without being a crate, written in `about.hbs`.
-#
 # Regenerate after changing dependencies (in `nix develop`):
 #   cargo about generate --manifest-path packages/web/Cargo.toml about.hbs \
 #     -o packages/web/public/third-party-licenses.html
@@ -10,11 +5,9 @@ accepted = ["MIT", "Apache-2.0", "Unicode-3.0", "Zlib", "ISC", "CC0-1.0"]
 targets = ["wasm32-unknown-unknown"]
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
-# Serval's own crates (`publish = false`)
 private = { ignore = true }
 
-# dioxus-icons: the license of its Lucide icons comes with it, as
-# `LICENSE-LUCIDE`, which `cargo about` does not pick up by itself
+# `cargo about` does not pick up `LICENSE-LUCIDE` by itself
 [dioxus-icons.clarify]
 license = "MIT AND ISC"
 

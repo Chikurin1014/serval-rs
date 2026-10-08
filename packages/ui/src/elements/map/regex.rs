@@ -4,13 +4,13 @@ use dioxus_icons::lucide;
 use std::any::Any;
 
 use super::field::{LabelField, TextField};
+use super::form_of;
 use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::data::{
     DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings,
 };
 
-/// A preset whose `pattern` matches a name (`$1`, the output label) and a
-/// value (`$2`), or with the output label and value given.
+/// A preset whose `pattern` gives the label as `$1` and the value as `$2`.
 macro_rules! preset {
     ($name:literal, $output:ident, $pattern:expr) => {
         preset!($name, $output, $pattern, "$1", "$2")
@@ -32,11 +32,9 @@ macro_rules! preset {
     };
 }
 
-/// A value with no label: a number at the start of the line, e.g. `20.5`.
-/// The presets use the aliases (see `crate::data::PATTERN_ALIASES`).
+/// A number with no label, e.g. `20.5`.
 pub const NUMBER_ONLY: &str = "^{number}";
 
-/// The output label of the initial map reading the values with no label.
 pub const ANONYMOUS_LABEL: &str = "anonymous data";
 
 /// `name: value` with a number value, e.g. `temp: 20.5`.
@@ -47,11 +45,9 @@ pub const REGEX_TO_STRING: MapKind = MapKind {
     from: &[DataType::String],
     to: DataType::String,
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
-    // Offer the existing labels of the result's type as outputs
     form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
     presets: &[
         preset!("name: value", String, "({word}): (.+)"),
-        // As the Arduino IDE's serial plotter reads them
         preset!("Arduino", String, "({word}):(.+)"),
     ],
 };
@@ -63,29 +59,25 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     create: || Box::new(RegexMatch::new(RegexOutput::Number)),
     form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
     presets: &[
-        // The output label is left to be set, as there is no name to take it from
+        // No name to take the output label from
         preset!("value", Number, NUMBER_ONLY, "", "$0"),
         preset!("name: value", Number, NAME_COLON_NUMBER),
-        // As the Arduino IDE's serial plotter reads them
         preset!("Arduino", Number, "({word}):({number})"),
         preset!("Teleplot", Number, ">({word}):({number})"),
     ],
 };
 
-/// `output_list`: `datalist` id offered for the output label (defined in `MapList`).
 fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
-    match settings.downcast_ref::<RegexSettings>() {
-        Some(&settings) => rsx! {
+    form_of(settings, |settings: RegexSettings| {
+        rsx! {
             RegexMatchForm {
                 settings,
                 output_list: output_list.to_string(),
             }
-        },
-        None => VNode::empty(),
-    }
+        }
+    })
 }
 
-/// Settings form of a `Regex` map.
 #[component]
 pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
     let RegexSettings {
@@ -137,7 +129,6 @@ mod tests {
 
     use super::{REGEX_TO_NUMBER, REGEX_TO_STRING};
 
-    /// What `preset`'s pattern makes of `input`: its `$1` and `$2`.
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
         let captures = compile_pattern(preset.detail)
@@ -205,7 +196,6 @@ mod tests {
             name_value(kind, "Arduino", "mode:auto"),
             pair("mode", "auto")
         );
-        // The name is a word: what comes before it is not part of it
         assert_eq!(
             name_value(kind, "name: value", "[log] led: on"),
             pair("led", "on")

@@ -8,6 +8,10 @@ mod map_list;
 mod regex;
 mod replace;
 
+use std::any::Any;
+
+use dioxus::prelude::*;
+
 use crate::data::{Decode, InitialMap, MapKind, RAW_BYTES_LABEL, RegexMatch, RegexOutput};
 
 pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
@@ -21,10 +25,15 @@ pub use regex::{
 };
 pub use replace::{REPLACE, ReplaceForm};
 
-/// The label the initial maps decode the raw bytes into, as text.
+/// For `MapKind::form`: `form` given `settings` downcast to `S`.
+fn form_of<S: Copy + 'static>(settings: &dyn Any, form: impl FnOnce(S) -> Element) -> Element {
+    settings
+        .downcast_ref::<S>()
+        .map_or_else(VNode::empty, |&settings| form(settings))
+}
+
 pub const MESSAGE_LABEL: &str = "message";
 
-/// The built-in kinds, for `MapProvider`'s `kinds`.
 pub fn builtin_map_kinds() -> Vec<MapKind> {
     vec![
         DECODE,
@@ -42,9 +51,7 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
     ]
 }
 
-/// For `MapProvider`'s `initial`: decodes the raw serial bytes into lines,
-/// so there is text to work with from the start, and reads the numbers with
-/// no label and the `name: value` ones from them (as the `Regex` presets).
+/// Decodes the raw bytes into lines, and reads numbers from them.
 pub fn initial_maps() -> Vec<InitialMap> {
     vec![
         InitialMap {

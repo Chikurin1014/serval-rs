@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::LabelField;
+use super::form_of;
 use super::map_list::NUMBERS_LABELS_LIST_ID;
 use crate::{
     data::{Calculus, CalculusMap, CalculusSettings, DataType, MapKind, MapRunner},
@@ -23,16 +22,16 @@ const fn calculus_kind(name: &'static str, create: fn() -> Box<dyn MapRunner>) -
         from: &[DataType::Number],
         to: DataType::Number,
         create,
-        form: |settings: &dyn Any| match settings.downcast_ref::<CalculusSettings>() {
-            Some(&settings) => rsx! { CalculusForm { settings } },
-            None => VNode::empty(),
+        form: |settings| {
+            form_of(
+                settings,
+                |settings: CalculusSettings| rsx! { CalculusForm { settings } },
+            )
         },
         presets: &[],
     }
 }
 
-/// Settings form of a `CalculusMap`: its formula over the form, as
-/// `Arithmetic`'s, then the input `f(t)` and the output.
 #[component]
 pub fn CalculusForm(settings: CalculusSettings) -> Element {
     let CalculusSettings {

@@ -1,24 +1,17 @@
-// Web Serial calls for `serial.rs`, imported through wasm-bindgen.
-//
-// Functions taking `serial` default to `navigator.serial`; tests pass a fake.
+// Web Serial calls for `serial.rs`; tests pass a fake `serial`.
 
-/** Whether this browser has Web Serial (Chromium-based ones on desktop, on an
- * HTTPS page or `localhost`). */
 export function isSupported(nav = navigator) {
   return "serial" in nav;
 }
 
-/** Ports this page was granted access to before. */
 export async function getPorts(serial = navigator.serial) {
   return [...(await serial.getPorts())];
 }
 
-/** Asks the user to pick a port, granting access to it. */
 export function requestPort(serial = navigator.serial) {
   return serial.requestPort();
 }
 
-/** Opens the port with every setting given, so none is left to a default. */
 export function openPort(
   port,
   baudRate,
@@ -30,13 +23,9 @@ export function openPort(
   return port.open({ baudRate, dataBits, stopBits, parity, flowControl });
 }
 
-// The reader `readLoop` holds on each port, and when it is released
 const reading = new WeakMap();
 
-/**
- * Closes the port, stopping `readLoop` on it first: a port does not close
- * while its stream is locked to a reader.
- */
+/** Stops `readLoop` first: a port does not close while its stream is locked. */
 export async function closePort(port) {
   const active = reading.get(port);
   if (active) {
@@ -46,12 +35,10 @@ export async function closePort(port) {
   await port.close();
 }
 
-/** USB vendor id of the port, or `undefined` if it has none (e.g. not USB). */
 export function usbVendorId(port) {
   return u16(port.getInfo?.()?.usbVendorId);
 }
 
-/** USB product id of the port, or `undefined` if it has none (e.g. not USB). */
 export function usbProductId(port) {
   return u16(port.getInfo?.()?.usbProductId);
 }
@@ -62,10 +49,6 @@ function u16(value) {
     : undefined;
 }
 
-/**
- * Passes each chunk read from the port to `onChunk` until the stream ends
- * (e.g. the port is closed), then releases the reader.
- */
 export async function readLoop(port, onChunk) {
   const reader = port.readable.getReader();
   let release;
@@ -88,7 +71,6 @@ export async function readLoop(port, onChunk) {
   }
 }
 
-/** Writes `bytes` (a `Uint8Array`) to the port, then releases the writer. */
 export async function writePort(port, bytes) {
   const writer = port.writable.getWriter();
   try {

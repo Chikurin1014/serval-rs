@@ -7,7 +7,6 @@ TITLE = "This browser cannot open serial ports"
 
 def test_says_when_the_browser_has_no_web_serial(browser: Browser, base_url: str):
     page = browser.new_page(viewport={"width": 1280, "height": 800})
-    # As in Firefox or Safari
     page.add_init_script("delete Navigator.prototype.serial")
     app = App(page)
     page.goto(base_url)
@@ -22,7 +21,6 @@ def test_says_when_the_browser_has_no_web_serial(browser: Browser, base_url: str
     expect(link).to_have_attribute("target", "_blank")
     dialog.get_by_role("button", name="Close").click()
     expect(dialog).to_be_hidden()
-    # The app can still be looked around
     expect(page.locator(".toolbar-tabs")).to_be_visible()
     page.close()
     assert app.errors == [], "uncaught errors in the page"

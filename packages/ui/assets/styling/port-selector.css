@@ -26,7 +26,6 @@
   }
 }
 
-/* Match the height of the neighbouring small buttons */
 .port-selector button.port-selector-trigger {
   display: inline-flex;
   align-items: center;

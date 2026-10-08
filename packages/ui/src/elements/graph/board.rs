@@ -14,22 +14,17 @@ use crate::{
 
 const GRAPH_BOARD_CSS: Asset = asset!("/assets/styling/graph-board.css");
 
-/// A graph being dragged to another place on the board, and the graph it is
-/// over (where it would land), for `GraphFrame`.
+/// The graph being dragged, and the one it is over.
 #[derive(Clone, Copy)]
 pub(super) struct GraphDrag {
     pub dragging: Signal<Option<usize>>,
     pub target: Signal<Option<usize>>,
 }
 
-/// The graphs in `GraphContext`, with the data list in a sidebar on the left.
-///
-/// The sidebar is the dx `Sidebar`, kept inside the board by `graph-board.css`
-/// (it is made for the page edge). Below 768px wide it opens as a sheet instead.
+/// The graphs, with the data list in a sidebar.
 #[component]
 pub fn GraphBoard() -> Element {
     let context = use_context::<GraphContext>();
-    // Graphs compare by id and property; each graph view reads its own property
     let graphs = use_memo(move || context.list());
     let kinds = context.kinds();
     let columns = columns(graphs.read().len());
@@ -77,8 +72,6 @@ pub fn GraphBoard() -> Element {
     }
 }
 
-/// Columns of the graph grid: one graph alone, up to four in two columns,
-/// more in three (see `graph-board.css`).
 fn columns(graphs: usize) -> usize {
     match graphs {
         0 | 1 => 1,
@@ -98,8 +91,6 @@ mod tests {
     }
 }
 
-/// A menu for each kind of graph, opening on hover as the maps' do, of the
-/// presets it can be added with.
 #[component]
 fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
     let mut context = use_context::<GraphContext>();

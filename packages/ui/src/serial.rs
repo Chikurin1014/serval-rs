@@ -1,10 +1,5 @@
-//! Serial ports, through the platform's [`SerialBackend`].
-//!
-//! [`SerialContext`] keeps the ports and which one is open, and pushes what
-//! the open port receives to `RAW_BYTES_LABEL` in `DataContext`, chunk by chunk.
-//!
-//! It reports how connecting goes, and what fails, in toasts and in a log,
-//! and counts the bytes received and sent.
+//! Serial ports, through the platform's [`SerialBackend`]. What the open port
+//! receives goes to `RAW_BYTES_LABEL`.
 
 use std::{collections::VecDeque, future::Future, pin::Pin, rc::Rc};
 
@@ -13,57 +8,49 @@ use dioxus::{
     prelude::*,
 };
 
+mod received;
+
+use received::{GATHER_MS, Gathered, Received};
+
 use crate::{
-    data::{ByteData, DataContext, RAW_BYTES_LABEL},
+    data::{ByteData, DataContext},
     time::TimeContext,
     toast::{Toaster, use_toaster},
 };
 
-/// A future run on the UI thread, as platform serial APIs are not `Send`.
+/// Not `Send`, as platform serial APIs are not.
 pub type LocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
-/// What a platform failed to do, as a message.
 pub type SerialResult<T> = Result<T, String>;
 
-// What ports are opened with besides the baudrate (see [`SerialPort::open`])
 pub const DATA_BITS: u8 = 8;
 pub const PARITY: &str = "none";
 pub const STOP_BITS: u8 = 1;
 pub const FLOW_CONTROL: &str = "none";
 
-/// Past this, the oldest log entries are dropped.
 const MAX_LOG_ENTRIES: usize = 100;
 
-/// Where a platform's serial ports come from.
 pub trait SerialBackend {
-    /// Asks the user to grant a port; `None` if they chose none.
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
 
-    /// The ports granted before.
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
 }
 
-/// One port of a [`SerialBackend`].
 pub trait SerialPort {
     fn info(&self) -> PortInfo;
 
-    /// Opens at `baudrate`, with [`DATA_BITS`] data bits, [`PARITY`] parity,
-    /// [`STOP_BITS`] stop bit and [`FLOW_CONTROL`] flow control.
     fn open(&self, baudrate: u32) -> LocalFuture<SerialResult<()>>;
 
-    /// Passes each chunk received to `on_chunk`, until the port is closed or
-    /// lost.
+    /// Passes each chunk to `on_chunk` until the port is closed or lost.
     fn read(&self, on_chunk: Box<dyn FnMut(Vec<u8>)>) -> LocalFuture<SerialResult<()>>;
 
     fn write(&self, bytes: Vec<u8>) -> LocalFuture<SerialResult<()>>;
 
-    /// Closes the port, ending [`SerialPort::read`].
     fn close(&self) -> LocalFuture<SerialResult<()>>;
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortInfo {
-    /// To tell the port apart by, e.g. its product's name.
     pub name: String,
     pub vendor: Option<String>,
     pub product: Option<String>,
@@ -76,7 +63,6 @@ pub enum LogKind {
     Error,
 }
 
-/// Something that happened with the ports, as shown in a toast.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LogEntry {
     pub time_ms: i64,
@@ -108,14 +94,11 @@ pub struct SerialContext {
     ports: Signal<Vec<Port>>,
     next_id: CopyValue<usize>,
     selected: Signal<Option<usize>>,
-    /// The port open now; it stays selected while open.
     open: Signal<Option<usize>>,
-    /// Since the port was opened last.
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
     log: Signal<VecDeque<LogEntry>>,
-    /// The provider's scope, which runs the port's tasks, so they outlive
-    /// whichever component started them.
+    /// Runs the port's tasks, so they outlive the component that started them.
     scope: ScopeId,
 }
 
@@ -133,22 +116,18 @@ impl SerialContext {
         self.open.read().is_some()
     }
 
-    /// Bytes received since the port was opened last.
     pub fn rx_bytes(&self) -> u64 {
         (self.rx_bytes)()
     }
 
-    /// Bytes sent since the port was opened last.
     pub fn tx_bytes(&self) -> u64 {
         (self.tx_bytes)()
     }
 
-    /// What happened with the ports, newest first.
     pub fn log(&self) -> Vec<LogEntry> {
         self.log.read().iter().rev().cloned().collect()
     }
 
-    /// Selects the port `id`, unless a port is open.
     pub fn select(&self, id: usize) {
         if !self.is_open() {
             let mut selected = self.selected;
@@ -167,7 +146,6 @@ impl SerialContext {
         }
     }
 
-    /// Asks the user for a port and adds it, selected unless a port is open.
     pub fn request_port(&self) {
         let context = *self;
         self.spawn(async move {
@@ -183,8 +161,6 @@ impl SerialContext {
         });
     }
 
-    /// Closes the open port, then lists the ports granted before, selecting
-    /// the first one.
     pub fn refresh_ports(&self) {
         let context = *self;
         self.spawn(async move {
@@ -210,7 +186,6 @@ impl SerialContext {
         });
     }
 
-    /// Opens the selected port at its baudrate, and starts receiving.
     pub fn open(&self) {
         if self.is_open() {
             return;
@@ -238,16 +213,24 @@ impl SerialContext {
                 &format!("{} at {baudrate} bps", port.info.name),
             );
 
-            let mut data = context.data;
             let time = context.time;
+            let received = Received::new(context.data, rx_bytes);
             let on_chunk = Box::new(move |chunk: Vec<u8>| {
-                *rx_bytes.write() += chunk.len() as u64;
-                // Straight into the data, so no chunk waits for (or is lost
-                // before) a render
-                data.push(RAW_BYTES_LABEL, ByteData::new(time.read().current(), chunk));
+                let chunk = ByteData::new(time.read().current(), chunk);
+                match received.gather(chunk) {
+                    Gathered::First => {
+                        let received = received.clone();
+                        let wait = time.read().after_ms(GATHER_MS);
+                        context.spawn(async move {
+                            wait.await;
+                            received.flush();
+                        });
+                    }
+                    Gathered::Full => received.flush(),
+                    Gathered::More => {}
+                }
             });
             let read = port.handle.read(on_chunk).await;
-            // Closed, or lost (e.g. unplugged)
             if *open.peek() == Some(port.id) {
                 open.set(None);
                 if let Err(error) = read {
@@ -264,7 +247,6 @@ impl SerialContext {
         });
     }
 
-    /// Writes `bytes` to the open port.
     pub fn send(&self, bytes: Vec<u8>) {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
             return;
@@ -282,7 +264,7 @@ impl SerialContext {
         });
     }
 
-    /// Closes the open port, if any; `false` if it failed to, and is still open.
+    /// `false` if it failed to close.
     async fn close_port(&self) -> bool {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
             return true;
@@ -297,8 +279,7 @@ impl SerialContext {
         true
     }
 
-    /// Shows `title` in a toast, and logs it (every time, while the toast
-    /// holds back repeats).
+    /// Shows `title` in a toast and logs it.
     fn report(&self, kind: LogKind, title: &str, detail: &str) {
         match kind {
             LogKind::Success => self.toaster.success(title, detail),
@@ -341,10 +322,7 @@ impl SerialContext {
     }
 }
 
-/// Provides [`SerialContext`] with the platform's `backend`.
-///
-/// Requires `DataContext`, `TimeContext` and `ToastProvider` to be provided by
-/// an ancestor.
+/// Requires `DataContext`, `TimeContext` and `ToastProvider`.
 pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> SerialContext {
     let data = use_context::<DataContext>();
     let time = use_context::<TimeContext>();

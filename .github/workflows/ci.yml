@@ -7,10 +7,8 @@ on:
 
 permissions:
   contents: read
-  # To delete the caches a newer one replaces
   actions: write
 
-# A newer push to the same branch or pull request makes the older run moot
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,21 +23,14 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
 
-      # The Nix store, with the Rust dependencies built apart from the crates
-      # (see `buildDepsOnly` in flake-parts/serval.nix): they are only built
-      # again when what they depend on changes
       - uses: nix-community/cache-nix-action@v7
         with:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
-          # Only the newest cache is of use
           purge: true
           purge-prefixes: nix-${{ runner.os }}-
           purge-created: 0
           purge-primary-key: never
 
-      # The Rust and JavaScript unit tests, clippy, and the end-to-end tests
-      # against a release build of the web app (see `checks` in
-      # flake-parts/serval.nix)
       - name: Run the checks
         run: nix flake check --print-build-logs --keep-going

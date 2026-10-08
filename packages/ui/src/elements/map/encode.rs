@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use std::any::Any;
-
 use super::field::LabelField;
+use super::form_of;
 use super::map_list::{BYTES_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::data::{DataType, Encode, EncodeSettings, MapKind};
 
@@ -12,14 +11,15 @@ pub const ENCODE: MapKind = MapKind {
     from: &[DataType::String],
     to: DataType::Bytes,
     create: || Box::new(Encode::new("", "")),
-    form: |settings: &dyn Any| match settings.downcast_ref::<EncodeSettings>() {
-        Some(&settings) => rsx! { EncodeForm { settings } },
-        None => VNode::empty(),
+    form: |settings| {
+        form_of(
+            settings,
+            |settings: EncodeSettings| rsx! { EncodeForm { settings } },
+        )
     },
     presets: &[],
 };
 
-/// Settings form of an `Encode` map.
 #[component]
 pub fn EncodeForm(settings: EncodeSettings) -> Element {
     let EncodeSettings {

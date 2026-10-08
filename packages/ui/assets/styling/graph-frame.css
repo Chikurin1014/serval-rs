@@ -13,8 +13,6 @@
   padding: 0.5rem 0 0;
 }
 
-/* Over the plot's top corners: the move handle on the left, the remove button
- * on the right, shown while the graph is hovered or focused (`.reveal-on-hover`) */
 .graph .graph-handle,
 .graph .graph-remove {
   position: absolute;
@@ -31,8 +29,6 @@
   right: 0.375rem;
 }
 
-/* While moving a graph: the one being dragged fades, the one it would take
- * the place of is outlined */
 .graph[data-dragging="true"] {
   opacity: 0.4;
 }
@@ -42,8 +38,7 @@
   outline-offset: -1px;
 }
 
-/* Title under the plot; it opens the settings below it. Capped so the open
- * settings leave room for the plot, scrolling beyond that */
+/* Capped so the open settings leave room for the plot */
 .graph [data-slot="card-footer"] {
   flex: none;
   max-height: 50%;
@@ -56,8 +51,6 @@
   width: 100%;
 }
 
-/* The trigger: title centred, the dx chevron at the right end, even padding
- * so both sit in the middle of the footer (dx pads 1rem above and below) */
 .graph-settings .graph-title {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -81,8 +74,6 @@
   justify-self: end;
 }
 
-/* Settings as label | control rows: the title `label` and each `.graph-setting`
- * give their parts to this grid */
 .graph-settings-body {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

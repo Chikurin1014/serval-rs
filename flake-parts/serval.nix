@@ -40,9 +40,7 @@
           libiconv
         ];
 
-      # Each build comes in two: its dependencies alone (`buildDepsOnly`, from
-      # the Cargo files only, so cached until they change), then the crates
-      # on top of them (`cargoArtifacts`)
+      # Dependencies are built apart (`buildDepsOnly`), so they are cached
       commonArgs = {
         pname = "serval";
         version = (fromTOML (readFile ../Cargo.toml)).workspace.package.version;
@@ -56,7 +54,6 @@
         ps.playwright
       ]);
       playwrightEnv = {
-        # The browsers matching the Playwright above, instead of a download
         PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
       };
@@ -73,9 +70,7 @@
                 wasm-bindgen-cli_0_2_126
                 binaryen # `wasm-opt`, which `dx` would otherwise download
               ]);
-            # `dx` adds flags and a profile of its own, so the dependencies are
-            # built by it as well, to come out the same. `wasm-opt` aborts on
-            # the debug symbols `dx` adds by default
+            # `wasm-opt` aborts on the debug symbols `dx` adds by default
             buildPhaseCargoCommand = "dx build --release --debug-symbols false --package ${package-type}";
             doCheck = false;
           };
@@ -83,8 +78,7 @@
             if package-type == "web" then
               removeAttrs args [ "src" ]
               // {
-                # `wasm-bindgen` fails on an app that does nothing, so the
-                # stand-in for this one launches Dioxus, as the real one does
+                # `wasm-bindgen` fails on an app that does nothing
                 dummySrc = craneLib.mkDummySrc {
                   inherit src;
                   extraDummyScript = ''
@@ -105,18 +99,15 @@
           args
           // {
             cargoArtifacts = dependencies;
-            # Installed below, from what `dx` builds, not from cargo's log
             doNotPostBuildInstallCargoBinaries = true;
             installPhaseCommand =
               if package-type == "web" then
-                # Static files to serve, not programs: in `share`, as data
                 ''
                   mkdir -p $out/share
                   cp -r target/dx/web/release/web/public $out/share/serval-web
                 ''
               else
-                # The program in `bin`, and its assets where Dioxus looks for a
-                # Linux app's: `lib/<name>/assets`, beside `bin`
+                # Where Dioxus looks for a Linux app's assets
                 ''
                   app=target/dx/${package-type}/release/linux/app
                   mkdir -p $out/bin $out/lib/serval-${package-type}
@@ -126,14 +117,12 @@
           }
         );
 
-      # The shared UI, natively: its tests and lints
       uiArgs = commonArgs // {
         pname = "serval-ui";
         cargoExtraArgs = "--locked --package ui";
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 
-      # The web app for the browser, to lint
       webArgs = commonArgs // {
         pname = "serval-web-lint";
         cargoExtraArgs = "--locked --package web --target wasm32-unknown-unknown";
@@ -182,7 +171,7 @@
               playwrightEnv
               // {
                 nativeBuildInputs = [ python ];
-                # Chromium aborts without a fontconfig setup, which the sandbox lacks
+                # Chromium aborts without a fontconfig setup
                 FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
                 SERVAL_E2E_APP = "${config.packages.web}/share/serval-web";
               }

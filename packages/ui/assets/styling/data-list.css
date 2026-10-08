@@ -1,291 +1,276 @@
 .data-list {
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .data-list [data-slot="card"] {
-    height: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-    /* None at the bottom, where the footer pads itself evenly */
-    padding: 0.5rem 0 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.5rem 0 0;
 }
 
-/* Title and clear button on one row, vertically centred */
 .data-list [data-slot="card-header"] {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1rem 0.5rem;
-    border-bottom: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem 0.5rem;
+  border-bottom: 1px solid var(--dc-border);
 }
 
 .data-list [data-slot="card-title"] {
-    color: var(--dc-text);
-    font-weight: 900;
-    font-size: 0.9rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  color: var(--dc-text);
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* Only the table scrolls; the card header stays in place */
 .data-list [data-slot="card-content"] {
-    flex: 1;
-    min-height: 0;
-    /* Let a table wider than the card scroll instead of overflowing it */
-    min-width: 0;
-    overflow: auto;
-    padding: 0 1rem;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 0 1rem;
 }
 
-/* Laid out by the set column widths, not by the values, which change all the
- * time; scrolls sideways where narrower than its least width */
+/* Fixed layout, so columns do not move as values change */
 .data-table {
-    width: 100%;
-    min-width: 28rem;
-    table-layout: fixed;
-    border-collapse: collapse;
-    font-size: 0.8rem;
+  width: 100%;
+  min-width: 28rem;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
 }
 
 .data-table .data-col-label {
-    width: 7rem;
+  width: 7rem;
 }
 
 .data-table .data-col-type {
-    width: 5rem;
+  width: 5rem;
 }
 
 .data-table .data-col-time {
-    width: 9rem;
+  width: 9rem;
 }
 
 .data-table .data-col-delete {
-    width: 2.5rem;
+  width: 2.5rem;
 }
 
 .data-table th,
 .data-table td {
-    padding: 0.3rem 0.5rem;
-    border-bottom: 1px solid var(--dc-border);
-    text-align: left;
-    vertical-align: middle;
-    /* One line each, so the rows keep their height */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--dc-border);
+  text-align: left;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--light, var(--primary-color-2)) var(--dark, var(--primary-color-3));
-    color: var(--dc-text);
-    font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
+  color: var(--dc-text);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* Rows on the panel background, all alike */
 .data-table tbody tr {
-    background: var(--dc-panel);
+  background: var(--dc-panel);
 }
 
 .data-table .data-cell {
-    font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
-    font-weight: 400;
-    /* Digits as wide as each other, so a changing number keeps its width */
-    font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
-/* The label filter under the table: its input, then its tags beside it */
 .data-list [data-slot="card-footer"] {
-    flex: none;
-    gap: 0.75rem;
-    padding: 0.5rem 1rem;
-    border-top: 1px solid var(--dc-border);
+  flex: none;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--dc-border);
 }
 
 .label-filter {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-    flex: 1;
-    min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .label-filter-input {
-    display: flex;
-    flex: 0 1 21rem;
-    align-items: center;
-    gap: 0.375rem;
-    min-width: 15rem;
+  display: flex;
+  flex: 0 1 21rem;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 15rem;
 }
 
-/* Show or Hide: what the input adds; as wide for either, so the input stays put */
 .label-filter-input .label-filter-kind {
-    flex: 0 0 auto;
-    width: 4.5rem;
-    font-size: 0.75rem;
+  flex: 0 0 auto;
+  width: 4.5rem;
+  font-size: 0.75rem;
 }
 
 .label-filter-input .label-filter-kind[data-kind="Hide"] {
-    color: var(--dc-danger);
+  color: var(--dc-danger);
 }
 
 .label-filter-tags {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .label-filter-tags [role="row"] {
-    font-family: ui-monospace, monospace;
-    /* A little darker than the dx tag's */
-    border-color: color-mix(in oklab,
-            var(--primary-color-6),
-            var(--primary-color-7));
+  font-family: ui-monospace, monospace;
+  border-color: color-mix(
+    in oklab,
+    var(--primary-color-6),
+    var(--primary-color-7)
+  );
 }
 
-.label-filter-tags [role="row"]>[role="gridcell"]>svg {
-    width: 0.75rem;
-    height: 0.75rem;
-    color: var(--dc-text-muted);
+.label-filter-tags [role="row"] > [role="gridcell"] > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--dc-text-muted);
 }
 
-/* A filter hiding labels: dashed, its eye closed and in the danger colour */
 .label-filter-tags [role="row"][data-kind="Hide"] {
-    border-style: dashed;
+  border-style: dashed;
 }
 
-.label-filter-tags [role="row"][data-kind="Hide"]>[role="gridcell"]>svg {
-    color: var(--dc-danger);
+.label-filter-tags [role="row"][data-kind="Hide"] > [role="gridcell"] > svg {
+  color: var(--dc-danger);
 }
 
-/* Shown while the tag is hovered or focused (`.reveal-on-hover`; the tag
- * takes no class, so it is matched by its role) */
+/* The tag takes no class, so it is matched by its role */
 .label-filter-tags [role="row"] .label-filter-remove {
-    width: 1rem;
-    height: 1rem;
-    margin-right: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  margin-right: -0.5rem;
 }
 
 .label-filter-tags [role="row"]:hover .reveal-on-hover,
 .label-filter-tags [role="row"]:focus-within .reveal-on-hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 .label-filter-error {
-    flex-basis: 100%;
-    margin: 0;
-    color: var(--dc-danger);
-    font-size: 0.75rem;
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--dc-danger);
+  font-size: 0.75rem;
 }
 
-/* A label's row opens to its recent values when clicked */
 .data-table .data-row {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .data-row-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    width: 100%;
-    min-width: 0;
-    padding: 0;
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-    text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .data-row-toggle:focus-visible {
-    outline: 2px solid var(--focused-border-color);
-    outline-offset: 2px;
+  outline: 2px solid var(--focused-border-color);
+  outline-offset: 2px;
 }
 
-.data-row-toggle>svg {
-    flex: 0 0 auto;
-    width: 0.75rem;
-    height: 0.75rem;
-    color: var(--dc-text-muted);
+.data-row-toggle > svg {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--dc-text-muted);
 }
 
-.data-row-toggle>span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.data-row-toggle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* The expanded label stands out, its recent values a shade lighter under it */
-.data-table .data-group>.data-row[data-expanded="true"] {
-    background: color-mix(in oklab, var(--dc-text) 12%, var(--dc-panel));
+.data-table .data-group > .data-row[data-expanded="true"] {
+  background: color-mix(in oklab, var(--dc-text) 12%, var(--dc-panel));
 }
 
 .data-table .data-row[data-expanded="true"] .data-row-toggle {
-    font-weight: 700;
+  font-weight: 700;
 }
 
 .data-table .data-history {
-    background: color-mix(in oklab, var(--dc-text) 5%, var(--dc-panel));
+  background: color-mix(in oklab, var(--dc-text) 5%, var(--dc-panel));
 }
 
-/* Always there, of no height while their label is collapsed: they slide open
- * as their cells' padding and contents grow to their height */
-.data-table .data-history>* {
-    padding-block: 0;
-    border-bottom-width: 0;
-    color: var(--dc-text-muted);
-    transition:
-        padding-block 200ms ease,
-        border-bottom-width 200ms ease;
+/* Always rendered; they slide open as their padding and content grow */
+.data-table .data-history > * {
+  padding-block: 0;
+  border-bottom-width: 0;
+  color: var(--dc-text-muted);
+  transition:
+    padding-block 200ms ease,
+    border-bottom-width 200ms ease;
 }
 
-.data-table .data-group[data-expanded="true"] .data-history>* {
-    padding-block: 0.2rem;
-    border-bottom-width: 1px;
+.data-table .data-group[data-expanded="true"] .data-history > * {
+  padding-block: 0.2rem;
+  border-bottom-width: 1px;
 }
 
 .data-history-slide {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    transition:
-        grid-template-rows 200ms ease,
-        opacity 200ms ease;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 200ms ease;
 }
 
 .data-group[data-expanded="true"] .data-history-slide {
-    grid-template-rows: 1fr;
-    opacity: 1;
+  grid-template-rows: 1fr;
+  opacity: 1;
 }
 
-.data-history-slide>div {
-    min-height: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.data-history-slide > div {
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 (prefers-reduced-motion: reduce) {
-
-    .data-table .data-history>*,
-    .data-history-slide {
-        transition: none;
-    }
+  .data-table .data-history > *,
+  .data-history-slide {
+    transition: none;
+  }
 }
 
-/* At the right end of the footer, past the filter and its tags */
 .data-list .data-export {
-    flex: 0 0 auto;
-    align-self: center;
-    margin-left: auto;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
 }

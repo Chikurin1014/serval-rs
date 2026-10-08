@@ -22,12 +22,22 @@
   flex: 1;
 }
 
-/* Fields one above the other, each its own height */
 .field-stack > .field {
   flex: 0 0 auto;
 }
 
-/* A map's formula (e.g. `a + b`), centred over its form */
+/* A field in its lock tooltip (`LockTooltip`), in the field's place */
+div.field-lock,
+div.field-lock > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.field-stack > div.field-lock {
+  flex: 0 0 auto;
+}
+
 .map-formula {
   color: var(--dc-text);
   font-family: ui-monospace, monospace;

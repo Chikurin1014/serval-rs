@@ -1,16 +1,28 @@
-//! What the maps share in reading their inputs.
-
 use crate::data::{Data, DataContext, DataEntry, SourceCursor};
 
-/// `from` and `to`, trimmed, if a map can run with them: both set, and not the
-/// same (a map does not write to the label it reads).
+/// `from` and `to`, trimmed, if both are set and differ.
 pub(crate) fn endpoints<'a>(from: &'a str, to: &'a str) -> Option<(&'a str, &'a str)> {
     let (from, to) = (from.trim(), to.trim());
     (!from.is_empty() && !to.is_empty() && from != to).then_some((from, to))
 }
 
-/// One of a map's inputs: how far its label is read, and for maps joining two
-/// inputs, its newest value not used yet (see [`take_newest_pair`]).
+/// A map's input and output labels, checked by [`endpoints`].
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Endpoints {
+    pub(crate) from: String,
+    pub(crate) to: String,
+}
+
+impl Endpoints {
+    pub(crate) fn new(from: &str, to: &str) -> Option<Self> {
+        endpoints(from, to).map(|(from, to)| Self {
+            from: from.to_string(),
+            to: to.to_string(),
+        })
+    }
+}
+
+/// One of a map's inputs: how far it is read, and its newest unused value.
 pub(crate) struct Input<T> {
     cursor: SourceCursor,
     newest: Option<T>,
@@ -26,9 +38,7 @@ impl<T> Default for Input<T> {
 }
 
 impl<T: Clone> Input<T> {
-    /// The values added under `label` since the last read. Read from its start
-    /// again (the label changed, or its data was cleared or is of another type),
-    /// it drops the newest value kept.
+    /// The values added under `label` since the last read.
     pub(crate) fn read(&mut self, data: &DataContext, label: &str) -> Vec<T>
     where
         Data<T>: DataEntry,
@@ -50,7 +60,6 @@ impl<T: Clone> Input<T> {
         }
     }
 
-    /// As [`Self::read`], keeping the last value as the newest.
     pub(crate) fn read_newest(&mut self, data: &DataContext, label: &str)
     where
         Data<T>: DataEntry,
@@ -60,14 +69,13 @@ impl<T: Clone> Input<T> {
         }
     }
 
-    /// Reads from the start next time, with no newest value.
     pub(crate) fn forget(&mut self) {
         self.cursor.reset();
         self.newest = None;
     }
 }
 
-/// The newest values of both inputs once each has one, used up by this.
+/// The newest values of both inputs, once each has one.
 pub(crate) fn take_newest_pair<A, B>(
     first: &mut Input<A>,
     second: &mut Input<B>,
@@ -96,7 +104,6 @@ mod tests {
         let mut second = Input::<String>::default();
         first.newest = Some(1.0);
         assert_eq!(take_newest_pair(&mut first, &mut second), None);
-        // The one waiting is kept for the other
         assert_eq!(first.newest, Some(1.0));
 
         second.newest = Some("a".to_string());

@@ -11,14 +11,8 @@ use crate::components::{
 
 const GRAPH_FRAME_CSS: Asset = asset!("/assets/styling/graph-frame.css");
 
-/// The part of a graph that does not depend on its kind, for the graph with
-/// `id` in `GraphContext`: a remove button over the plot, a handle to move it
-/// (on `GraphBoard`), and the title under it, which opens the settings (the
-/// title, then `settings`).
-///
-/// `children` is the plot, filling the card above the title.
-/// `settings` are label | control rows: a `label` holding a `.graph-setting-label`
-/// span and a control, or anything that lays out its parts likewise.
+/// What every graph has: remove and move buttons over `children` (the plot),
+/// and its title, which opens its `settings` (label | control rows).
 #[component]
 pub fn GraphFrame(
     id: usize,
@@ -45,8 +39,7 @@ pub fn GraphFrame(
         }
     });
 
-    // Reordering, when on the board. The card is only draggable while its
-    // handle is held, so dragging in the plot still zooms and text still selects
+    // Draggable only while the handle is held, so dragging in the plot still zooms
     let drag = try_use_context::<GraphDrag>();
     let mut handle_held = use_signal(|| false);
     let handle_id = format!("graph-handle-{id}");
@@ -87,7 +80,6 @@ pub fn GraphFrame(
                     return;
                 };
                 if dragging().is_some_and(|from| from != id) {
-                    // Accept the drop here
                     event.prevent_default();
                     event.data_transfer().set_drop_effect("move");
                     if *target.peek() != Some(id) {
@@ -105,7 +97,6 @@ pub fn GraphFrame(
             ondrop: move |event: DragEvent| {
                 event.prevent_default();
                 let from = drag.and_then(|drag| *drag.dragging.peek());
-                // The dragged graph takes this one's place
                 if let (Some(from), Some(position)) = (from, graph_context.position(id)) {
                     graph_context.move_to(from, position);
                 }
@@ -113,7 +104,6 @@ pub fn GraphFrame(
             },
             ondragend: move |_| end_drag(),
             if drag.is_some() {
-                // Over the top left corner of the plot, shown while the graph is hovered
                 Button {
                     class: "graph-handle reveal-on-hover",
                     id: "{handle_id}",
@@ -139,7 +129,6 @@ pub fn GraphFrame(
                                 return;
                             };
                             graph_context.move_to(id, to);
-                            // Moving the card in the page drops focus from the handle
                             document::eval(&format!(
                                 "requestAnimationFrame(() => document.getElementById('{handle_id}')?.focus())"
                             ));
@@ -148,7 +137,6 @@ pub fn GraphFrame(
                     lucide::GripVertical {}
                 }
             }
-            // Over the top right corner of the plot, shown while the graph is hovered
             Button {
                 class: "graph-remove reveal-on-hover",
                 variant: ButtonVariant::Ghost,
@@ -163,7 +151,6 @@ pub fn GraphFrame(
                     {children}
                 }
                 CardFooter {
-                    // The title opens the graph's settings below it
                     Collapsible {
                         class: "graph-settings",
                         CollapsibleTrigger {
@@ -171,13 +158,11 @@ pub fn GraphFrame(
                             span { class: "graph-title-text", "{title}" }
                         }
                         CollapsibleContent {
-                            // Label | control rows (see `.graph-settings-body`)
                             div {
                                 class: "graph-settings-body",
                                 label {
                                     span { class: "graph-setting-label", "Title" }
                                     Input {
-                                        // Empty falls back to the numbered default
                                         placeholder: "{default_title}",
                                         value: "{custom_title}",
                                         oninput: move |event: FormEvent| {

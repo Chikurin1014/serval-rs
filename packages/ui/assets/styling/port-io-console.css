@@ -23,22 +23,18 @@
   white-space: pre-wrap;
 }
 
-/* Input and send button joined under the output */
 .console-send {
   display: flex;
   flex: 0 0 auto;
   width: 100%;
 }
 
-/* The prefix and the input in one field (`.field`), its text as large as the
- * console's */
 .console-send-field input,
 .console-send-field input:hover:not(:disabled),
 .console-send-field input:focus-visible {
   font-size: 0.875rem;
 }
 
-/* The send button in the success color, hovered as the primary style is */
 .console-send button.console-send-button {
   background-color: var(--secondary-success-color);
 }
@@ -51,7 +47,6 @@
   );
 }
 
-/* The send format, joined to the left of the input */
 .console-send .console-format {
   flex: 0 0 auto;
 }
@@ -71,7 +66,6 @@
   height: 0.75rem;
 }
 
-/* Up from the trigger, as the console ends at the bottom */
 .console-send .console-format-menu {
   top: auto;
   bottom: 100%;

@@ -21,18 +21,17 @@ def test_plots_the_labels_the_data_list_shows(app: App):
     app.set_up_graph(0, "Readings")
     app.wait_for_graph_legends([["temp", "volt"]])
     expect(app.graphs().first.locator(".graph-title-text")).to_have_text("Readings")
-    # No labels to choose in the settings any more
     app.graphs().first.locator(".graph-title").click()
-    expect(app.graphs().first.locator(".graph-settings-body [role=grid]")).to_have_count(0)
+    expect(
+        app.graphs().first.locator(".graph-settings-body [role=grid]")
+    ).to_have_count(0)
 
-    # Filtered in the data list beside the graphs, as in the Data tab
     app.page.get_by_role("button", name="Toggle data list").click()
     board = app.page.locator(".graph-board")
     board.get_by_placeholder("Label filter").fill("temp")
     board.get_by_role("button", name="Add filter").click()
     app.wait_for_graph_legends([["temp"]])
 
-    # Nothing left to plot: says why
     board.get_by_placeholder("Label filter").fill("nothing")
     board.get_by_role("button", name="Add filter").click()
     board.get_by_role("button", name="Remove Show filter temp").click(force=True)
@@ -100,7 +99,6 @@ def test_value_axis_can_be_linear_or_log(app: App):
     expect(plot).to_have_attribute("data-value-scale", "log")
     app.wait_for_graph_legends([["temp", "volt"]])
 
-    # Kept when the graph is shown again
     app.tab("Console")
     app.tab("Graph")
     expect(app.graphs().first.locator(".graph-plot")).to_have_attribute(
@@ -117,16 +115,23 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
     graph.locator(".graph-title").click()  # opens the settings
     draw = graph.get_by_role("group", name="Draw")
     expect(draw.get_by_role("button")).to_have_text(["Points", "Linear", "Stepped"])
-    expect(draw.get_by_role("button", name="Linear")).to_have_attribute("aria-pressed", "true")
-    for name, style in [("Points", "points"), ("Stepped", "stepped"), ("Linear", "linear")]:
+    expect(draw.get_by_role("button", name="Linear")).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    for name, style in [
+        ("Points", "points"),
+        ("Stepped", "stepped"),
+        ("Linear", "linear"),
+    ]:
         draw.get_by_role("button", name=name).click()
-        expect(draw.get_by_role("button", name=name)).to_have_attribute("aria-pressed", "true")
+        expect(draw.get_by_role("button", name=name)).to_have_attribute(
+            "aria-pressed", "true"
+        )
         expect(plot).to_have_attribute("data-draw-style", style)
         app.wait_for_graph_legends([["temp", "volt"]])
 
 
 def wait_for_time_span(graph, low: float, high: float):
-    """Waits until the graph's time axis spans `low` to `high` seconds."""
     graph.page.wait_for_function(
         """([plot, low, high]) => {
             const span = Number(plot.dataset.timeSpan);
@@ -141,7 +146,7 @@ def test_time_axis_shows_a_window_of_the_newest_data(app: App):
     app.wait_for_graph_legends([["temp", "volt"]])
     graph = app.graphs().first
 
-    # 10 s: the axis fits the data, still shorter than that
+    # 10 s: fits the data
     wait_for_time_span(graph, 0.01, 9.99)
 
     graph.locator(".graph-title").click()  # opens the settings
@@ -152,7 +157,6 @@ def test_time_axis_shows_a_window_of_the_newest_data(app: App):
     value = graph.locator(".graph-time-window-value")
     expect(value).to_have_text("10 s")
 
-    # Then always as wide as the window, in steps of 10 s
     slider.focus()
     for _ in range(5):
         app.page.keyboard.press("ArrowRight")
@@ -160,7 +164,6 @@ def test_time_axis_shows_a_window_of_the_newest_data(app: App):
     expect(value).to_have_text("60 s")
     wait_for_time_span(graph, 59.99, 60.01)
 
-    # Kept when the graph is shown again
     app.tab("Console")
     app.tab("Graph")
     wait_for_time_span(app.graphs().first, 59.99, 60.01)
@@ -176,19 +179,16 @@ def test_cursor_moves_together_across_graphs(app: App):
         return graph.locator(".u-legend .u-value").all_text_contents()
 
     def cursor_offset(graph):
-        """How far into its plot the graph's cursor line is, in pixels."""
         return graph.locator(".u-over").evaluate(
             "over => over.parentElement.querySelector('.u-cursor-x').getBoundingClientRect().left"
             " - over.getBoundingClientRect().left"
         )
 
-    # Pointing at the first graph points at the same time in the second
     over = first.locator(".u-over")
     box = over.bounding_box()
     app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     expect(second.locator(".u-legend .u-value").first).not_to_have_text("--")
     assert all(value != "--" for value in legend_values(second))
-    # At the same place in each, as both show the same span of time
     assert abs(cursor_offset(first) - cursor_offset(second)) < 3
 
 
@@ -198,14 +198,12 @@ def test_settings_and_legend_toggles_stay(app: App):
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
 
     def turned_off(graph):
-        """The labels turned off in the graph's legend."""
         return graph.locator(".u-legend .u-series.u-off th").all_text_contents()
 
     def check():
         first, second = app.graphs().nth(0), app.graphs().nth(1)
         expect(first.locator(".u-legend .u-series.u-off")).to_have_count(1)
         assert [label.strip() for label in turned_off(first)] == ["temp"]
-        # The other graph has its own
         expect(second.locator(".u-legend .u-series.u-off")).to_have_count(0)
         expect(first.locator(".graph-title-text")).to_have_text("Readings")
         plot = first.locator(".graph-plot")
@@ -215,7 +213,9 @@ def test_settings_and_legend_toggles_stay(app: App):
     first = app.graphs().first
     app.set_up_graph(0, "Readings")
     first.locator(".graph-title").click()  # opens the settings
-    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    first.get_by_role("group", name="Value axis").get_by_role(
+        "button", name="Log"
+    ).click()
     first.get_by_role("group", name="Draw").get_by_role("button", name="Points").click()
     first.locator(".graph-title").click()  # closes them
     first.locator(".u-legend .u-series th", has_text="temp").click()

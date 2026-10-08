@@ -4,25 +4,33 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
-    set_if_changed, take_newest_pair, unescape,
+    keep_taken, take_newest_pair,
 };
+use crate::helper::unescape;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct ConcatSettings {
     pub first_label: Signal<String>,
     pub second_label: Signal<String>,
     pub to_label: Signal<String>,
-    /// Put between the two; `\n`-style escapes allowed, empty for nothing
+    /// With `\n`-style escapes.
     pub separator: Signal<String>,
 }
 
-/// Joins two strings, one from each input, once both have a new one:
-/// the newest of each, dropping any older ones that came in between.
+/// Joins the newest strings of two inputs, once both have a new one.
 pub struct Concat {
     settings: ConcatSettings,
-    latest: Signal<Option<Conversion>>,
+    taken: Option<Taken>,
     first: Input<String>,
     second: Input<String>,
+}
+
+#[derive(PartialEq)]
+struct Taken {
+    first: String,
+    second: String,
+    to: String,
+    separator: String,
 }
 
 impl Concat {
@@ -34,7 +42,7 @@ impl Concat {
                 to_label: Signal::new(String::new()),
                 separator: Signal::new(String::new()),
             },
-            latest: Signal::new(None),
+            taken: None,
             first: Input::default(),
             second: Input::default(),
         }
@@ -52,48 +60,54 @@ impl MapRunner for Concat {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let ConcatSettings {
             first_label,
             second_label,
             to_label,
             separator,
         } = self.settings;
-        let (first, second, to) = (first_label(), second_label(), to_label());
-        let (Some((first, to)), Some((second, _))) =
-            (endpoints(&first, &to), endpoints(&second, &to))
-        else {
-            return;
+        let (first, second, to) = (first_label.peek(), second_label.peek(), to_label.peek());
+        let taken = match (endpoints(&first, &to), endpoints(&second, &to)) {
+            (Some((first, to)), Some((second, _))) => Some(Taken {
+                first: first.to_string(),
+                second: second.to_string(),
+                to: to.to_string(),
+                separator: unescape(&separator.peek()),
+            }),
+            _ => None,
         };
+        if keep_taken(&mut self.taken, taken) {
+            self.first.forget();
+            self.second.forget();
+        }
+    }
 
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
+        let Taken {
+            first,
+            second,
+            to,
+            separator,
+        } = self.taken.as_ref()?;
         self.first.read_newest(data, first);
         self.second.read_newest(data, second);
-        let Some((first_value, second_value)) = take_newest_pair(&mut self.first, &mut self.second)
-        else {
-            return;
-        };
+        let (first_value, second_value) = take_newest_pair(&mut self.first, &mut self.second)?;
 
-        let separator = unescape(&separator());
         let conversion = Conversion {
             from: vec![
                 ConversionInput::new(first, first_value.as_str()),
                 ConversionInput::new(second, second_value.as_str()),
             ],
             to_label: vec![Segment::fixed(to)],
-            to_value: concat_segments(&first_value, &separator, &second_value),
+            to_value: concat_segments(&first_value, separator, &second_value),
         };
         let value = format!("{first_value}{separator}{second_value}");
-        set_if_changed(&mut self.latest, Some(conversion));
         data.push(to, StringData::new(timestamp, value));
+        Some(conversion)
     }
 }
 
-/// `first`, `separator` and `second` as segments: the two values come from
-/// the input, the separator from the settings.
 fn concat_segments(first: &str, separator: &str, second: &str) -> Vec<Segment> {
     let mut segments = vec![
         Segment::from_input(first),

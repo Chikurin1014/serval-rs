@@ -3,29 +3,27 @@ use std::any::Any;
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
-use super::regex::replacement_segments;
+use super::regex::{Matching, replacement_segments};
 use crate::data::{
-    Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    compile_pattern, endpoints, set_if_changed,
+    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment, SourceCursor,
+    StringData, keep_taken,
 };
+use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct ReplaceSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
-    /// Put in place of each match; may use its capture groups (`$1`).
     pub replacement: Signal<String>,
     pub pattern_error: Signal<Option<String>>,
 }
 
-/// Replaces every match of a regex in each string, passing on the rest of
-/// the string (and strings with no match) as they are.
+/// Replaces every match of a regex in each string.
 pub struct Replace {
     settings: ReplaceSettings,
-    latest: Signal<Option<Conversion>>,
-    /// Settings of the previous run; a change restarts from the start of the input.
-    last_settings: Option<[String; 4]>,
+    taken: [String; 4],
+    matching: Option<Matching>,
     cursor: SourceCursor,
 }
 
@@ -39,8 +37,8 @@ impl Replace {
                 replacement: Signal::new(String::new()),
                 pattern_error: Signal::new(None),
             },
-            latest: Signal::new(None),
-            last_settings: None,
+            taken: Default::default(),
+            matching: None,
             cursor: SourceCursor::default(),
         }
     }
@@ -57,11 +55,7 @@ impl MapRunner for Replace {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let ReplaceSettings {
             from_label,
             to_label,
@@ -69,62 +63,45 @@ impl MapRunner for Replace {
             replacement,
             mut pattern_error,
         } = self.settings;
-
-        let current = [from_label(), to_label(), pattern(), replacement()];
-        if self.last_settings.as_ref() != Some(&current) {
-            self.last_settings = Some(current.clone());
+        let taken = [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
+        if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
-            set_if_changed(&mut pattern_error, None);
+            self.matching = Matching::new(&self.taken, &mut pattern_error);
         }
-        let [from, to, pattern, replacement] = &current;
-        let Some((from, to)) = endpoints(from, to) else {
-            return;
-        };
-        if pattern.is_empty() {
-            return;
-        }
+    }
 
-        let regex = match compile_pattern(pattern) {
-            Ok(regex) => regex,
-            Err(error) => {
-                set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
-                return;
-            }
-        };
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
+        let mut pattern_error = self.settings.pattern_error;
+        let Matching {
+            endpoints: Endpoints { from, to },
+            regex,
+            replacement,
+        } = self.matching.as_ref()?;
 
-        // A restart needs no special handling: what was replaced before stays
-        let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
-            return;
-        };
-        let Some(last) = read.entries.last() else {
-            return;
-        };
+        let read = self.cursor.new_entries::<StringData>(data, from)?;
+        let last = read.entries.last()?;
 
-        // Split into segments only for the one shown
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
             to_label: vec![Segment::fixed(to)],
-            to_value: replaced_segments(&regex, last.value(), replacement),
+            to_value: replaced_segments(regex, last.value(), replacement),
         };
-        set_if_changed(&mut self.latest, Some(conversion));
         let mut failure = None;
         for entry in &read.entries {
             match regex.try_replacen(entry.value(), 0, replacement.as_str()) {
                 Ok(value) => data.push(to, StringData::new(timestamp, value.into_owned())),
-                // E.g. backtracking too much on this input
                 Err(failed) => failure = Some(format!("Matching failed: {failed}")),
             }
         }
         set_if_changed(&mut pattern_error, failure);
+        Some(conversion)
     }
 }
 
-/// What `regex.replace_all(input, replacement)` gives, as segments: the text
-/// around the matches and their groups come from the input.
+/// What `regex.replace_all(input, replacement)` gives, as segments.
 fn replaced_segments(regex: &Regex, input: &str, replacement: &str) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut end = 0;
-    // Up to a match that fails, as the replacing does
     for captures in regex.captures_iter(input).map_while(Result::ok) {
         let whole = captures.get(0).expect("group 0 is the whole match");
         segments.push(Segment::from_input(&input[end..whole.start()]));

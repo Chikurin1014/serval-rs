@@ -4,9 +4,9 @@ use dioxus_icons::lucide;
 use super::FilterContext;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::data::{DataContext, NumberText};
+use crate::helper::csv_field;
 use crate::time::TimeContext;
 
-/// Saves `[file name, text]` sent from Rust as a CSV file, by a link to it.
 const DOWNLOAD_JS: &str = r#"
 const [name, text] = await dioxus.recv();
 const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
@@ -19,8 +19,7 @@ link.remove();
 URL.revokeObjectURL(url);
 "#;
 
-/// Saves the data of the labels the data list shows (by `FilterContext`) as
-/// a CSV file.
+/// Saves the labels the data list shows as a CSV file.
 #[component]
 pub(super) fn ExportCsvButton() -> Element {
     let data_context = use_context::<DataContext>();
@@ -28,13 +27,13 @@ pub(super) fn ExportCsvButton() -> Element {
     let time_context = use_context::<TimeContext>();
 
     let export = move |_| {
-        let series = data_context.with_data(|data| {
+        let series = data_context.with_each(None, |data| {
             let mut series = data
                 .iter()
                 .filter(|(label, _)| filter_context.shows(label))
-                .map(|(label, data)| {
+                .map(|&(label, data)| {
                     (
-                        label.clone(),
+                        label.to_string(),
                         data.newest_as_text(usize::MAX, NumberText::Exact),
                     )
                 })
@@ -61,9 +60,7 @@ pub(super) fn ExportCsvButton() -> Element {
     }
 }
 
-/// Two columns per label, `timestamp-<label>` and `value-<label>`, side by side:
-/// row by row, each label's entries in the order they came, those of a label
-/// with fewer left empty below its last.
+/// Two columns per label, `timestamp-<label>` and `value-<label>`.
 fn to_csv(series: &[(String, Vec<(i64, String)>)]) -> String {
     let header = series
         .iter()
@@ -92,26 +89,9 @@ fn to_csv(series: &[(String, Vec<(i64, String)>)]) -> String {
     csv
 }
 
-/// `field`, quoted if it holds a comma, a quote or a line break (RFC 4180).
-fn csv_field(field: &str) -> String {
-    if field.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", field.replace('"', "\"\""))
-    } else {
-        field.to_string()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{csv_field, to_csv};
-
-    #[test]
-    fn csv_field_quotes_what_needs_it() {
-        assert_eq!(csv_field("20.5"), "20.5");
-        assert_eq!(csv_field("a,b"), "\"a,b\"");
-        assert_eq!(csv_field("say \"hi\""), "\"say \"\"hi\"\"\"");
-        assert_eq!(csv_field("temp:1\n"), "\"temp:1\n\"");
-    }
+    use super::to_csv;
 
     #[test]
     fn to_csv_puts_each_label_in_two_columns() {

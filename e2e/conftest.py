@@ -1,11 +1,5 @@
-"""Fixtures for the end-to-end tests.
-
-The web app is built with `dx build` into `target/e2e` (apart from `target/`,
-so a running `dx serve` keeps its build), served over HTTP, and opened in
-Chromium with a mock Web Serial port (`mock_serial.js`).
-
-Set `SERVAL_E2E_APP` to an already built `public/` directory to skip the build.
-"""
+"""Fixtures for the e2e tests: the app built into `target/e2e` (or
+`SERVAL_E2E_APP`), opened in Chromium with a mock Web Serial port."""
 
 import functools
 import os
@@ -61,10 +55,7 @@ def browser():
 
 @pytest.fixture
 def app(browser: Browser, base_url: str):
-    """The app freshly loaded, with no port open yet.
-
-    Fails the test if the page throws an uncaught error.
-    """
+    """The app freshly loaded; fails on an uncaught error in the page."""
     page = browser.new_page(viewport={"width": 1280, "height": 800})
     page.add_init_script(path=str(MOCK_SERIAL))
     app = App(page)

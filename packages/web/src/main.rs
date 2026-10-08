@@ -31,11 +31,9 @@ enum Route {
     Home {},
 }
 
-/// The icon for the browser tab: as SVG where it is supported, else the ICO
 const FAVICON_SVG: Asset = asset!("/assets/favicon.svg");
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
-/// The third-party licenses, copied from `public/` as it is
 const LICENSES_PAGE: &str = "/third-party-licenses.html";
 
 fn main() {
@@ -44,15 +42,11 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    // Build cool things ✌️
-
     rsx! {
-        // Global app resources
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }
         document::Link { rel: "icon", href: FAVICON_SVG, r#type: "image/svg+xml" }
 
         ThemeProvider {
-            // Outermost after the theme, so any provider below can show toasts
             ToastProvider {
                 TimeProvider {
                     DataProvider {
@@ -75,8 +69,6 @@ fn App() -> Element {
     }
 }
 
-/// The page: the navbar with the routes' links and the theme switch, then the
-/// route's view.
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
@@ -94,8 +86,7 @@ fn WebNavbar() -> Element {
                         to: Route::Home {},
                         "Home"
                     }
-                    // A static page beside the app (see `about.toml`); in a new
-                    // tab, so the open port and its data stay
+                    // In a new tab, so the open port stays
                     NavbarItem {
                         index: 1usize,
                         value: "licenses".to_string(),

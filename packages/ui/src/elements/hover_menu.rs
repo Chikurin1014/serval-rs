@@ -1,5 +1,4 @@
-//! Dropdown menus that open while the pointer is over them, side by side in a
-//! bar (the maps' and the graphs' add menus).
+//! Dropdown menus in a bar that open on hover.
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
@@ -8,7 +7,6 @@ use crate::components::dropdown_menu::{DropdownMenu, DropdownMenuContent, Dropdo
 
 const HOVER_MENU_CSS: Asset = asset!("/assets/styling/hover-menu.css");
 
-/// The menus of one bar: which one is open, and which one the pointer is over.
 #[derive(Clone, Copy, PartialEq)]
 pub struct HoverMenus {
     open: Signal<Option<usize>>,
@@ -16,7 +14,6 @@ pub struct HoverMenus {
 }
 
 impl HoverMenus {
-    /// All closed; call in the bar's component, as it makes signals.
     pub fn new() -> Self {
         Self {
             open: Signal::new(None),
@@ -28,7 +25,6 @@ impl HoverMenus {
         (self.open)() == Some(menu)
     }
 
-    /// Closes `menu`, if it is the one open.
     pub fn close(mut self, menu: usize) {
         if *self.open.peek() == Some(menu) {
             self.open.set(None);
@@ -42,10 +38,7 @@ impl Default for HoverMenus {
     }
 }
 
-/// Menu number `menu` of `menus`' bar: `trigger`, with an arrow showing whether
-/// it is open, over `children` (`DropdownMenuItem`s), which may close it with
-/// [`HoverMenus::close`]. It opens on hover, and stays open while hovered,
-/// even when its trigger is clicked.
+/// Menu number `menu` of `menus`' bar; open while hovered.
 #[component]
 pub fn HoverMenu(
     menus: HoverMenus,
@@ -53,15 +46,9 @@ pub fn HoverMenu(
     trigger: Element,
     children: Element,
     #[props(default)] disabled: bool,
-    /// Class of the content, for its items' layout.
-    #[props(into, default)]
-    content_class: String,
-    /// Keeps it open while true, e.g. while focus is in a panel by its items.
-    #[props(default)]
-    keep_open: ReadSignal<bool>,
-    /// Keys pressed in it, past what the menu itself does with them.
-    #[props(default)]
-    onkeydown: EventHandler<KeyboardEvent>,
+    #[props(into, default)] content_class: String,
+    #[props(default)] keep_open: ReadSignal<bool>,
+    #[props(default)] onkeydown: EventHandler<KeyboardEvent>,
 ) -> Element {
     let HoverMenus {
         mut open,

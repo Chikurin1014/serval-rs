@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::helper::format_bytes;
 use crate::{
     components::card::{Card, CardContent, CardHeader, CardTitle},
     serial::{DATA_BITS, FLOW_CONTROL, LogKind, PARITY, STOP_BITS, SerialContext},
@@ -8,8 +9,7 @@ use crate::{
 
 const PORT_INFO_PANEL_CSS: Asset = asset!("/assets/styling/port-info-panel.css");
 
-/// The selected port's device and settings, the bytes received and sent, and
-/// the log of what happened with the ports.
+/// The selected port's details, byte counts and log.
 #[component]
 pub fn PortInfoPanel() -> Element {
     let serial = use_context::<SerialContext>();
@@ -40,8 +40,7 @@ pub fn PortInfoPanel() -> Element {
             Card {
                 CardHeader { CardTitle { "Port Info" } }
                 CardContent {
-                    // Shown instead of the details and the log when the panel is
-                    // too short for them (see `port-info-panel.css`)
+                    // Shown instead when the panel is too short
                     div {
                         class: "port-summary",
                         span { "{product} · {vendor}" }
@@ -96,7 +95,7 @@ pub fn PortInfoPanel() -> Element {
     }
 }
 
-/// The frame ports are opened with, as e.g. "8N1".
+/// e.g. "8N1"
 fn frame() -> String {
     let parity = PARITY.chars().next().unwrap_or('N').to_ascii_uppercase();
     format!("{DATA_BITS}{parity}{STOP_BITS}")
@@ -110,33 +109,12 @@ fn kind_name(kind: LogKind) -> &'static str {
     }
 }
 
-/// `bytes` with thousands separated, e.g. "12,345 B".
-fn format_bytes(bytes: u64) -> String {
-    let digits = bytes.to_string();
-    let mut grouped = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    format!("{grouped} B")
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, frame};
+    use super::frame;
 
     #[test]
     fn frame_is_8n1() {
         assert_eq!(frame(), "8N1");
-    }
-
-    #[test]
-    fn format_bytes_separates_thousands() {
-        assert_eq!(format_bytes(0), "0 B");
-        assert_eq!(format_bytes(999), "999 B");
-        assert_eq!(format_bytes(1_000), "1,000 B");
-        assert_eq!(format_bytes(1_234_567), "1,234,567 B");
     }
 }

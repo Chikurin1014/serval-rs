@@ -1,10 +1,8 @@
-/* The plain text fallback until KaTeX has rendered the formula */
 .formula:not([data-rendered="true"]) .formula-math,
 .formula[data-rendered="true"] .formula-fallback {
   display: none;
 }
 
-/* KaTeX sizes its formulas by the font size around them */
 .formula .katex {
   font-size: 1.1em;
 }

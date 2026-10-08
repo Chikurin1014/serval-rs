@@ -3,20 +3,14 @@ use dioxus_primitives::toast::{ToastOptions, ToastType, Toasts, use_toast};
 
 use crate::time::TimeContext;
 
-/// Shows nothing for this long after a toast of the same title: as long as a
-/// toast stays up, so one that recurs stays up rather than stacking.
+/// As long as a toast stays up.
 const INTERVAL_MS: i64 = 5_000;
 
-/// Shows toasts, skipping one with the same title as the last shown until
-/// [`INTERVAL_MS`] has passed, for failures that recur (e.g. on every line).
-///
-/// Each one remembers its own last toast. Requires `ToastProvider` and
-/// `TimeContext` from an ancestor.
+/// Shows toasts, skipping a repeat of the last title for `INTERVAL_MS`.
 #[derive(Clone, Copy)]
 pub struct Toaster {
     toasts: Toasts,
     time: CopyValue<TimeContext>,
-    /// The title last shown, and when.
     last: CopyValue<Option<(String, i64)>>,
 }
 
@@ -58,7 +52,6 @@ pub fn use_toaster() -> Toaster {
     })
 }
 
-/// Whether a toast titled `title` may show at `now`, after `last`.
 fn should_show(last: Option<&(String, i64)>, title: &str, now: i64) -> bool {
     match last {
         Some((last_title, shown_at)) => last_title != title || now - shown_at >= INTERVAL_MS,

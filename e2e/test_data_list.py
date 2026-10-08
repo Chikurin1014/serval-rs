@@ -35,7 +35,6 @@ def filter_tags(app: App):
 
 
 def wait_for_rows(app: App, *labels: str):
-    """Waits until the data list shows `labels` and no others."""
     app.page.wait_for_function(
         """labels => {
             const shown = [...document.querySelectorAll('.data-table .data-row th')]
@@ -62,7 +61,6 @@ def test_shows_each_label_with_its_latest_value(app: App):
     app.add_regex_map()
     app.wait_for_labels("raw_bytes", "message", "temp", "volt")
     rows = app.data_rows()
-    # The local time of day as HH:MM:SS, over the last few seconds
     recent = app.page.evaluate(
         """[0, 1, 2, 3].map(s => {
             const d = new Date(Date.now() - s * 1000);
@@ -89,7 +87,7 @@ def test_deletes_a_label(app: App):
     app.tab("Data")
     app.add_regex_map()
     app.wait_for_labels("temp", "volt")
-    # Stop the stream first, or the next reading brings the label back
+    # Or the next reading brings the label back
     app.page.get_by_role("button", name="Close port").click()
     expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
 
@@ -113,7 +111,6 @@ def test_filters_show_the_labels_any_of_them_match(app: App):
     expect(app.page.get_by_placeholder("Label filter")).to_have_value("")
     wait_for_rows(app, "temp")
 
-    # Still not raw_bytes, which the default filter hides
     add_filter(app, "raw_.*|message", by_enter=True)
     expect(filter_tags(app)).to_have_text(["raw_bytes", "temp", "raw_.*|message"])
     wait_for_rows(app, "temp", "message")
@@ -124,7 +121,6 @@ def test_filters_match_whole_labels(app: App):
     app.tab("Data")
     app.add_regex_map()
     app.wait_for_labels("message", "temp", "volt")
-    # `e` is in message and temp, but neither is just `e`
     add_filter(app, "e")
     wait_for_rows(app)
     add_filter(app, ".*e.*")
@@ -169,7 +165,6 @@ def test_hide_filters_hide_what_they_match(app: App):
     expect(filter_tags(app).last).to_have_attribute("data-kind", "Hide")
     wait_for_rows(app, "temp", "volt")
 
-    # Shown if a Show filter matches, and no Hide filter does
     add_filter(app, "temp|message")
     wait_for_rows(app, "temp")
 
@@ -200,7 +195,6 @@ def test_columns_and_rows_stay_put_as_values_change(app: App):
 
 
 def history_height(group) -> float:
-    """How tall `group`'s history rows are, all together."""
     return group.evaluate(
         "g => [...g.querySelectorAll('.data-history')]"
         ".reduce((sum, tr) => sum + tr.getBoundingClientRect().height, 0)"
@@ -216,11 +210,9 @@ def test_a_row_opens_to_its_recent_values(app: App):
     group = app.page.locator(".data-table .data-group").filter(has=label)
     row = group.locator(".data-row")
     toggle = row.locator(".data-row-toggle")
-    # The values before the latest, there but of no height until expanded
     history = group.locator(".data-history")
     expect(toggle).to_have_attribute("aria-expanded", "false")
     expect(history).to_have_count(4)
-    # At most the half of the row's border its first one shares
     assert history_height(group) < 1
 
     row.click()
@@ -228,7 +220,6 @@ def test_a_row_opens_to_its_recent_values(app: App):
     expect(row).to_have_attribute("data-expanded", "true")
     expect(history.last).to_be_visible()
 
-    # Newest first, from the row: each one's time no later than the one above it
     times = app.page.evaluate(
         """group => [...group.querySelectorAll('tr td:nth-child(4)')]
             .map(td => td.textContent)""",
@@ -280,12 +271,10 @@ def test_exports_the_data_shown_as_csv(app: App):
     with open(download.path(), newline="") as file:
         rows = list(csv.reader(io.StringIO(file.read())))
 
-    # Only the labels shown, each in two columns
     assert rows[0] == ["timestamp-temp", "value-temp", "timestamp-volt", "value-volt"]
     for column in (0, 2):
         entries = [(row[column], row[column + 1]) for row in rows[1:] if row[column]]
         assert len(entries) > 1
-        # In the order they came
         timestamps = [int(timestamp) for timestamp, _ in entries]
         assert timestamps == sorted(timestamps)
         for _, value in entries:

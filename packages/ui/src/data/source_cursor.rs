@@ -3,28 +3,20 @@ use crate::data::{DataContext, DataEntry, Queue};
 /// What a [`SourceCursor`] read.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewEntries<T> {
-    /// Entries the reader does not have yet.
     pub entries: Vec<T>,
-    /// The read started over from the front of the queue, so the reader
-    /// should drop what it built from earlier reads: on the first read, after
-    /// [`SourceCursor::reset`] or a label change, or when the queue was
-    /// cleared or replaced since.
+    /// Read from the start of the queue: drop what was built from earlier reads.
     pub restarted: bool,
-    /// How many entries were dropped from the queue before this reader got to
-    /// them, so it never saw them: it fell more than `MAX_ENTRIES_PER_LABEL`
-    /// behind. They come before `entries`.
+    /// Entries dropped from the queue before they were read.
     pub missed: u64,
 }
 
-/// Where the last read ended, in which queue.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Position {
     queue: u64,
     end: u64,
 }
 
-/// Tracks how far a reader has read a queue in `DataContext`, so each read
-/// only returns what was added since the previous one.
+/// How far a reader has read a label, so each read returns only what is new.
 #[derive(Debug, Default)]
 pub struct SourceCursor {
     label: String,
@@ -32,17 +24,11 @@ pub struct SourceCursor {
 }
 
 impl SourceCursor {
-    /// Starts over from the front of the queue on the next read.
     pub fn reset(&mut self) {
         self.read = None;
     }
 
-    /// Entries added to `queue` since the previous read.
-    ///
-    /// Positions count every entry ever pushed, so the oldest being dropped
-    /// does not move them. Another queue (the label was cleared or replaced)
-    /// is read again in full. Entries dropped before the reader got to them
-    /// are skipped, and counted in [`NewEntries::missed`].
+    /// Entries added to `queue` since the previous read; another queue is read in full.
     pub fn read<T: Clone>(&mut self, queue: &Queue<T>) -> NewEntries<T> {
         let current = Position {
             queue: queue.id(),
@@ -66,8 +52,7 @@ impl SourceCursor {
         }
     }
 
-    /// Entries of type `T` added under `label` since the previous read, or
-    /// `None` if `label` holds no entries of that type.
+    /// As [`Self::read`] for `label`, if it holds entries of type `T`.
     pub fn new_entries<T: DataEntry>(
         &mut self,
         data: &DataContext,
@@ -77,10 +62,8 @@ impl SourceCursor {
             self.label = label.to_string();
             self.reset();
         }
-        data.with_data(|data| {
-            let queue = data.get(label).and_then(T::queue)?;
-            Some(self.read(queue))
-        })
+        data.with_label(label, |data| T::queue(data).map(|queue| self.read(queue)))
+            .flatten()
     }
 }
 
@@ -140,7 +123,6 @@ mod tests {
         assert!(!read.restarted);
         assert_eq!(read.missed, 2);
 
-        // Counted once: the next read misses nothing
         queue.push_within(7, 3);
         assert_eq!(cursor.read(&queue).missed, 0);
     }
@@ -149,7 +131,7 @@ mod tests {
     fn restarts_on_another_queue() {
         let mut cursor = SourceCursor::default();
         read(&mut cursor, &queue_of(&[1, 2]));
-        // Even one as long, e.g. the label cleared and refilled
+        // Even one as long
         assert_eq!(read(&mut cursor, &queue_of(&[5, 6])), (vec![5, 6], true));
     }
 

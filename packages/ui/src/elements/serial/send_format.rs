@@ -1,13 +1,11 @@
-/// How the console's send input is read into the bytes it sends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SendFormat {
-    /// The text, as UTF-8.
     Text,
-    /// A number in hexadecimal, two digits a byte, e.g. `17fff` for `01 7f ff`.
+    /// e.g. `17fff` for `01 7f ff`
     Hex,
-    /// A number in binary, eight digits a byte, e.g. `100000001` for `01 01`.
+    /// e.g. `100000001` for `01 01`
     Bin,
-    /// A number in decimal, in as few bytes as it takes, e.g. `256` for `01 00`.
+    /// e.g. `256` for `01 00`
     Dec,
 }
 
@@ -23,7 +21,6 @@ impl SendFormat {
         }
     }
 
-    /// Written before the input, as the input leaves it out.
     pub fn prefix(self) -> Option<&'static str> {
         match self {
             Self::Hex => Some("0x"),
@@ -41,7 +38,7 @@ impl SendFormat {
         }
     }
 
-    /// The bytes `input` stands for (big-endian), or why it stands for none.
+    /// The bytes `input` stands for (big-endian), or why there are none.
     pub fn parse(self, input: &str) -> Result<Vec<u8>, String> {
         let (radix, digits_per_byte) = match self {
             Self::Text => return Ok(input.as_bytes().to_vec()),
@@ -57,8 +54,7 @@ impl SendFormat {
     }
 }
 
-/// The digits of `input` in `radix`, past `prefix` if it starts with it and
-/// leaving out spaces and `_` between them.
+/// The digits of `input`, without `prefix`, spaces and `_`.
 fn digits(input: &str, prefix: &str, radix: u32) -> Result<String, String> {
     let input = input.trim();
     let number = match prefix {
@@ -75,12 +71,10 @@ fn digits(input: &str, prefix: &str, radix: u32) -> Result<String, String> {
     Ok(digits)
 }
 
-/// `digits` in `radix`, `width` digits a byte: as many bytes as they fill,
-/// the first padded with zeros.
+/// `digits` in `radix`, `width` digits a byte.
 fn grouped_bytes(digits: &str, radix: u32, width: usize) -> Vec<u8> {
     let padding = (width - digits.len() % width) % width;
     let padded = format!("{}{digits}", "0".repeat(padding));
-    // ASCII digits only, so byte offsets are character offsets
     padded
         .as_bytes()
         .chunks(width)
@@ -91,11 +85,9 @@ fn grouped_bytes(digits: &str, radix: u32, width: usize) -> Vec<u8> {
         .collect()
 }
 
-/// Decimal `digits` as a big-endian number in as few bytes as it takes.
 fn decimal_bytes(digits: &str) -> Vec<u8> {
     let mut bytes = vec![0u8];
     for digit in digits.bytes().map(|digit| u32::from(digit - b'0')) {
-        // bytes = bytes * 10 + digit, from the lowest byte up
         let mut carry = digit;
         for byte in bytes.iter_mut().rev() {
             let value = u32::from(*byte) * 10 + carry;
@@ -107,7 +99,6 @@ fn decimal_bytes(digits: &str) -> Vec<u8> {
             carry >>= 8;
         }
     }
-    // Down to one byte, for 0
     let leading_zeros = bytes.iter().take_while(|&&byte| byte == 0).count();
     bytes.split_off(leading_zeros.min(bytes.len() - 1))
 }
@@ -131,7 +122,6 @@ mod tests {
             SendFormat::Hex.parse("0x01 7F_FF"),
             Ok(vec![0x01, 0x7f, 0xff])
         );
-        // Leading zeros are digits too
         assert_eq!(SendFormat::Hex.parse("0001"), Ok(vec![0x00, 0x01]));
         assert!(SendFormat::Hex.parse("0g").is_err());
         assert!(SendFormat::Hex.parse(" ").is_err());

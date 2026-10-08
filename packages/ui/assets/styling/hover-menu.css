@@ -1,5 +1,4 @@
-/* The full height of its bar, so the menu opens below the bar and the pointer
- * stays on the menu on the way down to it */
+/* The bar's full height, so the pointer stays on the menu on the way down */
 .hover-menu {
   display: flex;
 }

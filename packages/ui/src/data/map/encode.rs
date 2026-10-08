@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, set_if_changed,
+    ByteData, Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment,
+    SourceCursor, StringData, keep_taken,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -13,11 +13,10 @@ pub struct EncodeSettings {
     pub to_label: Signal<String>,
 }
 
-/// Turns each string into its UTF-8 bytes: the reverse of [`Decode`](super::Decode)
-/// without a delimiter.
+/// Turns each string into its UTF-8 bytes.
 pub struct Encode {
     settings: EncodeSettings,
-    latest: Signal<Option<Conversion>>,
+    endpoints: Option<Endpoints>,
     cursor: SourceCursor,
 }
 
@@ -28,7 +27,7 @@ impl Encode {
                 from_label: Signal::new(from_label.to_string()),
                 to_label: Signal::new(to_label.to_string()),
             },
-            latest: Signal::new(None),
+            endpoints: None,
             cursor: SourceCursor::default(),
         }
     }
@@ -39,39 +38,36 @@ impl MapRunner for Encode {
         &self.settings
     }
 
-    fn latest(&self) -> Signal<Option<Conversion>> {
-        self.latest
-    }
-
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let EncodeSettings {
             from_label,
             to_label,
         } = self.settings;
-        let (from, to) = (from_label(), to_label());
-        let Some((from, to)) = endpoints(&from, &to) else {
-            return;
-        };
+        let endpoints = Endpoints::new(&from_label.peek(), &to_label.peek());
+        if keep_taken(&mut self.endpoints, endpoints) {
+            self.cursor.reset();
+        }
+    }
 
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
+        let Endpoints { from, to } = self.endpoints.as_ref()?;
         let Some(read) = self.cursor.new_entries::<StringData>(data, from) else {
             self.cursor.reset();
-            return;
+            return None;
         };
-        let Some(last) = read.entries.last() else {
-            return;
-        };
+        let last = read.entries.last()?;
 
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
             to_label: vec![Segment::fixed(to)],
             to_value: vec![Segment::from_input(last.value().as_str())],
         };
-        set_if_changed(&mut self.latest, Some(conversion));
         for entry in &read.entries {
             data.push(
                 to,
                 ByteData::new(timestamp, entry.value().as_bytes().to_vec()),
             );
         }
+        Some(conversion)
     }
 }
