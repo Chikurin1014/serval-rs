@@ -31,7 +31,7 @@ enum Route {
     Home {},
 }
 
-const FAVICON_SVG: Asset = asset!("/assets/favicon.svg");
+const FAVICON_PNG: Asset = asset!("/assets/favicon.png");
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 const LICENSES_PAGE: &str = "/third-party-licenses.html";
@@ -44,7 +44,7 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }
-        document::Link { rel: "icon", href: FAVICON_SVG, r#type: "image/svg+xml" }
+        document::Link { rel: "icon", href: FAVICON_PNG, r#type: "image/png", sizes: "256x256" }
 
         ThemeProvider {
             ToastProvider {
