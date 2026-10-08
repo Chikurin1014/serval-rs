@@ -4,7 +4,7 @@
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
-use crate::data::set_if_changed;
+use crate::helper::set_if_changed;
 
 /// The aliases a pattern may use, by name: `{name}` stands for its regex.
 pub const PATTERN_ALIASES: &[(&str, &str)] = &[

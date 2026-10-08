@@ -2,7 +2,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
-use crate::data::{DataEntry, DataType, TypedData, make_owned};
+use crate::{
+    data::{DataEntry, DataType, TypedData},
+    helper::make_owned,
+};
 
 /// The label the bytes received from the serial port go to.
 pub const RAW_BYTES_LABEL: &str = "raw_bytes";

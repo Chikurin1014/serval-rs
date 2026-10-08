@@ -5,9 +5,9 @@ use fancy_regex::{Captures, Regex};
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    StringData, compile_for_map, endpoints, format_number, keep_taken, set_if_changed,
-    trim_segments,
+    StringData, compile_for_map, endpoints, format_number, keep_taken, trim_segments,
 };
+use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegexOutput {

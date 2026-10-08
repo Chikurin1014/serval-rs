@@ -1,7 +1,6 @@
 mod data_context;
 mod data_type;
 mod map;
-mod owned;
 mod pattern;
 mod queue;
 mod source_cursor;
@@ -15,10 +14,9 @@ pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Concat,
     ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Encode, EncodeSettings,
     InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Operation, RegexMatch,
-    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment, set_if_changed,
+    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment,
 };
-pub(crate) use map::{Input, endpoints, keep_taken, take_newest_pair, trim_segments, unescape};
-pub(crate) use owned::make_owned;
+pub(crate) use map::{Input, endpoints, keep_taken, take_newest_pair, trim_segments};
 pub(crate) use pattern::compile_for_map;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};

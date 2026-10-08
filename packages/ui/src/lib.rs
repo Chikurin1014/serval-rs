@@ -6,6 +6,7 @@
 pub mod components;
 pub mod data;
 pub mod elements;
+pub mod helper;
 pub mod serial;
 pub mod theme;
 pub mod time;

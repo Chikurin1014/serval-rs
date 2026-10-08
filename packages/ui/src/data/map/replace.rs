@@ -6,8 +6,9 @@ use fancy_regex::Regex;
 use super::regex::replacement_segments;
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
-    compile_for_map, endpoints, keep_taken, set_if_changed,
+    compile_for_map, endpoints, keep_taken,
 };
+use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct ReplaceSettings {

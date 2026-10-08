@@ -4,8 +4,9 @@ use dioxus::prelude::*;
 
 use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, keep_taken, set_if_changed,
+    StringData, endpoints, keep_taken,
 };
+use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct EncodeSettings {

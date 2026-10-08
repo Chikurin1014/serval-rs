@@ -4,8 +4,9 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
-    keep_taken, set_if_changed, take_newest_pair, unescape,
+    keep_taken, take_newest_pair,
 };
+use crate::helper::{set_if_changed, unescape};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct ConcatSettings {

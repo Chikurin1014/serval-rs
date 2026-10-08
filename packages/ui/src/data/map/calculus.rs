@@ -4,8 +4,9 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    endpoints, format_number, keep_taken, set_if_changed,
+    endpoints, format_number, keep_taken,
 };
+use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Calculus {

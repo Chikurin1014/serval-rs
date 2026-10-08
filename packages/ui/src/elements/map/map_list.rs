@@ -11,6 +11,7 @@ use crate::components::{
 };
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
 use crate::elements::{HoverMenu, HoverMenus};
+use crate::helper::single_line;
 
 use super::field::MapEnabled;
 
@@ -375,24 +376,5 @@ fn Segments(segments: Vec<Segment>) -> Element {
                 {single_line(&segment.text)}
             }
         }
-    }
-}
-
-/// `text` with its line breaks and tabs escaped, to fit on one line.
-fn single_line(text: &str) -> String {
-    text.replace('\\', "\\\\")
-        .replace('\r', "\\r")
-        .replace('\n', "\\n")
-        .replace('\t', "\\t")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::single_line;
-
-    #[test]
-    fn single_line_escapes_line_breaks() {
-        assert_eq!(single_line("led: on\r\n"), "led: on\\r\\n");
-        assert_eq!(single_line("a\tb\\"), "a\\tb\\\\");
     }
 }

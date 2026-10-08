@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::helper::format_bytes;
 use crate::{
     components::card::{Card, CardContent, CardHeader, CardTitle},
     serial::{DATA_BITS, FLOW_CONTROL, LogKind, PARITY, STOP_BITS, SerialContext},
@@ -110,33 +111,12 @@ fn kind_name(kind: LogKind) -> &'static str {
     }
 }
 
-/// `bytes` with thousands separated, e.g. "12,345 B".
-fn format_bytes(bytes: u64) -> String {
-    let digits = bytes.to_string();
-    let mut grouped = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    format!("{grouped} B")
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, frame};
+    use super::frame;
 
     #[test]
     fn frame_is_8n1() {
         assert_eq!(frame(), "8N1");
-    }
-
-    #[test]
-    fn format_bytes_separates_thousands() {
-        assert_eq!(format_bytes(0), "0 B");
-        assert_eq!(format_bytes(999), "999 B");
-        assert_eq!(format_bytes(1_000), "1,000 B");
-        assert_eq!(format_bytes(1_234_567), "1,234,567 B");
     }
 }

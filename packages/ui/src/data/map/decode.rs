@@ -4,8 +4,9 @@ use dioxus::prelude::*;
 
 use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, keep_taken, set_if_changed, unescape,
+    StringData, endpoints, keep_taken,
 };
+use crate::helper::{decode_utf8, set_if_changed, unescape};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct DecodeSettings {
@@ -138,39 +139,6 @@ impl MapRunner for Decode {
     }
 }
 
-/// Decodes `bytes` following `pending` as UTF-8, invalid bytes as `�`. A
-/// character cut off at the end is left in `pending` for the next bytes.
-fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
-    pending.extend_from_slice(bytes);
-    let mut text = String::new();
-    let mut rest = pending.as_slice();
-    while !rest.is_empty() {
-        match std::str::from_utf8(rest) {
-            Ok(valid) => {
-                text.push_str(valid);
-                rest = &[];
-            }
-            Err(error) => {
-                let (valid, after) = rest.split_at(error.valid_up_to());
-                text.push_str(std::str::from_utf8(valid).expect("checked up to here"));
-                match error.error_len() {
-                    Some(invalid) => {
-                        text.push(char::REPLACEMENT_CHARACTER);
-                        rest = &after[invalid..];
-                    }
-                    // Cut off: the rest of it comes with the next bytes
-                    None => {
-                        rest = after;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    *pending = rest.to_vec();
-    text
-}
-
 /// The pieces of `text` ended by `delimiter`, and the text after the last one.
 fn split_complete(text: &str, delimiter: &str) -> (Vec<String>, String) {
     let mut pieces = text
@@ -194,22 +162,5 @@ mod tests {
         let (pieces, rest) = split_complete("a\r\nb\r\n", "\r\n");
         assert_eq!(pieces, vec!["a", "b"]);
         assert_eq!(rest, "");
-    }
-
-    #[test]
-    fn decode_utf8_joins_a_character_cut_between_entries() {
-        let bytes = "温度".as_bytes();
-        let mut pending = Vec::new();
-        assert_eq!(decode_utf8(&mut pending, &bytes[..4]), "温");
-        assert_eq!(pending, bytes[3..4]);
-        assert_eq!(decode_utf8(&mut pending, &bytes[4..]), "度");
-        assert!(pending.is_empty());
-    }
-
-    #[test]
-    fn decode_utf8_replaces_invalid_bytes() {
-        let mut pending = Vec::new();
-        assert_eq!(decode_utf8(&mut pending, b"a\xffb"), "a\u{FFFD}b");
-        assert!(pending.is_empty());
     }
 }

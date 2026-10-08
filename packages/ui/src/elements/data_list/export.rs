@@ -4,6 +4,7 @@ use dioxus_icons::lucide;
 use super::FilterContext;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::data::{DataContext, NumberText};
+use crate::helper::csv_field;
 use crate::time::TimeContext;
 
 /// Saves `[file name, text]` sent from Rust as a CSV file, by a link to it.
@@ -92,26 +93,9 @@ fn to_csv(series: &[(String, Vec<(i64, String)>)]) -> String {
     csv
 }
 
-/// `field`, quoted if it holds a comma, a quote or a line break (RFC 4180).
-fn csv_field(field: &str) -> String {
-    if field.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", field.replace('"', "\"\""))
-    } else {
-        field.to_string()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{csv_field, to_csv};
-
-    #[test]
-    fn csv_field_quotes_what_needs_it() {
-        assert_eq!(csv_field("20.5"), "20.5");
-        assert_eq!(csv_field("a,b"), "\"a,b\"");
-        assert_eq!(csv_field("say \"hi\""), "\"say \"\"hi\"\"\"");
-        assert_eq!(csv_field("temp:1\n"), "\"temp:1\n\"");
-    }
+    use super::to_csv;
 
     #[test]
     fn to_csv_puts_each_label_in_two_columns() {

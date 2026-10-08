@@ -24,7 +24,8 @@ use std::{
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
 use crate::{
-    data::{DataContext, DataType, make_owned},
+    data::{DataContext, DataType},
+    helper::make_owned,
     time::TimeContext,
 };
 
@@ -49,7 +50,7 @@ pub trait MapRunner {
     fn settings(&self) -> &dyn Any;
 
     /// The latest conversion, set by [`MapRunner::run`] (with
-    /// [`set_if_changed`]) and shown in the map's card.
+    /// [`set_if_changed`](crate::helper::set_if_changed)) and shown in the map's card.
     fn latest(&self) -> Signal<Option<Conversion>>;
 
     /// Takes in the settings, as the map is turned on: what
@@ -57,7 +58,7 @@ pub trait MapRunner {
     /// allows no edits while it is on). Read without subscribing (`peek`), and
     /// checked, e.g. a pattern compiled, with errors shown in the form.
     ///
-    /// If they differ from those taken in last time (see [`keep_taken`]),
+    /// If they differ from those taken in last time (see `keep_taken`),
     /// the input is read again from the start.
     fn start(&mut self);
 
@@ -288,14 +289,6 @@ fn MapTask(id: usize) -> Element {
     rsx! {}
 }
 
-/// Sets `signal` only if the value differs, so a map re-running does
-/// not re-render forms showing an unchanged value.
-pub fn set_if_changed<T: PartialEq + 'static>(signal: &mut Signal<T>, value: T) {
-    if *signal.peek() != value {
-        signal.set(value);
-    }
-}
-
 /// Keeps `taken`, a map's settings as it is turned on (see
 /// [`MapRunner::start`]), in `kept`: whether they differ from those kept
 /// before, when the map is to read its input again from the start.
@@ -303,26 +296,4 @@ pub(crate) fn keep_taken<S: PartialEq>(kept: &mut Option<S>, taken: S) -> bool {
     let changed = kept.as_ref() != Some(&taken);
     *kept = Some(taken);
     changed
-}
-
-/// A delimiter as typed in a form, with its `\n`, `\r`, `\t` and `\\` escapes
-/// turned into the characters they stand for.
-pub(crate) fn unescape(value: &str) -> String {
-    value
-        .replace("\\n", "\n")
-        .replace("\\r", "\r")
-        .replace("\\t", "\t")
-        .replace("\\\\", "\\")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::unescape;
-
-    #[test]
-    fn unescape_supports_escape_sequences() {
-        assert_eq!(unescape("\\n"), "\n");
-        assert_eq!(unescape("\\r\\n"), "\r\n");
-        assert_eq!(unescape(""), "");
-    }
 }
