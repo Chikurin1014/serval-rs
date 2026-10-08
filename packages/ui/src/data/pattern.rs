@@ -145,6 +145,28 @@ mod tests {
     }
 
     #[test]
+    fn a_lookahead_leaves_numbers_to_the_number_presets() {
+        assert_eq!(
+            captures("({word}): (?!{number})(.+)", "led: on"),
+            Some(vec![
+                "led: on".to_string(),
+                "led".to_string(),
+                "on".to_string()
+            ])
+        );
+        assert_eq!(captures("({word}): (?!{number})(.+)", "temp: 20.5"), None);
+        assert_eq!(captures("({word}):(?!{number})(.+)", "temp:-1.5e2"), None);
+        assert_eq!(
+            captures("({word}):(?!{number})(.+)", "url:http://x"),
+            Some(vec![
+                "url:http://x".to_string(),
+                "url".to_string(),
+                "http://x".to_string()
+            ])
+        );
+    }
+
+    #[test]
     fn aliases_take_no_group_number_of_their_own() {
         assert_eq!(
             captures("{word}=({number})", "volt=3.3"),

@@ -47,8 +47,8 @@ pub const REGEX_TO_STRING: MapKind = MapKind {
     create: || Box::new(RegexMatch::new(RegexOutput::String)),
     form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
     presets: &[
-        preset!("name: value", String, "({word}): (.+)"),
-        preset!("Arduino", String, "({word}):(.+)"),
+        preset!("name: value", String, "({word}): (?!{number})(.+)"),
+        preset!("Arduino", String, "({word}):(?!{number})(.+)"),
     ],
 };
 

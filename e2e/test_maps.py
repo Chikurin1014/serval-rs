@@ -508,7 +508,7 @@ def test_regex_presets_by_keyboard(app: App):
     app.page.keyboard.press("Enter")
     expect(app.map_cards()).to_have_count(4)
     expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
-        "({word}):(.+)"
+        "({word}):(?!{number})(.+)"
     )
 
 
