@@ -26,16 +26,36 @@
   flex: 0 0 auto;
 }
 
-/* A field in its lock tooltip (`LockTooltip`), in the field's place */
-div.field-lock,
-div.field-lock > div {
-  display: flex;
-  flex: 1;
-  min-width: 0;
+.map-content {
+  position: relative;
 }
 
-.field-stack > div.field-lock {
-  flex: 0 0 auto;
+/* While the map is on, over the middle of its form; as the tooltips */
+.map-lock-tip {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  padding: 8px 12px;
+  border-radius: 0.5rem;
+  background-color: var(--secondary-color-4);
+  color: var(--primary-color);
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 200ms ease-in-out,
+    visibility 200ms;
+}
+
+.map-content:hover > .map-lock-tip,
+.map-content:focus-within > .map-lock-tip {
+  visibility: visible;
+  opacity: 1;
 }
 
 .map-formula {

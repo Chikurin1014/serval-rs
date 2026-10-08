@@ -94,13 +94,24 @@ def test_settings_are_locked_while_the_map_is_on(app: App):
     fields = card.locator(".map-content input")
     pattern = card.get_by_placeholder("Text to be matched")
     switch = card.get_by_role("switch")
-    tip = card.locator(".field-lock [role=tooltip]")
+    tip = card.locator("[role=tooltip]")
 
     expect(fields).to_have_count(4)
     for field in fields.all():
         expect(field).not_to_be_editable()
+    expect(tip).to_be_hidden()
     card.get_by_placeholder("Output label").hover()
+    # One for the whole form, in its middle
+    expect(tip).to_have_count(1)
+    expect(tip).to_be_visible()
     expect(tip).to_have_text("Turn this Map off to edit")
+    content, box = card.locator(".map-content").bounding_box(), tip.bounding_box()
+    assert (
+        abs((content["x"] + content["width"] / 2) - (box["x"] + box["width"] / 2)) < 1
+    )
+    assert (
+        abs((content["y"] + content["height"] / 2) - (box["y"] + box["height"] / 2)) < 1
+    )
 
     switch.click()
     for field in fields.all():
