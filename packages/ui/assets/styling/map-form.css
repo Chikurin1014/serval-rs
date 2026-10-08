@@ -26,6 +26,20 @@
   flex: 0 0 auto;
 }
 
+/* `ChoicesField`: no frame of its own, its toggles as the graphs' */
+.field.field-choices,
+.field.field-choices:focus-within {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.field-choices button {
+  height: 1.75rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
 .map-content {
   position: relative;
 }

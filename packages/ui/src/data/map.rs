@@ -30,7 +30,7 @@ pub use calculus::{Calculus, CalculusMap, CalculusSettings};
 pub use concat::{Concat, ConcatSettings};
 pub(crate) use conversion::trim_segments;
 pub use conversion::{Conversion, ConversionInput, Segment};
-pub use decode::{Decode, DecodeSettings};
+pub use decode::{Decode, DecodeSettings, Delimiter};
 pub use encode::{Encode, EncodeSettings};
 pub(crate) use input::{Endpoints, Input, endpoints, take_newest_pair};
 pub use regex::{RegexMatch, RegexOutput, RegexSettings};

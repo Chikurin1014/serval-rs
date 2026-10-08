@@ -17,6 +17,20 @@ _DATA_ROWS = """() => {
 _GRAPH_LEGENDS = """() => [...document.querySelectorAll('.graph-grid .graph')].map(graph =>
     [...graph.querySelectorAll('.u-legend .u-series th')].map(th => th.textContent.trim()).slice(1))"""
 
+# The lines of the console's xterm.js terminal up to the cursor's, joined
+_CONSOLE_TEXT = """() => {
+    const term = document.querySelector('.console-output')?.xterm;
+    if (!term) return '';
+    const buffer = term.buffer.active;
+    let text = '';
+    for (let i = 0; i <= buffer.baseY + buffer.cursorY; i++) {
+        const line = buffer.getLine(i);
+        if (i > 0 && !line.isWrapped) text += '\\n';
+        text += line.translateToString(true);
+    }
+    return text;
+}"""
+
 NAME_VALUE = r"(\w+):([\d.]+)"
 
 
@@ -46,25 +60,17 @@ class App:
         self.page.wait_for_function(f"() => window.mockSerialPort.{condition}")
 
     def send_text(self, text: str):
-        field = self.page.get_by_placeholder("Type text to send to the active port")
-        field.fill(text)
-        field.press("Enter")
+        """Types `text` in the console, which sends each key as it is."""
+        self.page.locator(".console-output").click()
+        self.page.keyboard.type(text)
 
     def console_text(self) -> str:
-        return self.page.locator(".console-output").text_content()
+        """The console's lines, up to the cursor's."""
+        return self.page.evaluate(f"() => ({_CONSOLE_TEXT})()")
 
     def wait_for_console_text(self, longer_than: int = 0):
         self.page.wait_for_function(
-            "length => document.querySelector('.console-output').textContent.length > length",
-            arg=longer_than,
-        )
-
-    def wait_for_console_lines(self, more_than: int, timeout: float = 30000):
-        self.page.wait_for_function(
-            """lines => document.querySelector('.console-output').textContent
-                .split('\\n').length > lines""",
-            arg=more_than,
-            timeout=timeout,
+            f"length => ({_CONSOLE_TEXT})().length > length", arg=longer_than
         )
 
     def clear_all(self, within: str = ".data-grid"):

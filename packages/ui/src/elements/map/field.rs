@@ -1,9 +1,14 @@
 //! The fields of the maps' forms; read-only while the map is on.
 
+use std::collections::HashSet;
+
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use crate::components::input::Input;
+use crate::components::{
+    input::Input,
+    toggle_group::{ToggleGroup, ToggleItem},
+};
 
 /// Whether the map of the form is on, provided by its card.
 #[derive(Clone, Copy)]
@@ -72,6 +77,45 @@ pub(super) fn TextField(
                         error.set(None);
                     }
                 },
+            }
+        }
+    }
+}
+
+/// A field for one or more of `options`, chosen by their indices: unchoosing
+/// the last is ignored.
+#[component]
+pub(super) fn ChoicesField(
+    name: String,
+    options: Vec<String>,
+    chosen: Vec<usize>,
+    on_change: EventHandler<Vec<usize>>,
+) -> Element {
+    let locked = use_map_enabled();
+    let pressed = chosen.into_iter().collect::<HashSet<_>>();
+
+    rsx! {
+        div {
+            class: "field field-choices",
+            "data-locked": locked,
+            role: "group",
+            aria_label: "{name}",
+            span { class: "field-label", "{name}" }
+            ToggleGroup {
+                horizontal: true,
+                allow_multiple_pressed: true,
+                disabled: locked,
+                pressed: Some(pressed),
+                on_pressed_change: move |pressed: HashSet<usize>| {
+                    if !pressed.is_empty() {
+                        let mut chosen = pressed.into_iter().collect::<Vec<_>>();
+                        chosen.sort_unstable();
+                        on_change.call(chosen);
+                    }
+                },
+                for (index, option) in options.iter().enumerate() {
+                    ToggleItem { index, "{option}" }
+                }
             }
         }
     }

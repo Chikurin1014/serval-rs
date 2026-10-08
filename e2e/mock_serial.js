@@ -14,6 +14,9 @@
     // Set by the tests to make it fail
     openError: null,
     writeError: null,
+    // Set by the tests to hold the writes until `release()`
+    holdWrites: false,
+    release: () => {},
     cancelRequest: false,
     getInfo: () => ({ usbVendorId: 0x2341, usbProductId: 0x0043 }),
     open: async () => {
@@ -38,6 +41,8 @@
             );
           };
           port.receive = (text) => controller.enqueue(encoder.encode(text));
+          // Stops the readings, for `receive` alone
+          port.mute = () => clearInterval(timer);
           port.burst = (count) => {
             for (let i = 0; i < count; i++) {
               send();
@@ -49,7 +54,16 @@
         },
       });
       port.writable = new WritableStream({
-        write(chunk) {
+        async write(chunk) {
+          if (port.holdWrites) {
+            await new Promise((resolve) => {
+              const before = port.release;
+              port.release = () => {
+                before();
+                resolve();
+              };
+            });
+          }
           if (port.writeError) {
             throw new DOMException(port.writeError, "NetworkError");
           }

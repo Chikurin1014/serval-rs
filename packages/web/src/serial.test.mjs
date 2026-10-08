@@ -84,6 +84,34 @@ test("writePort writes the bytes, then releases the writer, even on failure", as
   assert.equal(failing.released.writer, true);
 });
 
+test("writePort writes one after another, in order", async () => {
+  const port = fakePort();
+  let locked = false;
+  const getWriter = port.writable.getWriter;
+  port.writable.getWriter = () => {
+    assert.equal(locked, false, "the stream is locked");
+    locked = true;
+    const writer = getWriter();
+    return {
+      write: async (bytes) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        await writer.write(bytes);
+      },
+      releaseLock: () => {
+        locked = false;
+        writer.releaseLock();
+      },
+    };
+  };
+  await Promise.all(
+    [1, 2, 3].map((byte) => writePort(port, Uint8Array.of(byte))),
+  );
+  assert.deepEqual(
+    port.written.map((bytes) => [...bytes]),
+    [[1], [2], [3]],
+  );
+});
+
 test("USB ids are read from the port info, if valid", () => {
   const usb = fakePort({ info: { usbVendorId: 0x2341, usbProductId: 0x0043 } });
   assert.equal(usbVendorId(usb), 0x2341);
