@@ -248,9 +248,9 @@ fn MapCard(map: Map) -> Element {
                             span { class: "map-title-text", "{kind.name}" }
                             MapTypes { from: kind.from, to: kind.to }
                         }
-                        if let Some(conversion) = latest() {
-                            LatestConversion { conversion }
-                        }
+                        // Its own component: it changes with each conversion,
+                        // and the card must not render again with it
+                        Latest { latest }
                     }
                     Button {
                         class: "map-remove reveal-on-hover",
@@ -307,6 +307,16 @@ fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
             }
             lucide::MoveRight {}
             span { "{to.name()}" }
+        }
+    }
+}
+
+/// The latest conversion of a map, if any.
+#[component]
+fn Latest(latest: ReadSignal<Option<Conversion>>) -> Element {
+    rsx! {
+        if let Some(conversion) = latest() {
+            LatestConversion { conversion }
         }
     }
 }
