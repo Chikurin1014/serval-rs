@@ -25,7 +25,18 @@ def test_sends_each_key_typed_in_the_console(app: App):
     app.page.keyboard.press("Enter")
 
     app.wait_for_mock("written.length >= 7")
+    # As Tera Term: Enter sends CR
     assert "".join(app.mock("written")) == "led on\r"
+
+
+def test_backspace_and_delete_send_bs_and_del(app: App):
+    app.open_port()
+    app.page.locator(".console-output").click()
+    app.page.keyboard.press("Backspace")
+    app.page.keyboard.press("Delete")
+
+    app.wait_for_mock("written.length >= 2")
+    assert app.mock("written") == ["\b", "\x7f"]
 
 
 def test_keys_are_not_sent_while_the_port_is_closed(app: App):

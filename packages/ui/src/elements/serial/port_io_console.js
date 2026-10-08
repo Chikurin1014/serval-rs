@@ -1,6 +1,9 @@
-// The console: an xterm.js terminal.
+// The console: an xterm.js terminal, set up as Tera Term's defaults are.
 // From Rust: the container id, then `[reset, bytes]`, then `null` on unmount.
-// To Rust: what is typed, to send.
+// To Rust: what is typed or pasted, to send.
+
+// Tera Term's default
+const SCROLLBACK = 10000;
 
 const id = await dioxus.recv();
 const container = document.getElementById(id);
@@ -27,7 +30,8 @@ const theme = () => ({
 });
 
 const term = new Terminal({
-  // A lone LF starts a new line too
+  scrollback: SCROLLBACK,
+  // A lone LF starts a new line too, as Tera Term's "AUTO" receive
   convertEol: true,
   cursorBlink: true,
   // Named fonts: the WebGL renderer does not know `ui-monospace`
@@ -63,7 +67,49 @@ themeObserver.observe(document.documentElement, {
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
 systemTheme.addEventListener("change", updateTheme);
 
+async function paste() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      term.paste(text);
+    }
+  } catch {
+    // Clipboard access refused
+  }
+}
+
 term.onData((data) => dioxus.send(data));
+// As Tera Term: Backspace sends BS and Delete DEL; Alt+V pastes
+term.attachCustomKeyEventHandler((event) => {
+  if (event.type !== "keydown" || event.ctrlKey || event.metaKey) {
+    return true;
+  }
+  if (!event.altKey && event.key === "Backspace") {
+    dioxus.send("\b");
+    return false;
+  }
+  if (!event.altKey && event.key === "Delete") {
+    dioxus.send("\x7f");
+    return false;
+  }
+  if (event.altKey && event.key.toLowerCase() === "v") {
+    paste();
+    return false;
+  }
+  return true;
+});
+// As Tera Term: the selection is copied as it is made, and a right click pastes
+term.onSelectionChange(() => {
+  const selection = term.getSelection();
+  if (selection) {
+    navigator.clipboard?.writeText(selection).catch(() => {});
+  }
+});
+const onContextMenu = (event) => {
+  event.preventDefault();
+  paste();
+};
+container.addEventListener("contextmenu", onContextMenu);
 
 while (true) {
   const message = await dioxus.recv();
@@ -82,4 +128,5 @@ while (true) {
 resize.disconnect();
 themeObserver.disconnect();
 systemTheme.removeEventListener("change", updateTheme);
+container.removeEventListener("contextmenu", onContextMenu);
 term.dispose();
