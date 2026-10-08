@@ -6,23 +6,50 @@ use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment,
     SourceCursor, StringData, keep_taken,
 };
-use crate::helper::{decode_utf8, unescape};
+use crate::helper::{AnsiStripper, decode_utf8};
+
+/// A line end a [`Decode`] splits at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Delimiter {
+    Cr,
+    Lf,
+    CrLf,
+}
+
+impl Delimiter {
+    pub const ALL: [Self; 3] = [Self::Cr, Self::Lf, Self::CrLf];
+
+    pub fn text(self) -> &'static str {
+        match self {
+            Self::Cr => "\r",
+            Self::Lf => "\n",
+            Self::CrLf => "\r\n",
+        }
+    }
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct DecodeSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
-    /// With `\n`-style escapes; empty for one string per entry.
-    pub delimiter: Signal<String>,
+    /// At least one, in the order of [`Delimiter::ALL`].
+    pub delimiters: Signal<Vec<Delimiter>>,
 }
 
-/// Turns a byte stream into UTF-8 strings, split at a delimiter.
+/// Turns a byte stream into UTF-8 lines, without ANSI escape sequences.
 pub struct Decode {
     settings: DecodeSettings,
-    taken: Option<(Endpoints, String)>,
+    taken: Option<(Endpoints, Vec<Delimiter>)>,
     cursor: SourceCursor,
+    partial: Partial,
+}
+
+/// What is read but not yet in a line.
+#[derive(Default)]
+struct Partial {
     /// The start of a character cut off at the end of the previous entry.
     pending: Vec<u8>,
+    stripper: AnsiStripper,
     /// Text after the last delimiter.
     buffer: String,
 }
@@ -33,12 +60,11 @@ impl Decode {
             settings: DecodeSettings {
                 from_label: Signal::new(from_label.to_string()),
                 to_label: Signal::new(to_label.to_string()),
-                delimiter: Signal::new("\\n".to_string()),
+                delimiters: Signal::new(Delimiter::ALL.to_vec()),
             },
             taken: None,
             cursor: SourceCursor::default(),
-            pending: Vec::new(),
-            buffer: String::new(),
+            partial: Partial::default(),
         }
     }
 }
@@ -52,95 +78,133 @@ impl MapRunner for Decode {
         let DecodeSettings {
             from_label,
             to_label,
-            delimiter,
+            delimiters,
         } = self.settings;
         let taken = Endpoints::new(&from_label.peek(), &to_label.peek())
-            .map(|endpoints| (endpoints, unescape(&delimiter.peek())));
+            .map(|endpoints| (endpoints, delimiters.peek().clone()));
         if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
-            self.pending.clear();
-            self.buffer.clear();
+            self.partial = Partial::default();
         }
     }
 
     fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
-        let (Endpoints { from, to }, delimiter) = self.taken.as_ref()?;
+        let (Endpoints { from, to }, delimiters) = self.taken.as_ref()?;
         let Some(read) = self.cursor.new_entries::<ByteData>(data, from) else {
             self.cursor.reset();
-            self.pending.clear();
-            self.buffer.clear();
+            self.partial = Partial::default();
             return None;
         };
         if read.restarted {
-            self.pending.clear();
-            self.buffer.clear();
+            self.partial = Partial::default();
         }
-        let new_entries = read.entries;
-        if new_entries.is_empty() {
+        if read.entries.is_empty() {
             return None;
         }
 
-        let (pieces, from_value) = if delimiter.is_empty() {
-            let mut pieces = Vec::new();
-            if !self.buffer.is_empty() {
-                pieces.push(std::mem::take(&mut self.buffer));
-            }
-            for entry in &new_entries {
-                let text = decode_utf8(&mut self.pending, entry.value());
-                if !text.is_empty() {
-                    pieces.push(text);
-                }
-            }
-            let from_value = pieces.last().cloned();
-            (pieces, from_value)
-        } else {
-            let mut text = std::mem::take(&mut self.buffer);
-            for entry in &new_entries {
-                text.push_str(&decode_utf8(&mut self.pending, entry.value()));
-            }
-            let (pieces, buffer) = split_complete(&text, delimiter);
-            self.buffer = buffer;
-            let from_value = pieces.last().map(|last| format!("{last}{delimiter}"));
-            (pieces, from_value)
-        };
+        let partial = &mut self.partial;
+        let mut text = std::mem::take(&mut partial.buffer);
+        for entry in &read.entries {
+            let decoded = decode_utf8(&mut partial.pending, entry.value());
+            text.push_str(&partial.stripper.strip(&decoded));
+        }
+        let (lines, rest) = split_lines(&text, delimiters);
+        partial.buffer = rest;
 
-        let conversion = match (pieces.last(), from_value) {
-            (Some(last), Some(from_value)) => Some(Conversion {
-                from: vec![ConversionInput::new(from, from_value)],
-                to_label: vec![Segment::fixed(to)],
-                to_value: vec![Segment::from_input(last.as_str())],
-            }),
-            _ => None,
-        };
-        for value in pieces {
-            data.push(to, StringData::new(timestamp, value));
+        let conversion = lines.last().map(|(last, delimiter)| Conversion {
+            from: vec![ConversionInput::new(
+                from,
+                format!("{last}{}", delimiter.text()),
+            )],
+            to_label: vec![Segment::fixed(to)],
+            to_value: vec![Segment::from_input(last.as_str())],
+        });
+        for (line, _) in lines {
+            data.push(to, StringData::new(timestamp, line));
         }
         conversion
     }
 }
 
-/// The pieces of `text` ended by `delimiter`, and the rest.
-fn split_complete(text: &str, delimiter: &str) -> (Vec<String>, String) {
-    let mut pieces = text
-        .split(delimiter)
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    let rest = pieces.pop().unwrap_or_default();
-    (pieces, rest)
+/// The lines of `text` ended by one of `delimiters`, each with its end, and the
+/// rest. A last CR waits for what follows while CRLF is one of them.
+fn split_lines(text: &str, delimiters: &[Delimiter]) -> (Vec<(String, Delimiter)>, String) {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut chars = text.char_indices().peekable();
+    while let Some((index, c)) = chars.next() {
+        let end = match c {
+            '\r' if delimiters.contains(&Delimiter::CrLf) => match chars.peek() {
+                Some((_, '\n')) => {
+                    chars.next();
+                    Some(Delimiter::CrLf)
+                }
+                None => break,
+                Some(_) => delimiters.contains(&Delimiter::Cr).then_some(Delimiter::Cr),
+            },
+            '\r' if delimiters.contains(&Delimiter::Cr) => Some(Delimiter::Cr),
+            '\n' if delimiters.contains(&Delimiter::Lf) => Some(Delimiter::Lf),
+            _ => None,
+        };
+        if let Some(end) = end {
+            lines.push((text[start..index].to_string(), end));
+            start = index + end.text().len();
+        }
+    }
+    (lines, text[start..].to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Delimiter::*, *};
+
+    fn line(text: &str, end: Delimiter) -> (String, Delimiter) {
+        (text.to_string(), end)
+    }
 
     #[test]
-    fn split_complete_keeps_the_unfinished_line() {
-        let (pieces, rest) = split_complete("led: on\nled: off\nled", "\n");
-        assert_eq!(pieces, vec!["led: on", "led: off"]);
-        assert_eq!(rest, "led");
+    fn split_lines_keeps_the_unfinished_line() {
+        assert_eq!(
+            split_lines("led: on\nled: off\nled", &[Lf]),
+            (
+                vec![line("led: on", Lf), line("led: off", Lf)],
+                "led".to_string()
+            )
+        );
+    }
 
-        let (pieces, rest) = split_complete("a\r\nb\r\n", "\r\n");
-        assert_eq!(pieces, vec!["a", "b"]);
-        assert_eq!(rest, "");
+    #[test]
+    fn split_lines_splits_at_any_of_the_delimiters() {
+        assert_eq!(
+            split_lines("a\rb\nc\r\nd", &[Cr, Lf]),
+            (
+                vec![line("a", Cr), line("b", Lf), line("c", Cr), line("", Lf)],
+                "d".to_string()
+            )
+        );
+        assert_eq!(
+            split_lines("a\r\nb\rc\nd", &[CrLf]),
+            (vec![line("a", CrLf)], "b\rc\nd".to_string())
+        );
+    }
+
+    #[test]
+    fn split_lines_takes_crlf_whole_before_cr_or_lf() {
+        assert_eq!(
+            split_lines("a\r\nb\rc\nd", &[Cr, Lf, CrLf]),
+            (
+                vec![line("a", CrLf), line("b", Cr), line("c", Lf)],
+                "d".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn split_lines_waits_on_a_last_cr_while_crlf_may_follow() {
+        assert_eq!(split_lines("a\r", &[Cr, CrLf]), (vec![], "a\r".to_string()));
+        assert_eq!(
+            split_lines("a\r", &[Cr]),
+            (vec![line("a", Cr)], String::new())
+        );
     }
 }

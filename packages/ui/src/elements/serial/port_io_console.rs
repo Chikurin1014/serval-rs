@@ -4,38 +4,42 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
-    components::{
-        button::{Button, ButtonSize, ButtonVariant},
-        dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
-        input::Input,
-    },
     data::{ByteData, DataContext, NewEntries, RAW_BYTES_LABEL, SourceCursor},
+    helper::visible,
     serial::SerialContext,
 };
 
-use super::send_format::SendFormat;
-
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
-
-const CONSOLE_JS: &str = concat!(
-    include_str!("console_output.js"),
-    include_str!("port_io_console.js"),
+const XTERM_CSS: Asset = asset!("/assets/vendor/xterm/xterm.css");
+const XTERM_JS: Asset = asset!(
+    "/assets/vendor/xterm/xterm.js",
+    AssetOptions::js().with_minify(false)
+);
+const XTERM_FIT_JS: Asset = asset!(
+    "/assets/vendor/xterm-addon-fit/addon-fit.js",
+    AssetOptions::js().with_minify(false)
+);
+const XTERM_WEBGL_JS: Asset = asset!(
+    "/assets/vendor/xterm-addon-webgl/addon-webgl.js",
+    AssetOptions::js().with_minify(false)
 );
 
+const CONSOLE_JS: &str = include_str!("port_io_console.js");
+
+/// One period down the send buffer's height, in an 8 by 10 box; as the masks in
+/// `port-io-console.css`.
+const WAVE: &str = "M4 0Q8 2.5 4 5T4 10";
+
+/// A terminal of the received bytes; what is typed in it is sent as it is,
+/// and shown below it until the port has taken it.
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
     let data_context = use_context::<DataContext>();
-
-    let mut text_to_send = use_signal(String::new);
-    let mut format = use_signal(|| SendFormat::Text);
-    let bytes = use_memo(move || format().parse(&text_to_send()));
-    let can_send = serial.is_open() && !text_to_send().trim().is_empty() && bytes.read().is_ok();
-    // Owns the output text, so a chunk costs the same however long it is
-    let output = use_hook(|| document::eval(CONSOLE_JS));
+    let terminal = use_hook(|| document::eval(CONSOLE_JS));
 
     // In a hook: the effect takes each render's closure, and a fresh cursor
-    // would redraw the output from the start
+    // would redraw the terminal from the start
     let cursor = use_hook(|| Rc::new(RefCell::new(SourceCursor::default())));
     use_effect(move || {
         let mut cursor = cursor.borrow_mut();
@@ -44,118 +48,94 @@ pub fn PortIoConsole() -> Element {
         }) = cursor.new_entries::<ByteData>(&data_context, RAW_BYTES_LABEL)
         else {
             cursor.reset();
-            let _ = output.send((true, String::new()));
+            let _ = terminal.send((true, Vec::<u8>::new()));
             return;
         };
         if restarted || !entries.is_empty() {
-            let _ = output.send((restarted, render_raw_bytes_text(&entries)));
+            let _ = terminal.send((restarted, raw_bytes(&entries)));
+        }
+    });
+
+    use_future(move || async move {
+        let mut terminal = terminal;
+        while let Ok(typed) = terminal.recv::<String>().await {
+            serial.send(typed.into_bytes());
         }
     });
 
     use_drop(move || {
-        let _ = output.send(());
+        let _ = terminal.send(());
     });
 
-    let mut send_text = move || {
-        if !serial.is_open() || text_to_send().trim().is_empty() {
-            return;
-        }
-        let Ok(bytes) = bytes() else {
-            return;
-        };
-        serial.send(bytes);
-        *text_to_send.write() = String::new();
-    };
-
     rsx! {
+        document::Link { rel: "stylesheet", href: XTERM_CSS }
         document::Link { rel: "stylesheet", href: PORT_IO_CONSOLE_CSS }
+        document::Script { src: XTERM_JS }
+        document::Script { src: XTERM_FIT_JS }
+        document::Script { src: XTERM_WEBGL_JS }
 
         div {
             class: "console",
-            pre {
-                "data-port-io-console": true,
+            div {
                 class: "console-output",
+                id: "console-output",
+                onmounted: move |_| {
+                    let _ = terminal.send("console-output");
+                },
             }
             div {
                 class: "console-send",
-                DropdownMenu {
-                    class: "console-format",
-                    DropdownMenuTrigger {
-                        class: "console-format-trigger",
-                        aria_label: "Send format",
-                        lucide::ChevronUp {}
-                        "{format().name()}"
-                    }
-                    DropdownMenuContent {
-                        class: "console-format-menu",
-                        for (index, option) in SendFormat::ALL.into_iter().enumerate() {
-                            DropdownMenuItem {
-                                value: option,
-                                index,
-                                on_select: move |option| format.set(option),
-                                "{option.name()}"
+                lucide::Send {}
+                div {
+                    class: "console-send-bar",
+                    div {
+                        class: "console-send-buffer",
+                        aria_label: "Send buffer",
+                        div {
+                            class: "console-send-text",
+                            for outgoing in serial.outgoing() {
+                                span {
+                                    "data-sent": outgoing.sent,
+                                    {visible(&outgoing.bytes)}
+                                }
                             }
                         }
                     }
-                }
-                label {
-                    class: "field console-send-field",
-                    "data-invalid": bytes.read().is_err(),
-                    if let Some(prefix) = format().prefix() {
-                        span { class: "field-label console-send-prefix", "{prefix}" }
-                    }
-                    Input {
-                    type: "text",
-                    placeholder: format().placeholder(),
-                    aria_invalid: bytes.read().is_err(),
-                    title: bytes.read().as_ref().err().cloned().unwrap_or_default(),
-                    value: "{text_to_send()}",
-                    oninput: move |event: FormEvent| {
-                        *text_to_send.write() = event.value();
-                    },
-                    onkeydown: move |event: KeyboardEvent| {
-                        if event.key() == Key::Enter {
-                            send_text();
+                    div { class: "console-send-end", aria_hidden: "true" }
+                    for side in ["buffer", "end"] {
+                        svg {
+                            class: "console-send-cut",
+                            "data-side": side,
+                            "aria-hidden": "true",
+                            view_box: "0 0 8 10",
+                            preserve_aspect_ratio: "none",
+                            path { d: WAVE }
                         }
                     }
-                    }
-                }
-                Button {
-                    variant: ButtonVariant::Primary,
-                    size: ButtonSize::Sm,
-                    class: "console-send-button",
-                    disabled: !can_send,
-                    onclick: move |_| {
-                        send_text();
-                    },
-                    lucide::Send {}
                 }
             }
         }
     }
 }
 
-fn render_raw_bytes_text(raw_bytes: &[ByteData]) -> String {
-    raw_bytes
+fn raw_bytes(entries: &[ByteData]) -> Vec<u8> {
+    entries
         .iter()
-        .map(|data| String::from_utf8_lossy(data.value()).into_owned())
+        .flat_map(|entry| entry.value().iter().copied())
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::raw_bytes;
     use crate::data::ByteData;
 
     #[test]
-    fn render_raw_bytes_text_does_not_repeat_old_chunks() {
-        let raw_bytes = vec![
-            ByteData::new(1, b"led: on\n".to_vec()),
-            ByteData::new(2, b"led: off\n".to_vec()),
+    fn raw_bytes_joins_the_chunks_in_order() {
+        let entries = [
+            ByteData::new(1, b"led: o".to_vec()),
+            ByteData::new(2, b"n\n".to_vec()),
         ];
-
-        let rendered = render_raw_bytes_text(&raw_bytes);
-        assert_eq!(rendered, "led: on\nled: off\n");
-        assert!(!rendered.contains("led: onled: on"));
+        assert_eq!(raw_bytes(&entries), b"led: on\n");
     }
 }

@@ -162,7 +162,10 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     warnings = [
         message.text
         for message in app.console[start:]
-        if message.type in ("warning", "error") and "/_dioxus" not in message.text
+        if message.type in ("warning", "error")
+        and "/_dioxus" not in message.text
+        # The headless browser's GPU driver, under the console's WebGL renderer
+        and "GL Driver Message" not in message.text
     ]
     assert warnings == []
 
@@ -208,19 +211,55 @@ def test_bytes_menu_offers_encode(app: App):
     expect(option.locator(".map-types")).to_have_text(["StringBytes"])
 
 
-def test_decode_without_delimiter_keeps_each_chunk(app: App):
+def test_decode_splits_at_the_chosen_delimiters(app: App):
     app.open_port()
+    app.mock("mute()")
     app.tab("Data")
     app.add_map("Decode", "Bytes", "String")
     card = app.map_cards().last
     card.get_by_placeholder("Input label").fill("raw_bytes")
-    card.get_by_placeholder("Output label").fill("chunk")
-    card.get_by_label("Delimiter").fill("")
+    card.get_by_placeholder("Output label").fill("line")
+    delimiter = card.get_by_role("group", name="Delimiter")
+    cr, lf, crlf = (
+        delimiter.get_by_role("button", name=name, exact=True)
+        for name in ["\\r", "\\n", "\\r\\n"]
+    )
+    for button in (cr, lf, crlf):
+        expect(button).to_have_attribute("data-state", "on")
+
+    lf.click()
+    crlf.click()
+    # One is always chosen
+    cr.click()
+    expect(cr).to_have_attribute("data-state", "on")
+    expect(lf).to_have_attribute("data-state", "off")
+    expect(crlf).to_have_attribute("data-state", "off")
+
     card.get_by_role("switch").click()
-    app.wait_for_labels("chunk")
-    chunk = app.data_rows()["chunk"]
-    assert chunk[0] == "String"
-    assert re.fullmatch(r"temp:[\d.]+\nvolt:[\d.]+\n", chunk[1])
+    app.mock("receive('x1\\ry2\\r')")
+    app.wait_for_labels("line")
+    expect(card.locator(".map-title")).to_contain_text("y2")
+    assert app.data_rows()["line"][1] == "y2"
+
+
+def test_decode_drops_ansi_escape_sequences(app: App):
+    app.open_port()
+    app.mock("receive('\\x1b[1;31m-1.5e2\\x1b[0m\\x1b[K\\n')")
+    app.tab("Data")
+    app.wait_for_labels("anonymous data")
+    assert app.data_rows()["anonymous data"][1] == "-150.00"
+
+
+def test_decode_delimiters_are_locked_while_the_map_is_on(app: App):
+    app.tab("Data")
+    card = app.map_cards().first
+    card.locator(".map-title").click()
+    lf = card.get_by_role("group", name="Delimiter").get_by_role(
+        "button", name="\\n", exact=True
+    )
+    lf.click(force=True)
+    expect(lf).to_have_attribute("data-state", "on")
+    expect(lf).to_be_disabled()
 
 
 def test_encode_turns_strings_into_bytes(app: App):

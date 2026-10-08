@@ -50,8 +50,8 @@ def test_counts_the_bytes_received_and_sent(app: App):
 def test_logs_connecting_and_failures(app: App):
     app.open_port()
     app.mock("writeError = 'The device did not respond.'")
-    for text in ["one", "two"]:
-        app.send_text(text)
+    for key in ["1", "2"]:
+        app.send_text(key)
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
     app.page.wait_for_timeout(200)

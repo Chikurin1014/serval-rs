@@ -1,80 +1,131 @@
 .console {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: ui-monospace, monospace;
 }
 
+/* xterm.js fits the terminal to this box (`FitAddon`), whose computed height
+   must leave out the padding: so not `border-box` */
 .console-output {
   flex: 1 1 auto;
   min-height: 0;
-  box-sizing: border-box;
-  width: 100%;
-  margin: 0;
-  overflow: auto;
-  padding: 1rem;
+  overflow: hidden;
+  padding: 0.5rem;
   border: 1px solid var(--dc-border);
-  border-bottom: none;
   background: var(--dc-screen);
-  color: var(--dc-screen-text);
-  font-size: 0.875rem;
-  white-space: pre-wrap;
 }
 
 .console-send {
   display: flex;
   flex: 0 0 auto;
-  width: 100%;
-}
-
-.console-send-field input,
-.console-send-field input:hover:not(:disabled),
-.console-send-field input:focus-visible {
-  font-size: 0.875rem;
-}
-
-.console-send button.console-send-button {
-  background-color: var(--secondary-success-color);
-}
-
-.console-send button.console-send-button:not(:disabled):hover {
-  background-color: color-mix(
-    in oklab,
-    var(--secondary-success-color) 90%,
-    transparent
-  );
-}
-
-.console-send .console-format {
-  flex: 0 0 auto;
-}
-
-.console-send button.console-format-trigger {
-  display: flex;
   align-items: center;
-  gap: 0.25rem;
-  height: 2rem;
-  padding: 0 0.5rem 0 0.5rem;
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+  gap: 0.5rem;
 }
 
-.console-send button.console-format-trigger > svg {
-  width: 0.75rem;
-  height: 0.75rem;
+.console-send > svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
 }
 
-.console-send .console-format-menu {
-  top: auto;
-  bottom: 100%;
-  min-width: 100%;
-  margin-top: 0;
-  margin-bottom: 4px;
+/* Rounded as a progress bar, not to look like an input, and cut off at its
+   right by a wave, as torn from `.console-send-end`. The waves are 8px wide,
+   one period down the height, and `--cut` apart. */
+.console-send-bar {
+  --wave-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0H4Q8 2.5 4 5T4 10H0Z'/%3E%3C/svg%3E");
+  --wave-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 10' preserveAspectRatio='none'%3E%3Cpath d='M8 0H4Q8 2.5 4 5T4 10H8Z'/%3E%3C/svg%3E");
+  --end: 6.5%;
+  --cut: 4px;
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.console-format-menu [role="option"] {
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+.console-send-buffer {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: calc(1.4em + 0.5rem);
+  overflow: hidden;
+  border: 1px solid var(--dc-border);
+  border-right: none;
+  border-radius: 999px 0 0 999px;
+  background: var(--dc-panel);
+  mask:
+    linear-gradient(#000 0 0) left / calc(100% - 8px) 100% no-repeat,
+    var(--wave-left) right / 8px 100% no-repeat;
+}
+
+.console-send-end {
+  flex: 0 0 var(--end);
+  margin-left: calc(var(--cut) - 8px);
+  border: 1px solid var(--dc-border);
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  background: var(--dc-panel);
+  mask:
+    var(--wave-right) left / 8px 100% no-repeat,
+    linear-gradient(#000 0 0) right / calc(100% - 8px) 100% no-repeat;
+}
+
+/* The wavy edges' border, over the masks */
+.console-send-cut {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: var(--dc-border);
+  stroke-width: 1px;
+}
+
+.console-send-cut path {
+  vector-effect: non-scaling-stroke;
+}
+
+.console-send-cut[data-side="buffer"] {
+  right: calc(var(--end) - 8px + var(--cut));
+}
+
+.console-send-cut[data-side="end"] {
+  right: calc(var(--end) - 8px);
+}
+
+/* One line from the left; once full, the newest at the right stay in view */
+.console-send-text {
+  display: flex;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  line-height: 1.4;
+  white-space: pre;
+}
+
+.console-send-text span {
+  flex: 0 0 auto;
+  min-height: 1.4em;
+  padding: 0.25rem 0;
+}
+
+.console-send-text span:first-child {
+  padding-left: 0.75rem;
+}
+
+/* Clear of the wavy cut */
+.console-send-text span:last-child {
+  padding-right: 0.75rem;
+}
+
+/* Sent from the left first, so the sent ones fill in as a bar */
+.console-send-text span[data-sent="true"] {
+  background: var(--secondary-success-color);
+  color: var(--primary-success-color);
 }
