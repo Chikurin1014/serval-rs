@@ -68,6 +68,56 @@ pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
     text
 }
 
+/// Drops ANSI escape sequences from text given in parts; one cut between parts
+/// is dropped as it goes on.
+#[derive(Default)]
+pub(crate) struct AnsiStripper {
+    state: AnsiState,
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
+enum AnsiState {
+    #[default]
+    Text,
+    /// After ESC.
+    Escape,
+    /// In a control sequence (`ESC [`), up to its final byte.
+    Csi,
+    /// In a string (`ESC ]`, `ESC P`, ...), up to BEL or `ESC \`.
+    String,
+    /// After ESC in a string.
+    StringEscape,
+}
+
+impl AnsiStripper {
+    pub(crate) fn strip(&mut self, text: &str) -> String {
+        let mut kept = String::with_capacity(text.len());
+        for c in text.chars() {
+            self.state = match (self.state, c) {
+                (AnsiState::Text | AnsiState::Csi, '\x1b') => AnsiState::Escape,
+                (AnsiState::Text, '\u{9b}') => AnsiState::Csi,
+                (AnsiState::Text, c) => {
+                    kept.push(c);
+                    AnsiState::Text
+                }
+                (AnsiState::Escape, '[') => AnsiState::Csi,
+                (AnsiState::Escape, ']' | 'P' | 'X' | '^' | '_') => AnsiState::String,
+                // Intermediate bytes, then the final one
+                (AnsiState::Escape, ' '..='/') => AnsiState::Escape,
+                (AnsiState::Escape, '\x1b') => AnsiState::Escape,
+                (AnsiState::Escape, _) => AnsiState::Text,
+                (AnsiState::Csi, '@'..='~') => AnsiState::Text,
+                (AnsiState::Csi, _) => AnsiState::Csi,
+                (AnsiState::String, '\x07') => AnsiState::Text,
+                (AnsiState::String | AnsiState::StringEscape, '\x1b') => AnsiState::StringEscape,
+                (AnsiState::String, _) => AnsiState::String,
+                (AnsiState::StringEscape, _) => AnsiState::Text,
+            };
+        }
+        kept
+    }
+}
+
 /// `bytes` as UTF-8, with control characters as their pictures, e.g. CR as "␍".
 pub(crate) fn visible(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes)
@@ -82,7 +132,9 @@ pub(crate) fn visible(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{csv_field, decode_utf8, format_bytes, single_line, unescape, visible};
+    use super::{
+        AnsiStripper, csv_field, decode_utf8, format_bytes, single_line, unescape, visible,
+    };
 
     #[test]
     fn unescape_supports_escape_sequences() {
@@ -135,5 +187,24 @@ mod tests {
         assert_eq!(visible(b"led on\r"), "led on\u{240D}");
         assert_eq!(visible(b"\x08\x7f"), "\u{2408}\u{2421}");
         assert_eq!(visible("温度".as_bytes()), "温度");
+    }
+
+    #[test]
+    fn ansi_stripper_drops_escape_sequences() {
+        let mut stripper = AnsiStripper::default();
+        assert_eq!(
+            stripper.strip("\x1b[1;32mtemp:\x1b[0m 20.5\x1b[K\n"),
+            "temp: 20.5\n"
+        );
+        assert_eq!(stripper.strip("\x1b]0;title\x07a\x1b]8;;url\x1b\\b"), "ab");
+        assert_eq!(stripper.strip("\x1b(Bc\x1b7d\u{9b}2Je"), "cde");
+    }
+
+    #[test]
+    fn ansi_stripper_drops_a_sequence_cut_between_parts() {
+        let mut stripper = AnsiStripper::default();
+        assert_eq!(stripper.strip("a\x1b"), "a");
+        assert_eq!(stripper.strip("[3"), "");
+        assert_eq!(stripper.strip("1mb"), "b");
     }
 }

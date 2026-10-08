@@ -41,6 +41,8 @@
             );
           };
           port.receive = (text) => controller.enqueue(encoder.encode(text));
+          // Stops the readings, for `receive` alone
+          port.mute = () => clearInterval(timer);
           port.burst = (count) => {
             for (let i = 0; i < count; i++) {
               send();
