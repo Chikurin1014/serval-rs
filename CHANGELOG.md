@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/Chikurin1014/serval-rs/compare/v0.2.1...v0.3.0) (2026-10-08)
+
+
+### Features
+
+* ✨ Add send-data buffer visualization ([b136bbd](https://github.com/Chikurin1014/serval-rs/commit/b136bbd81e4da9010f84dccf7c73badd6773af91))
+* ✨ Implement some feature of Tera Term ([ebc6874](https://github.com/Chikurin1014/serval-rs/commit/ebc6874dc26fc1a97acc2ed614f8311a4a61783d))
+* ✨ Introduce `Xterm.js` ([020fb39](https://github.com/Chikurin1014/serval-rs/commit/020fb394e7b341c3f5815d1d28d288a9af48be7a))
+* ✨ Support ANSI escape sequences ([330fe0d](https://github.com/Chikurin1014/serval-rs/commit/330fe0d2774d8df54978a1fbde2e2d7d80263b18))
+* 💄 Replace favicon with self-drawn rough sketch ([fc3e9cb](https://github.com/Chikurin1014/serval-rs/commit/fc3e9cbe8f5b4813280121068077829902554ae7))
+* 💄 Replace favicon with self-drawn rough sketch ([a0e79f6](https://github.com/Chikurin1014/serval-rs/commit/a0e79f65c0a8aec1834d08ba7c180dcf37202c5f))
+
+
+### Bug Fixes
+
+* 🩹 Fix positoin of tooltip ([eee9f8d](https://github.com/Chikurin1014/serval-rs/commit/eee9f8ded326809eaeeb8d34ecbc2541a65d8603))
+* 🩹 Modify default regex ([0359303](https://github.com/Chikurin1014/serval-rs/commit/03593034d925bf9ac9327bd49c359315f0d0c049))
+
 ## [0.2.1](https://github.com/Chikurin1014/serval-rs/compare/v0.2.0...v0.2.1) (2026-10-08)
 
 

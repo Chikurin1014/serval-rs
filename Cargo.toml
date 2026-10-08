@@ -4,7 +4,7 @@ members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile"]
 
 # Bumped by release-please
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 license = "MIT"
 
 [workspace.dependencies]
