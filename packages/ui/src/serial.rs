@@ -8,8 +8,12 @@ use dioxus::{
     prelude::*,
 };
 
+pub mod history;
+pub mod log;
 mod received;
 
+use history::{ReceivedHistory, Unread};
+use log::{LogFormat, LogSink, Logger};
 use received::{GATHER_MS, Gathered, Received};
 
 use crate::{
@@ -28,7 +32,7 @@ pub const PARITY: &str = "none";
 pub const STOP_BITS: u8 = 1;
 pub const FLOW_CONTROL: &str = "none";
 
-const MAX_LOG_ENTRIES: usize = 100;
+const MAX_NOTIFICATIONS: usize = 100;
 const MAX_OUTGOING: usize = 1000;
 /// How long a send stays in [`SerialContext::outgoing`] once sent (or failed).
 const OUTGOING_MS: u32 = 3000;
@@ -60,16 +64,16 @@ pub struct PortInfo {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LogKind {
+pub enum NotificationKind {
     Success,
     Info,
     Error,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct LogEntry {
+pub struct Notification {
     pub time_ms: i64,
-    pub kind: LogKind,
+    pub kind: NotificationKind,
     pub title: String,
     pub detail: String,
 }
@@ -110,7 +114,12 @@ pub struct SerialContext {
     open: Signal<Option<usize>>,
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
-    log: Signal<VecDeque<LogEntry>>,
+    notifications: Signal<VecDeque<Notification>>,
+    /// What the console shows; on while ports open and close.
+    history: Signal<ReceivedHistory>,
+    /// The log file being written, if any; on while ports open and close.
+    logger: CopyValue<Option<Logger>>,
+    log_format: Signal<Option<LogFormat>>,
     outgoing: Signal<VecDeque<Outgoing>>,
     next_outgoing: CopyValue<u64>,
     /// Runs the port's tasks, so they outlive the component that started them.
@@ -139,8 +148,38 @@ impl SerialContext {
         (self.tx_bytes)()
     }
 
-    pub fn log(&self) -> Vec<LogEntry> {
-        self.log.read().iter().rev().cloned().collect()
+    /// What happened to the ports, newest first.
+    pub fn notifications(&self) -> Vec<Notification> {
+        self.notifications.read().iter().rev().cloned().collect()
+    }
+
+    /// The received bytes after `read_to` (see [`ReceivedHistory::since`]); a
+    /// reader runs again as more come.
+    pub fn received_since(&self, read_to: Option<u64>) -> Unread {
+        self.history.read().since(read_to)
+    }
+
+    /// The format of the log file being written, if one is.
+    pub fn log_format(&self) -> Option<LogFormat> {
+        (self.log_format)()
+    }
+
+    /// Writes what the port receives (and sends, if `format` keeps it) to
+    /// `sink`, until [`Self::stop_log`]; a log already being written ends first.
+    pub fn start_log(&self, format: LogFormat, sink: Rc<dyn LogSink>) {
+        self.stop_log();
+        let (mut logger, mut log_format) = (self.logger, self.log_format);
+        logger.set(Some(Logger::new(format, sink)));
+        log_format.set(Some(format));
+    }
+
+    /// Ends the log file, with its unfinished lines.
+    pub fn stop_log(&self) {
+        let (mut logger, mut log_format) = (self.logger, self.log_format);
+        if let Some(logger) = logger.write().take() {
+            logger.close();
+        }
+        log_format.set(None);
     }
 
     /// The sends not yet sent, or sent in the last `OUTGOING_MS`, oldest first.
@@ -176,7 +215,9 @@ impl SerialContext {
                     context.select(id);
                 }
                 Ok(None) => {}
-                Err(error) => context.report(LogKind::Error, "Failed to add a port", &error),
+                Err(error) => {
+                    context.report(NotificationKind::Error, "Failed to add a port", &error)
+                }
             }
         });
     }
@@ -191,7 +232,7 @@ impl SerialContext {
             let handles = match backend.known_ports().await {
                 Ok(handles) => handles,
                 Err(error) => {
-                    context.report(LogKind::Error, "Failed to list the ports", &error);
+                    context.report(NotificationKind::Error, "Failed to list the ports", &error);
                     return;
                 }
             };
@@ -219,7 +260,7 @@ impl SerialContext {
         let context = *self;
         self.spawn(async move {
             if let Err(error) = port.handle.open(baudrate).await {
-                context.report(LogKind::Error, "Failed to open the port", &error);
+                context.report(NotificationKind::Error, "Failed to open the port", &error);
                 return;
             }
             let mut open = context.open;
@@ -230,13 +271,13 @@ impl SerialContext {
             let mut outgoing = context.outgoing;
             outgoing.write().clear();
             context.report(
-                LogKind::Success,
+                NotificationKind::Success,
                 "Port opened",
                 &format!("{} at {baudrate} bps", port.info.name),
             );
 
             let time = context.time;
-            let received = Received::new(context.data, rx_bytes);
+            let received = Received::new(context.data, rx_bytes, context.history, context.logger);
             let on_chunk = Box::new(move |chunk: Vec<u8>| {
                 let chunk = ByteData::new(time.read().current(), chunk);
                 match received.gather(chunk) {
@@ -256,7 +297,7 @@ impl SerialContext {
             if *open.peek() == Some(port.id) {
                 open.set(None);
                 if let Err(error) = read {
-                    context.report(LogKind::Error, "Connection lost", &error);
+                    context.report(NotificationKind::Error, "Connection lost", &error);
                 }
             }
         });
@@ -274,6 +315,7 @@ impl SerialContext {
             return;
         };
         let id = self.queue(bytes.clone());
+        let logged = self.logger.peek().is_some().then(|| bytes.clone());
         let context = *self;
         self.spawn(async move {
             let length = bytes.len() as u64;
@@ -281,10 +323,18 @@ impl SerialContext {
                 Ok(()) => {
                     let mut tx_bytes = context.tx_bytes;
                     *tx_bytes.write() += length;
+                    if let Some(bytes) = logged {
+                        let now = context.time.read().current();
+                        let mut logger = context.logger;
+                        let mut logger = logger.write();
+                        if let Some(logger) = logger.as_mut() {
+                            logger.sent(now, &bytes);
+                        }
+                    }
                     true
                 }
                 Err(error) => {
-                    context.report(LogKind::Error, "Failed to send", &error);
+                    context.report(NotificationKind::Error, "Failed to send", &error);
                     false
                 }
             };
@@ -333,32 +383,32 @@ impl SerialContext {
             return true;
         };
         if let Err(error) = port.handle.close().await {
-            self.report(LogKind::Error, "Failed to close the port", &error);
+            self.report(NotificationKind::Error, "Failed to close the port", &error);
             return false;
         }
         let mut open = self.open;
         open.set(None);
-        self.report(LogKind::Info, "Port closed", &port.info.name);
+        self.report(NotificationKind::Info, "Port closed", &port.info.name);
         true
     }
 
-    /// Shows `title` in a toast and logs it.
-    fn report(&self, kind: LogKind, title: &str, detail: &str) {
+    /// Shows `title` in a toast and keeps it in the notifications.
+    fn report(&self, kind: NotificationKind, title: &str, detail: &str) {
         match kind {
-            LogKind::Success => self.toaster.success(title, detail),
-            LogKind::Info => self.toaster.info(title, detail),
-            LogKind::Error => self.toaster.error(title, detail),
+            NotificationKind::Success => self.toaster.success(title, detail),
+            NotificationKind::Info => self.toaster.info(title, detail),
+            NotificationKind::Error => self.toaster.error(title, detail),
         }
-        let mut log = self.log;
-        let mut log = log.write();
-        log.push_back(LogEntry {
+        let mut notifications = self.notifications;
+        let mut notifications = notifications.write();
+        notifications.push_back(Notification {
             time_ms: self.time.read().current(),
             kind,
             title: title.to_string(),
             detail: detail.to_string(),
         });
-        while log.len() > MAX_LOG_ENTRIES {
-            log.pop_front();
+        while notifications.len() > MAX_NOTIFICATIONS {
+            notifications.pop_front();
         }
     }
 
@@ -401,7 +451,10 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         open: Signal::new(None),
         rx_bytes: Signal::new(0),
         tx_bytes: Signal::new(0),
-        log: Signal::new(VecDeque::new()),
+        notifications: Signal::new(VecDeque::new()),
+        history: Signal::new(ReceivedHistory::default()),
+        logger: CopyValue::new(None),
+        log_format: Signal::new(None),
         outgoing: Signal::new(VecDeque::new()),
         next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),

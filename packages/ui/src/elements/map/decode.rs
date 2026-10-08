@@ -5,8 +5,8 @@ use super::field::{ChoicesField, LabelField};
 use super::form_of;
 use super::map_list::{BYTES_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
 use crate::{
-    data::{DataType, Decode, DecodeSettings, Delimiter, MapKind},
-    helper::single_line,
+    data::{DataType, Decode, DecodeSettings, MapKind},
+    helper::{Delimiter, single_line},
 };
 
 pub const DECODE: MapKind = MapKind {

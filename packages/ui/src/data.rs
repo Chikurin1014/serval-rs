@@ -12,9 +12,9 @@ pub use data_type::{
 };
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Concat,
-    ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Delimiter, Encode,
-    EncodeSettings, InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner,
-    Operation, RegexMatch, RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment,
+    ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Encode, EncodeSettings,
+    InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Operation, RegexMatch,
+    RegexOutput, RegexSettings, Replace, ReplaceSettings, Segment,
 };
 pub(crate) use map::{Endpoints, Input, endpoints, keep_taken, take_newest_pair, trim_segments};
 pub(crate) use pattern::compile_for_map;

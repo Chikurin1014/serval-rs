@@ -10,13 +10,13 @@ def details(app: App) -> dict[str, str]:
     )
 
 
-def log(app: App) -> list[tuple[str, str]]:
+def notifications(app: App) -> list[tuple[str, str]]:
     """Newest first, as `(kind, title)`."""
     return [
         tuple(entry)
         for entry in app.page.evaluate(
-            """() => [...document.querySelectorAll('.port-log li')]
-                .map(li => [li.dataset.kind, li.querySelector('.port-log-title').textContent])"""
+            """() => [...document.querySelectorAll('.port-notifications li')]
+                .map(li => [li.dataset.kind, li.querySelector('.port-notification-title').textContent])"""
         )
     ]
 
@@ -47,7 +47,7 @@ def test_counts_the_bytes_received_and_sent(app: App):
     assert details(app)["Sent"] == "6 B"
 
 
-def test_logs_connecting_and_failures(app: App):
+def test_notifies_connecting_and_failures(app: App):
     app.open_port()
     app.mock("writeError = 'The device did not respond.'")
     for key in ["1", "2"]:
@@ -56,7 +56,7 @@ def test_logs_connecting_and_failures(app: App):
     app.page.get_by_role("button", name="Open port").wait_for()
     app.page.wait_for_timeout(200)
 
-    assert log(app) == [
+    assert notifications(app) == [
         ("info", "Port closed"),
         ("error", "Failed to send"),
         ("error", "Failed to send"),

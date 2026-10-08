@@ -3,13 +3,13 @@ use dioxus::prelude::*;
 use crate::helper::format_bytes;
 use crate::{
     components::card::{Card, CardContent, CardHeader, CardTitle},
-    serial::{DATA_BITS, FLOW_CONTROL, LogKind, PARITY, STOP_BITS, SerialContext},
+    serial::{DATA_BITS, FLOW_CONTROL, NotificationKind, PARITY, STOP_BITS, SerialContext},
     time::TimeContext,
 };
 
 const PORT_INFO_PANEL_CSS: Asset = asset!("/assets/styling/port-info-panel.css");
 
-/// The selected port's details, byte counts and log.
+/// The selected port's details, byte counts and notifications.
 #[component]
 pub fn PortInfoPanel() -> Element {
     let serial = use_context::<SerialContext>();
@@ -30,7 +30,7 @@ pub fn PortInfoPanel() -> Element {
         .map_or_else(unknown, |baudrate| format!("{baudrate} bps"));
     let rx_bytes = format_bytes(serial.rx_bytes());
     let tx_bytes = format_bytes(serial.tx_bytes());
-    let log = serial.log();
+    let notifications = serial.notifications();
 
     rsx! {
         document::Link { rel: "stylesheet", href: PORT_INFO_PANEL_CSS }
@@ -46,9 +46,9 @@ pub fn PortInfoPanel() -> Element {
                         span { "{product} · {vendor}" }
                         span { "{baudrate} {frame()}" }
                         span { "RX {rx_bytes} · TX {tx_bytes}" }
-                        if let Some(entry) = log.first() {
+                        if let Some(entry) = notifications.first() {
                             span {
-                                class: "port-summary-log",
+                                class: "port-summary-notification",
                                 "data-kind": kind_name(entry.kind),
                                 "{time.format(entry.time_ms)} {entry.title}"
                             }
@@ -76,15 +76,15 @@ pub fn PortInfoPanel() -> Element {
                         dd { "{tx_bytes}" }
                     }
                     ol {
-                        class: "port-log",
+                        class: "port-notifications",
                         aria_label: "Log",
-                        for entry in log {
+                        for entry in notifications {
                             li {
                                 "data-kind": kind_name(entry.kind),
                                 time { "{time.format(entry.time_ms)}" }
-                                span { class: "port-log-title", "{entry.title}" }
+                                span { class: "port-notification-title", "{entry.title}" }
                                 if !entry.detail.is_empty() {
-                                    span { class: "port-log-detail", "{entry.detail}" }
+                                    span { class: "port-notification-detail", "{entry.detail}" }
                                 }
                             }
                         }
@@ -101,11 +101,11 @@ fn frame() -> String {
     format!("{DATA_BITS}{parity}{STOP_BITS}")
 }
 
-fn kind_name(kind: LogKind) -> &'static str {
+fn kind_name(kind: NotificationKind) -> &'static str {
     match kind {
-        LogKind::Success => "success",
-        LogKind::Info => "info",
-        LogKind::Error => "error",
+        NotificationKind::Success => "success",
+        NotificationKind::Info => "info",
+        NotificationKind::Error => "error",
     }
 }
 
