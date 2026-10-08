@@ -4,12 +4,10 @@ use std::collections::HashSet;
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
-use dioxus_primitives::ContentSide;
 
 use crate::components::{
     input::Input,
     toggle_group::{ToggleGroup, ToggleItem},
-    tooltip::{Tooltip, TooltipContent, TooltipTrigger},
 };
 
 /// Whether the map of the form is on, provided by its card.
@@ -18,23 +16,6 @@ pub(super) struct MapEnabled(pub ReadSignal<bool>);
 
 fn use_map_enabled() -> bool {
     try_use_context::<MapEnabled>().is_some_and(|MapEnabled(enabled)| enabled())
-}
-
-#[component]
-fn LockTooltip(locked: bool, field: Element) -> Element {
-    rsx! {
-        Tooltip {
-            class: "field-lock",
-            disabled: !locked,
-            TooltipTrigger {
-                r#as: move |attributes: Vec<Attribute>| rsx! {
-                    // Classed by the tooltip; styled as `.field-lock > div`
-                    div { ..attributes, {field.clone()} }
-                },
-            }
-            TooltipContent { side: ContentSide::Top, "Turn this Map off to edit" }
-        }
-    }
 }
 
 /// A field for a label, offering those in the `datalist` with id `list`.
@@ -49,26 +30,21 @@ pub(super) fn LabelField(
     let locked = use_map_enabled();
 
     rsx! {
-        LockTooltip {
-            locked,
-            field: rsx! {
-                label {
-                    class: "field",
-                    "data-locked": locked,
-                    if let Some(name) = name {
-                        span { class: "field-label", "{name}" }
-                    }
-                    lucide::Tag {}
-                    Input {
-                        list,
-                        placeholder,
-                        autocomplete: "on",
-                        readonly: locked,
-                        value: "{value}",
-                        oninput: move |event: FormEvent| value.set(event.value()),
-                    }
-                }
-            },
+        label {
+            class: "field",
+            "data-locked": locked,
+            if let Some(name) = name {
+                span { class: "field-label", "{name}" }
+            }
+            lucide::Tag {}
+            Input {
+                list,
+                placeholder,
+                autocomplete: "on",
+                readonly: locked,
+                value: "{value}",
+                oninput: move |event: FormEvent| value.set(event.value()),
+            }
         }
     }
 }
@@ -86,27 +62,22 @@ pub(super) fn TextField(
     let locked = use_map_enabled();
 
     rsx! {
-        LockTooltip {
-            locked,
-            field: rsx! {
-                label {
-                    class: "field",
-                    "data-locked": locked,
-                    span { class: "field-label", "{name}" }
-                    {icon}
-                    Input {
-                        placeholder,
-                        readonly: locked,
-                        value: "{value}",
-                        oninput: move |event: FormEvent| {
-                            value.set(event.value());
-                            if let Some(mut error) = error {
-                                error.set(None);
-                            }
-                        },
+        label {
+            class: "field",
+            "data-locked": locked,
+            span { class: "field-label", "{name}" }
+            {icon}
+            Input {
+                placeholder,
+                readonly: locked,
+                value: "{value}",
+                oninput: move |event: FormEvent| {
+                    value.set(event.value());
+                    if let Some(mut error) = error {
+                        error.set(None);
                     }
-                }
-            },
+                },
+            }
         }
     }
 }
@@ -124,33 +95,28 @@ pub(super) fn ChoicesField(
     let pressed = chosen.into_iter().collect::<HashSet<_>>();
 
     rsx! {
-        LockTooltip {
-            locked,
-            field: rsx! {
-                div {
-                    class: "field field-choices",
-                    "data-locked": locked,
-                    role: "group",
-                    aria_label: "{name}",
-                    span { class: "field-label", "{name}" }
-                    ToggleGroup {
-                        horizontal: true,
-                        allow_multiple_pressed: true,
-                        disabled: locked,
-                        pressed: Some(pressed),
-                        on_pressed_change: move |pressed: HashSet<usize>| {
-                            if !pressed.is_empty() {
-                                let mut chosen = pressed.into_iter().collect::<Vec<_>>();
-                                chosen.sort_unstable();
-                                on_change.call(chosen);
-                            }
-                        },
-                        for (index, option) in options.iter().enumerate() {
-                            ToggleItem { index, "{option}" }
-                        }
+        div {
+            class: "field field-choices",
+            "data-locked": locked,
+            role: "group",
+            aria_label: "{name}",
+            span { class: "field-label", "{name}" }
+            ToggleGroup {
+                horizontal: true,
+                allow_multiple_pressed: true,
+                disabled: locked,
+                pressed: Some(pressed),
+                on_pressed_change: move |pressed: HashSet<usize>| {
+                    if !pressed.is_empty() {
+                        let mut chosen = pressed.into_iter().collect::<Vec<_>>();
+                        chosen.sort_unstable();
+                        on_change.call(chosen);
                     }
+                },
+                for (index, option) in options.iter().enumerate() {
+                    ToggleItem { index, "{option}" }
                 }
-            },
+            }
         }
     }
 }

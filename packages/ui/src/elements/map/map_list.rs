@@ -267,6 +267,10 @@ fn MapCard(map: Map) -> Element {
                         div {
                             class: "map-content",
                             {map.form()}
+                            if enabled() {
+                                // One for the whole form, in its middle
+                                div { class: "map-lock-tip", role: "tooltip", "Turn this Map off to edit" }
+                            }
                         }
                     }
                 }
