@@ -39,6 +39,60 @@ def test_backspace_and_delete_send_bs_and_del(app: App):
     assert app.mock("written") == ["\b", "\x7f"]
 
 
+def send_buffer(app: App) -> list[list]:
+    return app.page.evaluate(
+        """() => [...document.querySelectorAll('.console-send-buffer span')]
+            .map(span => [span.textContent, span.dataset.sent === 'true'])"""
+    )
+
+
+def test_send_buffer_marks_what_the_port_has_taken(app: App):
+    app.open_port()
+    app.mock("holdWrites = true")
+    app.send_text("ok")
+    app.page.keyboard.press("Enter")
+    expect(app.page.locator(".console-send-buffer")).to_have_text("ok\u240d")
+    assert send_buffer(app) == [["o", False], ["k", False], ["\u240d", False]]
+    expect(app.page.locator(".console-send-buffer span[data-sent=true]")).to_have_count(
+        0
+    )
+
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    expect(app.page.locator(".console-send-buffer span[data-sent=true]")).to_have_count(
+        3
+    )
+    assert "".join(app.mock("written")) == "ok\r"
+
+
+def test_send_buffer_empties_from_the_left_after_three_seconds(app: App):
+    app.open_port()
+    app.send_text("a")
+    app.page.wait_for_timeout(1000)
+    app.send_text("b")
+    buffer = app.page.locator(".console-send-buffer")
+    expect(buffer).to_have_text("ab")
+
+    expect(buffer).to_have_text("b", timeout=3000)
+    expect(buffer).to_have_text("", timeout=2000)
+
+
+def test_send_buffer_keeps_each_send_three_seconds_after_it_is_sent(app: App):
+    app.open_port()
+    app.mock("holdWrites = true")
+    app.send_text("x")
+    app.page.wait_for_timeout(3500)
+    buffer = app.page.locator(".console-send-buffer")
+    expect(buffer).to_have_text("x")
+
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    expect(buffer.locator("span[data-sent=true]")).to_have_count(1)
+    app.page.wait_for_timeout(2000)
+    expect(buffer).to_have_text("x")
+    expect(buffer).to_have_text("", timeout=2000)
+
+
 def test_keys_are_not_sent_while_the_port_is_closed(app: App):
     app.send_text("x")
     app.page.wait_for_timeout(200)

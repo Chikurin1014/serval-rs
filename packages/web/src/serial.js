@@ -71,11 +71,20 @@ export async function readLoop(port, onChunk) {
   }
 }
 
-export async function writePort(port, bytes) {
-  const writer = port.writable.getWriter();
-  try {
-    await writer.write(bytes);
-  } finally {
-    writer.releaseLock();
-  }
+const writing = new WeakMap();
+
+/** After the port's earlier writes: a second writer would find the stream locked. */
+export function writePort(port, bytes) {
+  const write = (writing.get(port) ?? Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      const writer = port.writable.getWriter();
+      try {
+        await writer.write(bytes);
+      } finally {
+        writer.releaseLock();
+      }
+    });
+  writing.set(port, write);
+  return write;
 }

@@ -68,9 +68,21 @@ pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
     text
 }
 
+/// `bytes` as UTF-8, with control characters as their pictures, e.g. CR as "␍".
+pub(crate) fn visible(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes)
+        .chars()
+        .map(|c| match c {
+            '\0'..='\x1f' => char::from_u32(0x2400 + c as u32).expect("a control picture"),
+            '\x7f' => '\u{2421}',
+            c => c,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{csv_field, decode_utf8, format_bytes, single_line, unescape};
+    use super::{csv_field, decode_utf8, format_bytes, single_line, unescape, visible};
 
     #[test]
     fn unescape_supports_escape_sequences() {
@@ -116,5 +128,12 @@ mod tests {
         let mut pending = Vec::new();
         assert_eq!(decode_utf8(&mut pending, b"a\xffb"), "a\u{FFFD}b");
         assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn visible_shows_control_characters_as_pictures() {
+        assert_eq!(visible(b"led on\r"), "led on\u{240D}");
+        assert_eq!(visible(b"\x08\x7f"), "\u{2408}\u{2421}");
+        assert_eq!(visible("温度".as_bytes()), "温度");
     }
 }

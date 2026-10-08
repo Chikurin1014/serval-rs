@@ -29,6 +29,9 @@ pub const STOP_BITS: u8 = 1;
 pub const FLOW_CONTROL: &str = "none";
 
 const MAX_LOG_ENTRIES: usize = 100;
+const MAX_OUTGOING: usize = 1000;
+/// How long a send stays in [`SerialContext::outgoing`] once sent (or failed).
+const OUTGOING_MS: u32 = 3000;
 
 pub trait SerialBackend {
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
@@ -71,6 +74,16 @@ pub struct LogEntry {
     pub detail: String,
 }
 
+/// Bytes given to [`SerialContext::send`], and whether the port took them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Outgoing {
+    id: u64,
+    pub bytes: Vec<u8>,
+    pub sent: bool,
+    /// Sent (or failed) `OUTGOING_MS` ago.
+    expired: bool,
+}
+
 #[derive(Clone)]
 pub struct Port {
     pub id: usize,
@@ -98,6 +111,8 @@ pub struct SerialContext {
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
     log: Signal<VecDeque<LogEntry>>,
+    outgoing: Signal<VecDeque<Outgoing>>,
+    next_outgoing: CopyValue<u64>,
     /// Runs the port's tasks, so they outlive the component that started them.
     scope: ScopeId,
 }
@@ -126,6 +141,11 @@ impl SerialContext {
 
     pub fn log(&self) -> Vec<LogEntry> {
         self.log.read().iter().rev().cloned().collect()
+    }
+
+    /// The sends not yet sent, or sent in the last `OUTGOING_MS`, oldest first.
+    pub fn outgoing(&self) -> Vec<Outgoing> {
+        self.outgoing.read().iter().cloned().collect()
     }
 
     pub fn select(&self, id: usize) {
@@ -207,6 +227,8 @@ impl SerialContext {
             let (mut rx_bytes, mut tx_bytes) = (context.rx_bytes, context.tx_bytes);
             rx_bytes.set(0);
             tx_bytes.set(0);
+            let mut outgoing = context.outgoing;
+            outgoing.write().clear();
             context.report(
                 LogKind::Success,
                 "Port opened",
@@ -251,17 +273,58 @@ impl SerialContext {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
             return;
         };
+        let id = self.queue(bytes.clone());
         let context = *self;
         self.spawn(async move {
             let length = bytes.len() as u64;
-            match port.handle.write(bytes).await {
+            let sent = match port.handle.write(bytes).await {
                 Ok(()) => {
                     let mut tx_bytes = context.tx_bytes;
                     *tx_bytes.write() += length;
+                    true
                 }
-                Err(error) => context.report(LogKind::Error, "Failed to send", &error),
-            }
+                Err(error) => {
+                    context.report(LogKind::Error, "Failed to send", &error);
+                    false
+                }
+            };
+            context.update_outgoing(id, |outgoing| outgoing.sent = sent);
+            let expiry = context.time.read().after_ms(OUTGOING_MS);
+            expiry.await;
+            context.update_outgoing(id, |outgoing| outgoing.expired = true);
         });
+    }
+
+    /// Adds `bytes` to the outgoing ones, not yet sent.
+    fn queue(&self, bytes: Vec<u8>) -> u64 {
+        let mut next_outgoing = self.next_outgoing;
+        let id = *next_outgoing.peek();
+        next_outgoing.set(id + 1);
+        let mut outgoing = self.outgoing;
+        let mut outgoing = outgoing.write();
+        outgoing.push_back(Outgoing {
+            id,
+            bytes,
+            sent: false,
+            expired: false,
+        });
+        while outgoing.len() > MAX_OUTGOING {
+            outgoing.pop_front();
+        }
+        id
+    }
+
+    /// Changes the outgoing `id`, then drops the expired ones from the oldest,
+    /// so they go from the left.
+    fn update_outgoing(&self, id: u64, change: impl FnOnce(&mut Outgoing)) {
+        let mut outgoing = self.outgoing;
+        let mut outgoing = outgoing.write();
+        if let Some(found) = outgoing.iter_mut().find(|outgoing| outgoing.id == id) {
+            change(found);
+        }
+        while outgoing.front().is_some_and(|oldest| oldest.expired) {
+            outgoing.pop_front();
+        }
     }
 
     /// `false` if it failed to close.
@@ -339,6 +402,8 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         rx_bytes: Signal::new(0),
         tx_bytes: Signal::new(0),
         log: Signal::new(VecDeque::new()),
+        outgoing: Signal::new(VecDeque::new()),
+        next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),
     })
 }

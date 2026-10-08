@@ -14,6 +14,9 @@
     // Set by the tests to make it fail
     openError: null,
     writeError: null,
+    // Set by the tests to hold the writes until `release()`
+    holdWrites: false,
+    release: () => {},
     cancelRequest: false,
     getInfo: () => ({ usbVendorId: 0x2341, usbProductId: 0x0043 }),
     open: async () => {
@@ -49,7 +52,16 @@
         },
       });
       port.writable = new WritableStream({
-        write(chunk) {
+        async write(chunk) {
+          if (port.holdWrites) {
+            await new Promise((resolve) => {
+              const before = port.release;
+              port.release = () => {
+                before();
+                resolve();
+              };
+            });
+          }
           if (port.writeError) {
             throw new DOMException(port.writeError, "NetworkError");
           }
