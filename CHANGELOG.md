@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/Chikurin1014/serval-rs/compare/v0.2.0...v0.2.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* 🩹 small fix ([d19406d](https://github.com/Chikurin1014/serval-rs/commit/d19406d12aad14b1e99cc1479d233aec92b17e14))
+* 🩹 Unformat third party libraries ([9963f93](https://github.com/Chikurin1014/serval-rs/commit/9963f93050b4f972292c0c3cb4aa1c78aed8989d))
+
+
+### Performance Improvements
+
+* ⚡️ Reduce frequency of regex compilation ([9ee448a](https://github.com/Chikurin1014/serval-rs/commit/9ee448a12c9e123a387435797f8f4f19ba0285c7))
+* ⚡️ Reduce rendering frequency ([8c3dcba](https://github.com/Chikurin1014/serval-rs/commit/8c3dcba847f75b83130b1e844048327403f93338))
+
 ## [0.2.0](https://github.com/Chikurin1014/serval-rs/compare/v0.1.0...v0.2.0) (2026-10-07)
 
 
