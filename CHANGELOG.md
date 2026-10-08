@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/Chikurin1014/serval-rs/compare/v0.3.0...v0.3.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* 🐛 Fix memory leak on Data tab ([95beca3](https://github.com/Chikurin1014/serval-rs/commit/95beca3006efe37c0e07e77c1a515aef4ee0cdc6))
+* 🐛 Fix memory leak on Data tab ([70aea7f](https://github.com/Chikurin1014/serval-rs/commit/70aea7fae520cb6643e05bf1f5e8617eed56752b))
+
 ## [0.3.0](https://github.com/Chikurin1014/serval-rs/compare/v0.2.1...v0.3.0) (2026-10-08)
 
 
