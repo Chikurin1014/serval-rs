@@ -1,7 +1,10 @@
 //! The regexes typed in maps and filters, which may use aliases for the parts
 //! common in serial data.
 
+use dioxus::prelude::*;
 use fancy_regex::Regex;
+
+use crate::data::set_if_changed;
 
 /// The aliases a pattern may use, by name: `{name}` stands for its regex.
 pub const PATTERN_ALIASES: &[(&str, &str)] = &[
@@ -17,24 +20,24 @@ pub fn compile_pattern(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     Regex::new(&expand_aliases(pattern))
 }
 
-/// A pattern compiled once and kept, for a map that matches with it on every
-/// run: compiling (`\w` and `\d` take in all of Unicode) costs far more than
-/// matching.
-#[derive(Default)]
-pub(crate) struct CompiledPattern {
-    compiled: Option<(String, Regex)>,
-}
-
-impl CompiledPattern {
-    /// The regex of `pattern`, compiled only if it is not the one kept.
-    pub(crate) fn get(&mut self, pattern: &str) -> Result<&Regex, fancy_regex::Error> {
-        if self.compiled.as_ref().map(|(kept, _)| kept.as_str()) != Some(pattern) {
-            // Nothing kept for a pattern that does not compile, so it is tried
-            // (and its error given) again next time
-            self.compiled = None;
-            self.compiled = Some((pattern.to_string(), compile_pattern(pattern)?));
+/// Compiles a map's `pattern` as the map is turned on (see
+/// `MapRunner::start`): `None` for an empty one, or one that does not compile,
+/// with why in `error` (cleared otherwise).
+pub(crate) fn compile_for_map(pattern: &str, error: &mut Signal<Option<String>>) -> Option<Regex> {
+    let compiled = if pattern.is_empty() {
+        Ok(None)
+    } else {
+        compile_pattern(pattern).map(Some)
+    };
+    match compiled {
+        Ok(regex) => {
+            set_if_changed(error, None);
+            regex
         }
-        Ok(&self.compiled.as_ref().expect("compiled above").1)
+        Err(failed) => {
+            set_if_changed(error, Some(format!("Invalid regex: {failed}")));
+            None
+        }
     }
 }
 
@@ -85,7 +88,7 @@ pub fn expand_aliases(pattern: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{CompiledPattern, compile_pattern, expand_aliases};
+    use super::{compile_pattern, expand_aliases};
 
     fn captures(pattern: &str, input: &str) -> Option<Vec<String>> {
         let regex = compile_pattern(pattern).unwrap();
@@ -172,17 +175,5 @@ mod tests {
     fn other_braces_are_left_alone() {
         assert_eq!(expand_aliases(r"\d{2}{words}"), r"\d{2}{words}");
         assert_eq!(expand_aliases("{number"), "{number");
-    }
-
-    #[test]
-    fn a_compiled_pattern_is_kept_until_it_changes() {
-        let mut compiled = CompiledPattern::default();
-        let first = compiled.get("{word}").unwrap() as *const _;
-        // The same one, not compiled again
-        assert_eq!(compiled.get("{word}").unwrap() as *const _, first);
-        assert!(compiled.get("{number}").unwrap().is_match("20").unwrap());
-        assert!(compiled.get("(").is_err());
-        // An error keeps nothing, so a valid pattern after it compiles
-        assert!(compiled.get("{number}").is_ok());
     }
 }

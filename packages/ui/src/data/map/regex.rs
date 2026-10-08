@@ -1,11 +1,12 @@
 use std::any::Any;
 
 use dioxus::prelude::*;
-use fancy_regex::Captures;
+use fancy_regex::{Captures, Regex};
 
 use crate::data::{
-    CompiledPattern, Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment,
-    SourceCursor, StringData, endpoints, format_number, set_if_changed, trim_segments,
+    Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
+    StringData, compile_for_map, endpoints, format_number, keep_taken, set_if_changed,
+    trim_segments,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,12 +55,12 @@ pub struct RegexMatch {
     output: RegexOutput,
     settings: RegexSettings,
     latest: Signal<Option<Conversion>>,
-    /// Settings of the previous run; a change restarts from the start of the input.
-    last_settings: Option<[String; 4]>,
+    /// The input label, output label (a template), pattern and replacement,
+    /// as taken in when turned on
+    taken: Option<[String; 4]>,
+    /// The pattern, compiled as the map was turned on
+    regex: Option<Regex>,
     cursor: SourceCursor,
-    /// The pattern's regex, compiled when it changes (the map is turned on
-    /// after an edit: its form allows none while it is on)
-    pattern_regex: CompiledPattern,
 }
 
 impl RegexMatch {
@@ -87,9 +88,9 @@ impl RegexMatch {
                 replacement_error: Signal::new(None),
             },
             latest: Signal::new(None),
-            last_settings: None,
+            taken: None,
+            regex: None,
             cursor: SourceCursor::default(),
-            pattern_regex: CompiledPattern::default(),
         }
     }
 }
@@ -103,7 +104,7 @@ impl MapRunner for RegexMatch {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let RegexSettings {
             from_label,
             to_label,
@@ -112,32 +113,34 @@ impl MapRunner for RegexMatch {
             mut pattern_error,
             mut replacement_error,
         } = self.settings;
-
-        let current = [from_label(), to_label(), pattern(), replacement()];
-        if self.last_settings.as_ref() != Some(&current) {
-            self.last_settings = Some(current.clone());
+        let taken = [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
+        // One of only spaces matches next to nothing, so it is none
+        let pattern = if taken[2].trim().is_empty() {
+            String::new()
+        } else {
+            taken[2].clone()
+        };
+        if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
-            set_if_changed(&mut pattern_error, None);
-            set_if_changed(&mut replacement_error, None);
+            self.regex = compile_for_map(&pattern, &mut pattern_error);
         }
-        let [from, to, pattern, replacement] = &current;
+        set_if_changed(&mut replacement_error, None);
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let RegexSettings {
+            mut pattern_error,
+            mut replacement_error,
+            ..
+        } = self.settings;
+        let (Some([from, to, _, replacement]), Some(regex)) = (&self.taken, &self.regex) else {
+            return;
+        };
         // `to` may use the pattern's groups (`$1`), so it is a template, not a label
         let Some((from, to)) = endpoints(from, to) else {
             return;
         };
-        if pattern.trim().is_empty() {
-            return;
-        }
 
-        let regex = match self.pattern_regex.get(pattern) {
-            Ok(regex) => regex,
-            Err(error) => {
-                set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
-                return;
-            }
-        };
-
-        // A restart needs no special handling: what was converted before stays
         let Some(entries) = self
             .cursor
             .new_entries::<StringData>(data, from)

@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, set_if_changed,
+    StringData, endpoints, keep_taken, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -18,6 +18,8 @@ pub struct EncodeSettings {
 pub struct Encode {
     settings: EncodeSettings,
     latest: Signal<Option<Conversion>>,
+    /// The input and output labels, as taken in when turned on
+    taken: Option<(String, String)>,
     cursor: SourceCursor,
 }
 
@@ -29,6 +31,7 @@ impl Encode {
                 to_label: Signal::new(to_label.to_string()),
             },
             latest: Signal::new(None),
+            taken: None,
             cursor: SourceCursor::default(),
         }
     }
@@ -43,13 +46,23 @@ impl MapRunner for Encode {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let EncodeSettings {
             from_label,
             to_label,
         } = self.settings;
-        let (from, to) = (from_label(), to_label());
-        let Some((from, to)) = endpoints(&from, &to) else {
+        let taken = (from_label.peek().clone(), to_label.peek().clone());
+        if keep_taken(&mut self.taken, taken) {
+            self.cursor.reset();
+        }
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let Some((from, to)) = self
+            .taken
+            .as_ref()
+            .and_then(|(from, to)| endpoints(from, to))
+        else {
             return;
         };
 

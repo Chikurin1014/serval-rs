@@ -15,7 +15,11 @@ mod input;
 mod regex;
 mod replace;
 
-use std::{any::Any, cell::RefCell, rc::Rc};
+use std::{
+    any::Any,
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
@@ -48,10 +52,19 @@ pub trait MapRunner {
     /// [`set_if_changed`]) and shown in the map's card.
     fn latest(&self) -> Signal<Option<Conversion>>;
 
-    /// Processes new input data while the map is enabled.
+    /// Takes in the settings, as the map is turned on: what
+    /// [`MapRunner::run`] works with until it is next turned on (its form
+    /// allows no edits while it is on). Read without subscribing (`peek`), and
+    /// checked, e.g. a pattern compiled, with errors shown in the form.
     ///
-    /// Re-runs whenever anything reactive read here changes: the input data
-    /// (read through `data`) and the settings signals.
+    /// If they differ from those taken in last time (see [`keep_taken`]),
+    /// the input is read again from the start.
+    fn start(&mut self);
+
+    /// Processes new input data while the map is enabled, with the settings
+    /// [`MapRunner::start`] took in.
+    ///
+    /// Re-runs whenever the input data it reads (through `data`) changes.
     fn run(&mut self, data: &mut DataContext, timestamp: i64);
 }
 
@@ -244,8 +257,8 @@ fn MapTasks() -> Element {
     }
 }
 
-/// Renders nothing; runs one map whenever it is enabled and anything it
-/// reads changes.
+/// Renders nothing; starts one map as it is turned on, then runs it whenever
+/// what it reads changes while it is on.
 #[component]
 fn MapTask(id: usize) -> Element {
     let context = use_context::<MapContext>();
@@ -253,12 +266,18 @@ fn MapTask(id: usize) -> Element {
     let time_context = use_context::<TimeContext>();
     // Compares by id, so this only changes when the map is removed
     let map = use_memo(move || context.get(id));
+    // Whether it was on when this last ran, to tell when it is turned on
+    let was_enabled = use_hook(|| Rc::new(Cell::new(false)));
 
     use_effect(move || {
         let Some(map) = map() else {
             return;
         };
-        if !(map.enabled)() {
+        let enabled = (map.enabled)();
+        if !was_enabled.replace(enabled) && enabled {
+            map.runner.borrow_mut().start();
+        }
+        if !enabled {
             return;
         }
         map.runner
@@ -275,6 +294,15 @@ pub fn set_if_changed<T: PartialEq + 'static>(signal: &mut Signal<T>, value: T) 
     if *signal.peek() != value {
         signal.set(value);
     }
+}
+
+/// Keeps `taken`, a map's settings as it is turned on (see
+/// [`MapRunner::start`]), in `kept`: whether they differ from those kept
+/// before, when the map is to read its input again from the start.
+pub(crate) fn keep_taken<S: PartialEq>(kept: &mut Option<S>, taken: S) -> bool {
+    let changed = kept.as_ref() != Some(&taken);
+    *kept = Some(taken);
+    changed
 }
 
 /// A delimiter as typed in a form, with its `\n`, `\r`, `\t` and `\\` escapes

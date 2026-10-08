@@ -122,6 +122,25 @@ def test_settings_are_locked_while_the_map_is_on(app: App):
     assert "only_volt" not in app.data_rows()
 
 
+def test_changed_settings_read_the_input_again(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.add_regex_map(target="first_$1")
+    app.wait_for_labels("first_temp", "first_volt")
+    # No more input from here on
+    app.page.get_by_role("button", name="Close port").click()
+    app.page.get_by_role("button", name="Open port").wait_for()
+
+    card = app.map_cards().last
+    switch = card.get_by_role("switch")
+    switch.click()
+    card.get_by_placeholder("Output label").fill("again_$1")
+    switch.click()
+
+    # Made from what was already received: read again from the start
+    app.wait_for_labels("again_temp", "again_volt")
+
+
 def test_adding_and_removing_maps_warns_nothing(app: App):
     app.open_port()
     app.tab("Data")

@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, DataType, Input, MapRunner, NumberData, Segment,
-    format_number, set_if_changed, take_newest_pair,
+    format_number, keep_taken, set_if_changed, take_newest_pair,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,6 +67,8 @@ pub struct ArithmeticSettings {
 pub struct Arithmetic {
     settings: ArithmeticSettings,
     latest: Signal<Option<Conversion>>,
+    /// The operands and the output label, as taken in when turned on
+    taken: Option<[String; 3]>,
     /// The operands' labels, read as far as they were used
     first: Input<f64>,
     second: Input<f64>,
@@ -117,6 +119,7 @@ impl Arithmetic {
                 error: Signal::new(None),
             },
             latest: Signal::new(None),
+            taken: None,
             first: Input::default(),
             second: Input::default(),
             last_constants: None,
@@ -172,18 +175,35 @@ impl MapRunner for Arithmetic {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let ArithmeticSettings {
-            operation,
             first,
             second,
             to_label,
             mut error,
+            ..
         } = self.settings;
-        let (first, second, to) = (first(), second(), to_label());
-        let to = to.trim();
-        if first.trim().is_empty() || second.trim().is_empty() || to.is_empty() {
-            set_if_changed(&mut error, None);
+        let taken = [first, second, to_label].map(|text| text.peek().trim().to_string());
+        if keep_taken(&mut self.taken, taken) {
+            self.first.forget();
+            self.second.forget();
+            self.last_constants = None;
+            self.failure = None;
+        }
+        set_if_changed(&mut error, None);
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let ArithmeticSettings {
+            operation,
+            mut error,
+            ..
+        } = self.settings;
+        let Some([first, second, to]) = self.taken.clone() else {
+            return;
+        };
+        let to = to.as_str();
+        if first.is_empty() || second.is_empty() || to.is_empty() {
             return;
         }
 

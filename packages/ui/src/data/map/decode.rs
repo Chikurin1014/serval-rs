@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     ByteData, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, set_if_changed, unescape,
+    StringData, endpoints, keep_taken, set_if_changed, unescape,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -20,6 +20,9 @@ pub struct DecodeSettings {
 pub struct Decode {
     settings: DecodeSettings,
     latest: Signal<Option<Conversion>>,
+    /// The input and output labels and the delimiter (unescaped), as taken in
+    /// when turned on
+    taken: Option<(String, String, String)>,
     cursor: SourceCursor,
     /// The start of a character the previous entry ended in the middle of.
     pending: Vec<u8>,
@@ -36,6 +39,7 @@ impl Decode {
                 delimiter: Signal::new("\\n".to_string()),
             },
             latest: Signal::new(None),
+            taken: None,
             cursor: SourceCursor::default(),
             pending: Vec::new(),
             buffer: String::new(),
@@ -52,14 +56,29 @@ impl MapRunner for Decode {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let DecodeSettings {
             from_label,
             to_label,
             delimiter,
         } = self.settings;
-        let (from, to) = (from_label(), to_label());
-        let Some((from, to)) = endpoints(&from, &to) else {
+        let taken = (
+            from_label.peek().clone(),
+            to_label.peek().clone(),
+            unescape(&delimiter.peek()),
+        );
+        if keep_taken(&mut self.taken, taken) {
+            self.cursor.reset();
+            self.pending.clear();
+            self.buffer.clear();
+        }
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let Some((from, to, delimiter)) = self.taken.as_ref() else {
+            return;
+        };
+        let Some((from, to)) = endpoints(from, to) else {
             return;
         };
 
@@ -79,7 +98,6 @@ impl MapRunner for Decode {
             return;
         }
 
-        let delimiter = unescape(&delimiter());
         let (pieces, from_value) = if delimiter.is_empty() {
             // Each entry as it is; what was buffered for a delimiter goes first
             let mut pieces = Vec::new();
@@ -99,7 +117,7 @@ impl MapRunner for Decode {
             for entry in &new_entries {
                 text.push_str(&decode_utf8(&mut self.pending, entry.value()));
             }
-            let (pieces, buffer) = split_complete(&text, &delimiter);
+            let (pieces, buffer) = split_complete(&text, delimiter);
             self.buffer = buffer;
             // The bytes that made the line
             let from_value = pieces.last().map(|last| format!("{last}{delimiter}"));

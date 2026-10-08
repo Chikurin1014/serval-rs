@@ -5,8 +5,8 @@ use fancy_regex::Regex;
 
 use super::regex::replacement_segments;
 use crate::data::{
-    CompiledPattern, Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor,
-    StringData, endpoints, set_if_changed,
+    Conversion, ConversionInput, DataContext, MapRunner, Segment, SourceCursor, StringData,
+    compile_for_map, endpoints, keep_taken, set_if_changed,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -24,12 +24,12 @@ pub struct ReplaceSettings {
 pub struct Replace {
     settings: ReplaceSettings,
     latest: Signal<Option<Conversion>>,
-    /// Settings of the previous run; a change restarts from the start of the input.
-    last_settings: Option<[String; 4]>,
+    /// The input label, output label, pattern and replacement, as taken in
+    /// when turned on
+    taken: Option<[String; 4]>,
+    /// The pattern, compiled as the map was turned on
+    regex: Option<Regex>,
     cursor: SourceCursor,
-    /// The pattern's regex, compiled when it changes (the map is turned on
-    /// after an edit: its form allows none while it is on)
-    pattern_regex: CompiledPattern,
 }
 
 impl Replace {
@@ -43,9 +43,9 @@ impl Replace {
                 pattern_error: Signal::new(None),
             },
             latest: Signal::new(None),
-            last_settings: None,
+            taken: None,
+            regex: None,
             cursor: SourceCursor::default(),
-            pattern_regex: CompiledPattern::default(),
         }
     }
 }
@@ -65,7 +65,7 @@ impl MapRunner for Replace {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let ReplaceSettings {
             from_label,
             to_label,
@@ -73,27 +73,21 @@ impl MapRunner for Replace {
             replacement,
             mut pattern_error,
         } = self.settings;
-
-        let current = [from_label(), to_label(), pattern(), replacement()];
-        if self.last_settings.as_ref() != Some(&current) {
-            self.last_settings = Some(current.clone());
+        let taken = [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
+        let pattern = taken[2].clone();
+        if keep_taken(&mut self.taken, taken) {
             self.cursor.reset();
-            set_if_changed(&mut pattern_error, None);
+            self.regex = compile_for_map(&pattern, &mut pattern_error);
         }
-        let [from, to, pattern, replacement] = &current;
-        let Some((from, to)) = endpoints(from, to) else {
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let mut pattern_error = self.settings.pattern_error;
+        let (Some([from, to, _, replacement]), Some(regex)) = (&self.taken, &self.regex) else {
             return;
         };
-        if pattern.is_empty() {
+        let Some((from, to)) = endpoints(from, to) else {
             return;
-        }
-
-        let regex = match self.pattern_regex.get(pattern) {
-            Ok(regex) => regex,
-            Err(error) => {
-                set_if_changed(&mut pattern_error, Some(format!("Invalid regex: {error}")));
-                return;
-            }
         };
 
         // A restart needs no special handling: what was replaced before stays

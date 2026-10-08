@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
-    set_if_changed, take_newest_pair, unescape,
+    keep_taken, set_if_changed, take_newest_pair, unescape,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -21,6 +21,9 @@ pub struct ConcatSettings {
 pub struct Concat {
     settings: ConcatSettings,
     latest: Signal<Option<Conversion>>,
+    /// The two input labels, the output label and the separator (unescaped),
+    /// as taken in when turned on
+    taken: Option<[String; 4]>,
     first: Input<String>,
     second: Input<String>,
 }
@@ -35,6 +38,7 @@ impl Concat {
                 separator: Signal::new(String::new()),
             },
             latest: Signal::new(None),
+            taken: None,
             first: Input::default(),
             second: Input::default(),
         }
@@ -56,16 +60,30 @@ impl MapRunner for Concat {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+    fn start(&mut self) {
         let ConcatSettings {
             first_label,
             second_label,
             to_label,
             separator,
         } = self.settings;
-        let (first, second, to) = (first_label(), second_label(), to_label());
-        let (Some((first, to)), Some((second, _))) =
-            (endpoints(&first, &to), endpoints(&second, &to))
+        let taken = [
+            first_label.peek().clone(),
+            second_label.peek().clone(),
+            to_label.peek().clone(),
+            unescape(&separator.peek()),
+        ];
+        if keep_taken(&mut self.taken, taken) {
+            self.first.forget();
+            self.second.forget();
+        }
+    }
+
+    fn run(&mut self, data: &mut DataContext, timestamp: i64) {
+        let Some([first, second, to, separator]) = self.taken.as_ref() else {
+            return;
+        };
+        let (Some((first, to)), Some((second, _))) = (endpoints(first, to), endpoints(second, to))
         else {
             return;
         };
@@ -77,14 +95,13 @@ impl MapRunner for Concat {
             return;
         };
 
-        let separator = unescape(&separator());
         let conversion = Conversion {
             from: vec![
                 ConversionInput::new(first, first_value.as_str()),
                 ConversionInput::new(second, second_value.as_str()),
             ],
             to_label: vec![Segment::fixed(to)],
-            to_value: concat_segments(&first_value, &separator, &second_value),
+            to_value: concat_segments(&first_value, separator, &second_value),
         };
         let value = format!("{first_value}{separator}{second_value}");
         set_if_changed(&mut self.latest, Some(conversion));

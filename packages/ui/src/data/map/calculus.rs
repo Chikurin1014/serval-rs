@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, MapRunner, NumberData, Segment, SourceCursor,
-    endpoints, format_number, set_if_changed,
+    endpoints, format_number, keep_taken, set_if_changed,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,6 +44,8 @@ pub struct CalculusSettings {
 pub struct CalculusMap {
     settings: CalculusSettings,
     latest: Signal<Option<Conversion>>,
+    /// The input and output labels, as taken in when turned on
+    taken: Option<(String, String)>,
     cursor: SourceCursor,
     state: State,
 }
@@ -90,6 +92,7 @@ impl CalculusMap {
                 to_label: Signal::new(String::new()),
             },
             latest: Signal::new(None),
+            taken: None,
             cursor: SourceCursor::default(),
             state: State::default(),
         }
@@ -105,14 +108,26 @@ impl MapRunner for CalculusMap {
         self.latest
     }
 
-    fn run(&mut self, data: &mut DataContext, _timestamp: i64) {
+    fn start(&mut self) {
         let CalculusSettings {
-            calculus,
             from_label,
             to_label,
+            ..
         } = self.settings;
-        let (from, to) = (from_label(), to_label());
-        let Some((from, to)) = endpoints(&from, &to) else {
+        let taken = (from_label.peek().clone(), to_label.peek().clone());
+        if keep_taken(&mut self.taken, taken) {
+            self.cursor.reset();
+            self.state = State::default();
+        }
+    }
+
+    fn run(&mut self, data: &mut DataContext, _timestamp: i64) {
+        let calculus = self.settings.calculus;
+        let Some((from, to)) = self
+            .taken
+            .as_ref()
+            .and_then(|(from, to)| endpoints(from, to))
+        else {
             return;
         };
 
