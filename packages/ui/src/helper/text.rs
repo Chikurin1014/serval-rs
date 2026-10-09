@@ -169,6 +169,15 @@ impl AnsiStripper {
     }
 }
 
+/// `bytes` in hex, apart: e.g. "6F 6B 0D".
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// `bytes` as UTF-8, with control characters as their pictures, e.g. CR as "␍".
 pub(crate) fn visible(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes)
@@ -186,7 +195,7 @@ mod tests {
     use super::{
         AnsiStripper,
         Delimiter::{self, *},
-        csv_field, decode_utf8, format_bytes, single_line, split_lines, unescape, visible,
+        csv_field, decode_utf8, format_bytes, hex, single_line, split_lines, unescape, visible,
     };
 
     #[test]
@@ -233,6 +242,13 @@ mod tests {
         let mut pending = Vec::new();
         assert_eq!(decode_utf8(&mut pending, b"a\xffb"), "a\u{FFFD}b");
         assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn hex_writes_each_byte_apart() {
+        assert_eq!(hex(b"ok\r"), "6F 6B 0D");
+        assert_eq!(hex(&[0x00, 0xff]), "00 FF");
+        assert_eq!(hex(b""), "");
     }
 
     #[test]

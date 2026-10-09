@@ -4,7 +4,10 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use super::LogButton;
-use crate::{helper::visible, serial::SerialContext};
+use crate::{
+    helper::{hex, visible},
+    serial::SerialContext,
+};
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 const XTERM_CSS: Asset = asset!("/assets/vendor/xterm/xterm.css");
@@ -27,29 +30,82 @@ const CONSOLE_JS: &str = include_str!("port_io_console.js");
 /// `port-io-console.css`.
 const WAVE: &str = "M4 0Q8 2.5 4 5T4 10";
 
-/// A terminal of the received bytes (from the port's history, not the data);
-/// what is typed in it is sent as it is, and shown below it until the port has
-/// taken it.
+/// How the console shows what is received.
+#[derive(Clone, Copy, PartialEq)]
+enum ConsoleView {
+    /// As a terminal does.
+    Text,
+    /// Its bytes in hex, beside them as characters (as `hexdump -C`).
+    Hex,
+}
+
+impl ConsoleView {
+    const ALL: [Self; 2] = [Self::Text, Self::Hex];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Text => "Text",
+            Self::Hex => "HEX",
+        }
+    }
+
+    /// As the terminal's script knows it.
+    fn key(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Hex => "hex",
+        }
+    }
+}
+
+/// A terminal of the received bytes (from the port's history, not the data),
+/// as text or in hex; what is typed in it is sent as it is, and shown below it
+/// until the port has taken it.
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
     let terminal = use_hook(|| document::eval(CONSOLE_JS));
+    let mut view = use_signal(|| ConsoleView::Text);
+    // Bumped as the script asks for all again, to draw it anew
+    let mut redraws = use_signal(|| 0_u32);
 
-    // In a hook: the effect takes each render's closure, and a fresh position
-    // would redraw the terminal from the start
+    // In hooks: the effect takes each render's closure, and fresh ones would
+    // redraw the terminal from the start
     let read_to = use_hook(|| Rc::new(Cell::new(None)));
-    use_effect(move || {
-        let unread = serial.received_since(read_to.get());
-        read_to.set(Some(unread.end));
-        if unread.restarted || !unread.bytes.is_empty() {
-            let _ = terminal.send((unread.restarted, unread.bytes));
+    let shown = use_hook(|| Rc::new(Cell::new(None)));
+    use_effect({
+        let read_to = read_to.clone();
+        move || {
+            let view = view();
+            redraws();
+            if shown.get() != Some(view) {
+                shown.set(Some(view));
+                let _ = terminal.send(("view", view.key()));
+                read_to.set(None);
+            }
+            let unread = serial.received_since(read_to.get());
+            read_to.set(Some(unread.end));
+            if unread.restarted || !unread.bytes.is_empty() {
+                let _ = terminal.send(("data", unread.restarted, unread.bytes, unread.times));
+            }
         }
     });
 
-    use_future(move || async move {
-        let mut terminal = terminal;
-        while let Ok(typed) = terminal.recv::<String>().await {
-            serial.send(typed.into_bytes());
+    // From the script: `["typed", text]` to send, or `["redraw"]`
+    use_future(move || {
+        let read_to = read_to.clone();
+        async move {
+            let mut terminal = terminal;
+            while let Ok(message) = terminal.recv::<Vec<String>>().await {
+                match message.as_slice() {
+                    [kind, typed] if kind == "typed" => serial.send(typed.clone().into_bytes()),
+                    [kind] if kind == "redraw" => {
+                        read_to.set(None);
+                        redraws += 1;
+                    }
+                    _ => {}
+                }
+            }
         }
     });
 
@@ -67,11 +123,31 @@ pub fn PortIoConsole() -> Element {
         div {
             class: "console",
             div {
-                class: "console-output",
-                id: "console-output",
-                onmounted: move |_| {
-                    let _ = terminal.send("console-output");
-                },
+                class: "console-screen",
+                div {
+                    class: "console-views",
+                    role: "tablist",
+                    aria_label: "Console view",
+                    for choice in ConsoleView::ALL {
+                        button {
+                            class: "console-view",
+                            r#type: "button",
+                            role: "tab",
+                            aria_selected: view() == choice,
+                            onclick: move |_| view.set(choice),
+                            "{choice.name()}"
+                        }
+                    }
+                }
+                // When each line came, beside it: drawn by the terminal's script
+                div { class: "console-times", id: "console-times", aria_hidden: "true" }
+                div {
+                    class: "console-output",
+                    id: "console-output",
+                    onmounted: move |_| {
+                        let _ = terminal.send("console-output");
+                    },
+                }
             }
             div {
                 class: "console-send",
@@ -86,7 +162,12 @@ pub fn PortIoConsole() -> Element {
                             for outgoing in serial.outgoing() {
                                 span {
                                     "data-sent": outgoing.sent,
-                                    {visible(&outgoing.bytes)}
+                                    // Each byte with its space after it, in the bar
+                                    if view() == ConsoleView::Hex {
+                                        "{hex(&outgoing.bytes)} "
+                                    } else {
+                                        {visible(&outgoing.bytes)}
+                                    }
                                 }
                             }
                         }
