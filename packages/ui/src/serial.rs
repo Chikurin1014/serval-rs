@@ -18,6 +18,7 @@ use received::{GATHER_MS, Gathered, Received};
 
 use crate::{
     data::{ByteData, DataContext},
+    helper::format_bytes,
     time::TimeContext,
     toast::{Toaster, use_toaster},
 };
@@ -36,6 +37,9 @@ const MAX_NOTIFICATIONS: usize = 100;
 const MAX_OUTGOING: usize = 1000;
 /// How long a send stays in [`SerialContext::outgoing`] once sent (or failed).
 const OUTGOING_MS: u32 = 3000;
+/// How much of a file is written at once: a while each, to show its progress
+/// and to stop it between them.
+const FILE_CHUNK_BYTES: usize = 4096;
 
 pub trait SerialBackend {
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
@@ -122,14 +126,27 @@ pub struct Notification {
     pub detail: String,
 }
 
-/// Bytes given to [`SerialContext::send`], and whether the port took them.
+/// Bytes given to [`SerialContext::send`], or a file to
+/// [`SerialContext::send_file`], and whether the port took them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Outgoing {
     id: u64,
+    /// None for a file: too many to show.
     pub bytes: Vec<u8>,
+    pub file: Option<OutgoingFile>,
     pub sent: bool,
     /// Sent (or failed) `OUTGOING_MS` ago.
     expired: bool,
+}
+
+/// A file being sent, by its name, and how far.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OutgoingFile {
+    pub name: String,
+    pub size: usize,
+    pub sent: usize,
+    /// Stopped before all of it was sent.
+    pub stopped: bool,
 }
 
 #[derive(Clone)]
@@ -168,6 +185,10 @@ pub struct SerialContext {
     /// Counts the logs started, to tell the one being written from those before.
     log_id: CopyValue<u64>,
     outgoing: Signal<VecDeque<Outgoing>>,
+    /// The outgoing file being sent, if any.
+    sending_file: Signal<Option<u64>>,
+    /// Asks the file being sent to stop.
+    stop_file: CopyValue<bool>,
     next_outgoing: CopyValue<u64>,
     /// Runs the port's tasks, so they outlive the component that started them.
     scope: ScopeId,
@@ -488,43 +509,129 @@ impl SerialContext {
         });
     }
 
+    /// Not while a file is being sent: they would go in between its bytes.
     pub fn send(&self, bytes: Vec<u8>) {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
             return;
         };
-        let id = self.queue(bytes.clone());
-        let logged = self.logger.peek().is_some().then(|| bytes.clone());
+        if self.sending_file.peek().is_some() {
+            return;
+        }
+        let id = self.queue(bytes.clone(), None);
         let context = *self;
         self.spawn(async move {
-            let length = bytes.len() as u64;
-            let sent = match port.handle.write(bytes).await {
-                Ok(()) => {
-                    let mut tx_bytes = context.tx_bytes;
-                    *tx_bytes.write() += length;
-                    if let Some(bytes) = logged {
-                        let now = context.time.read().current();
-                        let mut logger = context.logger;
-                        let mut logger = logger.write();
-                        if let Some(logger) = logger.as_mut() {
-                            logger.sent(now, &bytes);
-                        }
-                    }
-                    true
-                }
-                Err(error) => {
-                    context.report(NotificationKind::Error, "Failed to send", &error);
-                    false
-                }
-            };
+            let sent = context.write_sent(&port, bytes).await;
             context.update_outgoing(id, |outgoing| outgoing.sent = sent);
-            let expiry = context.time.read().after_ms(OUTGOING_MS);
-            expiry.await;
-            context.update_outgoing(id, |outgoing| outgoing.expired = true);
+            context.expire_outgoing(id).await;
         });
     }
 
+    /// Whether a file is being sent.
+    pub fn is_sending_file(&self) -> bool {
+        self.sending_file.read().is_some()
+    }
+
+    /// The file being sent, and how far, if one is.
+    pub fn sending_file(&self) -> Option<OutgoingFile> {
+        let id = (*self.sending_file.read())?;
+        self.outgoing
+            .read()
+            .iter()
+            .find(|outgoing| outgoing.id == id)
+            .and_then(|outgoing| outgoing.file.clone())
+    }
+
+    /// Sends the file `name` holding `bytes`, a while at a time, until all of
+    /// it is sent or [`Self::stop_file`]; one at a time.
+    pub fn send_file(&self, name: String, bytes: Vec<u8>) {
+        let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
+            return;
+        };
+        if self.sending_file.peek().is_some() {
+            return;
+        }
+        let file = OutgoingFile {
+            name: name.clone(),
+            size: bytes.len(),
+            sent: 0,
+            stopped: false,
+        };
+        let id = self.queue(Vec::new(), Some(file));
+        let (mut sending_file, mut stop_file) = (self.sending_file, self.stop_file);
+        sending_file.set(Some(id));
+        stop_file.set(false);
+        let context = *self;
+        self.spawn(async move {
+            let mut sent = 0;
+            for chunk in bytes.chunks(FILE_CHUNK_BYTES) {
+                if *stop_file.peek() || !context.write_sent(&port, chunk.to_vec()).await {
+                    break;
+                }
+                sent += chunk.len();
+                context.update_outgoing(id, |outgoing| {
+                    if let Some(file) = outgoing.file.as_mut() {
+                        file.sent = sent;
+                    }
+                });
+            }
+            let whole = sent == bytes.len();
+            context.update_outgoing(id, |outgoing| {
+                outgoing.sent = whole;
+                if let Some(file) = outgoing.file.as_mut() {
+                    file.stopped = !whole;
+                }
+            });
+            sending_file.set(None);
+            if whole {
+                context.report(NotificationKind::Success, "File sent", &name);
+            } else if *stop_file.peek() {
+                let detail = format!(
+                    "{name}: {} of {}",
+                    format_bytes(sent as u64),
+                    format_bytes(bytes.len() as u64)
+                );
+                context.report(NotificationKind::Info, "Sending stopped", &detail);
+            }
+            context.expire_outgoing(id).await;
+        });
+    }
+
+    /// Stops the file being sent, after the part being written.
+    pub fn stop_file(&self) {
+        let mut stop_file = self.stop_file;
+        stop_file.set(true);
+    }
+
+    /// Writes `bytes` to `port`, counted and logged; whether it was.
+    async fn write_sent(&self, port: &Port, bytes: Vec<u8>) -> bool {
+        let length = bytes.len() as u64;
+        let logged = self.logger.peek().is_some().then(|| bytes.clone());
+        if let Err(error) = port.handle.write(bytes).await {
+            self.report(NotificationKind::Error, "Failed to send", &error);
+            return false;
+        }
+        let mut tx_bytes = self.tx_bytes;
+        *tx_bytes.write() += length;
+        if let Some(bytes) = logged {
+            let now = self.time.read().current();
+            let mut logger = self.logger;
+            let mut logger = logger.write();
+            if let Some(logger) = logger.as_mut() {
+                logger.sent(now, &bytes);
+            }
+        }
+        true
+    }
+
+    /// Lets the outgoing `id`, done, go after `OUTGOING_MS`.
+    async fn expire_outgoing(&self, id: u64) {
+        let expiry = self.time.read().after_ms(OUTGOING_MS);
+        expiry.await;
+        self.update_outgoing(id, |outgoing| outgoing.expired = true);
+    }
+
     /// Adds `bytes` to the outgoing ones, not yet sent.
-    fn queue(&self, bytes: Vec<u8>) -> u64 {
+    fn queue(&self, bytes: Vec<u8>, file: Option<OutgoingFile>) -> u64 {
         let mut next_outgoing = self.next_outgoing;
         let id = *next_outgoing.peek();
         next_outgoing.set(id + 1);
@@ -533,6 +640,7 @@ impl SerialContext {
         outgoing.push_back(Outgoing {
             id,
             bytes,
+            file,
             sent: false,
             expired: false,
         });
@@ -578,6 +686,11 @@ impl SerialContext {
         if let Some(logger) = logger.as_mut() {
             logger.event(now, event);
         }
+    }
+
+    /// Shows an error in a toast and keeps it in the notifications.
+    pub fn report_error(&self, title: &str, detail: &str) {
+        self.report(NotificationKind::Error, title, detail);
     }
 
     /// Shows `title` in a toast and keeps it in the notifications.
@@ -649,6 +762,8 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         log_format: Signal::new(None),
         log_id: CopyValue::new(0),
         outgoing: Signal::new(VecDeque::new()),
+        sending_file: Signal::new(None),
+        stop_file: CopyValue::new(false),
         next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),
     })

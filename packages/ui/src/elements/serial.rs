@@ -5,6 +5,7 @@ mod port_io_console;
 mod port_open_close_button;
 mod port_selector;
 mod port_signal_button;
+mod send_file_button;
 
 pub use log_button::{LogButton, LogUnloadGuard};
 pub use port_baudrate_configurator::PortBaudrateConfigurator;
@@ -13,3 +14,4 @@ pub use port_io_console::PortIoConsole;
 pub use port_open_close_button::PortOpenCloseButton;
 pub use port_selector::PortSelector;
 pub use port_signal_button::PortSignalButton;
+pub use send_file_button::SendFileButton;

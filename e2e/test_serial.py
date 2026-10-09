@@ -177,3 +177,75 @@ def test_manual_toggles_dtr_and_rts(app: App):
         {"requestToSend": False},
         {"dataTerminalReady": True},
     ]
+
+
+FILE = bytes(range(256)) * 40
+
+
+def pick_file(app: App, contents: bytes = FILE):
+    app.page.get_by_label("Send a file").set_input_files(
+        files=[
+            {
+                "name": "data.bin",
+                "mimeType": "application/octet-stream",
+                "buffer": contents,
+            }
+        ]
+    )
+
+
+def test_a_file_is_sent_as_it_is_a_part_at_a_time(app: App):
+    expect(app.page.get_by_label("Send a file")).to_be_disabled()
+    app.open_port()
+    pick_file(app)
+    app.wait_for_toast("File sent")
+    written = app.mock("writtenBytes")
+    assert [len(part) for part in written] == [4096, 4096, 2048]
+    assert bytes(byte for part in written for byte in part) == FILE
+    expect(app.page.locator(".console-send-file")).to_have_text("data.bin (10,240 B)")
+    expect(app.page.locator(".console-send-file")).to_have_attribute(
+        "data-sent", "true"
+    )
+
+
+def test_sending_a_file_stops_when_asked(app: App):
+    app.open_port()
+    app.mock("holdWrites = true")
+    pick_file(app)
+    stop = app.page.get_by_role("button", name="Stop sending the file")
+    expect(stop).to_be_visible()
+    # Keys go not in between its parts
+    app.send_text("x")
+
+    stop.click()
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    app.wait_for_toast("Sending stopped")
+    assert ("info", "Sending stopped", "data.bin: 4,096 B of 10,240 B") in app.toasts()
+    assert [len(part) for part in app.mock("writtenBytes")] == [4096]
+    expect(app.page.locator(".console-send-file")).to_have_text(
+        "data.bin (10,240 B) stopped"
+    )
+    expect(app.page.get_by_label("Send a file")).to_be_enabled()
+
+
+def test_a_file_shows_its_progress_on_all_the_bar(app: App):
+    app.open_port()
+    app.mock("holdWrites = true")
+    pick_file(app)
+    progress = app.page.get_by_role("progressbar", name="Sending data.bin")
+    expect(progress).to_have_attribute("aria-valuenow", "0")
+    # In place of the send buffer, cut off at its right
+    expect(app.page.locator(".console-send-buffer")).to_have_count(0)
+
+    for percent in ["40", "80"]:
+        app.mock("release()")
+        expect(progress).to_have_attribute("aria-valuenow", percent)
+    expect(progress).to_contain_text("data.bin · 8,192 B / 10,240 B (80%)")
+
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    expect(progress).to_have_count(0)
+    expect(app.page.locator(".console-send-file")).to_have_attribute(
+        "data-sent", "true"
+    )

@@ -1,12 +1,11 @@
 use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide;
 
-use super::LogButton;
+use super::{LogButton, SendFileButton};
 use crate::{
-    helper::{hex, visible},
-    serial::SerialContext,
+    helper::{format_bytes, hex, visible},
+    serial::{OutgoingFile, SerialContext},
 };
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
@@ -151,40 +150,91 @@ pub fn PortIoConsole() -> Element {
             }
             div {
                 class: "console-send",
-                lucide::Send {}
-                div {
-                    class: "console-send-bar",
+                SendFileButton {}
+                if let Some(file) = serial.sending_file() {
+                    // A file is so much and no more: all the bar is its progress
+                    FileProgress { file }
+                } else {
                     div {
-                        class: "console-send-buffer",
-                        aria_label: "Send buffer",
+                        class: "console-send-bar",
                         div {
-                            class: "console-send-text",
-                            for outgoing in serial.outgoing() {
-                                span {
-                                    "data-sent": outgoing.sent,
-                                    // Each byte with its space after it, in the bar
-                                    if view() == ConsoleView::Hex {
-                                        "{hex(&outgoing.bytes)} "
+                            class: "console-send-buffer",
+                            aria_label: "Send buffer",
+                            div {
+                                class: "console-send-text",
+                                for outgoing in serial.outgoing() {
+                                    if let Some(file) = &outgoing.file {
+                                        // Its name, the part sent filled in as a bar
+                                        span {
+                                            class: "console-send-file",
+                                            "data-sent": outgoing.sent,
+                                            "data-stopped": file.stopped,
+                                            style: "--sent: {100 * file.sent / file.size.max(1)}%",
+                                            "{file.name} ({format_bytes(file.size as u64)})"
+                                            if file.stopped {
+                                                span { class: "console-send-file-note", " stopped" }
+                                            }
+                                        }
                                     } else {
-                                        {visible(&outgoing.bytes)}
+                                        span {
+                                            "data-sent": outgoing.sent,
+                                            // Each byte with its space after it, in the bar
+                                            if view() == ConsoleView::Hex {
+                                                "{hex(&outgoing.bytes)} "
+                                            } else {
+                                                {visible(&outgoing.bytes)}
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    div { class: "console-send-end", aria_hidden: "true" }
-                    for side in ["buffer", "end"] {
-                        svg {
-                            class: "console-send-cut",
-                            "data-side": side,
-                            "aria-hidden": "true",
-                            view_box: "0 0 8 10",
-                            preserve_aspect_ratio: "none",
-                            path { d: WAVE }
+                        div { class: "console-send-end", aria_hidden: "true" }
+                        for side in ["buffer", "end"] {
+                            svg {
+                                class: "console-send-cut",
+                                "data-side": side,
+                                "aria-hidden": "true",
+                                view_box: "0 0 8 10",
+                                preserve_aspect_ratio: "none",
+                                path { d: WAVE }
+                            }
                         }
                     }
                 }
                 LogButton {}
+            }
+        }
+    }
+}
+
+/// The file being sent, its progress on all the bar: its text in one color on
+/// the part sent, in another on the rest.
+#[component]
+fn FileProgress(file: OutgoingFile) -> Element {
+    let percent = file.sent * 100 / file.size.max(1);
+    let text = format!(
+        "{} · {} / {} ({percent}%)",
+        file.name,
+        format_bytes(file.sent as u64),
+        format_bytes(file.size as u64)
+    );
+
+    rsx! {
+        div {
+            class: "console-send-progress",
+            role: "progressbar",
+            aria_label: "Sending {file.name}",
+            "aria-valuemin": 0,
+            "aria-valuemax": 100,
+            "aria-valuenow": percent,
+            style: "--sent: {percent}%",
+            div { class: "console-send-progress-fill" }
+            span { class: "console-send-progress-text", "{text}" }
+            span {
+                class: "console-send-progress-text console-send-progress-on-fill",
+                aria_hidden: "true",
+                "{text}"
             }
         }
     }

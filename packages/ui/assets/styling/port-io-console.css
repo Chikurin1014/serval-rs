@@ -98,10 +98,49 @@
   gap: 0.5rem;
 }
 
-.console-send > svg {
+/* Picks a file to send; or, as one is sent, stops it */
+.console-file {
+  display: inline-flex;
+  position: relative;
   flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.25rem;
+  background: none;
+  color: var(--dc-text);
+  cursor: pointer;
+}
+
+.console-file:hover,
+.console-file:focus-within {
+  background: var(--primary-color-4);
+}
+
+.console-file[data-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.console-file svg {
   width: 1rem;
   height: 1rem;
+}
+
+.console-file-stop {
+  color: var(--dc-danger);
+}
+
+/* Over the icon, unseen: the label opens it */
+.console-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Rounded as a progress bar, not to look like an input, and cut off at its
@@ -169,6 +208,49 @@
   right: calc(var(--end) - 8px);
 }
 
+/* A file being sent: all the bar, rounded at both ends, filling from the
+   left; its text on the part sent in the colors of the sent */
+.console-send-progress {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: calc(1.4em + 0.5rem);
+  overflow: hidden;
+  border: 1px solid var(--dc-border);
+  border-radius: 999px;
+  background: var(--dc-panel);
+}
+
+.console-send-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--sent);
+  background: var(--secondary-success-color);
+  transition: width 0.15s linear;
+}
+
+.console-send-progress-text {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  padding: 0.25rem 0.75rem;
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.console-send-progress-on-fill {
+  position: absolute;
+  inset: 0;
+  color: var(--primary-success-color);
+  clip-path: inset(0 calc(100% - var(--sent)) 0 0);
+  transition: clip-path 0.15s linear;
+}
+
 /* One line from the left; once full, the newest at the right stay in view */
 .console-send-text {
   display: flex;
@@ -195,6 +277,27 @@
 /* Clear of the wavy cut */
 .console-send-text span:last-child {
   padding-right: 0.75rem;
+}
+
+/* A file: its name, the part sent filled in under it as it goes (not behind
+   it, which would leave its text on two colors); all, once sent */
+.console-send-text span.console-send-file {
+  background: linear-gradient(
+      to right,
+      var(--secondary-success-color) var(--sent),
+      transparent var(--sent)
+    )
+    left bottom / 100% 3px no-repeat;
+}
+
+.console-send-text span.console-send-file {
+  padding-right: 0.5em;
+  padding-left: 0.5em;
+}
+
+.console-send-text span.console-send-file > .console-send-file-note {
+  padding: 0;
+  color: var(--dc-text-muted);
 }
 
 /* Sent from the left first, so the sent ones fill in as a bar */
