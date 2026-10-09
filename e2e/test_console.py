@@ -187,3 +187,23 @@ def test_times_cannot_be_touched(app: App):
         " return [s.pointerEvents, s.userSelect]; }"
     )
     assert style == ["none", "none"]
+
+
+def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
+    app.open_port()
+    app.mock("burst(6000)")
+    wait_for_full_scrollback(app)
+    app.mock("receive('last\\n')")
+
+    def all_beside():
+        rows = view_rows(app)
+        return all(
+            bool(TIME.fullmatch(time)) == bool(text and not wrapped)
+            for text, wrapped, time in rows
+        )
+
+    assert all_beside()
+    assert "last" in [text for text, _, _ in view_rows(app)]
+    # The oldest lines kept, after thousands trimmed off before them
+    app.page.evaluate("document.querySelector('.console-output').xterm.scrollToTop()")
+    assert all_beside()

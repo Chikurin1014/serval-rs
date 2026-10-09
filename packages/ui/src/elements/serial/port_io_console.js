@@ -56,34 +56,49 @@ fit.fit();
 container.xterm = term;
 
 // Beside each line, when its first character came: marked as each chunk is
-// written, so the marks move with their lines and go as they are trimmed
+// written, by its count of lines from the first ever (the lines trimmed off the
+// scrollback, then its own in the buffer). One marker on the newest line tells
+// how many were trimmed: xterm.js tells each marker of each trim, too slow for
+// one a line
 const times = document.getElementById("console-times");
+// `{ line, time }` by `line`, from the first ever
 let marks = [];
+// The marker on the newest line marked, and its count from the first ever
+let anchor = null;
+
+function trimmed() {
+  return anchor ? anchor.count - anchor.marker.line : 0;
+}
+
+function forgetMarks() {
+  anchor?.marker.dispose();
+  anchor = null;
+  marks = [];
+}
 
 function markLines(time) {
   const buffer = term.buffer.active;
   if (buffer.type !== "normal") {
     return;
   }
+  const lost = trimmed();
   const cursorLine = buffer.baseY + buffer.cursorY;
-  const last = marks.at(-1)?.marker.line ?? -1;
-  for (let line = last + 1; line <= cursorLine; line++) {
+  const first = Math.max(0, (marks.at(-1)?.line ?? -1) - lost + 1);
+  for (let line = first; line <= cursorLine; line++) {
     const row = buffer.getLine(line);
     // Not the blank ones, nor those a long line wraps onto
-    if (!row || row.isWrapped || row.translateToString(true) === "") {
-      continue;
+    if (row && !row.isWrapped && row.translateToString(true) !== "") {
+      marks.push({ line: lost + line, time });
     }
-    const marker = term.registerMarker(line - cursorLine);
-    if (marker) {
-      const mark = { marker, time };
-      marker.onDispose(() => {
-        const index = marks.indexOf(mark);
-        if (index >= 0) {
-          marks.splice(index, 1);
-        }
-      });
-      marks.push(mark);
-    }
+  }
+  const marker = term.registerMarker(0);
+  if (marker) {
+    anchor?.marker.dispose();
+    anchor = { marker, count: lost + cursorLine };
+  }
+  // Those trimmed off, in a while: not one by one
+  if (marks.length > 2 * SCROLLBACK) {
+    marks = marks.slice(marks.findIndex((mark) => mark.line >= lost));
   }
   showTimes();
 }
@@ -120,26 +135,27 @@ function drawTimes() {
     times.lastChild.remove();
   }
   // From the first mark in view: they are in line order
+  const top = trimmed() + buffer.viewportY;
   let index = 0;
   let high = marks.length;
   while (index < high) {
     const middle = (index + high) >> 1;
-    if (marks[middle].marker.line < buffer.viewportY) {
+    if (marks[middle].line < top) {
       index = middle + 1;
     } else {
       high = middle;
     }
   }
   for (let row = 0; row < term.rows; row++) {
-    const line = buffer.viewportY + row;
+    const line = top + row;
     const cell = times.children[row];
     cell.style.height = cell.style.lineHeight = `${rowHeight}px`;
-    while (index < marks.length && marks[index].marker.line < line) {
+    while (index < marks.length && marks[index].line < line) {
       index++;
     }
     const mark = marks[index];
     cell.textContent =
-      buffer.type === "normal" && mark?.marker.line === line
+      buffer.type === "normal" && mark?.line === line
         ? localTime(mark.time)
         : "";
   }
@@ -214,7 +230,7 @@ while (true) {
   const [reset, bytes, chunkTimes] = message;
   if (reset) {
     term.reset();
-    marks = [];
+    forgetMarks();
     showTimes();
   }
   const data = new Uint8Array(bytes);
