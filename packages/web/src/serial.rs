@@ -5,8 +5,11 @@ use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::serial::{
-    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, use_serial_provider,
+    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, log::LogFile,
+    use_serial_provider,
 };
+
+use crate::log_file;
 
 /// Provides `SerialContext` with Web Serial. Requires `DataContext` and `TimeContext`.
 #[component]
@@ -40,6 +43,15 @@ impl SerialBackend for WebSerial {
                 .map(|port| Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
+    }
+
+    fn open_log_file(
+        &self,
+        extension: &str,
+        append: bool,
+    ) -> LocalFuture<SerialResult<Option<LogFile>>> {
+        let extension = extension.to_string();
+        Box::pin(async move { log_file::open(&extension, append).await })
     }
 }
 
@@ -163,7 +175,7 @@ fn error_name(error: &JsValue) -> Option<String> {
         .as_string()
 }
 
-fn message(error: JsValue) -> String {
+pub(crate) fn message(error: JsValue) -> String {
     match error.dyn_ref::<js_sys::Error>() {
         Some(error) => error.message().into(),
         None => format!("{error:?}"),

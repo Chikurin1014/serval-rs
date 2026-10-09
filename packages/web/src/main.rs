@@ -10,11 +10,13 @@ use ui::{
     elements::{
         graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
         map::{builtin_map_kinds, initial_maps},
+        serial::LogUnloadGuard,
     },
     theme::ThemeSwitch,
     views::Home,
 };
 
+mod log_file;
 mod serial;
 mod time;
 mod unsupported;
@@ -59,6 +61,7 @@ fn App() -> Element {
                                     initial: initial_graphs(),
                                     Router::<Route> {}
                                     UnsupportedBrowserDialog {}
+                                    LogUnloadGuard {}
                                 }
                             }
                         }

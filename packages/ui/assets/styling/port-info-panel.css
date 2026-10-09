@@ -59,7 +59,7 @@
   white-space: nowrap;
 }
 
-.port-log {
+.port-notifications {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -69,7 +69,7 @@
   list-style: none;
 }
 
-.port-log li {
+.port-notifications li {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0 0.5rem;
@@ -77,28 +77,28 @@
   border-left: 2px solid var(--border-color);
 }
 
-.port-log li + li {
+.port-notifications li + li {
   margin-top: 0.25rem;
 }
 
-.port-log li[data-kind="success"] {
+.port-notifications li[data-kind="success"] {
   border-left-color: var(--secondary-success-color);
 }
 
-.port-log li[data-kind="error"] {
+.port-notifications li[data-kind="error"] {
   border-left-color: var(--secondary-error-color);
 }
 
-.port-log time {
+.port-notifications time {
   color: var(--dc-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.port-log-title {
+.port-notification-title {
   color: var(--dc-text);
 }
 
-.port-log-detail {
+.port-notification-detail {
   grid-column: 2;
   color: var(--dc-text-muted);
   overflow-wrap: anywhere;
@@ -114,7 +114,7 @@
 
 @container port-info (max-height: 20rem) {
   .port-info,
-  .port-log {
+  .port-notifications {
     display: none;
   }
 
@@ -129,16 +129,16 @@
   }
 }
 
-.port-summary-log {
+.port-summary-notification {
   padding-left: 0.5rem;
   border-left: 2px solid var(--border-color);
   color: var(--dc-text-muted);
 }
 
-.port-summary-log[data-kind="success"] {
+.port-summary-notification[data-kind="success"] {
   border-left-color: var(--secondary-success-color);
 }
 
-.port-summary-log[data-kind="error"] {
+.port-summary-notification[data-kind="error"] {
   border-left-color: var(--secondary-error-color);
 }

@@ -1,6 +1,7 @@
 mod data_list;
 mod formula;
 mod hover_menu;
+mod submenu;
 
 pub mod graph;
 pub mod map;

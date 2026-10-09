@@ -4,7 +4,8 @@
   gap: 0.5rem;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  /* Not hidden: the log menu goes beyond it */
+  min-height: 0;
 }
 
 /* xterm.js fits the terminal to this box (`FitAddon`), whose computed height
@@ -128,4 +129,123 @@
 .console-send-text span[data-sent="true"] {
   background: var(--secondary-success-color);
   color: var(--primary-success-color);
+}
+
+/* Logging: "REC" with a red dot, "STOP" with a white square */
+.console-send .log-rec,
+.console-send .log-stop {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  /* As wide as each other, so the send bar keeps its width */
+  min-width: 5.5rem;
+  height: calc(1.4em + 0.5rem + 2px);
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.log-rec-mark {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #e5484d;
+}
+
+.log-stop-mark {
+  width: 0.6rem;
+  height: 0.6rem;
+  background: #fff;
+}
+
+/* Up and to the left: it is at the bottom right of the console */
+.log-menu .log-menu-content {
+  top: auto;
+  right: 0;
+  bottom: 100%;
+  left: auto;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.log-menu-content [role="option"] {
+  display: flex;
+  position: relative;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.log-menu-content [role="option"][data-existing="true"] {
+  margin-top: 0.25rem;
+  box-shadow: 0 -1px 0 var(--border-color);
+}
+
+.log-item-name {
+  flex: 1;
+}
+
+.log-item-icon,
+.log-item-chevron {
+  flex: 0 0 auto;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--dc-text-muted);
+}
+
+/* To the right, padded so the pointer stays on the item on the way over */
+.log-variants {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  top: -0.25rem;
+  left: 100%;
+  padding-left: 0.25rem;
+}
+
+/* One column: the console is as wide as the page, so to the left */
+@media (max-width: 900px) {
+  .log-variants {
+    right: 100%;
+    left: auto;
+    padding-right: 0.25rem;
+    padding-left: 0;
+  }
+}
+
+.log-menu-content [data-variants="true"]:hover > .log-variants,
+.log-menu-content [data-variants="true"]:focus-within > .log-variants {
+  display: block;
+}
+
+.log-variants-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background-color: var(--dark, var(--primary-color-5))
+    var(--light, var(--primary-color));
+  box-shadow: inset 0 0 0 1px var(--border-color);
+}
+
+.log-variant {
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--secondary-color-4);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  outline: none;
+}
+
+.log-variant:hover,
+.log-variant:focus-visible {
+  background: var(--dark, var(--primary-color-7))
+    var(--light, var(--primary-color-4));
+  color: var(--secondary-color-1);
 }

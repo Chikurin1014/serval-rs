@@ -10,7 +10,7 @@ use crate::components::{
     virtual_list::VirtualList,
 };
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
-use crate::elements::{HoverMenu, HoverMenus};
+use crate::elements::{HoverMenu, HoverMenus, submenu};
 use crate::helper::single_line;
 
 use super::field::MapEnabled;
@@ -22,12 +22,6 @@ const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
 pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
-
-const FOCUS_FIRST_PRESET: &str =
-    "document.activeElement?.querySelector('.add-map-preset')?.focus()";
-const FOCUS_NEXT_PRESET: &str = "document.activeElement?.nextElementSibling?.focus()";
-const FOCUS_PREVIOUS_PRESET: &str = "document.activeElement?.previousElementSibling?.focus()";
-const FOCUS_PRESETS_ITEM: &str = "document.activeElement?.closest('[role=option]')?.focus()";
 
 const TYPE_ORDER: [DataType; 3] = [DataType::Bytes, DataType::Number, DataType::String];
 
@@ -152,7 +146,7 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
             onkeydown: move |event: KeyboardEvent| {
                 if event.key() == Key::ArrowRight {
                     event.prevent_default();
-                    document::eval(FOCUS_FIRST_PRESET);
+                    document::eval(submenu::FOCUS_FIRST);
                 }
             },
             trigger: rsx! { "{to.name()}" },
@@ -175,9 +169,9 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                             onfocusout: move |_| in_presets.set(false),
                             onkeydown: move |event: KeyboardEvent| {
                                 let script = match event.key() {
-                                    Key::ArrowDown => FOCUS_NEXT_PRESET,
-                                    Key::ArrowUp => FOCUS_PREVIOUS_PRESET,
-                                    Key::ArrowLeft | Key::Escape => FOCUS_PRESETS_ITEM,
+                                    Key::ArrowDown => submenu::FOCUS_NEXT,
+                                    Key::ArrowUp => submenu::FOCUS_PREVIOUS,
+                                    Key::ArrowLeft | Key::Escape => submenu::FOCUS_ITEM,
                                     Key::Enter => {
                                         event.stop_propagation();
                                         return;

@@ -1,13 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use crate::{
-    data::{ByteData, DataContext, NewEntries, RAW_BYTES_LABEL, SourceCursor},
-    helper::visible,
-    serial::SerialContext,
-};
+use super::LogButton;
+use crate::{helper::visible, serial::SerialContext};
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
 const XTERM_CSS: Asset = asset!("/assets/vendor/xterm/xterm.css");
@@ -30,29 +27,22 @@ const CONSOLE_JS: &str = include_str!("port_io_console.js");
 /// `port-io-console.css`.
 const WAVE: &str = "M4 0Q8 2.5 4 5T4 10";
 
-/// A terminal of the received bytes; what is typed in it is sent as it is,
-/// and shown below it until the port has taken it.
+/// A terminal of the received bytes (from the port's history, not the data);
+/// what is typed in it is sent as it is, and shown below it until the port has
+/// taken it.
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
-    let data_context = use_context::<DataContext>();
     let terminal = use_hook(|| document::eval(CONSOLE_JS));
 
-    // In a hook: the effect takes each render's closure, and a fresh cursor
+    // In a hook: the effect takes each render's closure, and a fresh position
     // would redraw the terminal from the start
-    let cursor = use_hook(|| Rc::new(RefCell::new(SourceCursor::default())));
+    let read_to = use_hook(|| Rc::new(Cell::new(None)));
     use_effect(move || {
-        let mut cursor = cursor.borrow_mut();
-        let Some(NewEntries {
-            entries, restarted, ..
-        }) = cursor.new_entries::<ByteData>(&data_context, RAW_BYTES_LABEL)
-        else {
-            cursor.reset();
-            let _ = terminal.send((true, Vec::<u8>::new()));
-            return;
-        };
-        if restarted || !entries.is_empty() {
-            let _ = terminal.send((restarted, raw_bytes(&entries)));
+        let unread = serial.received_since(read_to.get());
+        read_to.set(Some(unread.end));
+        if unread.restarted || !unread.bytes.is_empty() {
+            let _ = terminal.send((unread.restarted, unread.bytes));
         }
     });
 
@@ -113,29 +103,8 @@ pub fn PortIoConsole() -> Element {
                         }
                     }
                 }
+                LogButton {}
             }
         }
-    }
-}
-
-fn raw_bytes(entries: &[ByteData]) -> Vec<u8> {
-    entries
-        .iter()
-        .flat_map(|entry| entry.value().iter().copied())
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::raw_bytes;
-    use crate::data::ByteData;
-
-    #[test]
-    fn raw_bytes_joins_the_chunks_in_order() {
-        let entries = [
-            ByteData::new(1, b"led: o".to_vec()),
-            ByteData::new(2, b"n\n".to_vec()),
-        ];
-        assert_eq!(raw_bytes(&entries), b"led: on\n");
     }
 }

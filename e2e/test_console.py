@@ -34,7 +34,8 @@ def test_shows_the_received_text_as_it_arrives(app: App):
     assert_whole_stream(later)
 
 
-def test_starts_over_after_clearing_all_data(app: App):
+def test_keeps_its_text_after_clearing_all_data(app: App):
+    """It shows the port's history, not the data."""
     app.open_port()
     app.page.wait_for_timeout(1000)
     before = app.console_text()
@@ -42,10 +43,10 @@ def test_starts_over_after_clearing_all_data(app: App):
     app.tab("Data")
     app.clear_all()
     app.tab("Console")
-    app.page.wait_for_timeout(200)
+    app.wait_for_console_text(longer_than=len(before))
     after = app.console_text()
 
-    assert len(after) < len(before)
+    assert after.startswith(before)
     assert_whole_stream(after)
 
 
