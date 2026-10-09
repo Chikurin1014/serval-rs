@@ -10,8 +10,10 @@ def test_closes_and_reopens_the_port(app: App):
     # A port does not close while it is being read
     app.page.get_by_role("button", name="Close port").click()
     expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
-    stopped = len(app.console_text())
+    # What came before it closed may show a moment after: then nothing more
     app.page.wait_for_timeout(300)
+    stopped = len(app.console_text())
+    app.page.wait_for_timeout(500)
     assert len(app.console_text()) == stopped
 
     app.page.get_by_role("button", name="Open port").click()
