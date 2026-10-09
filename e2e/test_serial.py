@@ -107,3 +107,55 @@ def test_refresh_lists_the_ports_granted_before(app: App):
 
     expect(trigger).not_to_have_text("No Devices allowed")
     expect(trigger).not_to_have_text("No Device selected")
+
+
+def signal_action(app: App, name: str):
+    app.page.get_by_role("button", name="Signal action").click()
+    app.page.locator(".port-signal-menu-content").get_by_role(
+        "option", name=name, exact=True
+    ).click()
+
+
+def test_restart_arduino_is_the_default_and_pulses_dtr(app: App):
+    restart = app.page.get_by_role("button", name="Restart (Arduino)")
+    expect(restart).to_be_disabled()
+    app.open_port()
+    restart.click()
+    app.wait_for_mock("signals.length === 2")
+    assert app.mock("signals") == [
+        {"dataTerminalReady": False, "requestToSend": False},
+        {"dataTerminalReady": True, "requestToSend": True},
+    ]
+
+
+def test_restart_espressif_pulses_rts_with_dtr_off(app: App):
+    app.open_port()
+    signal_action(app, "Restart (Espressif)")
+    app.page.get_by_role("button", name="Restart (Espressif)").click()
+    app.wait_for_mock("signals.length === 2")
+    assert app.mock("signals") == [
+        {"dataTerminalReady": False, "requestToSend": True},
+        {"requestToSend": False},
+    ]
+
+
+def test_manual_toggles_dtr_and_rts(app: App):
+    app.open_port()
+    signal_action(app, "Manual")
+    dtr = app.page.get_by_role("button", name="DTR")
+    rts = app.page.get_by_role("button", name="RTS")
+    # On as the port opens
+    expect(dtr).to_have_attribute("aria-pressed", "true")
+    expect(rts).to_have_attribute("aria-pressed", "true")
+
+    dtr.click()
+    expect(dtr).to_have_attribute("aria-pressed", "false")
+    rts.click()
+    expect(rts).to_have_attribute("aria-pressed", "false")
+    dtr.click()
+    expect(dtr).to_have_attribute("aria-pressed", "true")
+    assert app.mock("signals") == [
+        {"dataTerminalReady": False},
+        {"requestToSend": False},
+        {"dataTerminalReady": True},
+    ]

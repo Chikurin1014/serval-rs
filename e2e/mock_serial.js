@@ -14,6 +14,11 @@
     // Set by the tests to make it fail
     openError: null,
     writeError: null,
+    // What setSignals was given, in order
+    signals: [],
+    setSignals: async (signals) => {
+      port.signals.push(signals);
+    },
     // Set by the tests to hold the writes until `release()`
     holdWrites: false,
     release: () => {},
