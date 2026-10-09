@@ -6,7 +6,7 @@ use std::rc::Rc;
 use super::{LocalFuture, SerialResult};
 use crate::{
     data::ByteData,
-    helper::{AnsiStripper, Delimiter, decode_utf8, split_lines},
+    helper::{AnsiStripper, Delimiter, decode_utf8, hex, split_lines},
 };
 
 /// Where a log's bytes go as they are made: a file, by the platform.
@@ -339,12 +339,7 @@ impl LogSerializer {
                         Direction::Sent => "TX\t",
                     });
                 }
-                let hex = bytes
-                    .iter()
-                    .map(|byte| format!("{byte:02X}"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                line.push_str(&hex);
+                line.push_str(&hex(bytes));
                 line.push('\n');
                 line.into_bytes()
             }

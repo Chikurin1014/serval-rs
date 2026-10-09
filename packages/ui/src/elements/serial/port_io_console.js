@@ -1,7 +1,9 @@
 // The console: an xterm.js terminal, set up as Tera Term's defaults are.
-// From Rust: the container id, then `[reset, bytes, times]` (where in `bytes`
-// each chunk starts, and when it came), then `null` on unmount.
-// To Rust: what is typed or pasted, to send.
+// From Rust: the container id, then `["view", "text" | "hex"]` and
+// `["data", reset, bytes, times]` (where in `bytes` each chunk starts, and when
+// it came), then `null` on unmount.
+// To Rust: `["typed", text]`, what is typed or pasted, to send; `["redraw"]`
+// for all the bytes again, to draw them anew.
 
 // Tera Term's default
 const SCROLLBACK = 10000;
@@ -44,12 +46,32 @@ const term = new Terminal({
 const fit = new FitAddon.FitAddon();
 term.loadAddon(fit);
 term.open(container);
-try {
-  const webgl = new WebglAddon.WebglAddon();
-  webgl.onContextLoss(() => webgl.dispose());
-  term.loadAddon(webgl);
-} catch {
-  // The DOM renderer then
+// WebGL only on a GPU: drawn in software (no GPU, as in VMs), it is slower
+// than xterm.js's own DOM renderer, much so for lines full of characters
+function hardwareWebgl() {
+  const gl = document.createElement("canvas").getContext("webgl2");
+  if (!gl) {
+    return false;
+  }
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  const renderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  return !/swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer);
+}
+// For tests
+container.dataset.renderer = "dom";
+if (hardwareWebgl()) {
+  try {
+    const webgl = new WebglAddon.WebglAddon();
+    webgl.onContextLoss(() => {
+      webgl.dispose();
+      container.dataset.renderer = "dom";
+    });
+    term.loadAddon(webgl);
+    container.dataset.renderer = "webgl";
+  } catch {
+    // The DOM renderer then
+  }
 }
 fit.fit();
 // For tests
@@ -165,7 +187,13 @@ term.onScroll(showTimes);
 term.onRender(showTimes);
 term.onResize(showTimes);
 
-const resize = new ResizeObserver(() => fit.fit());
+const resize = new ResizeObserver(() => {
+  fit.fit();
+  // Another width may take another count of bytes a hex line
+  if (view === "hex" && bytesPerLine() !== hex.perLine) {
+    dioxus.send(["redraw"]);
+  }
+});
 resize.observe(container);
 const updateTheme = () => {
   term.options.theme = theme();
@@ -189,18 +217,73 @@ async function paste() {
   }
 }
 
-term.onData((data) => dioxus.send(data));
+// How the bytes show: as a terminal does, or in hex
+let view = "text";
+
+// In hex, as `hexdump -C` without offsets: as many bytes a line as fit, the
+// last line written again as more come; each with when its first byte came
+let hex = { perLine: 16, bytes: [] };
+
+function hexWidth(count) {
+  // "XX " each, a gap between halves of 16, then "  |" and "|" round them
+  return count * 3 - 1 + (count > 8 ? 1 : 0) + 3 + count + 1;
+}
+
+function bytesPerLine() {
+  return [16, 8, 4].find((count) => hexWidth(count) <= term.cols) ?? 4;
+}
+
+function hexLine(bytes, perLine) {
+  const cells = [];
+  for (let index = 0; index < perLine; index++) {
+    const byte = bytes[index];
+    cells.push(
+      byte === undefined
+        ? "  "
+        : byte.toString(16).toUpperCase().padStart(2, "0"),
+    );
+    if (perLine > 8 && index === 7) {
+      cells.push("");
+    }
+  }
+  const text = bytes
+    .map((byte) =>
+      byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ".",
+    )
+    .join("");
+  return `${cells.join(" ")}  |${text}|`;
+}
+
+function writeHex(chunk, time) {
+  let out = "";
+  for (const byte of chunk) {
+    hex.bytes.push(byte);
+    if (hex.bytes.length === hex.perLine) {
+      out += `\r\x1b[K${hexLine(hex.bytes, hex.perLine)}\r\n`;
+      hex.bytes = [];
+    }
+  }
+  if (hex.bytes.length > 0) {
+    out += `\r\x1b[K${hexLine(hex.bytes, hex.perLine)}`;
+  }
+  // A line begun in a chunk before was marked as it was first written: those
+  // unmarked yet begin in this one
+  term.write(out, () => markLines(time));
+}
+
+const send = (data) => dioxus.send(["typed", data]);
+term.onData(send);
 // As Tera Term: Backspace sends BS and Delete DEL; Alt+V pastes
 term.attachCustomKeyEventHandler((event) => {
   if (event.type !== "keydown" || event.ctrlKey || event.metaKey) {
     return true;
   }
   if (!event.altKey && event.key === "Backspace") {
-    dioxus.send("\b");
+    send("\b");
     return false;
   }
   if (!event.altKey && event.key === "Delete") {
-    dioxus.send("\x7f");
+    send("\x7f");
     return false;
   }
   if (event.altKey && event.key.toLowerCase() === "v") {
@@ -227,17 +310,27 @@ while (true) {
   if (message === null) {
     break;
   }
-  const [reset, bytes, chunkTimes] = message;
+  if (message[0] === "view") {
+    // All the bytes follow, to draw anew
+    view = message[1];
+    continue;
+  }
+  const [, reset, bytes, chunkTimes] = message;
   if (reset) {
     term.reset();
     forgetMarks();
+    hex = { perLine: bytesPerLine(), bytes: [] };
     showTimes();
   }
   const data = new Uint8Array(bytes);
   // A chunk at a time, to mark the lines each starts with its time
   chunkTimes.forEach(([at, time], index) => {
-    const end = chunkTimes[index + 1]?.[0] ?? data.length;
-    term.write(data.subarray(at, end), () => markLines(time));
+    const chunk = data.subarray(at, chunkTimes[index + 1]?.[0] ?? data.length);
+    if (view === "hex") {
+      writeHex(chunk, time);
+    } else {
+      term.write(chunk, () => markLines(time));
+    }
   });
 }
 

@@ -107,3 +107,21 @@ def test_refresh_lists_the_ports_granted_before(app: App):
 
     expect(trigger).not_to_have_text("No Devices allowed")
     expect(trigger).not_to_have_text("No Device selected")
+
+
+def test_send_buffer_shows_hex_in_the_hex_view(app: App):
+    app.open_port()
+    app.mock("holdWrites = true")
+    app.page.get_by_role("tab", name="HEX").click()
+    app.send_text("ok")
+    app.page.keyboard.press("Enter")
+    buffer = app.page.locator(".console-send-buffer")
+    expect(buffer).to_have_text("6F 6B 0D")
+    expect(buffer.locator("span[data-sent=true]")).to_have_count(0)
+
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    expect(buffer.locator("span[data-sent=true]")).to_have_count(3)
+
+    app.page.get_by_role("tab", name="Text").click()
+    expect(buffer).to_have_text("ok␍")

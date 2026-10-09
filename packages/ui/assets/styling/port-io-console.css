@@ -10,11 +10,53 @@
 
 /* The time column and the terminal, in one screen */
 .console-screen {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   border: 1px solid var(--dc-border);
   background: var(--dc-screen);
+}
+
+/* Text or hex: on the screen's top right, clear of the scrollbar, in its
+   colors */
+.console-views {
+  position: absolute;
+  z-index: 2;
+  top: 0.5rem;
+  right: 1.5rem;
+  display: flex;
+  padding: 2px;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--dc-screen-text) 8%, var(--dc-screen));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--dc-screen-text) 20%, transparent);
+}
+
+.console-view {
+  padding: 0.15rem 0.6rem;
+  border: none;
+  border-radius: 0.2rem;
+  background: none;
+  color: color-mix(in oklab, var(--dc-screen-text) 60%, transparent);
+  cursor: pointer;
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.console-view:hover {
+  color: var(--dc-screen-text);
+}
+
+.console-view[aria-selected="true"] {
+  background: color-mix(in oklab, var(--dc-screen-text) 22%, var(--dc-screen));
+  color: var(--dc-screen-text);
+}
+
+.console-view:focus-visible {
+  outline: 2px solid var(--focused-border-color);
+  outline-offset: 1px;
 }
 
 /* When each line came: drawn row by row beside the terminal, not to be
@@ -39,6 +81,9 @@
 /* xterm.js fits the terminal to this box (`FitAddon`), whose computed height
    must leave out the padding: so not `border-box` */
 .console-output {
+  /* Its layers stacked within it, under the view tabs */
+  position: relative;
+  z-index: 0;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;

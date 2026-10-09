@@ -1,5 +1,7 @@
 import re
 
+from playwright.sync_api import expect
+
 from app import App
 
 CHUNK = r"temp:[\d.]+\nvolt:[\d.]+\n"
@@ -187,6 +189,56 @@ def test_times_cannot_be_touched(app: App):
         " return [s.pointerEvents, s.userSelect]; }"
     )
     assert style == ["none", "none"]
+
+
+def buffer_lines(app: App) -> list[str]:
+    return app.page.evaluate(
+        """() => {
+            const buffer = document.querySelector('.console-output').xterm.buffer.active;
+            const lines = [];
+            for (let i = 0; i < buffer.length; i++) lines.push(buffer.getLine(i).translateToString(true));
+            return lines;
+        }"""
+    )
+
+
+def hex_dump(app: App) -> tuple[list[str], str]:
+    """The bytes in hex, and the characters beside them, over all the lines."""
+    hexes, characters = [], ""
+    for line in buffer_lines(app):
+        if match := re.fullmatch(r"([0-9A-F ]+?)\s*\|(.*)\|", line):
+            hexes += match[1].split()
+            characters += match[2]
+    return hexes, characters
+
+
+def test_hex_shows_the_bytes_and_their_characters(app: App):
+    text, hex_tab = (app.page.get_by_role("tab", name=name) for name in ("Text", "HEX"))
+    expect(text).to_have_attribute("aria-selected", "true")
+    app.open_port()
+    app.mock("mute()")
+    hex_tab.click()
+    expect(hex_tab).to_have_attribute("aria-selected", "true")
+    app.page.wait_for_timeout(300)
+
+    app.mock("receive('AB\\r\\n')")
+    app.page.wait_for_timeout(300)
+    hexes, characters = hex_dump(app)
+    assert hexes[-4:] == ["41", "42", "0D", "0A"]
+    assert characters.endswith("AB..")
+
+    # The last line written again as more come, not once more
+    app.mock("receive('C')")
+    app.page.wait_for_timeout(300)
+    more, characters = hex_dump(app)
+    assert more == [*hexes, "43"]
+    assert characters.endswith("AB..C")
+    rows = view_rows(app)
+    assert all(TIME.fullmatch(time) for line, _, time in rows if line)
+
+    text.click()
+    app.page.wait_for_timeout(300)
+    assert "\nAB\nC\n" in "\n".join(buffer_lines(app))
 
 
 def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
