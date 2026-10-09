@@ -4,6 +4,8 @@ import { test } from "node:test";
 import {
   closeLogFile,
   isSupported,
+  logFileName,
+  logFileTail,
   pickLogFile,
   writeLogFile,
 } from "./log_file.js";
@@ -12,7 +14,14 @@ import {
 function fakeFile(initial = "", { failWrite = false } = {}) {
   const file = { contents: initial, closes: 0, opened: [] };
   file.handle = {
-    getFile: async () => ({ size: file.contents.length }),
+    name: "old.log",
+    getFile: async () => ({
+      size: file.contents.length,
+      slice: (start) => ({
+        arrayBuffer: async () =>
+          new TextEncoder().encode(file.contents.slice(start)).buffer,
+      }),
+    }),
     createWritable: async ({ keepExistingData }) => {
       file.opened.push(keepExistingData);
       let pending = keepExistingData ? file.contents : "";
@@ -62,7 +71,7 @@ test("a new log is named after the local time, and written in order", async () =
   const file = fakeFile();
   const win = fakeWindow(file);
   const now = () => new Date(2026, 9, 8, 9, 5, 7).getTime();
-  const log = await pickLogFile("log", false, { win, now });
+  const log = await pickLogFile("log", false, 0, { win, now });
   assert.equal(win.picked.options.suggestedName, "serval-20261008-090507.log");
 
   for (const line of ["a\n", "b\n", "c\n"]) {
@@ -72,18 +81,20 @@ test("a new log is named after the local time, and written in order", async () =
   assert.equal(file.contents, "a\nb\nc\n");
 });
 
-test("an appended log adds to what the file has", async () => {
-  const file = fakeFile("old\n");
-  const log = await pickLogFile("log", true, { win: fakeWindow(file) });
+test("an appended log adds to what the file has, and tells its end", async () => {
+  const file = fakeFile("first\nold\n");
+  const log = await pickLogFile("log", true, 4, { win: fakeWindow(file) });
+  assert.equal(logFileName(log), "old.log");
+  assert.equal(new TextDecoder().decode(logFileTail(log)), "old\n");
   writeLogFile(log, bytes("new\n"));
   await closeLogFile(log);
-  assert.equal(file.contents, "old\nnew\n");
+  assert.equal(file.contents, "first\nold\nnew\n");
 });
 
 test("the file gets what was written so far as often as asked", async () => {
   const file = fakeFile();
   let time = 0;
-  const log = await pickLogFile("log", false, {
+  const log = await pickLogFile("log", false, 0, {
     win: fakeWindow(file),
     now: () => time,
     commitMs: 1000,
@@ -106,7 +117,7 @@ test("the file gets what was written so far as often as asked", async () => {
 
 test("a failed write fails the close, and stops the writes after it", async () => {
   const file = fakeFile("", { failWrite: true });
-  const log = await pickLogFile("log", false, { win: fakeWindow(file) });
+  const log = await pickLogFile("log", false, 0, { win: fakeWindow(file) });
   writeLogFile(log, bytes("a\n"));
   writeLogFile(log, bytes("b\n"));
   await assert.rejects(closeLogFile(log), /disk full/);
@@ -115,7 +126,7 @@ test("a failed write fails the close, and stops the writes after it", async () =
 test("cancelling the picker gives no log", async () => {
   const file = fakeFile();
   assert.equal(
-    await pickLogFile("log", false, {
+    await pickLogFile("log", false, 0, {
       win: fakeWindow(file, { cancel: true }),
     }),
     null,

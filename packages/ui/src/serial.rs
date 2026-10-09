@@ -13,7 +13,7 @@ pub mod log;
 mod received;
 
 use history::{ReceivedHistory, Unread};
-use log::{LogFormat, LogSink, Logger};
+use log::{LogFile, LogFormat, LogSink, Logger};
 use received::{GATHER_MS, Gathered, Received};
 
 use crate::{
@@ -43,12 +43,12 @@ pub trait SerialBackend {
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
 
     /// A file the user picks for a log, named with `extension`: a new one, or
-    /// with `append`, one to add to. `None` if they cancel.
+    /// with `append`, one to add to (with its tail). `None` if they cancel.
     fn open_log_file(
         &self,
         extension: &str,
         append: bool,
-    ) -> LocalFuture<SerialResult<Option<Rc<dyn LogSink>>>> {
+    ) -> LocalFuture<SerialResult<Option<LogFile>>> {
         let _ = (extension, append);
         Box::pin(async { Err("Saving a log is not supported here".to_string()) })
     }
@@ -184,16 +184,33 @@ impl SerialContext {
         log_format.set(Some(format));
     }
 
-    /// Asks for a file (see [`SerialBackend::open_log_file`]) and logs to it
-    /// in `format`. Call it as the user asks: browsers pick files only then.
-    pub fn open_log(&self, format: LogFormat, append: bool) {
+    /// Asks for a new file (see [`SerialBackend::open_log_file`]) and logs to
+    /// it in `format`. Call it as the user asks: browsers pick files only then.
+    pub fn open_log(&self, format: LogFormat) {
+        self.pick_log_file(Some(format));
+    }
+
+    /// As [`Self::open_log`], to an existing file, in the format it was
+    /// written in (see [`log::detect_format`]).
+    pub fn continue_log(&self) {
+        self.pick_log_file(None);
+    }
+
+    /// A new file for `format`, or an existing one for `None`.
+    fn pick_log_file(&self, format: Option<LogFormat>) {
         let context = *self;
         self.spawn(async move {
             let backend = context.backend.cloned();
-            match backend.open_log_file(log::extension(format), append).await {
-                Ok(Some(sink)) => {
+            let extension = format.map_or("log", log::extension);
+            match backend.open_log_file(extension, format.is_none()).await {
+                Ok(Some(LogFile { sink, name, tail })) => {
+                    let (format, title) = match format {
+                        Some(format) => (format, "Logging started"),
+                        None => (log::detect_format(&name, &tail), "Logging continued"),
+                    };
                     context.start_log(format, sink);
-                    context.report(NotificationKind::Info, "Logging started", "");
+                    let detail = format!("{name} ({})", format.name());
+                    context.report(NotificationKind::Info, title, &detail);
                 }
                 Ok(None) => {}
                 Err(error) => {

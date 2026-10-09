@@ -4,19 +4,29 @@ use std::rc::Rc;
 
 use wasm_bindgen::JsValue;
 
-use ui::serial::{LocalFuture, SerialResult, log::LogSink};
+use ui::serial::{
+    LocalFuture, SerialResult,
+    log::{LogFile, LogSink, TAIL_BYTES},
+};
 
 use crate::serial::message;
 
 /// A log file the user picks; see `SerialBackend::open_log_file`.
-pub async fn open(extension: &str, append: bool) -> SerialResult<Option<Rc<dyn LogSink>>> {
+pub async fn open(extension: &str, append: bool) -> SerialResult<Option<LogFile>> {
     if !js::is_supported() {
         return Err("Saving a log needs a browser that can save files".to_string());
     }
-    let log = js::pick_log_file(extension, append)
+    let log = js::pick_log_file(extension, append, TAIL_BYTES as u32)
         .await
         .map_err(message)?;
-    Ok((!log.is_null()).then(|| Rc::new(WebLogSink(log)) as Rc<dyn LogSink>))
+    if log.is_null() {
+        return Ok(None);
+    }
+    Ok(Some(LogFile {
+        name: js::log_file_name(&log),
+        tail: js::log_file_tail(&log),
+        sink: Rc::new(WebLogSink(log)),
+    }))
 }
 
 struct WebLogSink(JsValue);
@@ -42,7 +52,17 @@ mod js {
 
         /// Null if the user cancels.
         #[wasm_bindgen(catch, js_name = pickLogFile)]
-        pub async fn pick_log_file(extension: &str, append: bool) -> Result<JsValue, JsValue>;
+        pub async fn pick_log_file(
+            extension: &str,
+            append: bool,
+            tail_bytes: u32,
+        ) -> Result<JsValue, JsValue>;
+
+        #[wasm_bindgen(js_name = logFileName)]
+        pub fn log_file_name(log: &JsValue) -> String;
+
+        #[wasm_bindgen(js_name = logFileTail)]
+        pub fn log_file_tail(log: &JsValue) -> Vec<u8>;
 
         /// Ordered in JS: it returns at once.
         #[wasm_bindgen(js_name = writeLogFile)]

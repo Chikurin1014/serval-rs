@@ -27,6 +27,137 @@ pub fn extension(format: LogFormat) -> &'static str {
     }
 }
 
+/// How much of an existing log's end is read to tell its format.
+pub const TAIL_BYTES: usize = 64 * 1024;
+
+/// A file picked for a log.
+pub struct LogFile {
+    pub sink: Rc<dyn LogSink>,
+    pub name: String,
+    /// The end of what an existing file holds, at most [`TAIL_BYTES`].
+    pub tail: Vec<u8>,
+}
+
+impl LogFormat {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Raw => "Raw bytes",
+            Self::Text { timestamps, sent } => match (timestamps, sent) {
+                (false, false) => "Text",
+                (false, true) => "Text with sent",
+                (true, false) => "Text with time",
+                (true, true) => "Text with time and sent",
+            },
+            Self::Hex { timestamps, sent } => match (timestamps, sent) {
+                (false, false) => "Hex",
+                (false, true) => "Hex with sent",
+                (true, false) => "Hex with time",
+                (true, true) => "Hex with time and sent",
+            },
+        }
+    }
+}
+
+/// The format an existing log was written in, from its name and the `tail`
+/// of it: its last lines, or its extension while it has none.
+pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
+    let by_extension = match name.rsplit_once('.').map(|(_, extension)| extension) {
+        Some("bin") => return LogFormat::Raw,
+        Some("tsv") => LogFormat::Hex {
+            timestamps: false,
+            sent: false,
+        },
+        _ => TEXT,
+    };
+    // The tail may start inside a character, and a line
+    let start = tail
+        .iter()
+        .take(3)
+        .take_while(|&&byte| byte & 0xC0 == 0x80)
+        .count();
+    let Ok(text) = std::str::from_utf8(&tail[start..]) else {
+        return LogFormat::Raw;
+    };
+    // None but tabs and line ends are left in text, nor anything but LFs
+    if text
+        .chars()
+        .any(|c| c.is_control() && c != '\t' && c != '\n')
+    {
+        return LogFormat::Raw;
+    }
+    let lines = text
+        .split_terminator('\n')
+        .skip(usize::from(tail.len() >= TAIL_BYTES))
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        return by_extension;
+    }
+    // Hex lines, all with the same fields; bare ones only in a hex file
+    let first = hex_fields(lines[0]);
+    if let Some((timestamps, sent)) = first {
+        let alike = lines.iter().all(|line| hex_fields(line) == first);
+        if alike && (timestamps || sent || by_extension != TEXT) {
+            return LogFormat::Hex { timestamps, sent };
+        }
+    }
+    let timestamps = lines.iter().all(|line| after_time(line).is_some());
+    let marked = |line: &&str| {
+        let rest = if timestamps {
+            after_time(line).unwrap_or(line)
+        } else {
+            line
+        };
+        rest.starts_with("< ") || rest.starts_with("> ")
+    };
+    LogFormat::Text {
+        timestamps,
+        sent: lines.iter().all(marked),
+    }
+}
+
+/// Whether a `Hex` line (`[time⇥][RX|TX⇥]hex`) has its time and direction.
+fn hex_fields(line: &str) -> Option<(bool, bool)> {
+    let mut fields = line.split('\t').collect::<Vec<_>>();
+    let hex = fields.pop()?;
+    let bytes = hex
+        .split(' ')
+        .all(|byte| byte.len() == 2 && byte.chars().all(|c| c.is_ascii_hexdigit()));
+    let sent = fields
+        .last()
+        .is_some_and(|&field| matches!(field, "RX" | "TX"));
+    if sent {
+        fields.pop();
+    }
+    let timestamps = match fields[..] {
+        [] => false,
+        [time] if is_unix_time(time) => true,
+        _ => return None,
+    };
+    bytes.then_some((timestamps, sent))
+}
+
+const TEXT: LogFormat = LogFormat::Text {
+    timestamps: false,
+    sent: false,
+};
+
+/// The rest of a line after its `[time] `.
+fn after_time(line: &str) -> Option<&str> {
+    let (time, rest) = line.strip_prefix('[')?.split_once("] ")?;
+    is_unix_time(time).then_some(rest)
+}
+
+/// As [`unix_time`] writes it.
+fn is_unix_time(text: &str) -> bool {
+    text.split_once('.').is_some_and(|(seconds, millis)| {
+        !seconds.is_empty()
+            && seconds.chars().all(|c| c.is_ascii_digit())
+            && millis.len() == 3
+            && millis.chars().all(|c| c.is_ascii_digit())
+    })
+}
+
 /// A log being written: what the port receives and sends, to its sink.
 pub(crate) struct Logger {
     serializer: LogSerializer,
@@ -78,8 +209,9 @@ pub enum LogFormat {
     /// characters but tabs. With `sent`, the sent lines too, marked `>` (and
     /// the received ones `<`).
     Text { timestamps: bool, sent: bool },
-    /// A line for each chunk: its time, `RX` or `TX`, and its bytes in hex.
-    Hex { sent: bool },
+    /// A line for each chunk: its bytes in hex, after its time (with
+    /// `timestamps`) and `RX` or `TX` (with `sent`), tab separated.
+    Hex { timestamps: bool, sent: bool },
 }
 
 /// Turns chunks into the bytes to add to a log in `format`.
@@ -150,20 +282,29 @@ impl LogSerializer {
                     .collect::<String>()
                     .into_bytes()
             }
-            LogFormat::Hex { sent } => {
+            LogFormat::Hex { timestamps, sent } => {
                 if (direction == Direction::Sent && !sent) || bytes.is_empty() {
                     return Vec::new();
+                }
+                let mut line = String::new();
+                if timestamps {
+                    line.push_str(&unix_time(timestamp));
+                    line.push('\t');
+                }
+                if sent {
+                    line.push_str(match direction {
+                        Direction::Received => "RX\t",
+                        Direction::Sent => "TX\t",
+                    });
                 }
                 let hex = bytes
                     .iter()
                     .map(|byte| format!("{byte:02X}"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                let direction = match direction {
-                    Direction::Received => "RX",
-                    Direction::Sent => "TX",
-                };
-                format!("{}\t{direction}\t{hex}\n", unix_time(timestamp)).into_bytes()
+                line.push_str(&hex);
+                line.push('\n');
+                line.into_bytes()
             }
         }
     }
@@ -343,6 +484,80 @@ pub(crate) mod tests {
     };
 
     #[test]
+    fn detect_format_reads_what_each_format_writes() {
+        let cases = [
+            ("a.log", "temp:20.5\nled: on\n", TEXT_PLAIN),
+            (
+                "a.log",
+                "[1791409892.542] temp:20.5\n[1791409892.600] ok\n",
+                LogFormat::Text {
+                    timestamps: true,
+                    sent: false,
+                },
+            ),
+            (
+                "a.log",
+                "[1791409892.542] > ls\n[1791409892.600] < a.txt\n",
+                LogFormat::Text {
+                    timestamps: true,
+                    sent: true,
+                },
+            ),
+            ("a.tsv", "6F 6B\n0D\n", hex(false, false)),
+            ("a.tsv", "1791409892.542\t6F 6B\n", hex(true, false)),
+            (
+                "a.tsv",
+                "1791409892.542\tRX\t6F 6B\n1791409892.600\tTX\t0D\n",
+                hex(true, true),
+            ),
+            // Bare hex in a text file is text
+            ("a.log", "6F 6B\n", TEXT_PLAIN),
+            // Not all alike: text
+            ("a.tsv", "1791409892.542\t6F\n6F\n", TEXT_PLAIN),
+            // Text keeps no CR nor escape sequences: written raw
+            ("a.log", "ok\r\n\x1b[0m", LogFormat::Raw),
+        ];
+        for (name, tail, format) in cases {
+            assert_eq!(detect_format(name, tail.as_bytes()), format, "{tail:?}");
+        }
+        assert_eq!(detect_format("a.log", b"\xff\xfe"), LogFormat::Raw);
+    }
+
+    #[test]
+    fn detect_format_goes_by_the_extension_without_lines() {
+        assert_eq!(detect_format("a.bin", b"ok\n"), LogFormat::Raw);
+        assert_eq!(detect_format("a.tsv", b""), hex(false, false));
+        assert_eq!(detect_format("a.log", b""), TEXT_PLAIN);
+        assert_eq!(detect_format("notes", b""), TEXT_PLAIN);
+    }
+
+    #[test]
+    fn detect_format_skips_a_cut_first_line_and_character() {
+        let mut tail = "温".as_bytes()[1..].to_vec();
+        tail.extend_from_slice("度 cut\n".as_bytes());
+        tail.extend(std::iter::repeat_n(b'x', TAIL_BYTES));
+        tail.extend_from_slice(b"\n[1791409892.542] ok\n");
+        let tail = &tail[tail.len() - TAIL_BYTES..];
+        assert_eq!(
+            detect_format("a.log", tail),
+            LogFormat::Text {
+                timestamps: true,
+                sent: false,
+            }
+        );
+        assert_eq!(detect_format("a.log", &"温".as_bytes()[1..]), TEXT_PLAIN);
+    }
+
+    const TEXT_PLAIN: LogFormat = LogFormat::Text {
+        timestamps: false,
+        sent: false,
+    };
+
+    fn hex(timestamps: bool, sent: bool) -> LogFormat {
+        LogFormat::Hex { timestamps, sent }
+    }
+
+    #[test]
     fn times_are_unix_time_in_seconds_to_the_millisecond() {
         assert_eq!(unix_time(1_791_409_892_542), "1791409892.542");
         assert_eq!(unix_time(1_791_409_892_005), "1791409892.005");
@@ -432,12 +647,16 @@ pub(crate) mod tests {
 
     #[test]
     fn hex_gives_a_line_for_each_chunk() {
-        let mut log = serializer(LogFormat::Hex { sent: true });
+        let mut log = serializer(hex(true, true));
         assert_eq!(text(log.received(1, b"ok\r\n")), "0.001\tRX\t6F 6B 0D 0A\n");
         assert_eq!(text(log.sent(2, &[0x02, 0xff])), "0.002\tTX\t02 FF\n");
         assert_eq!(log.received(3, b""), b"");
 
-        let mut log = serializer(LogFormat::Hex { sent: false });
-        assert_eq!(log.sent(1, b"x"), b"");
+        let mut log = serializer(hex(true, false));
+        assert_eq!(text(log.received(1, b"ok")), "0.001\t6F 6B\n");
+        assert_eq!(log.sent(2, b"x"), b"");
+
+        let mut log = serializer(hex(false, false));
+        assert_eq!(text(log.received(1, b"ok")), "6F 6B\n");
     }
 }

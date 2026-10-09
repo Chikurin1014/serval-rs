@@ -11,11 +11,13 @@ export function isSupported(win = window) {
 
 /**
  * A log file the user picks: a new one named `serval-<local time>.<extension>`,
- * or with `append`, one to add to. Null if they cancel.
+ * or with `append`, one to add to, with its last `tailBytes` bytes to tell its
+ * format by. Null if they cancel.
  */
 export async function pickLogFile(
   extension,
   append,
+  tailBytes,
   { win = window, now = Date.now, commitMs = COMMIT_MS } = {},
 ) {
   let handle;
@@ -36,8 +38,17 @@ export async function pickLogFile(
     }
     throw error;
   }
+  let tail = new Uint8Array();
+  if (append) {
+    const file = await handle.getFile();
+    tail = new Uint8Array(
+      await file.slice(Math.max(0, file.size - tailBytes)).arrayBuffer(),
+    );
+  }
   const log = {
     handle,
+    name: handle.name,
+    tail,
     writable: null,
     chain: Promise.resolve(),
     error: null,
@@ -47,6 +58,14 @@ export async function pickLogFile(
   };
   log.writable = await openAtEnd(handle, append);
   return log;
+}
+
+export function logFileName(log) {
+  return log.name;
+}
+
+export function logFileTail(log) {
+  return log.tail;
 }
 
 /** After the earlier writes, in order; the first failure is kept for `closeLogFile`. */

@@ -3,6 +3,7 @@ use std::{cell::Cell, rc::Rc};
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
+use super::LogButton;
 use crate::{helper::visible, serial::SerialContext};
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
@@ -102,6 +103,7 @@ pub fn PortIoConsole() -> Element {
                         }
                     }
                 }
+                LogButton {}
             }
         }
     }

@@ -5,7 +5,7 @@ use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::serial::{
-    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, log::LogSink,
+    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, log::LogFile,
     use_serial_provider,
 };
 
@@ -49,7 +49,7 @@ impl SerialBackend for WebSerial {
         &self,
         extension: &str,
         append: bool,
-    ) -> LocalFuture<SerialResult<Option<Rc<dyn LogSink>>>> {
+    ) -> LocalFuture<SerialResult<Option<LogFile>>> {
         let extension = extension.to_string();
         Box::pin(async move { log_file::open(&extension, append).await })
     }
