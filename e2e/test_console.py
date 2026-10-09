@@ -238,7 +238,10 @@ def test_hex_shows_the_bytes_and_their_characters(app: App):
 
     text.click()
     app.page.wait_for_timeout(300)
-    assert "\nAB\nC\n" in "\n".join(buffer_lines(app))
+    # Whether or not lines came before them
+    lines = buffer_lines(app)
+    assert "AB" in lines
+    assert lines[lines.index("AB") + 1] == "C"
 
 
 def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
