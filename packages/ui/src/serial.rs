@@ -64,7 +64,40 @@ pub trait SerialPort {
 
     fn write(&self, bytes: Vec<u8>) -> LocalFuture<SerialResult<()>>;
 
+    /// Sets DTR and RTS, each if given.
+    fn set_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> LocalFuture<SerialResult<()>>;
+
     fn close(&self) -> LocalFuture<SerialResult<()>>;
+}
+
+/// DTR and RTS, as last set: they are not read back. On as a port opens, as
+/// the platforms open one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Signals {
+    pub dtr: bool,
+    pub rts: bool,
+}
+
+/// A restart of a board through DTR and RTS, as the tools for it do.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Restart {
+    /// DTR, to the reset pin through a capacitor: off a moment, then on again
+    /// (as avrdude).
+    Arduino,
+    /// ESP32, ESP8266 and the like: RTS to EN, through the boards' two
+    /// transistors: EN low a moment, DTR off for IO0 high, so it starts its
+    /// program (as esptool).
+    Espressif,
+}
+
+impl Restart {
+    /// DTR and RTS to set, each if given, then how long to wait.
+    fn steps(self) -> &'static [(Option<bool>, Option<bool>, u32)] {
+        match self {
+            Self::Arduino => &[(Some(false), Some(false), 100), (Some(true), Some(true), 0)],
+            Self::Espressif => &[(Some(false), Some(true), 100), (None, Some(false), 0)],
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -125,6 +158,7 @@ pub struct SerialContext {
     open: Signal<Option<usize>>,
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
+    signals: Signal<Signals>,
     notifications: Signal<VecDeque<Notification>>,
     /// What the console shows; on while ports open and close.
     history: Signal<ReceivedHistory>,
@@ -159,6 +193,49 @@ impl SerialContext {
 
     pub fn tx_bytes(&self) -> u64 {
         (self.tx_bytes)()
+    }
+
+    pub fn signals(&self) -> Signals {
+        (self.signals)()
+    }
+
+    /// Sets DTR and RTS on the open port, each if given.
+    pub fn set_signals(&self, dtr: Option<bool>, rts: Option<bool>) {
+        let context = *self;
+        self.spawn(async move {
+            if let Err(error) = context.write_signals(dtr, rts).await {
+                context.report(NotificationKind::Error, "Failed to set the signals", &error);
+            }
+        });
+    }
+
+    /// Restarts the board on the open port.
+    pub fn restart(&self, restart: Restart) {
+        let context = *self;
+        self.spawn(async move {
+            for &(dtr, rts, wait_ms) in restart.steps() {
+                if let Err(error) = context.write_signals(dtr, rts).await {
+                    context.report(NotificationKind::Error, "Failed to restart", &error);
+                    return;
+                }
+                if wait_ms > 0 {
+                    let wait = context.time.read().after_ms(wait_ms);
+                    wait.await;
+                }
+            }
+        });
+    }
+
+    async fn write_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> SerialResult<()> {
+        let port = (*self.open.peek())
+            .and_then(|id| self.port(id))
+            .ok_or("No port is open")?;
+        port.handle.set_signals(dtr, rts).await?;
+        let mut signals = self.signals;
+        let mut signals = signals.write();
+        signals.dtr = dtr.unwrap_or(signals.dtr);
+        signals.rts = rts.unwrap_or(signals.rts);
+        Ok(())
     }
 
     /// What happened to the ports, newest first.
@@ -358,6 +435,11 @@ impl SerialContext {
             open.set(Some(port.id));
             let (mut rx_bytes, mut tx_bytes) = (context.rx_bytes, context.tx_bytes);
             rx_bytes.set(0);
+            let mut signals = context.signals;
+            signals.set(Signals {
+                dtr: true,
+                rts: true,
+            });
             tx_bytes.set(0);
             let mut outgoing = context.outgoing;
             outgoing.write().clear();
@@ -557,6 +639,10 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         open: Signal::new(None),
         rx_bytes: Signal::new(0),
         tx_bytes: Signal::new(0),
+        signals: Signal::new(Signals {
+            dtr: true,
+            rts: true,
+        }),
         notifications: Signal::new(VecDeque::new()),
         history: Signal::new(ReceivedHistory::default()),
         logger: CopyValue::new(None),

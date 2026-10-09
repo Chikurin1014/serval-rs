@@ -99,6 +99,15 @@ impl SerialPort for WebSerialPort {
         })
     }
 
+    fn set_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move {
+            web_serial::set_signals(&port, dtr, rts)
+                .await
+                .map_err(message)
+        })
+    }
+
     fn close(&self) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move { web_serial::close_port(&port).await.map_err(message) })
@@ -142,6 +151,14 @@ mod web_serial {
         /// A copy, as wasm memory could move while the write is pending.
         #[wasm_bindgen(catch, js_name = writePort)]
         pub async fn write_port(port: &JsValue, bytes: Uint8Array) -> Result<(), JsValue>;
+
+        /// `None` leaves a signal as it is.
+        #[wasm_bindgen(catch, js_name = setSignals)]
+        pub async fn set_signals(
+            port: &JsValue,
+            dtr: Option<bool>,
+            rts: Option<bool>,
+        ) -> Result<(), JsValue>;
 
         #[wasm_bindgen(js_name = usbVendorId)]
         pub fn usb_vendor_id(port: &JsValue) -> Option<u16>;

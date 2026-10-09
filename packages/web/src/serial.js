@@ -73,6 +73,18 @@ export async function readLoop(port, onChunk) {
 
 const writing = new WeakMap();
 
+/** DTR and RTS, each if not undefined. */
+export function setSignals(port, dtr, rts) {
+  const signals = {};
+  if (dtr !== undefined) {
+    signals.dataTerminalReady = dtr;
+  }
+  if (rts !== undefined) {
+    signals.requestToSend = rts;
+  }
+  return port.setSignals(signals);
+}
+
 /** After the port's earlier writes: a second writer would find the stream locked. */
 export function writePort(port, bytes) {
   const write = (writing.get(port) ?? Promise.resolve())
