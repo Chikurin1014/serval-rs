@@ -194,3 +194,46 @@ def test_leaving_the_page_asks_while_logging(app: App):
     app.tab("Console")
     stop.click()
     app.page.wait_for_function(f"() => !({LEAVING})()")
+
+
+def test_text_tells_the_port_opening_and_closing(app: App):
+    app.page.evaluate(FAKE_PICKER)
+    app.open_port()
+    app.mock("mute()")
+    start_log(app, "Text file", "with time")
+    expect(app.page.get_by_role("button", name="Stop logging")).to_be_visible()
+
+    # The last line cut by the close: written before it
+    app.mock("receive('ok\\nhal')")
+    app.page.get_by_role("button", name="Close port").click()
+    app.page.get_by_role("button", name="Open port").click()
+    expect(app.page.get_by_role("button", name="Close port")).to_be_visible()
+    app.mock("lose()")
+    expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
+    app.page.get_by_role("button", name="Stop logging").click()
+
+    app.page.wait_for_function("window.savedLog !== null")
+    lines = [
+        re.sub(r"^\[\d+\.\d{3}\] ", "", line)
+        for line in app.page.evaluate("window.savedLog").splitlines()
+    ]
+    events = [line for line in lines if line.startswith("---")]
+    assert lines[:2] == ["ok", "hal"]
+    assert events[0] == lines[2]
+    assert re.fullmatch(r"--- Port closed: .+ ---", events[0])
+    assert re.fullmatch(r"--- Port opened: .+ at 9600 bps ---", events[1])
+    assert re.fullmatch(r"--- Connection lost: .+ ---", events[2])
+
+
+def test_hex_tells_no_events(app: App):
+    app.page.evaluate(FAKE_PICKER)
+    app.open_port()
+    app.mock("mute()")
+    start_log(app, "Hex file")
+    expect(app.page.get_by_role("button", name="Stop logging")).to_be_visible()
+    app.mock("receive('ok')")
+    app.page.get_by_role("button", name="Close port").click()
+    expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
+    app.page.get_by_role("button", name="Stop logging").click()
+    app.page.wait_for_function("window.savedLog !== null")
+    assert app.page.evaluate("window.savedLog") == "6F 6B\n"

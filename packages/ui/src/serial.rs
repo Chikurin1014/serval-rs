@@ -361,14 +361,13 @@ impl SerialContext {
             tx_bytes.set(0);
             let mut outgoing = context.outgoing;
             outgoing.write().clear();
-            context.report(
-                NotificationKind::Success,
-                "Port opened",
-                &format!("{} at {baudrate} bps", port.info.name),
-            );
+            let opened = format!("{} at {baudrate} bps", port.info.name);
+            context.log_event(&format!("Port opened: {opened}"));
+            context.report(NotificationKind::Success, "Port opened", &opened);
 
             let time = context.time;
             let received = Received::new(context.data, rx_bytes, context.history, context.logger);
+            let last = received.clone();
             let on_chunk = Box::new(move |chunk: Vec<u8>| {
                 let chunk = ByteData::new(time.read().current(), chunk);
                 match received.gather(chunk) {
@@ -385,6 +384,12 @@ impl SerialContext {
                 }
             });
             let read = port.handle.read(on_chunk).await;
+            // After the last chunks, still gathered
+            last.flush();
+            context.log_event(&match &read {
+                Ok(()) => format!("Port closed: {}", port.info.name),
+                Err(error) => format!("Connection lost: {}: {error}", port.info.name),
+            });
             if *open.peek() == Some(port.id) {
                 open.set(None);
                 if let Err(error) = read {
@@ -481,6 +486,16 @@ impl SerialContext {
         open.set(None);
         self.report(NotificationKind::Info, "Port closed", &port.info.name);
         true
+    }
+
+    /// Writes what happened to the port to the log file, if one is written.
+    fn log_event(&self, event: &str) {
+        let now = self.time.read().current();
+        let mut logger = self.logger;
+        let mut logger = logger.write();
+        if let Some(logger) = logger.as_mut() {
+            logger.event(now, event);
+        }
     }
 
     /// Shows `title` in a toast and keeps it in the notifications.

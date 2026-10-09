@@ -109,18 +109,23 @@ pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
         }
     }
     let timestamps = lines.iter().all(|line| after_time(line).is_some());
-    let marked = |line: &&str| {
-        let rest = if timestamps {
-            after_time(line).unwrap_or(line)
-        } else {
-            line
-        };
-        rest.starts_with("< ") || rest.starts_with("> ")
-    };
-    LogFormat::Text {
-        timestamps,
-        sent: lines.iter().all(marked),
-    }
+    // What happened to the port, in either: not lines received or sent
+    let traffic = lines
+        .iter()
+        .map(|line| {
+            if timestamps {
+                after_time(line).unwrap_or(line)
+            } else {
+                line
+            }
+        })
+        .filter(|rest| !is_event(rest))
+        .collect::<Vec<_>>();
+    let sent = !traffic.is_empty()
+        && traffic
+            .iter()
+            .all(|rest| rest.starts_with("< ") || rest.starts_with("> "));
+    LogFormat::Text { timestamps, sent }
 }
 
 /// Whether a `Hex` line (`[time⇥][RX|TX⇥]hex`) has its time and direction.
@@ -148,6 +153,14 @@ const TEXT: LogFormat = LogFormat::Text {
     timestamps: false,
     sent: false,
 };
+
+/// Whether text, after its time, is an event line: `--- event ---`.
+fn is_event(text: &str) -> bool {
+    text.starts_with(EVENT_MARK) && text.ends_with(EVENT_MARK) && text.len() > 2 * EVENT_MARK.len()
+}
+
+/// Around an event's line in text.
+const EVENT_MARK: &str = "---";
 
 /// The rest of a line after its `[time] `.
 fn after_time(line: &str) -> Option<&str> {
@@ -190,6 +203,12 @@ impl Logger {
 
     pub(crate) fn sent(&mut self, timestamp: i64, bytes: &[u8]) {
         let bytes = self.serializer.sent(timestamp, bytes);
+        self.write(bytes);
+    }
+
+    /// See [`LogSerializer::event`].
+    pub(crate) fn event(&mut self, timestamp: i64, event: &str) {
+        let bytes = self.serializer.event(timestamp, event);
         self.write(bytes);
     }
 
@@ -267,6 +286,22 @@ impl LogSerializer {
             }
         }
         log.into_bytes()
+    }
+
+    /// A line telling what happened to the port, e.g. `--- Port closed: COM3 ---`,
+    /// after the unfinished lines; only in text.
+    pub fn event(&mut self, timestamp: i64, event: &str) -> Vec<u8> {
+        let LogFormat::Text { timestamps, .. } = self.format else {
+            return Vec::new();
+        };
+        let mut log = self.finish();
+        let mut line = String::new();
+        if timestamps {
+            line.push_str(&format!("[{}] ", unix_time(timestamp)));
+        }
+        line.push_str(&format!("{EVENT_MARK} {} {EVENT_MARK}\n", plain(event)));
+        log.extend(line.into_bytes());
+        log
     }
 
     fn add(&mut self, direction: Direction, timestamp: i64, bytes: &[u8]) -> Vec<u8> {
@@ -531,6 +566,25 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn detect_format_passes_over_event_lines() {
+        let tail = "[1791409892.000] --- Port opened: COM3 at 115200 bps ---\n\
+                    [1791409892.542] > ls\n\
+                    [1791409892.600] --- Port closed: COM3 ---\n";
+        assert_eq!(
+            detect_format("a.log", tail.as_bytes()),
+            LogFormat::Text {
+                timestamps: true,
+                sent: true,
+            }
+        );
+        // Events alone tell nothing of what was sent
+        assert_eq!(
+            detect_format("a.log", b"--- Port closed: COM3 ---\n"),
+            TEXT_PLAIN
+        );
+    }
+
+    #[test]
     fn detect_format_goes_by_the_extension_without_lines() {
         assert_eq!(detect_format("a.bin", b"ok\n"), LogFormat::Raw);
         assert_eq!(detect_format("a.tsv", b""), hex(false, false));
@@ -588,6 +642,32 @@ pub(crate) mod tests {
             "[0.001] temp:20.5\n[0.002] volt:3.3\n"
         );
         assert_eq!(text(log.received(3, b"d: on\n")), "[0.002] led: on\n");
+    }
+
+    #[test]
+    fn text_tells_events_after_the_unfinished_lines() {
+        let mut log = serializer(LogFormat::Text {
+            timestamps: true,
+            sent: true,
+        });
+        assert_eq!(text(log.received(1, b"ok\nhal")), "[0.001] < ok\n");
+        assert_eq!(
+            text(log.event(2, "Port closed: COM3")),
+            "[0.001] < hal\n[0.002] --- Port closed: COM3 ---\n"
+        );
+        assert_eq!(text(log.received(3, b"f\n")), "[0.003] < f\n");
+
+        let mut log = serializer(LogFormat::Text {
+            timestamps: false,
+            sent: false,
+        });
+        assert_eq!(
+            text(log.event(1, "Connection lost: COM3\n")),
+            "--- Connection lost: COM3 ---\n"
+        );
+        for format in [LogFormat::Raw, hex(true, true)] {
+            assert_eq!(serializer(format).event(1, "Port closed"), b"");
+        }
     }
 
     #[test]
