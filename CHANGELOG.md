@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/Chikurin1014/serval-rs/compare/v0.3.1...v0.4.0) (2026-10-09)
+
+
+### Features
+
+* ✨ Add DTR/RTS operation ([90cfc36](https://github.com/Chikurin1014/serval-rs/commit/90cfc36febd44db5914991c84299c3a245d58873))
+* ✨ Add HEX format mode ([ff534e1](https://github.com/Chikurin1014/serval-rs/commit/ff534e195a9b4af6679a5e891621c3bd22bf39b6))
+* ✨ Add logger ([74cb274](https://github.com/Chikurin1014/serval-rs/commit/74cb27402120866459da09c76c9001534795116d))
+* ✨ Add port info to text log ([a4bb72a](https://github.com/Chikurin1014/serval-rs/commit/a4bb72ae2dd94a7dc6c1890f87a94107887074d4))
+* ✨ Add send file button ([5f2716d](https://github.com/Chikurin1014/serval-rs/commit/5f2716d0d56531b70d9dc3041816cc972776825f))
+* ✨ Add send file button ([e4d43db](https://github.com/Chikurin1014/serval-rs/commit/e4d43db27d6778115bdd4674d322878b5e086748))
+* ✨ Add timestamp to console ([ca352a7](https://github.com/Chikurin1014/serval-rs/commit/ca352a7cc11efe1b8bfc46602b2716b3d9e5809c))
+* ✨ Implement `LogSink` for web platform ([4be7339](https://github.com/Chikurin1014/serval-rs/commit/4be73390aff9067e0390e696231523758f522752))
+* 💄 Add a button to start / end logging ([aa0d63a](https://github.com/Chikurin1014/serval-rs/commit/aa0d63a79b74d414b342f03921fc75f917ddaa13))
+* 💄 Add alert notification ([b2f5f78](https://github.com/Chikurin1014/serval-rs/commit/b2f5f78bbc19957754c18ee7d6ec9c5fbf129ad8))
+
+
+### Bug Fixes
+
+* 🐛 Fix performance drop due to timestamp line following console line ([2f2a2f5](https://github.com/Chikurin1014/serval-rs/commit/2f2a2f5bafcb37bc4fd7402be9d0282eb316fc2b))
+
 ## [0.3.1](https://github.com/Chikurin1014/serval-rs/compare/v0.3.0...v0.3.1) (2026-10-08)
 
 
