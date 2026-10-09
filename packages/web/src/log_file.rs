@@ -40,6 +40,11 @@ impl LogSink for WebLogSink {
         let log = self.0.clone();
         Box::pin(async move { js::close_log_file(&log).await.map_err(message) })
     }
+
+    fn failure(&self) -> LocalFuture<Option<String>> {
+        let log = self.0.clone();
+        Box::pin(async move { js::log_file_failure(&log).await.as_string() })
+    }
 }
 
 mod js {
@@ -63,6 +68,10 @@ mod js {
 
         #[wasm_bindgen(js_name = logFileTail)]
         pub fn log_file_tail(log: &JsValue) -> Vec<u8>;
+
+        /// A string once a write fails; null once closed without that.
+        #[wasm_bindgen(js_name = logFileFailure)]
+        pub async fn log_file_failure(log: &JsValue) -> JsValue;
 
         /// Ordered in JS: it returns at once.
         #[wasm_bindgen(js_name = writeLogFile)]

@@ -10,6 +10,7 @@ FAKE_PICKER = """() => {
     window.savedLog = null;
     window.savedName = 'old.log';
     window.pickerCancels = false;
+    window.writesFail = false;
     const handle = {
         get name() { return window.savedName; },
         getFile: async () => {
@@ -20,7 +21,10 @@ FAKE_PICKER = """() => {
             let pending = keepExistingData ? (window.savedLog ?? '') : '';
             return {
                 seek: async () => {},
-                write: async bytes => { pending += new TextDecoder().decode(bytes); },
+                write: async bytes => {
+                    if (window.writesFail) throw new DOMException('disk full', 'QuotaExceededError');
+                    pending += new TextDecoder().decode(bytes);
+                },
                 close: async () => { window.savedLog = pending; },
             };
         },
@@ -151,3 +155,42 @@ def test_an_existing_file_goes_on_in_its_format(app: App):
     old, new = app.page.evaluate("window.savedLog").splitlines()
     assert old == "[1791409892.542] old"
     assert re.fullmatch(r"\[\d+\.\d{3}\] new", new)
+
+
+def test_a_failed_write_stops_the_log_at_once(app: App):
+    app.page.evaluate(FAKE_PICKER)
+    app.open_port()
+    start_log(app, "Text file")
+    expect(app.page.get_by_role("button", name="Stop logging")).to_be_visible()
+
+    app.page.evaluate("window.writesFail = true")
+    app.wait_for_toast("Logging stopped")
+    expect(app.page.get_by_role("button", name="Start logging")).to_be_visible()
+    assert (
+        "error",
+        "Logging stopped",
+        "Failed to write the log: disk full",
+    ) in app.toasts()
+
+
+LEAVING = """() => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+}"""
+
+
+def test_leaving_the_page_asks_while_logging(app: App):
+    app.page.evaluate(FAKE_PICKER)
+    assert app.page.evaluate(LEAVING) is False
+
+    start_log(app, "Text file")
+    stop = app.page.get_by_role("button", name="Stop logging")
+    expect(stop).to_be_visible()
+    # On whichever tab is shown
+    app.tab("Data")
+    app.page.wait_for_function(LEAVING)
+
+    app.tab("Console")
+    stop.click()
+    app.page.wait_for_function(f"() => !({LEAVING})()")

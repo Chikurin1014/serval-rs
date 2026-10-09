@@ -11,11 +11,18 @@ use crate::{
 
 /// Where a log's bytes go as they are made: a file, by the platform.
 pub trait LogSink {
-    /// In order after the earlier writes; a failure shows when it closes.
+    /// In order after the earlier writes; a failure stops the writes after
+    /// it, and shows in [`Self::failure`] and as it closes.
     fn write(&self, bytes: Vec<u8>);
 
     /// After the writes: nothing more is written. Fails if any write did.
     fn close(&self) -> LocalFuture<SerialResult<()>>;
+
+    /// The first failed write's error, as soon as it fails; `None` once
+    /// closed without one, or for a sink that tells only as it closes.
+    fn failure(&self) -> LocalFuture<Option<String>> {
+        Box::pin(async { None })
+    }
 }
 
 /// What a log file in `format` is named with.

@@ -56,6 +56,9 @@ export async function pickLogFile(
     commitMs,
     committed: now(),
   };
+  log.failure = new Promise((resolve) => {
+    log.settle = resolve;
+  });
   log.writable = await openAtEnd(handle, append);
   return log;
 }
@@ -66,6 +69,21 @@ export function logFileName(log) {
 
 export function logFileTail(log) {
   return log.tail;
+}
+
+/**
+ * The message of the first failed write, as soon as it fails; null once the
+ * log closes without one.
+ */
+export function logFileFailure(log) {
+  return log.failure;
+}
+
+function fail(log, error) {
+  if (!log.error) {
+    log.error = error;
+    log.settle(error?.message ?? String(error));
+  }
 }
 
 /** After the earlier writes, in order; the first failure is kept for `closeLogFile`. */
@@ -82,9 +100,7 @@ export function writeLogFile(log, bytes) {
         log.committed = log.now();
       }
     })
-    .catch((error) => {
-      log.error ??= error;
-    });
+    .catch((error) => fail(log, error));
 }
 
 /** After the writes; fails with the first failure of any. */
@@ -93,8 +109,9 @@ export async function closeLogFile(log) {
   try {
     await log.writable.close();
   } catch (error) {
-    log.error ??= error;
+    fail(log, error);
   }
+  log.settle(null);
   if (log.error) {
     throw log.error;
   }

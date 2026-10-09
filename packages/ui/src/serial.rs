@@ -131,6 +131,8 @@ pub struct SerialContext {
     /// The log file being written, if any; on while ports open and close.
     logger: CopyValue<Option<Logger>>,
     log_format: Signal<Option<LogFormat>>,
+    /// Counts the logs started, to tell the one being written from those before.
+    log_id: CopyValue<u64>,
     outgoing: Signal<VecDeque<Outgoing>>,
     next_outgoing: CopyValue<u64>,
     /// Runs the port's tasks, so they outlive the component that started them.
@@ -179,9 +181,41 @@ impl SerialContext {
     /// `sink`, until [`Self::stop_log`]; a log already being written ends first.
     pub fn start_log(&self, format: LogFormat, sink: Rc<dyn LogSink>) {
         self.stop_log();
-        let (mut logger, mut log_format) = (self.logger, self.log_format);
+        let (mut logger, mut log_format, mut log_id) = (self.logger, self.log_format, self.log_id);
+        let id = *log_id.peek() + 1;
+        log_id.set(id);
+        let failure = sink.failure();
         logger.set(Some(Logger::new(format, sink)));
         log_format.set(Some(format));
+        // Ended at once by a failed write, not to go on unwritten unseen
+        let context = *self;
+        self.spawn(async move {
+            if let Some(error) = failure.await {
+                context.fail_log(id, &error);
+            }
+        });
+    }
+
+    /// Ends log `id`, if it is still the one being written, as a write failed.
+    fn fail_log(&self, id: u64, error: &str) {
+        let (mut logger, mut log_format) = (self.logger, self.log_format);
+        if *self.log_id.peek() != id {
+            return;
+        }
+        let Some(logger) = logger.write().take() else {
+            return;
+        };
+        log_format.set(None);
+        // Closed to let go of the file; its failure is the one told here
+        let closed = logger.close();
+        self.spawn(async move {
+            let _ = closed.await;
+        });
+        self.report(
+            NotificationKind::Error,
+            "Logging stopped",
+            &format!("Failed to write the log: {error}"),
+        );
     }
 
     /// Asks for a new file (see [`SerialBackend::open_log_file`]) and logs to
@@ -512,6 +546,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         history: Signal::new(ReceivedHistory::default()),
         logger: CopyValue::new(None),
         log_format: Signal::new(None),
+        log_id: CopyValue::new(0),
         outgoing: Signal::new(VecDeque::new()),
         next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   closeLogFile,
   isSupported,
+  logFileFailure,
   logFileName,
   logFileTail,
   pickLogFile,
@@ -113,6 +114,21 @@ test("the file gets what was written so far as often as asked", async () => {
   writeLogFile(log, bytes("c\n"));
   await closeLogFile(log);
   assert.equal(file.contents, "a\nb\nc\n");
+});
+
+test("a failed write is told at once", async () => {
+  const file = fakeFile("", { failWrite: true });
+  const log = await pickLogFile("log", false, 0, { win: fakeWindow(file) });
+  writeLogFile(log, bytes("a\n"));
+  assert.equal(await logFileFailure(log), "disk full");
+});
+
+test("a log closed without failing tells no failure", async () => {
+  const file = fakeFile();
+  const log = await pickLogFile("log", false, 0, { win: fakeWindow(file) });
+  writeLogFile(log, bytes("a\n"));
+  await closeLogFile(log);
+  assert.equal(await logFileFailure(log), null);
 });
 
 test("a failed write fails the close, and stops the writes after it", async () => {

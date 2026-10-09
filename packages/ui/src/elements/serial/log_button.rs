@@ -203,3 +203,23 @@ pub fn LogButton() -> Element {
         }
     }
 }
+
+/// Asks before the page closes while a log is being written: what came since
+/// the file last took it would be lost. Once in the app, as a log goes on
+/// across the tabs.
+#[component]
+pub fn LogUnloadGuard() -> Element {
+    let serial = use_context::<SerialContext>();
+    use_effect(move || {
+        let method = if serial.log_format().is_some() {
+            "addEventListener"
+        } else {
+            "removeEventListener"
+        };
+        document::eval(&format!(
+            "window.servalLogGuard ??= (event) => {{ event.preventDefault(); event.returnValue = ''; }};
+            window.{method}('beforeunload', window.servalLogGuard);"
+        ));
+    });
+    rsx! {}
+}
