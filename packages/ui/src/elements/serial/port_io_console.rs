@@ -42,7 +42,7 @@ pub fn PortIoConsole() -> Element {
         let unread = serial.received_since(read_to.get());
         read_to.set(Some(unread.end));
         if unread.restarted || !unread.bytes.is_empty() {
-            let _ = terminal.send((unread.restarted, unread.bytes));
+            let _ = terminal.send((unread.restarted, unread.bytes, unread.times));
         }
     });
 
@@ -67,11 +67,16 @@ pub fn PortIoConsole() -> Element {
         div {
             class: "console",
             div {
-                class: "console-output",
-                id: "console-output",
-                onmounted: move |_| {
-                    let _ = terminal.send("console-output");
-                },
+                class: "console-screen",
+                // When each line came, beside it: drawn by the terminal's script
+                div { class: "console-times", id: "console-times", aria_hidden: "true" }
+                div {
+                    class: "console-output",
+                    id: "console-output",
+                    onmounted: move |_| {
+                        let _ = terminal.send("console-output");
+                    },
+                }
             }
             div {
                 class: "console-send",

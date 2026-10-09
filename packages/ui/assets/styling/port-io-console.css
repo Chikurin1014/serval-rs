@@ -8,15 +8,42 @@
   min-height: 0;
 }
 
+/* The time column and the terminal, in one screen */
+.console-screen {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--dc-border);
+  background: var(--dc-screen);
+}
+
+/* When each line came: drawn row by row beside the terminal, not to be
+   touched; as wide as a time from the start, not to refit the terminal */
+.console-times {
+  flex: none;
+  box-sizing: content-box;
+  min-width: 12ch;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  overflow: hidden;
+  border-right: 1px solid
+    color-mix(in oklab, var(--dc-screen-text) 15%, transparent);
+  color: color-mix(in oklab, var(--dc-screen-text) 55%, transparent);
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-size: 14px;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* xterm.js fits the terminal to this box (`FitAddon`), whose computed height
    must leave out the padding: so not `border-box` */
 .console-output {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   padding: 0.5rem;
-  border: 1px solid var(--dc-border);
-  background: var(--dc-screen);
 }
 
 .console-send {
