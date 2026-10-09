@@ -10,7 +10,7 @@ use crate::{
         map::MapList,
         serial::{
             PortBaudrateConfigurator, PortInfoPanel, PortIoConsole, PortOpenCloseButton,
-            PortSelector,
+            PortSelector, PortSignalButton,
         },
     },
 };
@@ -36,6 +36,7 @@ pub fn Home() -> Element {
                     PortSelector {}
                     PortBaudrateConfigurator {}
                     PortOpenCloseButton {}
+                    PortSignalButton {}
                 }
                 TabList {
                     class: "toolbar-tabs",

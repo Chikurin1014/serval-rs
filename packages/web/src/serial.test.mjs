@@ -8,6 +8,7 @@ import {
   openPort,
   readLoop,
   requestPort,
+  setSignals,
   usbProductId,
   usbVendorId,
   writePort,
@@ -110,6 +111,19 @@ test("writePort writes one after another, in order", async () => {
     port.written.map((bytes) => [...bytes]),
     [[1], [2], [3]],
   );
+});
+
+test("setSignals sets only the signals given", async () => {
+  const set = [];
+  const port = { setSignals: async (signals) => set.push(signals) };
+  await setSignals(port, true, undefined);
+  await setSignals(port, undefined, false);
+  await setSignals(port, false, true);
+  assert.deepEqual(set, [
+    { dataTerminalReady: true },
+    { requestToSend: false },
+    { dataTerminalReady: false, requestToSend: true },
+  ]);
 });
 
 test("USB ids are read from the port info, if valid", () => {
