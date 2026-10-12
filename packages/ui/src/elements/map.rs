@@ -23,7 +23,8 @@ pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
 pub use map_list::MapList;
 pub use matching::{
-    ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, NAME_COLON_NUMBER, NUMBER_ONLY,
+    ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
+    NAME_COLON_NUMBER, NUMBER_ONLY,
 };
 pub use replace::{REPLACE, ReplaceForm};
 
@@ -42,6 +43,8 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         ENCODE,
         MATCH_TO_NUMBER,
         MATCH_TO_STRING,
+        MATCH_TO_VECTOR2D,
+        MATCH_TO_VECTOR3D,
         REPLACE,
         CONCAT,
         COMPOSE_2D,

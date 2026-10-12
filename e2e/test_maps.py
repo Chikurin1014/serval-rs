@@ -784,3 +784,147 @@ def test_submenus_open_to_the_right_unless_past_the_window(app: App):
 
     app.page.set_viewport_size({"width": 1280, "height": 800})
     assert submenu_side(app, "Vector", "Compose") == "left"
+
+
+def add_vector_match_map(
+    app: App, variant: str, pattern: str, target: str, components: list[str]
+):
+    """Adds a Match map to a vector, its `variant` (2D or 3D) picked beside it."""
+    item = match_item(app, "Vector", "Match")
+    item.hover()
+    item.get_by_role("menuitem").filter(
+        has=app.page.locator(".add-map-preset-name", has_text=re.compile(f"^{variant}$"))
+    ).click()
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Text to be matched").fill(pattern)
+    card.get_by_placeholder("Output label").fill(target)
+    for name, component in zip("xyz", components):
+        card.get_by_label(name, exact=True).fill(component)
+    card.get_by_role("switch").click()
+    return card
+
+
+def test_match_makes_a_vector2d_of_the_groups(app: App):
+    app.tab("Data")
+    card = add_vector_match_map(
+        app, "2D", r"pos:({number}),({number})", "pos", ["$1", "$2"]
+    )
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('pos:1.5,-2\\n')")
+    app.wait_for_labels("pos")
+    assert app.data_rows()["pos"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
+    expect(card.locator(".map-latest")).to_contain_text("(1.5000, -2.0000)")
+
+
+def test_match_makes_a_vector3d_labelled_by_a_group(app: App):
+    app.tab("Data")
+    add_vector_match_map(
+        app,
+        "3D",
+        r"({word})=({number}),({number}),({number})",
+        "$1",
+        ["$2", "$3", "$4"],
+    )
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('acc=1,2,3\\ngyro=-1,0,0.5\\n')")
+    app.wait_for_labels("acc", "gyro")
+    rows = app.data_rows()
+    assert rows["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
+    assert rows["gyro"][:2] == ["Vector3d", "(-1.0000, 0.0000, 0.50000)"]
+
+
+def test_match_to_a_vector_tells_a_component_that_is_not_a_number(app: App):
+    app.tab("Data")
+    card = add_vector_match_map(app, "2D", r"({word}):({number})", "pos", ["$2", "$1"])
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('led:1\\n')")
+    expect(card.locator(".field-error")).to_have_text("The result 'led' is not a number")
+
+
+def vector_variant(app: App, title: str, variant: str):
+    """`variant` (2D or 3D) beside the `title` item of the Vector menu, pointed at."""
+    item = match_item(app, "Vector", title)
+    item.hover()
+    variant = item.locator(".add-map-variant").filter(
+        has=app.page.locator(
+            "> [role=menuitem] .add-map-preset-name", has_text=re.compile(f"^{variant}$")
+        )
+    )
+    variant.hover()
+    return variant
+
+
+def test_match_vector_presets_show_beside_their_dimension(app: App):
+    app.tab("Data")
+    item = match_item(app, "Vector", "Match")
+    item.hover()
+    expect(item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")).to_have_text(
+        ["2D", "3D"]
+    )
+    # Not before a variant is pointed at
+    expect(item.locator(".add-map-variant .add-map-presets")).to_have_count(2)
+    expect(item.locator(".add-map-variant .add-map-presets").first).to_be_hidden()
+
+    for variant, presets in [
+        ("2D", ["(x, y)", "name: (x, y)"]),
+        ("3D", ["(x, y, z)", "name: (x, y, z)"]),
+    ]:
+        nested = vector_variant(app, "Match", variant).locator(".add-map-presets")
+        expect(nested).to_be_visible()
+        expect(nested.locator(".add-map-preset-name")).to_have_text(presets)
+
+
+def test_match_vector3d_preset_adds_a_set_map(app: App):
+    app.tab("Data")
+    variant = vector_variant(app, "Match", "3D")
+    variant.get_by_role("menuitem", name="name: (x, y, z)").click()
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("message")
+    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
+    expect(card.get_by_label("z", exact=True)).to_have_value("$4")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('acc:  (1, 2, 3)\\n')")
+    app.wait_for_labels("acc")
+    assert app.data_rows()["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
+
+
+def test_match_vector2d_preset_adds_a_set_map(app: App):
+    app.tab("Data")
+    variant = vector_variant(app, "Match", "2D")
+    variant.get_by_role("menuitem", name="(x, y)").first.click()
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("message")
+    expect(card.get_by_label("y", exact=True)).to_have_value("$2")
+    # No name in the text to take the output label from
+    card.get_by_placeholder("Output label").fill("pos")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('(1.5, -2)\\n')")
+    app.wait_for_labels("pos")
+    assert app.data_rows()["pos"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
+
+
+def test_vector_presets_by_keyboard(app: App):
+    app.tab("Data")
+    item = match_item(app, "Vector", "Match")
+    item.focus()
+    focused = lambda: app.page.evaluate("document.activeElement.textContent")  # noqa: E731
+    app.page.keyboard.press("ArrowRight")
+    assert focused().startswith("2D")
+    app.page.keyboard.press("ArrowDown")
+    assert focused().startswith("3D")
+    app.page.keyboard.press("ArrowRight")
+    assert focused().startswith("(x, y, z)")
+    app.page.keyboard.press("ArrowDown")
+    assert focused().startswith("name: (x, y, z)")
+    app.page.keyboard.press("ArrowLeft")
+    assert focused().startswith("3D")
+    app.page.keyboard.press("ArrowLeft")
+    assert focused().startswith("Match")

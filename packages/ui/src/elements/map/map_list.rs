@@ -156,7 +156,8 @@ fn MapOrder(mut generation: Signal<u32>) -> Element {
 }
 
 /// As an add menu's item is pointed at or focused: its submenu to the left,
-/// should it go past the window to the right. Once for the page.
+/// should it go past the window to the right (or, in a submenu to the left, as
+/// that is, should it fit). Once for the page.
 const SUBMENU_SIDE_JS: &str = r#"
 if (!window.servalSubmenuSide) {
   window.servalSubmenuSide = (event) => {
@@ -169,9 +170,11 @@ if (!window.servalSubmenuSide) {
     delete submenu.dataset.side;
     const { display, visibility } = submenu.style;
     Object.assign(submenu.style, { display: "block", visibility: "hidden" });
-    const right = submenu.getBoundingClientRect().right;
+    const { right, width } = submenu.getBoundingClientRect();
     Object.assign(submenu.style, { display, visibility });
-    if (right > document.documentElement.clientWidth) {
+    const fitsLeft = item.getBoundingClientRect().left - width >= 0;
+    const inLeft = item.parentElement?.closest(".add-map-presets")?.dataset.side === "left";
+    if ((inLeft && fitsLeft) || right > document.documentElement.clientWidth) {
       submenu.dataset.side = "left";
     }
   };
@@ -289,18 +292,48 @@ fn AddMapMenu(
                                     label: "{kind.name} variants",
                                     open: in_presets,
                                     for variant in variants {
-                                        button {
-                                            class: "add-map-preset",
-                                            r#type: "button",
-                                            role: "menuitem",
-                                            onclick: move |event: MouseEvent| {
-                                                event.stop_propagation();
-                                                context.add(variant);
-                                                in_presets.set(false);
-                                                menus.close(menu);
-                                            },
-                                            span { class: "add-map-preset-name", "{variant_name(variant.to)}" }
-                                            MapTypes { from: variant.from.to_vec(), to: variant.to.name() }
+                                        // Its presets beside it, as the item's are
+                                        div {
+                                            class: "add-map-variant",
+                                            "data-presets": !variant.presets.is_empty(),
+                                            button {
+                                                class: "add-map-preset",
+                                                r#type: "button",
+                                                role: "menuitem",
+                                                aria_haspopup: if !variant.presets.is_empty() { "menu" },
+                                                onclick: move |event: MouseEvent| {
+                                                    event.stop_propagation();
+                                                    context.add(variant);
+                                                    in_presets.set(false);
+                                                    menus.close(menu);
+                                                },
+                                                span { class: "add-map-preset-name", "{variant_name(variant.to)}" }
+                                                MapTypes { from: variant.from.to_vec(), to: variant.to.name() }
+                                                if !variant.presets.is_empty() {
+                                                    lucide::ChevronRight {}
+                                                }
+                                            }
+                                            if !variant.presets.is_empty() {
+                                                AddMapSubmenu {
+                                                    label: "{kind.name} {variant_name(variant.to)} presets",
+                                                    open: in_presets,
+                                                    for preset in variant.presets {
+                                                        button {
+                                                            class: "add-map-preset",
+                                                            r#type: "button",
+                                                            role: "menuitem",
+                                                            onclick: move |event: MouseEvent| {
+                                                                event.stop_propagation();
+                                                                context.add_preset(variant, *preset);
+                                                                in_presets.set(false);
+                                                                menus.close(menu);
+                                                            },
+                                                            span { class: "add-map-preset-name", "{preset.name}" }
+                                                            span { class: "add-map-preset-detail", "{preset.detail}" }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -334,6 +367,29 @@ fn AddMapMenu(
     }
 }
 
+/// In a submenu: the item `step` from the focused one, of its own (not those of
+/// a submenu in it).
+fn focus_sibling(step: i32) -> String {
+    format!(
+        r#"const current = document.activeElement;
+const menu = current?.closest("[role=menu]");
+if (menu) {{
+  const items = [...menu.querySelectorAll("[role=menuitem]")]
+    .filter((item) => item.closest("[role=menu]") === menu);
+  items[items.indexOf(current) + ({step})]?.focus();
+}}"#
+    )
+}
+
+/// From a submenu's item into the submenu beside it, if it has one.
+const FOCUS_NESTED: &str = r#"document.activeElement?.parentElement
+  ?.querySelector(":scope > .add-map-presets [role=menuitem]")?.focus();"#;
+
+/// Back to what the focused submenu is beside: the menu's item, or another
+/// submenu's.
+const FOCUS_OWNER: &str = r#"const owner = document.activeElement?.closest(".add-map-presets")?.parentElement;
+(owner?.matches("[role=option]") ? owner : owner?.querySelector(":scope > [role=menuitem]"))?.focus();"#;
+
 /// Beside an add menu's item: its presets or variants, the menu kept `open`
 /// while one is focused.
 #[component]
@@ -347,9 +403,10 @@ fn AddMapSubmenu(label: String, open: Signal<bool>, children: Element) -> Elemen
             onfocusout: move |_| open.set(false),
             onkeydown: move |event: KeyboardEvent| {
                 let script = match event.key() {
-                    Key::ArrowDown => submenu::FOCUS_NEXT,
-                    Key::ArrowUp => submenu::FOCUS_PREVIOUS,
-                    Key::ArrowLeft | Key::Escape => submenu::FOCUS_ITEM,
+                    Key::ArrowDown => focus_sibling(1),
+                    Key::ArrowUp => focus_sibling(-1),
+                    Key::ArrowRight => FOCUS_NESTED.to_string(),
+                    Key::ArrowLeft | Key::Escape => FOCUS_OWNER.to_string(),
                     Key::Enter => {
                         event.stop_propagation();
                         return;
@@ -357,8 +414,9 @@ fn AddMapSubmenu(label: String, open: Signal<bool>, children: Element) -> Elemen
                     _ => return,
                 };
                 event.prevent_default();
+                // Not for the submenu (or menu) it is in
                 event.stop_propagation();
-                document::eval(script);
+                document::eval(&script);
             },
             div {
                 class: "add-map-presets-list",

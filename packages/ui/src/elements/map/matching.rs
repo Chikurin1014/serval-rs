@@ -5,7 +5,10 @@ use std::any::Any;
 
 use super::field::{LabelField, TextField};
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
+use super::map_list::{
+    NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID,
+    VECTOR3D_LABELS_LIST_ID,
+};
 use crate::data::{DataType, MapKind, MapPreset, MapRunner, Match, MatchOutput, MatchSettings};
 
 /// A preset whose `pattern` gives the label as `$1` and the value as `$2`.
@@ -65,6 +68,70 @@ pub const MATCH_TO_NUMBER: MapKind = MapKind {
     ],
 };
 
+/// A preset to a vector, its components from the groups `$components`.
+macro_rules! vector_preset {
+    ($name:literal, $output:ident, $pattern:expr, $to_label:expr, $components:expr) => {
+        MapPreset {
+            name: $name,
+            detail: $pattern,
+            create: || -> Box<dyn MapRunner> {
+                Box::new(Match::with_components(
+                    MatchOutput::$output,
+                    "",
+                    $pattern,
+                    $to_label,
+                    &$components,
+                ))
+            },
+        }
+    };
+}
+
+/// A 2D vector alone, e.g. `(1.5, -2)`.
+pub const XY_ONLY: &str = r"^\(({number}), ({number})\)$";
+
+/// `name: (x, y)`, e.g. `pos:  (1.5, -2)`.
+pub const NAME_COLON_XY: &str = r"({word}):  \(({number}), ({number})\)";
+
+/// A 3D vector alone, e.g. `(1.5, -2, 0)`.
+pub const XYZ_ONLY: &str = r"^\(({number}), ({number}), ({number})\)$";
+
+/// `name: (x, y, z)`, e.g. `acc:  (1.5, -2, 0)`.
+pub const NAME_COLON_XYZ: &str = r"({word}):  \(({number}), ({number}), ({number})\)";
+
+/// A vector's components from the groups, e.g. `$2` and `$3`.
+pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
+    name: "Match",
+    from: &[DataType::String],
+    to: DataType::Vector2d,
+    create: || Box::new(Match::new(MatchOutput::Vector2d)),
+    form: |settings: &dyn Any| match_form(settings, VECTOR2D_LABELS_LIST_ID),
+    presets: &[
+        // No name to take the output label from
+        vector_preset!("(x, y)", Vector2d, XY_ONLY, "", ["$1", "$2"]),
+        vector_preset!("name: (x, y)", Vector2d, NAME_COLON_XY, "$1", ["$2", "$3"]),
+    ],
+};
+
+pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
+    name: "Match",
+    from: &[DataType::String],
+    to: DataType::Vector3d,
+    create: || Box::new(Match::new(MatchOutput::Vector3d)),
+    form: |settings: &dyn Any| match_form(settings, VECTOR3D_LABELS_LIST_ID),
+    presets: &[
+        // No name to take the output label from
+        vector_preset!("(x, y, z)", Vector3d, XYZ_ONLY, "", ["$1", "$2", "$3"]),
+        vector_preset!(
+            "name: (x, y, z)",
+            Vector3d,
+            NAME_COLON_XYZ,
+            "$1",
+            ["$2", "$3", "$4"]
+        ),
+    ],
+};
+
 fn match_form(settings: &dyn Any, output_list: &str) -> Element {
     form_of(settings, |settings: MatchSettings| {
         rsx! {
@@ -83,6 +150,8 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
         to_label,
         pattern,
         replacement,
+        y_replacement,
+        z_replacement,
         pattern_error,
         replacement_error,
     } = settings;
@@ -112,7 +181,16 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
             div {
                 class: "field-stack",
                 LabelField { value: to_label, list: output_list, placeholder: "Output label" }
-                TextField { name: "To", value: replacement, error: replacement_error }
+                if let Some(y_replacement) = y_replacement {
+                    // A vector: each component in its own field
+                    TextField { name: "x", value: replacement, error: replacement_error }
+                    TextField { name: "y", value: y_replacement, error: replacement_error }
+                    if let Some(z_replacement) = z_replacement {
+                        TextField { name: "z", value: z_replacement, error: replacement_error }
+                    }
+                } else {
+                    TextField { name: "To", value: replacement, error: replacement_error }
+                }
                 if let Some(error) = replacement_error() {
                     span { class: "field-error", "{error}" }
                 }
@@ -125,7 +203,7 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
 mod tests {
     use crate::data::compile_pattern;
 
-    use super::{MATCH_TO_NUMBER, MATCH_TO_STRING};
+    use super::{MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D};
 
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
@@ -197,6 +275,50 @@ mod tests {
         assert_eq!(
             name_value(kind, "name: value", "[log] led: on"),
             pair("led", "on")
+        );
+    }
+
+    /// The groups of `preset`'s pattern in `input`, if it matches.
+    fn groups(kind: &super::MapKind, preset: &str, input: &str) -> Option<Vec<String>> {
+        let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
+        let captures = compile_pattern(preset.detail)
+            .unwrap()
+            .captures(input)
+            .unwrap()?;
+        Some(
+            captures
+                .iter()
+                .skip(1)
+                .map(|group| group.map_or(String::new(), |group| group.as_str().to_string()))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn vector2d_presets_match_their_formats() {
+        let kind = &MATCH_TO_VECTOR2D;
+        assert_eq!(
+            groups(kind, "(x, y)", "(1.5, -2)"),
+            Some(vec!["1.5".into(), "-2".into()])
+        );
+        assert_eq!(groups(kind, "(x, y)", "(1, 2, 3)"), None);
+        assert_eq!(
+            groups(kind, "name: (x, y)", "pos:  (1, 2)"),
+            Some(vec!["pos".into(), "1".into(), "2".into()])
+        );
+    }
+
+    #[test]
+    fn vector3d_presets_match_their_formats() {
+        let kind = &MATCH_TO_VECTOR3D;
+        assert_eq!(
+            groups(kind, "(x, y, z)", "(1.5, -2, 3e2)"),
+            Some(vec!["1.5".into(), "-2".into(), "3e2".into()])
+        );
+        assert_eq!(groups(kind, "(x, y, z)", "acc: (1, 2, 3)"), None);
+        assert_eq!(
+            groups(kind, "name: (x, y, z)", "acc:  (1, 2, 3)"),
+            Some(vec!["acc".into(), "1".into(), "2".into(), "3".into()])
         );
     }
 }

@@ -5,7 +5,8 @@ use fancy_regex::{Captures, Regex};
 
 use crate::data::{
     Conversion, ConversionInput, DataContext, Endpoints, MapRunner, NumberData, Segment,
-    SourceCursor, StringData, compile_for_map, format_number, keep_taken, trim_segments,
+    SourceCursor, StringData, Vector2d, Vector2dData, Vector3d, Vector3dData, compile_for_map,
+    format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
@@ -13,24 +14,51 @@ use crate::helper::set_if_changed;
 pub enum MatchOutput {
     String,
     Number,
+    Vector2d,
+    Vector3d,
 }
 
 impl MatchOutput {
+    /// How many values it takes: a vector's components, or one.
+    fn components(self) -> usize {
+        match self {
+            MatchOutput::String | MatchOutput::Number => 1,
+            MatchOutput::Vector2d => 2,
+            MatchOutput::Vector3d => 3,
+        }
+    }
+
     fn push_to_data_context(
         self,
         data: &mut DataContext,
         label: &str,
-        value: String,
+        mut values: Vec<String>,
         timestamp: i64,
     ) -> Result<(), String> {
-        match self {
-            MatchOutput::String => data.push(label, StringData::new(timestamp, value)),
-            MatchOutput::Number => {
-                let number = value
+        if self == MatchOutput::String {
+            let value = values.pop().unwrap_or_default();
+            data.push(label, StringData::new(timestamp, value));
+            return Ok(());
+        }
+        let numbers = values
+            .iter()
+            .map(|value| {
+                value
                     .parse::<f64>()
-                    .map_err(|_| format!("The result '{value}' is not a number"))?;
+                    .map_err(|_| format!("The result '{value}' is not a number"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        match (self, numbers.as_slice()) {
+            (MatchOutput::Number, &[number]) => {
                 data.push(label, NumberData::new(timestamp, number));
             }
+            (MatchOutput::Vector2d, &[x, y]) => {
+                data.push(label, Vector2dData::new(timestamp, Vector2d::new(x, y)));
+            }
+            (MatchOutput::Vector3d, &[x, y, z]) => {
+                data.push(label, Vector3dData::new(timestamp, Vector3d::new(x, y, z)));
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -41,7 +69,11 @@ pub struct MatchSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
+    /// The value; a vector's x.
     pub replacement: Signal<String>,
+    /// A vector's y, and a 3D one's z.
+    pub y_replacement: Option<Signal<String>>,
+    pub z_replacement: Option<Signal<String>>,
     pub pattern_error: Signal<Option<String>>,
     pub replacement_error: Signal<Option<String>>,
 }
@@ -50,7 +82,9 @@ pub struct MatchSettings {
 pub struct Match {
     output: MatchOutput,
     settings: MatchSettings,
-    taken: [String; 4],
+    /// The input and output labels, pattern and replacement; then a vector's y
+    /// (and z).
+    taken: ([String; 4], Vec<String>),
     matching: Option<Matching>,
     cursor: SourceCursor,
 }
@@ -91,13 +125,39 @@ impl Match {
         to_label: &str,
         replacement: &str,
     ) -> Self {
+        Self::with_components(output, from_label, pattern, to_label, &[replacement])
+    }
+
+    /// As [`Self::with`], with a vector's components, `[x, y]` or `[x, y, z]`.
+    pub fn with_components(
+        output: MatchOutput,
+        from_label: &str,
+        pattern: &str,
+        to_label: &str,
+        components: &[&str],
+    ) -> Self {
+        let component = |index: usize| {
+            (index < output.components()).then(|| {
+                Signal::new(
+                    components
+                        .get(index)
+                        .copied()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+            })
+        };
         Self {
             output,
             settings: MatchSettings {
                 from_label: Signal::new(from_label.to_string()),
                 to_label: Signal::new(to_label.to_string()),
                 pattern: Signal::new(pattern.to_string()),
-                replacement: Signal::new(replacement.to_string()),
+                replacement: Signal::new(
+                    components.first().copied().unwrap_or_default().to_string(),
+                ),
+                y_replacement: component(1),
+                z_replacement: component(2),
                 pattern_error: Signal::new(None),
                 replacement_error: Signal::new(None),
             },
@@ -119,6 +179,8 @@ impl MapRunner for Match {
             to_label,
             pattern,
             replacement,
+            y_replacement,
+            z_replacement,
             mut pattern_error,
             mut replacement_error,
         } = self.settings;
@@ -128,9 +190,14 @@ impl MapRunner for Match {
         if taken[2].trim().is_empty() {
             taken[2].clear();
         }
-        if keep_taken(&mut self.taken, taken) {
+        let components = [y_replacement, z_replacement]
+            .into_iter()
+            .flatten()
+            .map(|text| text.peek().clone())
+            .collect();
+        if keep_taken(&mut self.taken, (taken, components)) {
             self.cursor.reset();
-            self.matching = Matching::new(&self.taken, &mut pattern_error);
+            self.matching = Matching::new(&self.taken.0, &mut pattern_error);
         }
         set_if_changed(&mut replacement_error, None);
     }
@@ -146,6 +213,11 @@ impl MapRunner for Match {
             regex,
             replacement,
         } = self.matching.as_ref()?;
+        // The value, or a vector's components
+        let replacements: Vec<&str> = std::iter::once(replacement)
+            .chain(&self.taken.1)
+            .map(String::as_str)
+            .collect();
 
         let entries = self.cursor.new_entries::<StringData>(data, from)?.entries;
         if entries.is_empty() {
@@ -169,10 +241,13 @@ impl MapRunner for Match {
             if label.is_empty() {
                 continue;
             }
-            let value = expand(&captures, replacement);
+            let values = replacements
+                .iter()
+                .map(|replacement| expand(&captures, replacement))
+                .collect();
             match self
                 .output
-                .push_to_data_context(data, &label, value, timestamp)
+                .push_to_data_context(data, &label, values, timestamp)
             {
                 Ok(()) => latest = Some((input, captures)),
                 Err(message) => error = Some(message),
@@ -182,10 +257,21 @@ impl MapRunner for Match {
         set_if_changed(&mut replacement_error, error);
 
         let (input, captures) = latest?;
-        let mut to_value = replacement_segments(&captures, replacement);
-        if self.output == MatchOutput::Number {
-            to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
-        }
+        let to_value = match self.output {
+            MatchOutput::String => replacement_segments(&captures, replacement),
+            MatchOutput::Number => number_segments(&captures, replacement),
+            MatchOutput::Vector2d | MatchOutput::Vector3d => {
+                let mut segments = vec![Segment::fixed("(")];
+                for (index, replacement) in replacements.iter().enumerate() {
+                    if index > 0 {
+                        segments.push(Segment::fixed(", "));
+                    }
+                    segments.extend(number_segments(&captures, replacement));
+                }
+                segments.push(Segment::fixed(")"));
+                segments
+            }
+        };
         Some(Conversion {
             from: vec![ConversionInput::new(from, input)],
             to_label: label_segments(&captures, to),
@@ -199,6 +285,12 @@ fn text(segments: &[Segment]) -> String {
         .iter()
         .map(|segment| segment.text.as_str())
         .collect()
+}
+
+/// What [`replacement_segments`] builds, as one formatted number if it is one.
+fn number_segments(captures: &Captures<str>, replacement: &str) -> Vec<Segment> {
+    let segments = replacement_segments(captures, replacement);
+    number_segment(&segments).map_or(segments, |segment| vec![segment])
 }
 
 /// The number that `segments` make up, as one formatted segment.
