@@ -5,6 +5,8 @@ pub enum DataType {
     Number,
     String,
     Bytes,
+    Vector2d,
+    Vector3d,
 }
 
 impl DataType {
@@ -13,6 +15,8 @@ impl DataType {
             DataType::Number => "Number",
             DataType::String => "String",
             DataType::Bytes => "Bytes",
+            DataType::Vector2d => "Vector2d",
+            DataType::Vector3d => "Vector3d",
         }
     }
 }
@@ -22,6 +26,8 @@ pub enum TypedData {
     Number(Queue<NumberData>),
     String(Queue<StringData>),
     Bytes(Queue<ByteData>),
+    Vector2d(Queue<Vector2dData>),
+    Vector3d(Queue<Vector3dData>),
 }
 
 impl TypedData {
@@ -30,6 +36,8 @@ impl TypedData {
             TypedData::Number(_) => DataType::Number,
             TypedData::String(_) => DataType::String,
             TypedData::Bytes(_) => DataType::Bytes,
+            TypedData::Vector2d(_) => DataType::Vector2d,
+            TypedData::Vector3d(_) => DataType::Vector3d,
         }
     }
 
@@ -39,6 +47,8 @@ impl TypedData {
             TypedData::Number(queue) => queue.back().map(Data::timestamp),
             TypedData::String(queue) => queue.back().map(Data::timestamp),
             TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
+            TypedData::Vector2d(queue) => queue.back().map(Data::timestamp),
+            TypedData::Vector3d(queue) => queue.back().map(Data::timestamp),
         }
     }
 
@@ -56,13 +66,16 @@ impl TypedData {
                 .collect()
         }
         match self {
-            TypedData::Number(queue) => newest(queue, count, |value| match numbers {
-                NumberText::Rounded => format_number(*value),
-                NumberText::Exact => value.to_string(),
-            }),
+            TypedData::Number(queue) => newest(queue, count, |value| number_text(*value, numbers)),
             TypedData::String(queue) => newest(queue, count, String::clone),
             TypedData::Bytes(queue) => newest(queue, count, |value| {
                 String::from_utf8_lossy(value).into_owned()
+            }),
+            TypedData::Vector2d(queue) => newest(queue, count, |value| {
+                vector_text(value.components(), numbers)
+            }),
+            TypedData::Vector3d(queue) => newest(queue, count, |value| {
+                vector_text(value.components(), numbers)
             }),
         }
     }
@@ -73,6 +86,23 @@ impl TypedData {
 pub enum NumberText {
     Rounded,
     Exact,
+}
+
+/// A number as `numbers` says.
+fn number_text(value: f64, numbers: NumberText) -> String {
+    match numbers {
+        NumberText::Rounded => format_number(value),
+        NumberText::Exact => value.to_string(),
+    }
+}
+
+/// A vector as `(x, y)` or `(x, y, z)`, each component as [`number_text`] writes it.
+fn vector_text(components: &[f64], numbers: NumberText) -> String {
+    let components: Vec<String> = components
+        .iter()
+        .map(|&component| number_text(component, numbers))
+        .collect();
+    format!("({})", components.join(", "))
 }
 
 /// How many significant digits [`format_number`] shows.
@@ -95,6 +125,56 @@ pub fn format_number(value: f64) -> String {
 pub type NumberData = Data<f64>;
 pub type StringData = Data<String>;
 pub type ByteData = Data<Vec<u8>>;
+pub type Vector2dData = Data<Vector2d>;
+pub type Vector3dData = Data<Vector3d>;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vector2d([f64; 2]);
+
+impl Vector2d {
+    pub fn new(x: f64, y: f64) -> Self {
+        Self([x, y])
+    }
+
+    pub fn x(&self) -> f64 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f64 {
+        self.0[1]
+    }
+
+    /// `[x, y]`.
+    pub fn components(&self) -> &[f64] {
+        &self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vector3d([f64; 3]);
+
+impl Vector3d {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self([x, y, z])
+    }
+
+    pub fn x(&self) -> f64 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f64 {
+        self.0[1]
+    }
+
+    pub fn z(&self) -> f64 {
+        self.0[2]
+    }
+
+    /// `[x, y, z]`.
+    pub fn components(&self) -> &[f64] {
+        &self.0
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Data<T: Clone> {
@@ -158,11 +238,14 @@ macro_rules! data_entry {
 data_entry!(NumberData, Number);
 data_entry!(StringData, String);
 data_entry!(ByteData, Bytes);
+data_entry!(Vector2dData, Vector2d);
+data_entry!(Vector3dData, Vector3d);
 
 #[cfg(test)]
 mod tests {
     use super::{
-        ByteData, DataEntry, NumberData, NumberText, StringData, TypedData, format_number,
+        ByteData, DataEntry, DataType, NumberData, NumberText, StringData, TypedData, Vector2d,
+        Vector2dData, Vector3d, Vector3dData, format_number,
     };
 
     #[test]
@@ -224,6 +307,50 @@ mod tests {
         assert_eq!(
             bytes.newest_as_text(1, NumberText::Exact),
             vec![(1, "ok\u{fffd}".to_string())]
+        );
+    }
+
+    #[test]
+    fn vectors_have_their_own_queues_and_types() {
+        let mut vectors: TypedData = Vector2dData::new(1, Vector2d::new(1.0, 2.0)).into();
+        assert_eq!(vectors.data_type(), DataType::Vector2d);
+        assert!(Vector3dData::queue(&vectors).is_none());
+        Vector2dData::queue_mut(&mut vectors)
+            .unwrap()
+            .push(Vector2dData::new(2, Vector2d::new(3.0, 4.0)));
+        assert_eq!(vectors.latest_timestamp(), Some(2));
+
+        let vectors: TypedData = Vector3dData::new(1, Vector3d::new(1.0, 2.0, 3.0)).into();
+        assert_eq!(vectors.data_type(), DataType::Vector3d);
+        assert_eq!(DataType::Vector3d.name(), "Vector3d");
+    }
+
+    #[test]
+    fn vectors_tell_their_components() {
+        let vector = Vector2d::new(1.0, 2.0);
+        assert_eq!((vector.x(), vector.y()), (1.0, 2.0));
+        let vector = Vector3d::new(1.0, 2.0, 3.0);
+        assert_eq!((vector.x(), vector.y(), vector.z()), (1.0, 2.0, 3.0));
+        assert_eq!(vector.components(), [1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn vectors_as_text_list_their_components() {
+        let vectors = TypedData::Vector2d(Queue::from_iter([Vector2dData::new(
+            1,
+            Vector2d::new(1.0 / 3.0, -2.0),
+        )]));
+        assert_eq!(
+            vectors.newest_as_text(1, NumberText::Rounded),
+            vec![(1, "(0.33333, -2.0000)".to_string())]
+        );
+        let vectors = TypedData::Vector3d(Queue::from_iter([Vector3dData::new(
+            1,
+            Vector3d::new(0.5, 1.0, 1e6),
+        )]));
+        assert_eq!(
+            vectors.newest_as_text(1, NumberText::Exact),
+            vec![(1, "(0.5, 1, 1000000)".to_string())]
         );
     }
 }

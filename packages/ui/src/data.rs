@@ -7,8 +7,8 @@ mod source_cursor;
 
 pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
-    ByteData, Data, DataEntry, DataType, NumberData, NumberText, StringData, TypedData,
-    format_number,
+    ByteData, Data, DataEntry, DataType, NumberData, NumberText, StringData, TypedData, Vector2d,
+    Vector2dData, Vector3d, Vector3dData, format_number,
 };
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Concat,
