@@ -28,6 +28,23 @@
   background: var(--dc-screen);
 }
 
+/* A file dragged over the console, to send: the screen tells so, over all */
+.console[data-dropping="true"] .console-screen::after {
+  content: "Drop to send the file";
+  display: flex;
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  outline: 2px dashed var(--dc-accent);
+  outline-offset: -2px;
+  background: color-mix(in oklab, var(--dc-screen) 80%, transparent);
+  color: var(--dc-screen-text);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
 /* Text or hex: on the screen's top right, clear of the scrollbar, in its
    colors */
 .console-views {
