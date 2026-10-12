@@ -15,7 +15,10 @@ use dioxus::prelude::*;
 
 use crate::data::{Decode, InitialMap, MapKind, Match, MatchOutput, RAW_BYTES_LABEL};
 
-pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
+pub use arithmetic::{
+    ADD, ADD_2D, ADD_3D, ArithmeticForm, DIVIDE, MULTIPLY, MULTIPLY_2D, MULTIPLY_3D, SUBTRACT,
+    SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
+};
 pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
 pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
@@ -53,6 +56,12 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         SUBTRACT,
         MULTIPLY,
         DIVIDE,
+        ADD_2D,
+        ADD_3D,
+        SUBTRACT_2D,
+        SUBTRACT_3D,
+        MULTIPLY_2D,
+        MULTIPLY_3D,
         DIFFERENTIATE,
         INTEGRATE,
     ]

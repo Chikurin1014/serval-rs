@@ -150,6 +150,40 @@ impl Vector2d {
     }
 }
 
+/// A vector of any dimensions, by its components.
+pub trait Vector: Copy + PartialEq + 'static {
+    const DATA_TYPE: DataType;
+
+    fn components(&self) -> &[f64];
+
+    /// `None` if there are not as many as its dimensions.
+    fn from_components(components: &[f64]) -> Option<Self>;
+}
+
+impl Vector for Vector2d {
+    const DATA_TYPE: DataType = DataType::Vector2d;
+
+    fn components(&self) -> &[f64] {
+        &self.0
+    }
+
+    fn from_components(components: &[f64]) -> Option<Self> {
+        components.try_into().ok().map(Self)
+    }
+}
+
+impl Vector for Vector3d {
+    const DATA_TYPE: DataType = DataType::Vector3d;
+
+    fn components(&self) -> &[f64] {
+        &self.0
+    }
+
+    fn from_components(components: &[f64]) -> Option<Self> {
+        components.try_into().ok().map(Self)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector3d([f64; 3]);
 

@@ -928,3 +928,88 @@ def test_vector_presets_by_keyboard(app: App):
     assert focused().startswith("3D")
     app.page.keyboard.press("ArrowLeft")
     assert focused().startswith("Match")
+
+
+def add_vector_arithmetic_map(
+    app: App, title: str, variant: str, first: str, second: str, target: str
+):
+    """Adds the vector map `title`, its `variant` (2D or 3D) picked beside it."""
+    vector_variant(app, title, variant).locator("> [role=menuitem]").click()
+    # This one, not whichever is last when it is used
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_label("a", exact=True).fill(first)
+    card.get_by_label("b", exact=True).fill(second)
+    card.get_by_placeholder("Output label").fill(target)
+    card.get_by_role("switch").click()
+    return card
+
+
+def wait_for_latest(app: App, label: str, latest: str):
+    app.page.wait_for_function(
+        """([label, latest]) => [...document.querySelectorAll('.data-row')].some(row =>
+            row.children[0].textContent === label && row.children[2].textContent === latest)""",
+        arg=[label, latest],
+    )
+
+
+def test_vector_menu_lists_the_vector_maps(app: App):
+    app.tab("Data")
+    trigger = app.page.get_by_role("button", name="Vector", exact=True)
+    menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
+    trigger.hover()
+    options = menu.get_by_role("option")
+    expect(options.locator(".add-map-title")).to_have_text(
+        ["Compose", "Match", "Add", "Subtract", "Multiply"]
+    )
+    expect(options.locator("> .map-types")).to_have_text(
+        [
+            "NumberVector",
+            "StringVector",
+            "VectorVector",
+            "VectorVector",
+            "NumberVectorVector",
+        ]
+    )
+
+
+def test_vectors_add_and_subtract(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "2D", ["temp", "volt"], "p")
+    add_vector_arithmetic_map(app, "Add", "2D", "p", "(1, 1)", "q")
+    add_vector_arithmetic_map(app, "Subtract", "2D", "q", "p", "r")
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('temp:2\\nvolt:3\\n')")
+    wait_for_latest(app, "p", "(2.0000, 3.0000)")
+    wait_for_latest(app, "q", "(3.0000, 4.0000)")
+    wait_for_latest(app, "r", "(1.0000, 1.0000)")
+    assert app.data_rows()["r"][0] == "Vector2d"
+
+
+def test_numbers_multiply_vectors(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
+    # The number first, as `a`
+    card = add_vector_arithmetic_map(app, "Multiply", "3D", "temp", "v", "w")
+    add_vector_arithmetic_map(app, "Multiply", "2D", "0.5", "(4, -2)", "half")
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('temp:2\\nvolt:3\\n')")
+    wait_for_latest(app, "w", "(4.0000, 6.0000, 2.0000)")
+    wait_for_latest(app, "half", "(2.0000, -1.0000)")
+    expect(card.locator(".map-latest")).to_contain_text("temp")
+
+
+def test_vectors_are_not_divided(app: App):
+    app.tab("Data")
+    expect(match_item(app, "Vector", "Divide")).to_have_count(0)
+
+
+def test_vector_arithmetic_tells_an_operand_that_is_neither(app: App):
+    app.tab("Data")
+    card = add_vector_arithmetic_map(app, "Add", "2D", "(1, 2, 3)", "(1, 1)", "q")
+    expect(card.locator(".field-error")).to_have_text(
+        "No Vector2d label or vector '(1, 2, 3)'"
+    )

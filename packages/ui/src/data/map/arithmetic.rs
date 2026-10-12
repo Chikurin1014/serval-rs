@@ -36,7 +36,18 @@ impl Operation {
         }
     }
 
-    fn apply(self, first: f64, second: f64) -> Result<f64, String> {
+    /// Its formula in LaTeX, on vectors: two, or a number and one.
+    pub fn vector_latex(self) -> &'static str {
+        match self {
+            Operation::Add => "\\vec{a} + \\vec{b}",
+            Operation::Subtract => "\\vec{a} - \\vec{b}",
+            Operation::Multiply => "a \\vec{b}",
+            // Not on vectors
+            Operation::Divide => "\\vec{a} / b",
+        }
+    }
+
+    pub(super) fn apply(self, first: f64, second: f64) -> Result<f64, String> {
         match self {
             Operation::Add => Ok(first + second),
             Operation::Subtract => Ok(first - second),

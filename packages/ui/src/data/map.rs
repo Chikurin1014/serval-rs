@@ -11,6 +11,7 @@ mod encode;
 mod input;
 mod matching;
 mod replace;
+mod vector_arithmetic;
 
 use std::{
     any::Any,
@@ -37,6 +38,7 @@ pub use encode::{Encode, EncodeSettings};
 pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, take_newest_pair};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
+pub use vector_arithmetic::VectorArithmetic;
 
 /// The processing of one map. Its settings are signals made in its
 /// constructor, shared with its form.

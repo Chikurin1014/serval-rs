@@ -232,10 +232,12 @@ fn AddMapMenu(
     menu: usize,
 ) -> Element {
     let mut context = use_context::<MapContext>();
+    // By their inputs' last type: a number times a vector with the vector maps
     kinds.sort_by_key(|kind| {
         kind.from
-            .first()
-            .and_then(|&from| TYPE_ORDER.iter().position(|&order| order == from))
+            .iter()
+            .filter_map(|&from| TYPE_ORDER.iter().position(|&order| order == from))
+            .max()
     });
     let mut items: Vec<Vec<MapKind>> = Vec::new();
     for kind in kinds {
@@ -265,8 +267,10 @@ fn AddMapMenu(
                 {
                     let kind = variants[0];
                     let has_variants = variants.len() > 1;
-                    let mut from: Vec<DataType> = Vec::new();
+                    // Of the variants together: by their menus' names (e.g. Vector), once each
+                    let mut from: Vec<&str> = Vec::new();
                     for &each in variants.iter().flat_map(|variant| variant.from) {
+                        let each = if has_variants { menu_name(each) } else { each.name() };
                         if has_variants && from.contains(&each) {
                             continue;
                         }
@@ -308,7 +312,7 @@ fn AddMapMenu(
                                                     menus.close(menu);
                                                 },
                                                 span { class: "add-map-preset-name", "{variant_name(variant.to)}" }
-                                                MapTypes { from: variant.from.to_vec(), to: variant.to.name() }
+                                                MapTypes { from: type_names(variant.from), to: variant.to.name() }
                                                 if !variant.presets.is_empty() {
                                                     lucide::ChevronRight {}
                                                 }
@@ -473,7 +477,7 @@ fn MapCard(map: Map) -> Element {
                             span {
                                 class: "map-heading",
                                 span { class: "map-title-text", "{kind.name}" }
-                                MapTypes { from: kind.from.to_vec(), to: kind.to.name() }
+                                MapTypes { from: type_names(kind.from), to: kind.to.name() }
                             }
                             // Its own component: it changes with each conversion,
                             // and the card must not render again with it
@@ -521,16 +525,28 @@ fn heading_width(kind: &MapKind) -> f64 {
     (width * 4.0).ceil() / 4.0
 }
 
+fn type_names(types: &[DataType]) -> Vec<&'static str> {
+    types.iter().map(DataType::name).collect()
+}
+
+/// The name of the add menu of `data_type`, e.g. Vector for a 2D vector.
+fn menu_name(data_type: DataType) -> &'static str {
+    ADD_MENUS
+        .iter()
+        .find(|(_, types)| types.contains(&data_type))
+        .map_or(data_type.name(), |(name, _)| name)
+}
+
 /// `from -> to` of a kind of map.
 #[component]
-fn MapTypes(from: Vec<DataType>, to: &'static str) -> Element {
+fn MapTypes(from: Vec<&'static str>, to: &'static str) -> Element {
     rsx! {
         span {
             class: "map-types",
             span {
                 class: "map-types-from",
                 for from in from {
-                    span { "{from.name()}" }
+                    span { "{from}" }
                 }
             }
             lucide::MoveRight {}
