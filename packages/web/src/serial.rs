@@ -108,6 +108,11 @@ impl SerialPort for WebSerialPort {
         })
     }
 
+    fn set_break(&self, on: bool) -> LocalFuture<SerialResult<()>> {
+        let port = self.0.clone();
+        Box::pin(async move { web_serial::set_break(&port, on).await.map_err(message) })
+    }
+
     fn close(&self) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move { web_serial::close_port(&port).await.map_err(message) })
@@ -159,6 +164,9 @@ mod web_serial {
             dtr: Option<bool>,
             rts: Option<bool>,
         ) -> Result<(), JsValue>;
+
+        #[wasm_bindgen(catch, js_name = setBreak)]
+        pub async fn set_break(port: &JsValue, on: bool) -> Result<(), JsValue>;
 
         #[wasm_bindgen(js_name = usbVendorId)]
         pub fn usb_vendor_id(port: &JsValue) -> Option<u16>;
