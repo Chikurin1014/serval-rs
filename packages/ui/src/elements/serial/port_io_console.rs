@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{LogButton, SendFileButton};
+use super::{LogButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
     helper::{format_bytes, hex, visible},
     serial::{OutgoingFile, SerialContext},
@@ -69,6 +69,11 @@ pub fn PortIoConsole() -> Element {
     let mut redraws = use_signal(|| 0_u32);
     // Over all the window, as Tera Term's Alt+Enter
     let mut maximized = use_signal(|| false);
+    // Drags over the console, entered and not yet left: each of its parts the
+    // pointer goes over enters it anew, before the one it left is left
+    let mut drags = use_signal(|| 0_i32);
+    // A file dropped is sent as one picked, if one may be
+    let takes_file = move || serial.is_open() && !serial.is_sending_file();
 
     // In hooks: the effect takes each render's closure, and fresh ones would
     // redraw the terminal from the start
@@ -127,6 +132,24 @@ pub fn PortIoConsole() -> Element {
         div {
             class: "console",
             "data-maximized": maximized(),
+            "data-dropping": drags() > 0 && takes_file(),
+            ondragenter: move |_| drags += 1,
+            ondragleave: move |_| drags.set((drags() - 1).max(0)),
+            // Never to the browser, which would open the file in place of the app
+            ondragover: move |event: DragEvent| {
+                event.prevent_default();
+                event.data_transfer().set_drop_effect(if takes_file() { "copy" } else { "none" });
+            },
+            ondrop: move |event: DragEvent| {
+                event.prevent_default();
+                drags.set(0);
+                if !takes_file() {
+                    return;
+                }
+                if let Some(file) = event.data_transfer().files().into_iter().next() {
+                    send_picked_file(serial, file);
+                }
+            },
             div {
                 class: "console-screen",
                 div {

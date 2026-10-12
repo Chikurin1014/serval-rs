@@ -271,3 +271,40 @@ def test_alt_r_sends_the_clipboard_and_a_cr(app: App):
     app.page.keyboard.press("Alt+R")
     app.wait_for_mock("written.length >= 1")
     assert app.mock("written") == ["led on\rled off\r"]
+
+
+def drag_file(app: App, events: list[str], contents: bytes = FILE):
+    """Drags a file over the console, as from the desktop, by these events."""
+    transfer = app.page.evaluate_handle(
+        """bytes => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([new Uint8Array(bytes)], 'data.bin'));
+            return transfer;
+        }""",
+        list(contents),
+    )
+    for event in events:
+        app.page.dispatch_event(".console-output", event, {"dataTransfer": transfer})
+
+
+def test_a_file_dropped_on_the_console_is_sent(app: App):
+    app.open_port()
+    console = app.page.locator(".console")
+    drag_file(app, ["dragenter", "dragover"])
+    expect(console).to_have_attribute("data-dropping", "true")
+
+    drag_file(app, ["drop"])
+    expect(console).to_have_attribute("data-dropping", "false")
+    app.wait_for_mock(f"writtenBytes.flat().length === {len(FILE)}")
+    assert bytes(sum(app.mock("writtenBytes"), [])) == FILE
+    expect(app.page.locator(".console-send-file")).to_have_text("data.bin (10,240 B)")
+
+
+def test_a_file_dropped_while_the_port_is_closed_is_not_sent(app: App):
+    console = app.page.locator(".console")
+    drag_file(app, ["dragenter", "dragover"])
+    expect(console).to_have_attribute("data-dropping", "false")
+    drag_file(app, ["drop"])
+    app.page.wait_for_timeout(300)
+    assert app.mock("writtenBytes") == []
+    expect(app.page.locator(".console-send-file")).to_have_count(0)
