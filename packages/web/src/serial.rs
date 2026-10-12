@@ -5,11 +5,11 @@ use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::serial::{
-    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, log::LogFile,
+    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, record::RecordFile,
     use_serial_provider,
 };
 
-use crate::log_file;
+use crate::record_file;
 
 /// Provides `SerialContext` with Web Serial. Requires `DataContext` and `TimeContext`.
 #[component]
@@ -45,13 +45,13 @@ impl SerialBackend for WebSerial {
         })
     }
 
-    fn open_log_file(
+    fn open_record_file(
         &self,
         extension: &str,
         append: bool,
-    ) -> LocalFuture<SerialResult<Option<LogFile>>> {
+    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
         let extension = extension.to_string();
-        Box::pin(async move { log_file::open(&extension, append).await })
+        Box::pin(async move { record_file::open(&extension, append).await })
     }
 }
 

@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{LogButton, SendFileButton, send_file_button::send_picked_file};
+use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
     helper::{format_bytes, hex, visible},
     serial::{OutgoingFile, SerialContext},
@@ -231,7 +231,7 @@ pub fn PortIoConsole() -> Element {
                         }
                     }
                 }
-                LogButton {}
+                RecordButton {}
             }
         }
     }

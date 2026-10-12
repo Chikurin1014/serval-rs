@@ -1,4 +1,4 @@
-//! A log file's bytes, made from the traffic as it comes: nothing is kept
+//! A record file's bytes, made from the traffic as it comes: nothing is kept
 //! but the end of an unfinished line.
 
 use std::rc::Rc;
@@ -9,8 +9,8 @@ use crate::{
     helper::{AnsiStripper, Delimiter, decode_utf8, hex, split_lines},
 };
 
-/// Where a log's bytes go as they are made: a file, by the platform.
-pub trait LogSink {
+/// Where a record's bytes go as they are made: a file, by the platform.
+pub trait RecordSink {
     /// In order after the earlier writes; a failure stops the writes after
     /// it, and shows in [`Self::failure`] and as it closes.
     fn write(&self, bytes: Vec<u8>);
@@ -25,27 +25,27 @@ pub trait LogSink {
     }
 }
 
-/// What a log file in `format` is named with.
-pub fn extension(format: LogFormat) -> &'static str {
+/// What a record file in `format` is named with.
+pub fn extension(format: RecordFormat) -> &'static str {
     match format {
-        LogFormat::Raw => "bin",
-        LogFormat::Text { .. } => "log",
-        LogFormat::Hex { .. } => "tsv",
+        RecordFormat::Raw => "bin",
+        RecordFormat::Text { .. } => "log",
+        RecordFormat::Hex { .. } => "tsv",
     }
 }
 
-/// How much of an existing log's end is read to tell its format.
+/// How much of an existing record's end is read to tell its format.
 pub const TAIL_BYTES: usize = 64 * 1024;
 
-/// A file picked for a log.
-pub struct LogFile {
-    pub sink: Rc<dyn LogSink>,
+/// A file picked for a record.
+pub struct RecordFile {
+    pub sink: Rc<dyn RecordSink>,
     pub name: String,
     /// The end of what an existing file holds, at most [`TAIL_BYTES`].
     pub tail: Vec<u8>,
 }
 
-impl LogFormat {
+impl RecordFormat {
     pub fn name(self) -> &'static str {
         match self {
             Self::Raw => "Raw bytes",
@@ -65,12 +65,12 @@ impl LogFormat {
     }
 }
 
-/// The format an existing log was written in, from its name and the `tail`
+/// The format an existing record was written in, from its name and the `tail`
 /// of it: its last lines, or its extension while it has none.
-pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
+pub fn detect_format(name: &str, tail: &[u8]) -> RecordFormat {
     let by_extension = match name.rsplit_once('.').map(|(_, extension)| extension) {
-        Some("bin") => return LogFormat::Raw,
-        Some("tsv") => LogFormat::Hex {
+        Some("bin") => return RecordFormat::Raw,
+        Some("tsv") => RecordFormat::Hex {
             timestamps: false,
             sent: false,
         },
@@ -83,14 +83,14 @@ pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
         .take_while(|&&byte| byte & 0xC0 == 0x80)
         .count();
     let Ok(text) = std::str::from_utf8(&tail[start..]) else {
-        return LogFormat::Raw;
+        return RecordFormat::Raw;
     };
     // None but tabs and line ends are left in text, nor anything but LFs
     if text
         .chars()
         .any(|c| c.is_control() && c != '\t' && c != '\n')
     {
-        return LogFormat::Raw;
+        return RecordFormat::Raw;
     }
     let lines = text
         .split_terminator('\n')
@@ -105,7 +105,7 @@ pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
     if let Some((timestamps, sent)) = first {
         let alike = lines.iter().all(|line| hex_fields(line) == first);
         if alike && (timestamps || sent || by_extension != TEXT) {
-            return LogFormat::Hex { timestamps, sent };
+            return RecordFormat::Hex { timestamps, sent };
         }
     }
     let timestamps = lines.iter().all(|line| after_time(line).is_some());
@@ -125,7 +125,7 @@ pub fn detect_format(name: &str, tail: &[u8]) -> LogFormat {
         && traffic
             .iter()
             .all(|rest| rest.starts_with("< ") || rest.starts_with("> "));
-    LogFormat::Text { timestamps, sent }
+    RecordFormat::Text { timestamps, sent }
 }
 
 /// Whether a `Hex` line (`[time⇥][RX|TX⇥]hex`) has its time and direction.
@@ -149,7 +149,7 @@ fn hex_fields(line: &str) -> Option<(bool, bool)> {
     bytes.then_some((timestamps, sent))
 }
 
-const TEXT: LogFormat = LogFormat::Text {
+const TEXT: RecordFormat = RecordFormat::Text {
     timestamps: false,
     sent: false,
 };
@@ -178,16 +178,16 @@ fn is_unix_time(text: &str) -> bool {
     })
 }
 
-/// A log being written: what the port receives and sends, to its sink.
-pub(crate) struct Logger {
-    serializer: LogSerializer,
-    sink: Rc<dyn LogSink>,
+/// A record being written: what the port receives and sends, to its sink.
+pub(crate) struct Recorder {
+    serializer: RecordSerializer,
+    sink: Rc<dyn RecordSink>,
 }
 
-impl Logger {
-    pub(crate) fn new(format: LogFormat, sink: Rc<dyn LogSink>) -> Self {
+impl Recorder {
+    pub(crate) fn new(format: RecordFormat, sink: Rc<dyn RecordSink>) -> Self {
         Self {
-            serializer: LogSerializer::new(format),
+            serializer: RecordSerializer::new(format),
             sink,
         }
     }
@@ -206,7 +206,7 @@ impl Logger {
         self.write(bytes);
     }
 
-    /// See [`LogSerializer::event`].
+    /// See [`RecordSerializer::event`].
     pub(crate) fn event(&mut self, timestamp: i64, event: &str) {
         let bytes = self.serializer.event(timestamp, event);
         self.write(bytes);
@@ -226,9 +226,9 @@ impl Logger {
     }
 }
 
-/// What a log keeps of the traffic.
+/// What a record keeps of the traffic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LogFormat {
+pub enum RecordFormat {
     /// The received bytes as they are.
     Raw,
     /// Received lines as text, without ANSI escape sequences or control
@@ -240,9 +240,9 @@ pub enum LogFormat {
     Hex { timestamps: bool, sent: bool },
 }
 
-/// Turns chunks into the bytes to add to a log in `format`.
-pub struct LogSerializer {
-    format: LogFormat,
+/// Turns chunks into the bytes to add to a record in `format`.
+pub struct RecordSerializer {
+    format: RecordFormat,
     received: Lines,
     sent: Lines,
 }
@@ -253,8 +253,8 @@ enum Direction {
     Sent,
 }
 
-impl LogSerializer {
-    pub fn new(format: LogFormat) -> Self {
+impl RecordSerializer {
+    pub fn new(format: RecordFormat) -> Self {
         Self {
             format,
             received: Lines::default(),
@@ -271,46 +271,46 @@ impl LogSerializer {
         self.add(Direction::Sent, timestamp, bytes)
     }
 
-    /// The unfinished lines, for the end of the log.
+    /// The unfinished lines, for the end of the record.
     pub fn finish(&mut self) -> Vec<u8> {
-        let LogFormat::Text { sent, .. } = self.format else {
+        let RecordFormat::Text { sent, .. } = self.format else {
             return Vec::new();
         };
-        let mut log = String::new();
+        let mut record = String::new();
         if let Some((start, line)) = self.received.finish() {
-            log.push_str(&self.text_line(Direction::Received, start, &line));
+            record.push_str(&self.text_line(Direction::Received, start, &line));
         }
         if sent {
             if let Some((start, line)) = self.sent.finish() {
-                log.push_str(&self.text_line(Direction::Sent, start, &line));
+                record.push_str(&self.text_line(Direction::Sent, start, &line));
             }
         }
-        log.into_bytes()
+        record.into_bytes()
     }
 
     /// A line telling what happened to the port, e.g. `--- Port closed: COM3 ---`,
     /// after the unfinished lines; only in text.
     pub fn event(&mut self, timestamp: i64, event: &str) -> Vec<u8> {
-        let LogFormat::Text { timestamps, .. } = self.format else {
+        let RecordFormat::Text { timestamps, .. } = self.format else {
             return Vec::new();
         };
-        let mut log = self.finish();
+        let mut record = self.finish();
         let mut line = String::new();
         if timestamps {
             line.push_str(&format!("[{}] ", unix_time(timestamp)));
         }
         line.push_str(&format!("{EVENT_MARK} {} {EVENT_MARK}\n", plain(event)));
-        log.extend(line.into_bytes());
-        log
+        record.extend(line.into_bytes());
+        record
     }
 
     fn add(&mut self, direction: Direction, timestamp: i64, bytes: &[u8]) -> Vec<u8> {
         match self.format {
-            LogFormat::Raw => match direction {
+            RecordFormat::Raw => match direction {
                 Direction::Received => bytes.to_vec(),
                 Direction::Sent => Vec::new(),
             },
-            LogFormat::Text { sent, .. } => {
+            RecordFormat::Text { sent, .. } => {
                 if direction == Direction::Sent && !sent {
                     return Vec::new();
                 }
@@ -324,7 +324,7 @@ impl LogSerializer {
                     .collect::<String>()
                     .into_bytes()
             }
-            LogFormat::Hex { timestamps, sent } => {
+            RecordFormat::Hex { timestamps, sent } => {
                 if (direction == Direction::Sent && !sent) || bytes.is_empty() {
                     return Vec::new();
                 }
@@ -347,7 +347,7 @@ impl LogSerializer {
     }
 
     fn text_line(&self, direction: Direction, start: i64, line: &str) -> String {
-        let LogFormat::Text { timestamps, sent } = self.format else {
+        let RecordFormat::Text { timestamps, sent } = self.format else {
             unreachable!("only text has lines");
         };
         let mut text = String::new();
@@ -450,7 +450,7 @@ pub(crate) mod tests {
         pub(crate) closed: RefCell<bool>,
     }
 
-    impl LogSink for Recorded {
+    impl RecordSink for Recorded {
         fn write(&self, bytes: Vec<u8>) {
             self.writes.borrow_mut().push(bytes);
         }
@@ -468,16 +468,16 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn logger_writes_the_gathered_chunks_at_once() {
+    fn recorder_writes_the_gathered_chunks_at_once() {
         let sink = Rc::new(Recorded::default());
-        let mut logger = Logger::new(
-            LogFormat::Text {
+        let mut recorder = Recorder::new(
+            RecordFormat::Text {
                 timestamps: false,
                 sent: true,
             },
             sink.clone(),
         );
-        logger.received(&[
+        recorder.received(&[
             ByteData::new(1, b"temp:20".to_vec()),
             ByteData::new(2, b".5\nvolt:3.3\n".to_vec()),
         ]);
@@ -485,37 +485,37 @@ pub(crate) mod tests {
         assert_eq!(sink.text(), "< temp:20.5\n< volt:3.3\n");
 
         // Nothing to write: no write
-        logger.received(&[ByteData::new(3, b"led".to_vec())]);
-        logger.sent(4, b"l");
+        recorder.received(&[ByteData::new(3, b"led".to_vec())]);
+        recorder.sent(4, b"l");
         assert_eq!(sink.writes.borrow().len(), 1);
     }
 
     #[test]
-    fn logger_closes_after_the_unfinished_lines() {
+    fn recorder_closes_after_the_unfinished_lines() {
         let sink = Rc::new(Recorded::default());
-        let mut logger = Logger::new(
-            LogFormat::Text {
+        let mut recorder = Recorder::new(
+            RecordFormat::Text {
                 timestamps: false,
                 sent: false,
             },
             sink.clone(),
         );
-        logger.received(&[ByteData::new(1, b"login: ".to_vec())]);
+        recorder.received(&[ByteData::new(1, b"login: ".to_vec())]);
         assert!(!*sink.closed.borrow());
-        drop(logger.close());
+        drop(recorder.close());
         assert_eq!(sink.text(), "login: \n");
         assert!(*sink.closed.borrow());
     }
 
-    fn serializer(format: LogFormat) -> LogSerializer {
-        LogSerializer::new(format)
+    fn serializer(format: RecordFormat) -> RecordSerializer {
+        RecordSerializer::new(format)
     }
 
-    fn text(log: Vec<u8>) -> String {
-        String::from_utf8(log).unwrap()
+    fn text(record: Vec<u8>) -> String {
+        String::from_utf8(record).unwrap()
     }
 
-    const TEXT: LogFormat = LogFormat::Text {
+    const TEXT: RecordFormat = RecordFormat::Text {
         timestamps: true,
         sent: false,
     };
@@ -527,7 +527,7 @@ pub(crate) mod tests {
             (
                 "a.log",
                 "[1791409892.542] temp:20.5\n[1791409892.600] ok\n",
-                LogFormat::Text {
+                RecordFormat::Text {
                     timestamps: true,
                     sent: false,
                 },
@@ -535,7 +535,7 @@ pub(crate) mod tests {
             (
                 "a.log",
                 "[1791409892.542] > ls\n[1791409892.600] < a.txt\n",
-                LogFormat::Text {
+                RecordFormat::Text {
                     timestamps: true,
                     sent: true,
                 },
@@ -552,12 +552,12 @@ pub(crate) mod tests {
             // Not all alike: text
             ("a.tsv", "1791409892.542\t6F\n6F\n", TEXT_PLAIN),
             // Text keeps no CR nor escape sequences: written raw
-            ("a.log", "ok\r\n\x1b[0m", LogFormat::Raw),
+            ("a.log", "ok\r\n\x1b[0m", RecordFormat::Raw),
         ];
         for (name, tail, format) in cases {
             assert_eq!(detect_format(name, tail.as_bytes()), format, "{tail:?}");
         }
-        assert_eq!(detect_format("a.log", b"\xff\xfe"), LogFormat::Raw);
+        assert_eq!(detect_format("a.log", b"\xff\xfe"), RecordFormat::Raw);
     }
 
     #[test]
@@ -567,7 +567,7 @@ pub(crate) mod tests {
                     [1791409892.600] --- Port closed: COM3 ---\n";
         assert_eq!(
             detect_format("a.log", tail.as_bytes()),
-            LogFormat::Text {
+            RecordFormat::Text {
                 timestamps: true,
                 sent: true,
             }
@@ -581,7 +581,7 @@ pub(crate) mod tests {
 
     #[test]
     fn detect_format_goes_by_the_extension_without_lines() {
-        assert_eq!(detect_format("a.bin", b"ok\n"), LogFormat::Raw);
+        assert_eq!(detect_format("a.bin", b"ok\n"), RecordFormat::Raw);
         assert_eq!(detect_format("a.tsv", b""), hex(false, false));
         assert_eq!(detect_format("a.log", b""), TEXT_PLAIN);
         assert_eq!(detect_format("notes", b""), TEXT_PLAIN);
@@ -596,7 +596,7 @@ pub(crate) mod tests {
         let tail = &tail[tail.len() - TAIL_BYTES..];
         assert_eq!(
             detect_format("a.log", tail),
-            LogFormat::Text {
+            RecordFormat::Text {
                 timestamps: true,
                 sent: false,
             }
@@ -604,13 +604,13 @@ pub(crate) mod tests {
         assert_eq!(detect_format("a.log", &"温".as_bytes()[1..]), TEXT_PLAIN);
     }
 
-    const TEXT_PLAIN: LogFormat = LogFormat::Text {
+    const TEXT_PLAIN: RecordFormat = RecordFormat::Text {
         timestamps: false,
         sent: false,
     };
 
-    fn hex(timestamps: bool, sent: bool) -> LogFormat {
-        LogFormat::Hex { timestamps, sent }
+    fn hex(timestamps: bool, sent: bool) -> RecordFormat {
+        RecordFormat::Hex { timestamps, sent }
     }
 
     #[test]
@@ -622,123 +622,129 @@ pub(crate) mod tests {
 
     #[test]
     fn raw_keeps_the_received_bytes_as_they_are() {
-        let mut log = serializer(LogFormat::Raw);
-        assert_eq!(log.received(1, b"\x1b[1mok\r\n\xff"), b"\x1b[1mok\r\n\xff");
-        assert_eq!(log.sent(2, b"led on\r"), b"");
-        assert_eq!(log.finish(), b"");
+        let mut record = serializer(RecordFormat::Raw);
+        assert_eq!(
+            record.received(1, b"\x1b[1mok\r\n\xff"),
+            b"\x1b[1mok\r\n\xff"
+        );
+        assert_eq!(record.sent(2, b"led on\r"), b"");
+        assert_eq!(record.finish(), b"");
     }
 
     #[test]
     fn text_lines_take_the_time_their_first_byte_came() {
-        let mut log = serializer(TEXT);
-        assert_eq!(text(log.received(1, b"temp:2")), "");
+        let mut record = serializer(TEXT);
+        assert_eq!(text(record.received(1, b"temp:2")), "");
         assert_eq!(
-            text(log.received(2, b"0.5\nvolt:3.3\nle")),
+            text(record.received(2, b"0.5\nvolt:3.3\nle")),
             "[0.001] temp:20.5\n[0.002] volt:3.3\n"
         );
-        assert_eq!(text(log.received(3, b"d: on\n")), "[0.002] led: on\n");
+        assert_eq!(text(record.received(3, b"d: on\n")), "[0.002] led: on\n");
     }
 
     #[test]
     fn text_tells_events_after_the_unfinished_lines() {
-        let mut log = serializer(LogFormat::Text {
+        let mut record = serializer(RecordFormat::Text {
             timestamps: true,
             sent: true,
         });
-        assert_eq!(text(log.received(1, b"ok\nhal")), "[0.001] < ok\n");
+        assert_eq!(text(record.received(1, b"ok\nhal")), "[0.001] < ok\n");
         assert_eq!(
-            text(log.event(2, "Port closed: COM3")),
+            text(record.event(2, "Port closed: COM3")),
             "[0.001] < hal\n[0.002] --- Port closed: COM3 ---\n"
         );
-        assert_eq!(text(log.received(3, b"f\n")), "[0.003] < f\n");
+        assert_eq!(text(record.received(3, b"f\n")), "[0.003] < f\n");
 
-        let mut log = serializer(LogFormat::Text {
+        let mut record = serializer(RecordFormat::Text {
             timestamps: false,
             sent: false,
         });
         assert_eq!(
-            text(log.event(1, "Connection lost: COM3\n")),
+            text(record.event(1, "Connection lost: COM3\n")),
             "--- Connection lost: COM3 ---\n"
         );
-        for format in [LogFormat::Raw, hex(true, true)] {
+        for format in [RecordFormat::Raw, hex(true, true)] {
             assert_eq!(serializer(format).event(1, "Port closed"), b"");
         }
     }
 
     #[test]
     fn text_ends_lines_at_cr_lf_or_crlf() {
-        let mut log = serializer(TEXT);
+        let mut record = serializer(TEXT);
         assert_eq!(
-            text(log.received(1, b"a\r\nb\rc\nd")),
+            text(record.received(1, b"a\r\nb\rc\nd")),
             "[0.001] a\n[0.001] b\n[0.001] c\n"
         );
         // A last CR ends its line at once, and the LF after it is not another
-        assert_eq!(text(log.received(2, b"\r")), "[0.001] d\n");
-        assert_eq!(text(log.received(3, b"\ne\n")), "[0.003] e\n");
+        assert_eq!(text(record.received(2, b"\r")), "[0.001] d\n");
+        assert_eq!(text(record.received(3, b"\ne\n")), "[0.003] e\n");
     }
 
     #[test]
     fn text_drops_escape_sequences_and_control_characters_but_tabs() {
-        let mut log = serializer(TEXT);
+        let mut record = serializer(TEXT);
         assert_eq!(
-            text(log.received(1, b"\x1b[32mOK\x1b[0m\x07\tdone\x1b[")),
+            text(record.received(1, b"\x1b[32mOK\x1b[0m\x07\tdone\x1b[")),
             ""
         );
-        assert_eq!(text(log.received(2, b"K\n")), "[0.001] OK\tdone\n");
+        assert_eq!(text(record.received(2, b"K\n")), "[0.001] OK\tdone\n");
     }
 
     #[test]
     fn text_joins_a_character_cut_between_chunks() {
-        let mut log = serializer(TEXT);
+        let mut record = serializer(TEXT);
         let bytes = "温度\n".as_bytes();
-        assert_eq!(text(log.received(1, &bytes[..4])), "");
-        assert_eq!(text(log.received(2, &bytes[4..])), "[0.001] 温度\n");
+        assert_eq!(text(record.received(1, &bytes[..4])), "");
+        assert_eq!(text(record.received(2, &bytes[4..])), "[0.001] 温度\n");
     }
 
     #[test]
     fn text_finish_gives_the_unfinished_lines() {
-        let mut log = serializer(LogFormat::Text {
+        let mut record = serializer(RecordFormat::Text {
             timestamps: false,
             sent: true,
         });
-        assert_eq!(text(log.received(1, b"login: ")), "");
-        assert_eq!(text(log.sent(2, b"roo")), "");
-        assert_eq!(text(log.finish()), "< login: \n> roo\n");
-        assert_eq!(log.finish(), b"");
+        assert_eq!(text(record.received(1, b"login: ")), "");
+        assert_eq!(text(record.sent(2, b"roo")), "");
+        assert_eq!(text(record.finish()), "< login: \n> roo\n");
+        assert_eq!(record.finish(), b"");
     }
 
     #[test]
     fn text_marks_sent_lines_typed_key_by_key() {
-        let mut log = serializer(LogFormat::Text {
+        let mut record = serializer(RecordFormat::Text {
             timestamps: true,
             sent: true,
         });
         for (time, key) in [(1, "l"), (2, "s"), (3, "\r")] {
-            let line = text(log.sent(time, key.as_bytes()));
+            let line = text(record.sent(time, key.as_bytes()));
             assert_eq!(line, if key == "\r" { "[0.001] > ls\n" } else { "" });
         }
-        assert_eq!(text(log.received(4, b"a.txt\r\n")), "[0.004] < a.txt\n");
+        assert_eq!(text(record.received(4, b"a.txt\r\n")), "[0.004] < a.txt\n");
     }
 
     #[test]
     fn text_leaves_out_what_is_sent_unless_asked() {
-        let mut log = serializer(TEXT);
-        assert_eq!(log.sent(1, b"ls\r"), b"");
-        assert_eq!(log.finish(), b"");
+        let mut record = serializer(TEXT);
+        assert_eq!(record.sent(1, b"ls\r"), b"");
+        assert_eq!(record.finish(), b"");
     }
 
     #[test]
     fn hex_gives_a_line_for_each_chunk() {
-        let mut log = serializer(hex(true, true));
-        assert_eq!(text(log.received(1, b"ok\r\n")), "0.001\tRX\t6F 6B 0D 0A\n");
-        assert_eq!(text(log.sent(2, &[0x02, 0xff])), "0.002\tTX\t02 FF\n");
-        assert_eq!(log.received(3, b""), b"");
+        let mut record = serializer(hex(true, true));
+        assert_eq!(
+            text(record.received(1, b"ok\r\n")),
+            "0.001\tRX\t6F 6B 0D 0A\n"
+        );
+        assert_eq!(text(record.sent(2, &[0x02, 0xff])), "0.002\tTX\t02 FF\n");
+        assert_eq!(record.received(3, b""), b"");
 
-        let mut log = serializer(hex(true, false));
-        assert_eq!(text(log.received(1, b"ok")), "0.001\t6F 6B\n");
-        assert_eq!(log.sent(2, b"x"), b"");
+        let mut record = serializer(hex(true, false));
+        assert_eq!(text(record.received(1, b"ok")), "0.001\t6F 6B\n");
+        assert_eq!(record.sent(2, b"x"), b"");
 
-        let mut log = serializer(hex(false, false));
-        assert_eq!(text(log.received(1, b"ok")), "6F 6B\n");
+        let mut record = serializer(hex(false, false));
+        assert_eq!(text(record.received(1, b"ok")), "6F 6B\n");
     }
 }

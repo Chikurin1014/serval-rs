@@ -7,20 +7,20 @@ use crate::{
         dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
     },
     elements::submenu,
-    serial::{SerialContext, log::LogFormat},
+    serial::{SerialContext, record::RecordFormat},
 };
 
-/// The menu's items: a kind of log for a new file, in its plain format with
+/// The menu's items: a kind of record for a new file, in its plain format with
 /// the others beside it, or an existing file in the format it holds.
 #[derive(Clone, Copy, PartialEq)]
-enum LogItem {
+enum RecordItem {
     Text,
     Hex,
     Raw,
     Existing,
 }
 
-impl LogItem {
+impl RecordItem {
     const ALL: [Self; 4] = [Self::Text, Self::Hex, Self::Raw, Self::Existing];
 
     fn name(self) -> &'static str {
@@ -33,34 +33,34 @@ impl LogItem {
     }
 
     /// For a new file; `None` for an existing one.
-    fn format(self) -> Option<LogFormat> {
+    fn format(self) -> Option<RecordFormat> {
         match self {
-            Self::Text => Some(LogFormat::Text {
+            Self::Text => Some(RecordFormat::Text {
                 timestamps: false,
                 sent: false,
             }),
-            Self::Hex => Some(LogFormat::Hex {
+            Self::Hex => Some(RecordFormat::Hex {
                 timestamps: false,
                 sent: false,
             }),
-            Self::Raw => Some(LogFormat::Raw),
+            Self::Raw => Some(RecordFormat::Raw),
             Self::Existing => None,
         }
     }
 
-    fn variants(self) -> &'static [(&'static str, LogFormat)] {
+    fn variants(self) -> &'static [(&'static str, RecordFormat)] {
         match self {
             Self::Text => &[
                 (
                     "with time",
-                    LogFormat::Text {
+                    RecordFormat::Text {
                         timestamps: true,
                         sent: false,
                     },
                 ),
                 (
                     "with time and sent",
-                    LogFormat::Text {
+                    RecordFormat::Text {
                         timestamps: true,
                         sent: true,
                     },
@@ -69,14 +69,14 @@ impl LogItem {
             Self::Hex => &[
                 (
                     "with time",
-                    LogFormat::Hex {
+                    RecordFormat::Hex {
                         timestamps: true,
                         sent: false,
                     },
                 ),
                 (
                     "with time and sent",
-                    LogFormat::Hex {
+                    RecordFormat::Hex {
                         timestamps: true,
                         sent: true,
                     },
@@ -87,32 +87,32 @@ impl LogItem {
     }
 }
 
-/// Starts a log file in a format picked from a menu, or stops it. Its own
+/// Starts a record file in a format picked from a menu, or stops it. Its own
 /// component, as the console renders again with each key typed.
 #[component]
-pub fn LogButton() -> Element {
+pub fn RecordButton() -> Element {
     let serial = use_context::<SerialContext>();
     let mut open = use_signal(|| false);
     let mut in_variants = use_signal(|| false);
     // As the user picks: browsers ask for a file only then
-    let mut start = move |format: Option<LogFormat>| {
+    let mut start = move |format: Option<RecordFormat>| {
         match format {
-            Some(format) => serial.open_log(format),
-            None => serial.continue_log(),
+            Some(format) => serial.open_record(format),
+            None => serial.continue_record(),
         }
         in_variants.set(false);
         open.set(false);
     };
 
-    if serial.log_format().is_some() {
+    if serial.record_format().is_some() {
         return rsx! {
             Button {
-                class: "log-stop",
+                class: "record-stop",
                 variant: ButtonVariant::Destructive,
                 size: ButtonSize::Sm,
-                aria_label: "Stop logging",
-                onclick: move |_| serial.stop_log(),
-                span { class: "log-stop-mark" }
+                aria_label: "Stop recording",
+                onclick: move |_| serial.stop_record(),
+                span { class: "record-stop-mark" }
                 "STOP"
             }
         };
@@ -120,7 +120,7 @@ pub fn LogButton() -> Element {
 
     rsx! {
         div {
-            class: "log-menu",
+            class: "record-menu",
             onkeydown: move |event: KeyboardEvent| {
                 if event.key() == Key::ArrowRight {
                     event.prevent_default();
@@ -135,31 +135,31 @@ pub fn LogButton() -> Element {
                     }
                 },
                 DropdownMenuTrigger {
-                    class: "log-rec",
-                    aria_label: "Start logging",
-                    span { class: "log-rec-mark" }
+                    class: "record-start",
+                    aria_label: "Start recording",
+                    span { class: "record-start-mark" }
                     "REC"
                 }
                 DropdownMenuContent {
-                    class: "log-menu-content",
-                    for (index, item) in LogItem::ALL.into_iter().enumerate() {
+                    class: "record-menu-content",
+                    for (index, item) in RecordItem::ALL.into_iter().enumerate() {
                         DropdownMenuItem {
                             "data-variants": !item.variants().is_empty(),
-                            "data-existing": item == LogItem::Existing,
+                            "data-existing": item == RecordItem::Existing,
                             value: item.format(),
                             index,
                             on_select: start,
                             match item {
-                                LogItem::Text => rsx! { lucide::Type { class: "log-item-icon" } },
-                                LogItem::Hex => rsx! { lucide::Hexagon { class: "log-item-icon" } },
-                                LogItem::Raw => rsx! { lucide::Binary { class: "log-item-icon" } },
-                                LogItem::Existing => rsx! { lucide::File { class: "log-item-icon" } },
+                                RecordItem::Text => rsx! { lucide::Type { class: "record-item-icon" } },
+                                RecordItem::Hex => rsx! { lucide::Hexagon { class: "record-item-icon" } },
+                                RecordItem::Raw => rsx! { lucide::Binary { class: "record-item-icon" } },
+                                RecordItem::Existing => rsx! { lucide::File { class: "record-item-icon" } },
                             }
-                            span { class: "log-item-name", "{item.name()}" }
+                            span { class: "record-item-name", "{item.name()}" }
                             if !item.variants().is_empty() {
-                                lucide::ChevronRight { class: "log-item-chevron" }
+                                lucide::ChevronRight { class: "record-item-chevron" }
                                 div {
-                                    class: "log-variants",
+                                    class: "record-variants",
                                     onfocusin: move |_| in_variants.set(true),
                                     onfocusout: move |_| in_variants.set(false),
                                     onkeydown: move |event: KeyboardEvent| {
@@ -178,12 +178,12 @@ pub fn LogButton() -> Element {
                                         document::eval(script);
                                     },
                                     div {
-                                        class: "log-variants-list",
+                                        class: "record-variants-list",
                                         role: "menu",
                                         aria_label: "{item.name()} formats",
                                         for &(name, format) in item.variants() {
                                             button {
-                                                class: "log-variant",
+                                                class: "record-variant",
                                                 r#type: "button",
                                                 role: "menuitem",
                                                 onclick: move |event: MouseEvent| {
@@ -204,21 +204,21 @@ pub fn LogButton() -> Element {
     }
 }
 
-/// Asks before the page closes while a log is being written: what came since
-/// the file last took it would be lost. Once in the app, as a log goes on
+/// Asks before the page closes while a record is being written: what came since
+/// the file last took it would be lost. Once in the app, as a record goes on
 /// across the tabs.
 #[component]
-pub fn LogUnloadGuard() -> Element {
+pub fn RecordUnloadGuard() -> Element {
     let serial = use_context::<SerialContext>();
     use_effect(move || {
-        let method = if serial.log_format().is_some() {
+        let method = if serial.record_format().is_some() {
             "addEventListener"
         } else {
             "removeEventListener"
         };
         document::eval(&format!(
-            "window.servalLogGuard ??= (event) => {{ event.preventDefault(); event.returnValue = ''; }};
-            window.{method}('beforeunload', window.servalLogGuard);"
+            "window.servalRecordGuard ??= (event) => {{ event.preventDefault(); event.returnValue = ''; }};
+            window.{method}('beforeunload', window.servalRecordGuard);"
         ));
     });
     rsx! {}
