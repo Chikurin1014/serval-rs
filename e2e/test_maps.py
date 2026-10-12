@@ -618,3 +618,72 @@ def test_cards_slide_open_and_closed(app: App):
     app.page.wait_for_function(
         "el => el.getBoundingClientRect().height < 1", arg=content.element_handle()
     )
+
+
+def map_titles(app: App) -> list[str]:
+    return app.map_cards().locator(".map-title-text").all_inner_texts()
+
+
+def map_items(app: App):
+    return app.page.locator(".map-list li[aria-roledescription='sortable item']")
+
+
+def test_maps_are_reordered_by_dragging(app: App):
+    app.tab("Data")
+    app.add_map("Replace", "String", "String")
+    expect(app.map_cards()).to_have_count(4)
+    assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
+
+    items = map_items(app)
+    items.nth(3).locator("> svg").drag_to(
+        items.nth(0), target_position={"x": 40, "y": 4}
+    )
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Replace", "Decode", "Match", "Match"]
+    )
+    # Kept by the maps, not the list: so as it is made anew
+    app.tab("Console")
+    app.tab("Data")
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Replace", "Decode", "Match", "Match"]
+    )
+    # A map added after them comes last
+    app.add_map("Replace", "String", "String")
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Replace", "Decode", "Match", "Match", "Replace"]
+    )
+
+
+def test_maps_are_reordered_by_keyboard(app: App):
+    app.tab("Data")
+    app.add_map("Replace", "String", "String")
+    expect(app.map_cards()).to_have_count(4)
+    map_items(app).nth(3).focus()
+    for key in ["Enter", "ArrowUp", "ArrowUp", "Enter"]:
+        app.page.keyboard.press(key)
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Decode", "Replace", "Match", "Match"]
+    )
+    # Delete on the item leaves the map: its card's button deletes it
+    map_items(app).nth(1).focus()
+    app.page.keyboard.press("Delete")
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Decode", "Replace", "Match", "Match"]
+    )
+
+
+def test_keys_typed_in_a_card_stay_in_it(app: App):
+    app.tab("Data")
+    app.add_map("Replace", "String", "String")
+    card = app.map_cards().last
+    field = card.get_by_placeholder("Input label")
+    field.click()
+    app.page.keyboard.type("my label")
+    # Those the list takes to reorder, and to remove
+    for key in ["ArrowUp", "Enter", " ", "Home", "End", "Backspace", "Delete"]:
+        app.page.keyboard.press(key)
+    # As in any field: the space at the start, Backspace at the end
+    expect(field).to_have_value(" my labe")
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Decode", "Match", "Match", "Replace"]
+    )

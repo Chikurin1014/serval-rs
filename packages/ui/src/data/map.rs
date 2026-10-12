@@ -96,7 +96,8 @@ pub struct Map {
     pub id: usize,
     pub kind: MapKind,
     pub enabled: Signal<bool>,
-    /// Whether its card is open; kept here as cards scrolled out are dropped.
+    /// Whether its card is open; kept here as the cards are made anew when maps
+    /// are added or removed.
     pub open: Signal<bool>,
     pub latest: Signal<Option<Conversion>>,
     runner: Rc<RefCell<Box<dyn MapRunner>>>,
@@ -184,6 +185,28 @@ impl MapContext {
 
     pub fn remove(&mut self, id: usize) {
         self.list.write().retain(|c| c.id != id);
+    }
+
+    /// Puts the maps in the order of `ids`; whether they are all of them (if
+    /// not, they stay as they are).
+    pub fn reorder(&mut self, ids: &[usize]) -> bool {
+        let list = self.list.peek();
+        if list.len() != ids.len() {
+            return false;
+        }
+        if list.iter().map(|map| map.id).eq(ids.iter().copied()) {
+            return true;
+        }
+        let Some(reordered) = ids
+            .iter()
+            .map(|&id| list.iter().find(|map| map.id == id).cloned())
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        drop(list);
+        self.list.set(reordered);
+        true
     }
 }
 
