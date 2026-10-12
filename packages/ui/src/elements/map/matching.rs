@@ -6,9 +6,7 @@ use std::any::Any;
 use super::field::{LabelField, TextField};
 use super::form_of;
 use super::map_list::{NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID};
-use crate::data::{
-    DataType, MapKind, MapPreset, MapRunner, RegexMatch, RegexOutput, RegexSettings,
-};
+use crate::data::{DataType, MapKind, MapPreset, MapRunner, Match, MatchOutput, MatchSettings};
 
 /// A preset whose `pattern` gives the label as `$1` and the value as `$2`.
 macro_rules! preset {
@@ -20,8 +18,8 @@ macro_rules! preset {
             name: $name,
             detail: $pattern,
             create: || -> Box<dyn MapRunner> {
-                Box::new(RegexMatch::with(
-                    RegexOutput::$output,
+                Box::new(Match::with(
+                    MatchOutput::$output,
                     "",
                     $pattern,
                     $to_label,
@@ -40,24 +38,24 @@ pub const ANONYMOUS_LABEL: &str = "anonymous data";
 /// `name: value` with a number value, e.g. `temp: 20.5`.
 pub const NAME_COLON_NUMBER: &str = "({word}): ({number})";
 
-pub const REGEX_TO_STRING: MapKind = MapKind {
-    name: "Regex",
+pub const MATCH_TO_STRING: MapKind = MapKind {
+    name: "Match",
     from: &[DataType::String],
     to: DataType::String,
-    create: || Box::new(RegexMatch::new(RegexOutput::String)),
-    form: |settings: &dyn Any| regex_form(settings, STRINGS_LABELS_LIST_ID),
+    create: || Box::new(Match::new(MatchOutput::String)),
+    form: |settings: &dyn Any| match_form(settings, STRINGS_LABELS_LIST_ID),
     presets: &[
         preset!("name: value", String, "({word}): (?!{number})(.+)"),
         preset!("Arduino", String, "({word}):(?!{number})(.+)"),
     ],
 };
 
-pub const REGEX_TO_NUMBER: MapKind = MapKind {
-    name: "Regex",
+pub const MATCH_TO_NUMBER: MapKind = MapKind {
+    name: "Match",
     from: &[DataType::String],
     to: DataType::Number,
-    create: || Box::new(RegexMatch::new(RegexOutput::Number)),
-    form: |settings: &dyn Any| regex_form(settings, NUMBERS_LABELS_LIST_ID),
+    create: || Box::new(Match::new(MatchOutput::Number)),
+    form: |settings: &dyn Any| match_form(settings, NUMBERS_LABELS_LIST_ID),
     presets: &[
         // No name to take the output label from
         preset!("value", Number, NUMBER_ONLY, "", "$0"),
@@ -67,10 +65,10 @@ pub const REGEX_TO_NUMBER: MapKind = MapKind {
     ],
 };
 
-fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
-    form_of(settings, |settings: RegexSettings| {
+fn match_form(settings: &dyn Any, output_list: &str) -> Element {
+    form_of(settings, |settings: MatchSettings| {
         rsx! {
-            RegexMatchForm {
+            MatchForm {
                 settings,
                 output_list: output_list.to_string(),
             }
@@ -79,8 +77,8 @@ fn regex_form(settings: &dyn Any, output_list: &str) -> Element {
 }
 
 #[component]
-pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
-    let RegexSettings {
+pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
+    let MatchSettings {
         from_label,
         to_label,
         pattern,
@@ -127,7 +125,7 @@ pub fn RegexMatchForm(settings: RegexSettings, output_list: String) -> Element {
 mod tests {
     use crate::data::compile_pattern;
 
-    use super::{REGEX_TO_NUMBER, REGEX_TO_STRING};
+    use super::{MATCH_TO_NUMBER, MATCH_TO_STRING};
 
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
@@ -144,7 +142,7 @@ mod tests {
 
     #[test]
     fn number_presets_match_their_formats() {
-        let kind = &REGEX_TO_NUMBER;
+        let kind = &MATCH_TO_NUMBER;
         assert_eq!(
             name_value(kind, "name: value", "temp: -20.5"),
             pair("temp", "-20.5")
@@ -168,7 +166,7 @@ mod tests {
 
     #[test]
     fn value_preset_takes_a_number_with_no_label() {
-        let preset = REGEX_TO_NUMBER
+        let preset = MATCH_TO_NUMBER
             .presets
             .iter()
             .find(|p| p.name == "value")
@@ -187,7 +185,7 @@ mod tests {
 
     #[test]
     fn string_presets_match_their_formats() {
-        let kind = &REGEX_TO_STRING;
+        let kind = &MATCH_TO_STRING;
         assert_eq!(
             name_value(kind, "name: value", "led: on"),
             pair("led", "on")

@@ -5,14 +5,14 @@ mod decode;
 mod encode;
 mod field;
 mod map_list;
-mod regex;
+mod matching;
 mod replace;
 
 use std::any::Any;
 
 use dioxus::prelude::*;
 
-use crate::data::{Decode, InitialMap, MapKind, RAW_BYTES_LABEL, RegexMatch, RegexOutput};
+use crate::data::{Decode, InitialMap, MapKind, Match, MatchOutput, RAW_BYTES_LABEL};
 
 pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
 pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
@@ -20,8 +20,8 @@ pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
 pub use map_list::MapList;
-pub use regex::{
-    ANONYMOUS_LABEL, NAME_COLON_NUMBER, NUMBER_ONLY, REGEX_TO_NUMBER, REGEX_TO_STRING,
+pub use matching::{
+    ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, NAME_COLON_NUMBER, NUMBER_ONLY,
 };
 pub use replace::{REPLACE, ReplaceForm};
 
@@ -38,8 +38,8 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
     vec![
         DECODE,
         ENCODE,
-        REGEX_TO_NUMBER,
-        REGEX_TO_STRING,
+        MATCH_TO_NUMBER,
+        MATCH_TO_STRING,
         REPLACE,
         CONCAT,
         ADD,
@@ -60,11 +60,11 @@ pub fn initial_maps() -> Vec<InitialMap> {
             create: || Box::new(Decode::new(RAW_BYTES_LABEL, MESSAGE_LABEL)),
         },
         InitialMap {
-            kind: REGEX_TO_NUMBER,
+            kind: MATCH_TO_NUMBER,
             enabled: true,
             create: || {
-                Box::new(RegexMatch::with(
-                    RegexOutput::Number,
+                Box::new(Match::with(
+                    MatchOutput::Number,
                     MESSAGE_LABEL,
                     NUMBER_ONLY,
                     ANONYMOUS_LABEL,
@@ -73,11 +73,11 @@ pub fn initial_maps() -> Vec<InitialMap> {
             },
         },
         InitialMap {
-            kind: REGEX_TO_NUMBER,
+            kind: MATCH_TO_NUMBER,
             enabled: true,
             create: || {
-                Box::new(RegexMatch::with(
-                    RegexOutput::Number,
+                Box::new(Match::with(
+                    MatchOutput::Number,
                     MESSAGE_LABEL,
                     NAME_COLON_NUMBER,
                     "$1",

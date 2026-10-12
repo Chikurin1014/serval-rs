@@ -87,7 +87,7 @@ class App:
             has=self.page.locator(".map-types", has_text=f"{source}{output}")
         ).click()
 
-    def add_regex_map(
+    def add_match_map(
         self,
         output: str = "Number",
         source: str = "message",
@@ -95,7 +95,7 @@ class App:
         target: str = "$1",
         replacement: str = "$2",
     ):
-        self.add_map("Regex", "String", output)
+        self.add_map("Match", "String", output)
         card = self.map_cards().last
         card.get_by_placeholder("Input label").fill(source)
         card.get_by_placeholder("Text to be matched").fill(pattern)
