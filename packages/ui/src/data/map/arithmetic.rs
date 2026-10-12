@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, DataType, Input, MapRunner, NumberData, Segment,
-    format_number, keep_taken, take_newest_pair,
+    Conversion, DataContext, Input, MapRunner, NumberData, Operand, Segment, format_number,
+    keep_taken, take_newest_pair,
 };
 use crate::helper::set_if_changed;
 
@@ -72,34 +72,6 @@ struct Operands {
     second: Input<f64>,
     /// The last pair of constants used, so it gives one result.
     last_constants: Option<(f64, f64)>,
-}
-
-/// Where an operand comes from.
-#[derive(Clone, Debug, PartialEq)]
-enum Operand {
-    Label(String),
-    Constant(f64),
-}
-
-impl Operand {
-    fn resolve(data: &DataContext, text: &str) -> Result<Self, String> {
-        let text = text.trim();
-        let is_label = data.data_type_of(text) == Some(DataType::Number);
-        if is_label {
-            Ok(Operand::Label(text.to_string()))
-        } else {
-            text.parse()
-                .map(Operand::Constant)
-                .map_err(|_| format!("No Number label or number '{text}'"))
-        }
-    }
-
-    fn input(&self, value: f64) -> ConversionInput {
-        match self {
-            Operand::Label(label) => ConversionInput::new(label.as_str(), format_number(value)),
-            Operand::Constant(_) => ConversionInput::new("", format_number(value)),
-        }
-    }
 }
 
 impl Arithmetic {

@@ -185,7 +185,9 @@ def test_add_menus_are_by_output_type(app: App):
     app.tab("Data")
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
-    expect(bar.get_by_role("button")).to_have_text(["Bytes", "Number", "String"])
+    expect(bar.get_by_role("button")).to_have_text(
+        ["Bytes", "Number", "String", "Vector"]
+    )
 
 
 def test_add_menus_open_on_hover(app: App):
@@ -485,12 +487,12 @@ def test_formula_renders_with_katex(app: App):
     assert failed == []
 
 
-def match_item(app: App, output: str):
+def match_item(app: App, output: str, title: str = "Match"):
     trigger = app.page.get_by_role("button", name=output, exact=True)
     menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
     trigger.hover()
     return menu.get_by_role("option").filter(
-        has=app.page.locator(".add-map-title", has_text=re.compile("^Match$"))
+        has=app.page.locator(".add-map-title", has_text=re.compile(f"^{title}$"))
     )
 
 
@@ -687,3 +689,98 @@ def test_keys_typed_in_a_card_stay_in_it(app: App):
     expect(app.map_cards().locator(".map-title-text")).to_have_text(
         ["Decode", "Match", "Match", "Replace"]
     )
+
+
+def add_compose_map(app: App, variant: str, components: list[str], target: str):
+    """Adds a Compose map, its `variant` (2D or 3D) picked beside it."""
+    item = match_item(app, "Vector", "Compose")
+    item.hover()
+    item.get_by_role("menuitem", name=variant).click()
+    card = app.map_cards().last
+    for name, label in zip("xyz", components):
+        card.get_by_label(name, exact=True).fill(label)
+    card.get_by_placeholder("Output label").fill(target)
+    card.get_by_role("switch").click()
+    return card
+
+
+def test_compose_makes_a_vector2d_of_two_numbers(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    card = add_compose_map(app, "2D", ["temp", "volt"], "point")
+    app.open_port()
+    app.wait_for_labels("point")
+    kind, latest, _ = app.data_rows()["point"]
+    assert kind == "Vector2d"
+    assert re.fullmatch(r"\(-?[\d.]+, -?[\d.]+\)", latest)
+    expect(card.locator(".map-latest")).to_contain_text("point")
+
+
+def test_compose_makes_a_vector3d_of_three_numbers(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "3D", ["temp", "volt", "temp"], "point")
+    app.open_port()
+    app.wait_for_labels("point")
+    kind, latest, _ = app.data_rows()["point"]
+    assert kind == "Vector3d"
+    x, y, z = re.fullmatch(r"\((.+), (.+), (.+)\)", latest).groups()
+    # The same label twice, the same number
+    assert x == z
+
+
+def test_vector_menu_shows_compose_with_its_dimensions_beside_it(app: App):
+    app.tab("Data")
+    item = match_item(app, "Vector", "Compose")
+    expect(item).to_have_count(1)
+    expect(item.locator("> .map-types")).to_have_text("NumberVector")
+    item.hover()
+    expect(item.get_by_role("menuitem")).to_have_text(
+        ["2DNumberNumberVector2d", "3DNumberNumberNumberVector3d"]
+    )
+    # Its inputs' types one above another
+    types = item.get_by_role("menuitem").last.locator(".map-types-from > span")
+    boxes = [types.nth(index).bounding_box() for index in range(3)]
+    assert boxes[0]["x"] == boxes[1]["x"] == boxes[2]["x"]
+    assert boxes[0]["y"] < boxes[1]["y"] < boxes[2]["y"]
+
+
+def test_compose_takes_constants_too(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "3D", ["temp", "volt", "0"], "on_plane")
+    add_compose_map(app, "2D", ["1.5", "-2"], "fixed")
+    app.open_port()
+    app.wait_for_labels("on_plane", "fixed")
+    assert app.data_rows()["on_plane"][1].endswith(", 0.0000)")
+    assert app.data_rows()["fixed"][1] == "(1.5000, -2.0000)"
+
+
+def test_compose_tells_a_component_that_is_neither(app: App):
+    app.tab("Data")
+    card = add_compose_map(app, "2D", ["nope", "1"], "point")
+    expect(card.locator(".field-error")).to_have_text("No Number label or number 'nope'")
+
+
+def submenu_side(app: App, output: str, title: str) -> str:
+    item = match_item(app, output, title)
+    item.hover()
+    submenu = item.locator("> .add-map-presets")
+    expect(submenu).to_be_visible()
+    item_box, submenu_box = item.bounding_box(), submenu.bounding_box()
+    width = app.page.viewport_size["width"]
+    assert submenu_box["x"] >= 0 and submenu_box["x"] + submenu_box["width"] <= width
+    if submenu_box["x"] >= item_box["x"] + item_box["width"] - 1:
+        return "right"
+    assert submenu_box["x"] + submenu_box["width"] <= item_box["x"] + 1
+    return "left"
+
+
+def test_submenus_open_to_the_right_unless_past_the_window(app: App):
+    app.page.set_viewport_size({"width": 2560, "height": 800})
+    app.tab("Data")
+    assert submenu_side(app, "Number", "Match") == "right"
+    assert submenu_side(app, "Vector", "Compose") == "right"
+
+    app.page.set_viewport_size({"width": 1280, "height": 800})
+    assert submenu_side(app, "Vector", "Compose") == "left"

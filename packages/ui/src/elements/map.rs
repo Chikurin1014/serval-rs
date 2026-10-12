@@ -1,5 +1,6 @@
 mod arithmetic;
 mod calculus;
+mod compose;
 mod concat;
 mod decode;
 mod encode;
@@ -16,6 +17,7 @@ use crate::data::{Decode, InitialMap, MapKind, Match, MatchOutput, RAW_BYTES_LAB
 
 pub use arithmetic::{ADD, ArithmeticForm, DIVIDE, MULTIPLY, SUBTRACT};
 pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
+pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
@@ -42,6 +44,8 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         MATCH_TO_STRING,
         REPLACE,
         CONCAT,
+        COMPOSE_2D,
+        COMPOSE_3D,
         ADD,
         SUBTRACT,
         MULTIPLY,

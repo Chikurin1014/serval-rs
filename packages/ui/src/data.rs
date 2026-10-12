@@ -11,12 +11,15 @@ pub use data_type::{
     Vector2dData, Vector3d, Vector3dData, format_number,
 };
 pub use map::{
-    Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Concat,
-    ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings, Encode, EncodeSettings,
-    InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Match, MatchOutput,
-    MatchSettings, Operation, Replace, ReplaceSettings, Segment,
+    Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Compose,
+    ComposeSettings, Concat, ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings,
+    Encode, EncodeSettings, InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider,
+    MapRunner, Match, MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment,
 };
-pub(crate) use map::{Endpoints, Input, endpoints, keep_taken, take_newest_pair, trim_segments};
+pub(crate) use map::{
+    Endpoints, Input, Operand, endpoints, keep_taken, take_newest_all, take_newest_pair,
+    trim_segments,
+};
 pub(crate) use pattern::compile_for_map;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};

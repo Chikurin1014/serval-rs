@@ -23,8 +23,24 @@ const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
 pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
+pub(crate) const VECTOR2D_LABELS_LIST_ID: &str = "map-vector2d-labels";
+pub(crate) const VECTOR3D_LABELS_LIST_ID: &str = "map-vector3d-labels";
 
-const TYPE_ORDER: [DataType; 3] = [DataType::Bytes, DataType::Number, DataType::String];
+const TYPE_ORDER: [DataType; 5] = [
+    DataType::Bytes,
+    DataType::Number,
+    DataType::String,
+    DataType::Vector2d,
+    DataType::Vector3d,
+];
+
+/// The add menus, each of the maps to the types it names.
+const ADD_MENUS: [(&str, &[DataType]); 4] = [
+    ("Bytes", &[DataType::Bytes]),
+    ("Number", &[DataType::Number]),
+    ("String", &[DataType::String]),
+    ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
+];
 
 /// Lists the maps for editing; they run in `MapProvider` regardless.
 #[component]
@@ -43,6 +59,8 @@ pub fn MapList() -> Element {
     let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
     let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
     let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
+    let vector2d_labels = use_memo(move || data_context.labels_of(DataType::Vector2d));
+    let vector3d_labels = use_memo(move || data_context.labels_of(DataType::Vector3d));
     // So the latest conversions and the add menus' arrows line up
     let columns = use_memo(move || {
         let kinds = context.kinds();
@@ -103,6 +121,18 @@ pub fn MapList() -> Element {
                     option { value: "{label}" }
                 }
             }
+            datalist {
+                id: VECTOR2D_LABELS_LIST_ID,
+                for label in vector2d_labels() {
+                    option { value: "{label}" }
+                }
+            }
+            datalist {
+                id: VECTOR3D_LABELS_LIST_ID,
+                for label in vector3d_labels() {
+                    option { value: "{label}" }
+                }
+            }
         }
     }
 }
@@ -125,11 +155,39 @@ fn MapOrder(mut generation: Signal<u32>) -> Element {
     rsx! {}
 }
 
+/// As an add menu's item is pointed at or focused: its submenu to the left,
+/// should it go past the window to the right. Once for the page.
+const SUBMENU_SIDE_JS: &str = r#"
+if (!window.servalSubmenuSide) {
+  window.servalSubmenuSide = (event) => {
+    const item = event.target.closest?.('.add-map-content [data-presets="true"]');
+    const submenu = item?.querySelector(":scope > .add-map-presets");
+    if (!submenu) {
+      return;
+    }
+    // Measured shown to the right, unseen
+    delete submenu.dataset.side;
+    const { display, visibility } = submenu.style;
+    Object.assign(submenu.style, { display: "block", visibility: "hidden" });
+    const right = submenu.getBoundingClientRect().right;
+    Object.assign(submenu.style, { display, visibility });
+    if (right > document.documentElement.clientWidth) {
+      submenu.dataset.side = "left";
+    }
+  };
+  document.addEventListener("mouseover", window.servalSubmenuSide);
+  document.addEventListener("focusin", window.servalSubmenuSide);
+}
+"#;
+
 /// A menu of the kinds of map for each output type.
 #[component]
 fn AddMapBar() -> Element {
     let kinds = use_context::<MapContext>().kinds();
     let menus = use_hook(HoverMenus::new);
+    use_effect(|| {
+        document::eval(SUBMENU_SIDE_JS);
+    });
 
     rsx! {
         div {
@@ -140,15 +198,15 @@ fn AddMapBar() -> Element {
             }
             div {
                 class: "add-map-menus",
-                for (index, to) in TYPE_ORDER.into_iter().enumerate() {
+                for (index, (name, types)) in ADD_MENUS.into_iter().enumerate() {
                     if index > 0 {
                         span { class: "add-map-separator", "/" }
                     }
                     AddMapMenu {
-                        to,
+                        name,
                         kinds: kinds
                             .iter()
-                            .filter(|kind| kind.to == to)
+                            .filter(|kind| types.contains(&kind.to))
                             .copied()
                             .collect::<Vec<_>>(),
                         menus,
@@ -160,21 +218,36 @@ fn AddMapBar() -> Element {
     }
 }
 
+/// The kinds of map to the types of the menu `name`: those of one name to
+/// several of them (e.g. a 2D and a 3D vector) as one item, its variants
+/// beside it, as presets are.
 #[component]
-fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: usize) -> Element {
+fn AddMapMenu(
+    name: &'static str,
+    mut kinds: Vec<MapKind>,
+    menus: HoverMenus,
+    menu: usize,
+) -> Element {
     let mut context = use_context::<MapContext>();
     kinds.sort_by_key(|kind| {
         kind.from
             .first()
             .and_then(|&from| TYPE_ORDER.iter().position(|&order| order == from))
     });
+    let mut items: Vec<Vec<MapKind>> = Vec::new();
+    for kind in kinds {
+        match items.iter_mut().find(|item| item[0].name == kind.name) {
+            Some(item) => item.push(kind),
+            None => items.push(vec![kind]),
+        }
+    }
     let mut in_presets = use_signal(|| false);
 
     rsx! {
         HoverMenu {
             menus,
             menu,
-            disabled: kinds.is_empty(),
+            disabled: items.is_empty(),
             content_class: "add-map-content",
             keep_open: in_presets,
             onkeydown: move |event: KeyboardEvent| {
@@ -183,56 +256,73 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                     document::eval(submenu::FOCUS_FIRST);
                 }
             },
-            trigger: rsx! { "{to.name()}" },
-            for (index, kind) in kinds.into_iter().enumerate() {
-                DropdownMenuItem {
-                    "data-presets": !kind.presets.is_empty(),
-                    value: kind,
-                    index,
-                    on_select: move |kind| {
-                        context.add(kind);
-                        menus.close(menu);
-                    },
-                    span { class: "add-map-title", "{kind.name}" }
-                    MapTypes { from: kind.from, to: kind.to }
-                    if !kind.presets.is_empty() {
-                        lucide::ChevronRight {}
-                        div {
-                            class: "add-map-presets",
-                            onfocusin: move |_| in_presets.set(true),
-                            onfocusout: move |_| in_presets.set(false),
-                            onkeydown: move |event: KeyboardEvent| {
-                                let script = match event.key() {
-                                    Key::ArrowDown => submenu::FOCUS_NEXT,
-                                    Key::ArrowUp => submenu::FOCUS_PREVIOUS,
-                                    Key::ArrowLeft | Key::Escape => submenu::FOCUS_ITEM,
-                                    Key::Enter => {
-                                        event.stop_propagation();
-                                        return;
-                                    }
-                                    _ => return,
-                                };
-                                event.prevent_default();
-                                event.stop_propagation();
-                                document::eval(script);
+            trigger: rsx! { "{name}" },
+            for (index, variants) in items.into_iter().enumerate() {
+                // The first, as its item is picked itself
+                {
+                    let kind = variants[0];
+                    let has_variants = variants.len() > 1;
+                    let mut from: Vec<DataType> = Vec::new();
+                    for &each in variants.iter().flat_map(|variant| variant.from) {
+                        if has_variants && from.contains(&each) {
+                            continue;
+                        }
+                        from.push(each);
+                    }
+                    rsx! {
+                        DropdownMenuItem {
+                            "data-presets": has_variants || !kind.presets.is_empty(),
+                            value: kind,
+                            index,
+                            on_select: move |kind| {
+                                context.add(kind);
+                                menus.close(menu);
                             },
-                            div {
-                                class: "add-map-presets-list",
-                                role: "menu",
-                                aria_label: "{kind.name} presets",
-                                for preset in kind.presets {
-                                    button {
-                                        class: "add-map-preset",
-                                        r#type: "button",
-                                        role: "menuitem",
-                                        onclick: move |event: MouseEvent| {
-                                            event.stop_propagation();
-                                            context.add_preset(kind, *preset);
-                                            in_presets.set(false);
-                                            menus.close(menu);
-                                        },
-                                        span { class: "add-map-preset-name", "{preset.name}" }
-                                        span { class: "add-map-preset-detail", "{preset.detail}" }
+                            span { class: "add-map-title", "{kind.name}" }
+                            MapTypes {
+                                from,
+                                to: if has_variants { name } else { kind.to.name() },
+                            }
+                            if has_variants {
+                                lucide::ChevronRight {}
+                                AddMapSubmenu {
+                                    label: "{kind.name} variants",
+                                    open: in_presets,
+                                    for variant in variants {
+                                        button {
+                                            class: "add-map-preset",
+                                            r#type: "button",
+                                            role: "menuitem",
+                                            onclick: move |event: MouseEvent| {
+                                                event.stop_propagation();
+                                                context.add(variant);
+                                                in_presets.set(false);
+                                                menus.close(menu);
+                                            },
+                                            span { class: "add-map-preset-name", "{variant_name(variant.to)}" }
+                                            MapTypes { from: variant.from.to_vec(), to: variant.to.name() }
+                                        }
+                                    }
+                                }
+                            } else if !kind.presets.is_empty() {
+                                lucide::ChevronRight {}
+                                AddMapSubmenu {
+                                    label: "{kind.name} presets",
+                                    open: in_presets,
+                                    for preset in kind.presets {
+                                        button {
+                                            class: "add-map-preset",
+                                            r#type: "button",
+                                            role: "menuitem",
+                                            onclick: move |event: MouseEvent| {
+                                                event.stop_propagation();
+                                                context.add_preset(kind, *preset);
+                                                in_presets.set(false);
+                                                menus.close(menu);
+                                            },
+                                            span { class: "add-map-preset-name", "{preset.name}" }
+                                            span { class: "add-map-preset-detail", "{preset.detail}" }
+                                        }
                                     }
                                 }
                             }
@@ -241,6 +331,52 @@ fn AddMapMenu(to: DataType, mut kinds: Vec<MapKind>, menus: HoverMenus, menu: us
                 }
             }
         }
+    }
+}
+
+/// Beside an add menu's item: its presets or variants, the menu kept `open`
+/// while one is focused.
+#[component]
+fn AddMapSubmenu(label: String, open: Signal<bool>, children: Element) -> Element {
+    let mut open = open;
+
+    rsx! {
+        div {
+            class: "add-map-presets",
+            onfocusin: move |_| open.set(true),
+            onfocusout: move |_| open.set(false),
+            onkeydown: move |event: KeyboardEvent| {
+                let script = match event.key() {
+                    Key::ArrowDown => submenu::FOCUS_NEXT,
+                    Key::ArrowUp => submenu::FOCUS_PREVIOUS,
+                    Key::ArrowLeft | Key::Escape => submenu::FOCUS_ITEM,
+                    Key::Enter => {
+                        event.stop_propagation();
+                        return;
+                    }
+                    _ => return,
+                };
+                event.prevent_default();
+                event.stop_propagation();
+                document::eval(script);
+            },
+            div {
+                class: "add-map-presets-list",
+                role: "menu",
+                aria_label: label,
+                {children}
+            }
+        }
+    }
+}
+
+/// What tells a variant from the others of its kind: its dimensions, for a
+/// vector.
+fn variant_name(to: DataType) -> &'static str {
+    match to {
+        DataType::Vector2d => "2D",
+        DataType::Vector3d => "3D",
+        to => to.name(),
     }
 }
 
@@ -279,7 +415,7 @@ fn MapCard(map: Map) -> Element {
                             span {
                                 class: "map-heading",
                                 span { class: "map-title-text", "{kind.name}" }
-                                MapTypes { from: kind.from, to: kind.to }
+                                MapTypes { from: kind.from.to_vec(), to: kind.to.name() }
                             }
                             // Its own component: it changes with each conversion,
                             // and the card must not render again with it
@@ -329,7 +465,7 @@ fn heading_width(kind: &MapKind) -> f64 {
 
 /// `from -> to` of a kind of map.
 #[component]
-fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
+fn MapTypes(from: Vec<DataType>, to: &'static str) -> Element {
     rsx! {
         span {
             class: "map-types",
@@ -340,7 +476,7 @@ fn MapTypes(from: &'static [DataType], to: DataType) -> Element {
                 }
             }
             lucide::MoveRight {}
-            span { "{to.name()}" }
+            span { "{to}" }
         }
     }
 }

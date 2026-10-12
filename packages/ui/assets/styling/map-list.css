@@ -258,6 +258,15 @@
   padding-left: 0.25rem;
 }
 
+/* To the right of its item, unless it would go past the window (see
+   `SUBMENU_SIDE_JS`) */
+.add-map-presets[data-side="left"] {
+  right: 100%;
+  left: auto;
+  padding-right: 0.25rem;
+  padding-left: 0;
+}
+
 .add-map-content [data-presets="true"]:hover > .add-map-presets,
 .add-map-content [data-presets="true"]:focus-within > .add-map-presets {
   display: block;
