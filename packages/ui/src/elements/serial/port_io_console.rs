@@ -67,6 +67,8 @@ pub fn PortIoConsole() -> Element {
     let mut view = use_signal(|| ConsoleView::Text);
     // Bumped as the script asks for all again, to draw it anew
     let mut redraws = use_signal(|| 0_u32);
+    // Over all the window, as Tera Term's Alt+Enter
+    let mut maximized = use_signal(|| false);
 
     // In hooks: the effect takes each render's closure, and fresh ones would
     // redraw the terminal from the start
@@ -90,7 +92,8 @@ pub fn PortIoConsole() -> Element {
         }
     });
 
-    // From the script: `["typed", text]` to send, or `["redraw"]`
+    // From the script: `["typed", text]` to send, `["redraw"]`, `["break"]` or
+    // `["maximize"]`
     use_future(move || {
         let read_to = read_to.clone();
         async move {
@@ -102,6 +105,8 @@ pub fn PortIoConsole() -> Element {
                         read_to.set(None);
                         redraws += 1;
                     }
+                    [kind] if kind == "break" => serial.send_break(),
+                    [kind] if kind == "maximize" => maximized.toggle(),
                     _ => {}
                 }
             }
@@ -121,6 +126,7 @@ pub fn PortIoConsole() -> Element {
 
         div {
             class: "console",
+            "data-maximized": maximized(),
             div {
                 class: "console-screen",
                 div {

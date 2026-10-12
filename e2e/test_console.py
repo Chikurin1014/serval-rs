@@ -262,3 +262,64 @@ def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
     # The oldest lines kept, after thousands trimmed off before them
     app.page.evaluate("document.querySelector('.console-output').xterm.scrollToTop()")
     assert all_beside()
+
+
+def cell_center(app: App, line: str, column: int) -> tuple[float, float]:
+    """Where on the page a cell of the line in view is."""
+    return app.page.evaluate(
+        """([text, column]) => {
+            const term = document.querySelector('.console-output').xterm;
+            const buffer = term.buffer.active;
+            let line = buffer.length - 1;
+            while (buffer.getLine(line).translateToString(true) !== text) line--;
+            const screen = term.element.querySelector('.xterm-screen').getBoundingClientRect();
+            const width = screen.width / term.cols, height = screen.height / term.rows;
+            return [screen.left + (column + 0.5) * width,
+                    screen.top + (line - buffer.viewportY + 0.5) * height];
+        }""",
+        [line, column],
+    )
+
+
+def test_alt_drag_selects_a_block(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('abcdef\\r\\nghijkl\\r\\nmnopqr\\r\\n')")
+    app.page.wait_for_timeout(300)
+
+    mouse = app.page.mouse
+    mouse.move(*cell_center(app, "abcdef", 1))
+    app.page.keyboard.down("Alt")
+    mouse.down()
+    mouse.move(*cell_center(app, "mnopqr", 3), steps=5)
+    mouse.up()
+    app.page.keyboard.up("Alt")
+
+    selection = app.page.evaluate(
+        "() => document.querySelector('.console-output').xterm.getSelection()"
+    )
+    assert selection == "bc\nhi\nno"
+    # Nor did it move the cursor, by sending arrow keys
+    app.page.keyboard.down("Alt")
+    mouse.click(*cell_center(app, "ghijkl", 2))
+    app.page.keyboard.up("Alt")
+    app.page.wait_for_timeout(300)
+    assert app.mock("written") == []
+
+
+def test_alt_enter_maximizes_the_console_and_back(app: App):
+    console = app.page.locator(".console")
+    before = console.bounding_box()
+    app.page.locator(".console-output").click()
+
+    app.page.keyboard.press("Alt+Enter")
+    expect(console).to_have_attribute("data-maximized", "true")
+    assert console.bounding_box() == {"x": 0, "y": 0, "width": 1280, "height": 800}
+    # The terminal refits to it
+    app.page.wait_for_function(
+        f"() => document.querySelector('.console-output').xterm.rows > {before['height'] // 17}"
+    )
+
+    app.page.keyboard.press("Alt+Enter")
+    expect(console).to_have_attribute("data-maximized", "false")
+    assert console.bounding_box() == before

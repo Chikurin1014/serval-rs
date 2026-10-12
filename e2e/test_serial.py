@@ -251,3 +251,23 @@ def test_a_file_shows_its_progress_on_all_the_bar(app: App):
     expect(app.page.locator(".console-send-file")).to_have_attribute(
         "data-sent", "true"
     )
+
+
+def test_alt_b_sends_a_break(app: App):
+    app.open_port()
+    app.page.locator(".console-output").click()
+    app.page.keyboard.press("Alt+B")
+    app.wait_for_mock("signals.length === 2")
+    assert app.mock("signals") == [{"break": True}, {"break": False}]
+    # Nothing typed
+    assert app.mock("written") == []
+
+
+def test_alt_r_sends_the_clipboard_and_a_cr(app: App):
+    app.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    app.open_port()
+    app.page.locator(".console-output").click()
+    app.page.evaluate("navigator.clipboard.writeText('led on\\nled off')")
+    app.page.keyboard.press("Alt+R")
+    app.wait_for_mock("written.length >= 1")
+    assert app.mock("written") == ["led on\rled off\r"]
