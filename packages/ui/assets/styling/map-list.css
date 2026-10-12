@@ -15,9 +15,33 @@
   contain: layout paint;
 }
 
-/* On every item, so the virtual list measures it with each card */
-.map-list [role="listitem"] {
-  padding-bottom: 0.3rem;
+.map-list > div {
+  --dx-item-gap: 0.3rem;
+}
+
+/* Each card as it is, its grip beside it: not framed again by the item */
+.map-list li[aria-roledescription="sortable item"] {
+  align-items: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  cursor: default;
+}
+
+.map-list li[aria-roledescription="sortable item"]:focus-visible {
+  border-radius: var(--radius, 0.5rem);
+  box-shadow: 0 0 0 2px var(--focused-border-color);
+}
+
+.map-list li[data-is-grabbing="true"] {
+  opacity: 0.5;
+}
+
+/* Level with the card's header */
+.map-list li[aria-roledescription="sortable item"] > svg {
+  margin-top: 0.75rem;
+  cursor: grab;
 }
 
 .map-panel [data-slot="card"] {

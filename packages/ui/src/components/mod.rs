@@ -17,5 +17,5 @@ pub mod toast;
 pub mod toggle;
 pub mod toggle_group;
 pub mod tooltip;
-pub mod virtual_list;
 pub mod dialog;
+pub mod drag_and_drop_list;

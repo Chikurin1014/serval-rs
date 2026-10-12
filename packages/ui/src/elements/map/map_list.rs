@@ -5,13 +5,14 @@ use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardHeader},
     collapsible::{Collapsible, CollapsibleContent, CollapsibleTrigger},
+    drag_and_drop_list::DragAndDropList,
     dropdown_menu::DropdownMenuItem,
     switch::Switch,
-    virtual_list::VirtualList,
 };
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
 use crate::elements::{HoverMenu, HoverMenus, submenu};
 use crate::helper::single_line;
+use dioxus_primitives::drag_and_drop_list::use_drag_and_drop_list_items;
 
 use super::field::MapEnabled;
 
@@ -31,6 +32,14 @@ pub fn MapList() -> Element {
     let data_context = use_context::<DataContext>();
     let context = use_context::<MapContext>();
     let maps = use_memo(move || context.list());
+    // Which maps there are, in no order
+    let map_set = use_memo(move || {
+        let mut ids: Vec<usize> = maps.read().iter().map(|map| map.id).collect();
+        ids.sort_unstable();
+        ids
+    });
+    // Bumped to make the list anew with all the maps, as it left one out
+    let generation = use_signal(|| 0_u32);
     let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
     let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
     let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
@@ -59,15 +68,22 @@ pub fn MapList() -> Element {
             class: "map-panel",
             style: columns,
             AddMapBar {}
-            VirtualList {
+            div {
                 class: "map-list",
-                count: maps.read().len(),
-                render_item: move |index: usize| {
-                    let Some(map) = maps.read().get(index).cloned() else {
-                        return VNode::empty();
-                    };
-                    rsx! { MapCard { key: "{map.id}", map } }
-                },
+                // The list keeps its own order from its first items on: made
+                // anew as maps are added or removed (not as they are reordered)
+                for key in [format!("{generation}-{:?}", map_set())] {
+                    DragAndDropList {
+                        key: "{key}",
+                        aria_label: "Maps",
+                        items: maps
+                            .read()
+                            .iter()
+                            .map(|map| rsx! { MapCard { key: "{map.id}", map: map.clone() } })
+                            .collect::<Vec<_>>(),
+                        MapOrder { generation }
+                    }
+                }
             }
             datalist {
                 id: BYTES_LABELS_LIST_ID,
@@ -89,6 +105,24 @@ pub fn MapList() -> Element {
             }
         }
     }
+}
+
+/// Puts the maps in the order they are dragged to. Should the list leave one
+/// out (as Delete removes a focused item), makes it anew with all of them: a
+/// map is deleted by its card's button.
+#[component]
+fn MapOrder(mut generation: Signal<u32>) -> Element {
+    let mut context = use_context::<MapContext>();
+    let shown: Vec<usize> = use_drag_and_drop_list_items()
+        .iter()
+        .filter_map(|item| item.key.parse().ok())
+        .collect();
+    use_effect(use_reactive!(|shown| {
+        if !context.reorder(&shown) {
+            generation += 1;
+        }
+    }));
+    rsx! {}
 }
 
 /// A menu of the kinds of map for each output type.
@@ -224,46 +258,52 @@ fn MapCard(map: Map) -> Element {
     use_context_provider(|| MapEnabled(enabled.into()));
 
     rsx! {
-        Collapsible {
-            class: "map-card reveals",
-            open: Some(open()),
-            on_open_change: move |value| open.set(value),
-            Card {
-                CardHeader {
-                    Switch {
-                        checked: enabled(),
-                        on_checked_change: move |checked| enabled.set(checked),
-                        aria_label: "Toggle map",
-                    }
-                    CollapsibleTrigger {
-                        class: "map-title",
-                        span {
-                            class: "map-heading",
-                            span { class: "map-title-text", "{kind.name}" }
-                            MapTypes { from: kind.from, to: kind.to }
+        // Keys typed in the card are its own: not for the list's item, which
+        // takes them to reorder (or Delete to remove it)
+        div {
+            class: "map-item",
+            onkeydown: move |event: KeyboardEvent| event.stop_propagation(),
+            Collapsible {
+                class: "map-card reveals",
+                open: Some(open()),
+                on_open_change: move |value| open.set(value),
+                Card {
+                    CardHeader {
+                        Switch {
+                            checked: enabled(),
+                            on_checked_change: move |checked| enabled.set(checked),
+                            aria_label: "Toggle map",
                         }
-                        // Its own component: it changes with each conversion,
-                        // and the card must not render again with it
-                        Latest { latest }
+                        CollapsibleTrigger {
+                            class: "map-title",
+                            span {
+                                class: "map-heading",
+                                span { class: "map-title-text", "{kind.name}" }
+                                MapTypes { from: kind.from, to: kind.to }
+                            }
+                            // Its own component: it changes with each conversion,
+                            // and the card must not render again with it
+                            Latest { latest }
+                        }
+                        Button {
+                            class: "map-remove reveal-on-hover",
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::IconSm,
+                            aria_label: "Delete map",
+                            title: "Delete map",
+                            onclick: move |_| context.remove(id),
+                            lucide::X {}
+                        }
                     }
-                    Button {
-                        class: "map-remove reveal-on-hover",
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::IconSm,
-                        aria_label: "Delete map",
-                        title: "Delete map",
-                        onclick: move |_| context.remove(id),
-                        lucide::X {}
-                    }
-                }
-                CollapsibleContent {
-                    CardContent {
-                        div {
-                            class: "map-content",
-                            {map.form()}
-                            if enabled() {
-                                // One for the whole form, in its middle
-                                div { class: "map-lock-tip", role: "tooltip", "Turn this Map off to edit" }
+                    CollapsibleContent {
+                        CardContent {
+                            div {
+                                class: "map-content",
+                                {map.form()}
+                                if enabled() {
+                                    // One for the whole form, in its middle
+                                    div { class: "map-lock-tip", role: "tooltip", "Turn this Map off to edit" }
+                                }
                             }
                         }
                     }
