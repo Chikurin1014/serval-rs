@@ -9,12 +9,12 @@ use dioxus::{
 };
 
 pub mod history;
-pub mod log;
 mod received;
+pub mod record;
 
 use history::{ReceivedHistory, Unread};
-use log::{LogFile, LogFormat, LogSink, Logger};
 use received::{GATHER_MS, Gathered, Received};
+use record::{RecordFile, RecordFormat, RecordSink, Recorder};
 
 use crate::{
     data::{ByteData, DataContext},
@@ -48,15 +48,15 @@ pub trait SerialBackend {
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
 
-    /// A file the user picks for a log, named with `extension`: a new one, or
+    /// A file the user picks for a record, named with `extension`: a new one, or
     /// with `append`, one to add to (with its tail). `None` if they cancel.
-    fn open_log_file(
+    fn open_record_file(
         &self,
         extension: &str,
         append: bool,
-    ) -> LocalFuture<SerialResult<Option<LogFile>>> {
+    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
         let _ = (extension, append);
-        Box::pin(async { Err("Saving a log is not supported here".to_string()) })
+        Box::pin(async { Err("Saving a record is not supported here".to_string()) })
     }
 }
 
@@ -186,11 +186,11 @@ pub struct SerialContext {
     notifications: Signal<VecDeque<Notification>>,
     /// What the console shows; on while ports open and close.
     history: Signal<ReceivedHistory>,
-    /// The log file being written, if any; on while ports open and close.
-    logger: CopyValue<Option<Logger>>,
-    log_format: Signal<Option<LogFormat>>,
-    /// Counts the logs started, to tell the one being written from those before.
-    log_id: CopyValue<u64>,
+    /// The record file being written, if any; on while ports open and close.
+    recorder: CopyValue<Option<Recorder>>,
+    record_format: Signal<Option<RecordFormat>>,
+    /// Counts the records started, to tell the one being written from those before.
+    record_id: CopyValue<u64>,
     outgoing: Signal<VecDeque<Outgoing>>,
     /// The outgoing file being sent, if any.
     sending_file: Signal<Option<u64>>,
@@ -273,7 +273,7 @@ impl SerialContext {
                 port.handle.set_break(false).await
             };
             match sent.await {
-                Ok(()) => context.log_event("Break sent"),
+                Ok(()) => context.record_event("Break sent"),
                 Err(error) => {
                     context.report(NotificationKind::Error, "Failed to send a break", &error)
                 }
@@ -305,102 +305,103 @@ impl SerialContext {
         self.history.read().since(read_to)
     }
 
-    /// The format of the log file being written, if one is.
-    pub fn log_format(&self) -> Option<LogFormat> {
-        (self.log_format)()
+    /// The format of the record file being written, if one is.
+    pub fn record_format(&self) -> Option<RecordFormat> {
+        (self.record_format)()
     }
 
     /// Writes what the port receives (and sends, if `format` keeps it) to
-    /// `sink`, until [`Self::stop_log`]; a log already being written ends first.
-    pub fn start_log(&self, format: LogFormat, sink: Rc<dyn LogSink>) {
-        self.stop_log();
-        let (mut logger, mut log_format, mut log_id) = (self.logger, self.log_format, self.log_id);
-        let id = *log_id.peek() + 1;
-        log_id.set(id);
+    /// `sink`, until [`Self::stop_record`]; a record already being written ends first.
+    pub fn start_record(&self, format: RecordFormat, sink: Rc<dyn RecordSink>) {
+        self.stop_record();
+        let (mut recorder, mut record_format, mut record_id) =
+            (self.recorder, self.record_format, self.record_id);
+        let id = *record_id.peek() + 1;
+        record_id.set(id);
         let failure = sink.failure();
-        logger.set(Some(Logger::new(format, sink)));
-        log_format.set(Some(format));
+        recorder.set(Some(Recorder::new(format, sink)));
+        record_format.set(Some(format));
         // Ended at once by a failed write, not to go on unwritten unseen
         let context = *self;
         self.spawn(async move {
             if let Some(error) = failure.await {
-                context.fail_log(id, &error);
+                context.fail_record(id, &error);
             }
         });
     }
 
-    /// Ends log `id`, if it is still the one being written, as a write failed.
-    fn fail_log(&self, id: u64, error: &str) {
-        let (mut logger, mut log_format) = (self.logger, self.log_format);
-        if *self.log_id.peek() != id {
+    /// Ends record `id`, if it is still the one being written, as a write failed.
+    fn fail_record(&self, id: u64, error: &str) {
+        let (mut recorder, mut record_format) = (self.recorder, self.record_format);
+        if *self.record_id.peek() != id {
             return;
         }
-        let Some(logger) = logger.write().take() else {
+        let Some(recorder) = recorder.write().take() else {
             return;
         };
-        log_format.set(None);
+        record_format.set(None);
         // Closed to let go of the file; its failure is the one told here
-        let closed = logger.close();
+        let closed = recorder.close();
         self.spawn(async move {
             let _ = closed.await;
         });
         self.report(
             NotificationKind::Error,
-            "Logging stopped",
-            &format!("Failed to write the log: {error}"),
+            "Recording stopped",
+            &format!("Failed to write the record: {error}"),
         );
     }
 
-    /// Asks for a new file (see [`SerialBackend::open_log_file`]) and logs to
+    /// Asks for a new file (see [`SerialBackend::open_record_file`]) and records to
     /// it in `format`. Call it as the user asks: browsers pick files only then.
-    pub fn open_log(&self, format: LogFormat) {
-        self.pick_log_file(Some(format));
+    pub fn open_record(&self, format: RecordFormat) {
+        self.pick_record_file(Some(format));
     }
 
-    /// As [`Self::open_log`], to an existing file, in the format it was
-    /// written in (see [`log::detect_format`]).
-    pub fn continue_log(&self) {
-        self.pick_log_file(None);
+    /// As [`Self::open_record`], to an existing file, in the format it was
+    /// written in (see [`record::detect_format`]).
+    pub fn continue_record(&self) {
+        self.pick_record_file(None);
     }
 
     /// A new file for `format`, or an existing one for `None`.
-    fn pick_log_file(&self, format: Option<LogFormat>) {
+    fn pick_record_file(&self, format: Option<RecordFormat>) {
         let context = *self;
         self.spawn(async move {
             let backend = context.backend.cloned();
-            let extension = format.map_or("log", log::extension);
-            match backend.open_log_file(extension, format.is_none()).await {
-                Ok(Some(LogFile { sink, name, tail })) => {
+            let extension = format.map_or("log", record::extension);
+            match backend.open_record_file(extension, format.is_none()).await {
+                Ok(Some(RecordFile { sink, name, tail })) => {
                     let (format, title) = match format {
-                        Some(format) => (format, "Logging started"),
-                        None => (log::detect_format(&name, &tail), "Logging continued"),
+                        Some(format) => (format, "Recording started"),
+                        None => (record::detect_format(&name, &tail), "Recording continued"),
                     };
-                    context.start_log(format, sink);
+                    context.start_record(format, sink);
                     let detail = format!("{name} ({})", format.name());
                     context.report(NotificationKind::Info, title, &detail);
                 }
                 Ok(None) => {}
                 Err(error) => {
-                    context.report(NotificationKind::Error, "Failed to open the log", &error)
+                    context.report(NotificationKind::Error, "Failed to open the record", &error)
                 }
             }
         });
     }
 
-    /// Ends the log file, with its unfinished lines.
-    pub fn stop_log(&self) {
-        let (mut logger, mut log_format) = (self.logger, self.log_format);
-        let Some(logger) = logger.write().take() else {
+    /// Ends the record file, with its unfinished lines.
+    pub fn stop_record(&self) {
+        let (mut recorder, mut record_format) = (self.recorder, self.record_format);
+        let Some(recorder) = recorder.write().take() else {
             return;
         };
-        log_format.set(None);
-        let closed = logger.close();
+        record_format.set(None);
+        let closed = recorder.close();
         let context = *self;
         self.spawn(async move {
             match closed.await {
-                Ok(()) => context.report(NotificationKind::Info, "Logging stopped", ""),
+                Ok(()) => context.report(NotificationKind::Info, "Recording stopped", ""),
                 Err(error) => {
-                    context.report(NotificationKind::Error, "Failed to save the log", &error)
+                    context.report(NotificationKind::Error, "Failed to save the record", &error)
                 }
             }
         });
@@ -500,11 +501,11 @@ impl SerialContext {
             let mut outgoing = context.outgoing;
             outgoing.write().clear();
             let opened = format!("{} at {baudrate} bps", port.info.name);
-            context.log_event(&format!("Port opened: {opened}"));
+            context.record_event(&format!("Port opened: {opened}"));
             context.report(NotificationKind::Success, "Port opened", &opened);
 
             let time = context.time;
-            let received = Received::new(context.data, rx_bytes, context.history, context.logger);
+            let received = Received::new(context.data, rx_bytes, context.history, context.recorder);
             let last = received.clone();
             let on_chunk = Box::new(move |chunk: Vec<u8>| {
                 let chunk = ByteData::new(time.read().current(), chunk);
@@ -524,7 +525,7 @@ impl SerialContext {
             let read = port.handle.read(on_chunk).await;
             // After the last chunks, still gathered
             last.flush();
-            context.log_event(&match &read {
+            context.record_event(&match &read {
                 Ok(()) => format!("Port closed: {}", port.info.name),
                 Err(error) => format!("Connection lost: {}: {error}", port.info.name),
             });
@@ -637,22 +638,22 @@ impl SerialContext {
         stop_file.set(true);
     }
 
-    /// Writes `bytes` to `port`, counted and logged; whether it was.
+    /// Writes `bytes` to `port`, counted and recorded; whether it was.
     async fn write_sent(&self, port: &Port, bytes: Vec<u8>) -> bool {
         let length = bytes.len() as u64;
-        let logged = self.logger.peek().is_some().then(|| bytes.clone());
+        let recorded = self.recorder.peek().is_some().then(|| bytes.clone());
         if let Err(error) = port.handle.write(bytes).await {
             self.report(NotificationKind::Error, "Failed to send", &error);
             return false;
         }
         let mut tx_bytes = self.tx_bytes;
         *tx_bytes.write() += length;
-        if let Some(bytes) = logged {
+        if let Some(bytes) = recorded {
             let now = self.time.read().current();
-            let mut logger = self.logger;
-            let mut logger = logger.write();
-            if let Some(logger) = logger.as_mut() {
-                logger.sent(now, &bytes);
+            let mut recorder = self.recorder;
+            let mut recorder = recorder.write();
+            if let Some(recorder) = recorder.as_mut() {
+                recorder.sent(now, &bytes);
             }
         }
         true
@@ -713,13 +714,13 @@ impl SerialContext {
         true
     }
 
-    /// Writes what happened to the port to the log file, if one is written.
-    fn log_event(&self, event: &str) {
+    /// Writes what happened to the port to the record file, if one is written.
+    fn record_event(&self, event: &str) {
         let now = self.time.read().current();
-        let mut logger = self.logger;
-        let mut logger = logger.write();
-        if let Some(logger) = logger.as_mut() {
-            logger.event(now, event);
+        let mut recorder = self.recorder;
+        let mut recorder = recorder.write();
+        if let Some(recorder) = recorder.as_mut() {
+            recorder.event(now, event);
         }
     }
 
@@ -794,9 +795,9 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         breaking: CopyValue::new(false),
         notifications: Signal::new(VecDeque::new()),
         history: Signal::new(ReceivedHistory::default()),
-        logger: CopyValue::new(None),
-        log_format: Signal::new(None),
-        log_id: CopyValue::new(0),
+        recorder: CopyValue::new(None),
+        record_format: Signal::new(None),
+        record_id: CopyValue::new(0),
         outgoing: Signal::new(VecDeque::new()),
         sending_file: Signal::new(None),
         stop_file: CopyValue::new(false),

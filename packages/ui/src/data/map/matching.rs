@@ -10,12 +10,12 @@ use crate::data::{
 use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RegexOutput {
+pub enum MatchOutput {
     String,
     Number,
 }
 
-impl RegexOutput {
+impl MatchOutput {
     fn push_to_data_context(
         self,
         data: &mut DataContext,
@@ -24,8 +24,8 @@ impl RegexOutput {
         timestamp: i64,
     ) -> Result<(), String> {
         match self {
-            RegexOutput::String => data.push(label, StringData::new(timestamp, value)),
-            RegexOutput::Number => {
+            MatchOutput::String => data.push(label, StringData::new(timestamp, value)),
+            MatchOutput::Number => {
                 let number = value
                     .parse::<f64>()
                     .map_err(|_| format!("The result '{value}' is not a number"))?;
@@ -37,7 +37,7 @@ impl RegexOutput {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct RegexSettings {
+pub struct MatchSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
@@ -47,9 +47,9 @@ pub struct RegexSettings {
 }
 
 /// Converts each string matching a regex; the output label may use its groups.
-pub struct RegexMatch {
-    output: RegexOutput,
-    settings: RegexSettings,
+pub struct Match {
+    output: MatchOutput,
+    settings: MatchSettings,
     taken: [String; 4],
     matching: Option<Matching>,
     cursor: SourceCursor,
@@ -79,13 +79,13 @@ impl Matching {
     }
 }
 
-impl RegexMatch {
-    pub fn new(output: RegexOutput) -> Self {
+impl Match {
+    pub fn new(output: MatchOutput) -> Self {
         Self::with(output, "", "", "", "")
     }
 
     pub fn with(
-        output: RegexOutput,
+        output: MatchOutput,
         from_label: &str,
         pattern: &str,
         to_label: &str,
@@ -93,7 +93,7 @@ impl RegexMatch {
     ) -> Self {
         Self {
             output,
-            settings: RegexSettings {
+            settings: MatchSettings {
                 from_label: Signal::new(from_label.to_string()),
                 to_label: Signal::new(to_label.to_string()),
                 pattern: Signal::new(pattern.to_string()),
@@ -108,13 +108,13 @@ impl RegexMatch {
     }
 }
 
-impl MapRunner for RegexMatch {
+impl MapRunner for Match {
     fn settings(&self) -> &dyn Any {
         &self.settings
     }
 
     fn start(&mut self) {
-        let RegexSettings {
+        let MatchSettings {
             from_label,
             to_label,
             pattern,
@@ -136,7 +136,7 @@ impl MapRunner for RegexMatch {
     }
 
     fn run(&mut self, data: &mut DataContext, timestamp: i64) -> Option<Conversion> {
-        let RegexSettings {
+        let MatchSettings {
             mut pattern_error,
             mut replacement_error,
             ..
@@ -183,7 +183,7 @@ impl MapRunner for RegexMatch {
 
         let (input, captures) = latest?;
         let mut to_value = replacement_segments(&captures, replacement);
-        if self.output == RegexOutput::Number {
+        if self.output == MatchOutput::Number {
             to_value = number_segment(&to_value).map_or(to_value, |segment| vec![segment]);
         }
         Some(Conversion {

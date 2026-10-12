@@ -58,7 +58,7 @@ def test_shows_each_label_with_its_latest_value(app: App):
     app.open_port()
     app.tab("Data")
     remove_filter(app, "Hide", "raw_bytes")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("raw_bytes", "message", "temp", "volt")
     rows = app.data_rows()
     recent = app.page.evaluate(
@@ -85,7 +85,7 @@ def test_shows_each_label_with_its_latest_value(app: App):
 def test_deletes_a_label(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("temp", "volt")
     # Or the next reading brings the label back
     app.page.get_by_role("button", name="Close port").click()
@@ -103,7 +103,7 @@ def test_deletes_a_label(app: App):
 def test_filters_show_the_labels_any_of_them_match(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("message", "temp", "volt")
 
     add_filter(app, "temp")
@@ -119,7 +119,7 @@ def test_filters_show_the_labels_any_of_them_match(app: App):
 def test_filters_match_whole_labels(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("message", "temp", "volt")
     add_filter(app, "e")
     wait_for_rows(app)
@@ -158,7 +158,7 @@ def test_filters_stay_across_tabs(app: App):
 def test_hide_filters_hide_what_they_match(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("message", "temp", "volt")
 
     add_filter(app, "message", kind="Hide")
@@ -176,7 +176,7 @@ def test_columns_and_rows_stay_put_as_values_change(app: App):
     app.open_port()
     app.tab("Data")
     remove_filter(app, "Hide", "raw_bytes")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("raw_bytes", "message", "temp", "volt")
     layouts = set()
     for _ in range(20):
@@ -204,7 +204,7 @@ def history_height(group) -> float:
 def test_a_row_opens_to_its_recent_values(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("temp")
     label = app.page.locator("th", has_text=re.compile("^temp$"))
     group = app.page.locator(".data-table .data-group").filter(has=label)
@@ -259,7 +259,7 @@ def test_exports_the_data_shown_as_csv(app: App):
 
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("message", "temp", "volt")
     add_filter(app, "temp|volt")
     wait_for_rows(app, "temp", "volt")

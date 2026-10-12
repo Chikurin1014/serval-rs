@@ -8,7 +8,7 @@ mod conversion;
 mod decode;
 mod encode;
 mod input;
-mod regex;
+mod matching;
 mod replace;
 
 use std::{
@@ -33,7 +33,7 @@ pub use conversion::{Conversion, ConversionInput, Segment};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};
 pub(crate) use input::{Endpoints, Input, endpoints, take_newest_pair};
-pub use regex::{RegexMatch, RegexOutput, RegexSettings};
+pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
 
 /// The processing of one map. Its settings are signals made in its

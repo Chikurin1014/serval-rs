@@ -1,4 +1,4 @@
-// Log files through the File System Access API, for `log_file.rs`; tests pass
+// Record files through the File System Access API, for `record_file.rs`; tests pass
 // a fake `win` and clock.
 
 // What a writable stream writes goes to the file only once it is closed: so it
@@ -10,11 +10,11 @@ export function isSupported(win = window) {
 }
 
 /**
- * A log file the user picks: a new one named `serval-<local time>.<extension>`,
+ * A record file the user picks: a new one named `serval-<local time>.<extension>`,
  * or with `append`, one to add to, with its last `tailBytes` bytes to tell its
  * format by. Null if they cancel.
  */
-export async function pickLogFile(
+export async function pickRecordFile(
   extension,
   append,
   tailBytes,
@@ -28,7 +28,7 @@ export async function pickLogFile(
       handle = await win.showSaveFilePicker({
         suggestedName: `serval-${localTime(new Date(now()))}.${extension}`,
         types: [
-          { description: "Log", accept: { "text/plain": [`.${extension}`] } },
+          { description: "Record", accept: { "text/plain": [`.${extension}`] } },
         ],
       });
     }
@@ -45,7 +45,7 @@ export async function pickLogFile(
       await file.slice(Math.max(0, file.size - tailBytes)).arrayBuffer(),
     );
   }
-  const log = {
+  const record = {
     handle,
     name: handle.name,
     tail,
@@ -56,64 +56,64 @@ export async function pickLogFile(
     commitMs,
     committed: now(),
   };
-  log.failure = new Promise((resolve) => {
-    log.settle = resolve;
+  record.failure = new Promise((resolve) => {
+    record.settle = resolve;
   });
-  log.writable = await openAtEnd(handle, append);
-  return log;
+  record.writable = await openAtEnd(handle, append);
+  return record;
 }
 
-export function logFileName(log) {
-  return log.name;
+export function recordFileName(record) {
+  return record.name;
 }
 
-export function logFileTail(log) {
-  return log.tail;
+export function recordFileTail(record) {
+  return record.tail;
 }
 
 /**
  * The message of the first failed write, as soon as it fails; null once the
- * log closes without one.
+ * record closes without one.
  */
-export function logFileFailure(log) {
-  return log.failure;
+export function recordFileFailure(record) {
+  return record.failure;
 }
 
-function fail(log, error) {
-  if (!log.error) {
-    log.error = error;
-    log.settle(error?.message ?? String(error));
+function fail(record, error) {
+  if (!record.error) {
+    record.error = error;
+    record.settle(error?.message ?? String(error));
   }
 }
 
-/** After the earlier writes, in order; the first failure is kept for `closeLogFile`. */
-export function writeLogFile(log, bytes) {
-  log.chain = log.chain
+/** After the earlier writes, in order; the first failure is kept for `closeRecordFile`. */
+export function writeRecordFile(record, bytes) {
+  record.chain = record.chain
     .then(async () => {
-      if (log.error) {
+      if (record.error) {
         return;
       }
-      await log.writable.write(bytes);
-      if (log.now() - log.committed >= log.commitMs) {
-        await log.writable.close();
-        log.writable = await openAtEnd(log.handle, true);
-        log.committed = log.now();
+      await record.writable.write(bytes);
+      if (record.now() - record.committed >= record.commitMs) {
+        await record.writable.close();
+        record.writable = await openAtEnd(record.handle, true);
+        record.committed = record.now();
       }
     })
-    .catch((error) => fail(log, error));
+    .catch((error) => fail(record, error));
 }
 
 /** After the writes; fails with the first failure of any. */
-export async function closeLogFile(log) {
-  await log.chain;
+export async function closeRecordFile(record) {
+  await record.chain;
   try {
-    await log.writable.close();
+    await record.writable.close();
   } catch (error) {
-    fail(log, error);
+    fail(record, error);
   }
-  log.settle(null);
-  if (log.error) {
-    throw log.error;
+  record.settle(null);
+  if (record.error) {
+    throw record.error;
   }
 }
 

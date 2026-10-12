@@ -3,7 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
-use super::regex::{Matching, replacement_segments};
+use super::matching::{Matching, replacement_segments};
 use crate::data::{
     Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment, SourceCursor,
     StringData, keep_taken,

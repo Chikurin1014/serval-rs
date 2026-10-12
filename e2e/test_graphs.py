@@ -11,7 +11,7 @@ GRID_COLUMNS = (
 def open_graphs_with_numbers(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("temp", "volt")
     app.tab("Graph")
 

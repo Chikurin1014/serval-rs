@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{history::ReceivedHistory, log::Logger};
+use super::{history::ReceivedHistory, record::Recorder};
 use crate::data::{ByteData, DataContext, RAW_BYTES_LABEL};
 
 pub(super) const GATHER_MS: u32 = 16;
@@ -18,7 +18,7 @@ pub(super) struct Received {
     data: DataContext,
     rx_bytes: Signal<u64>,
     history: Signal<ReceivedHistory>,
-    logger: CopyValue<Option<Logger>>,
+    recorder: CopyValue<Option<Recorder>>,
 }
 
 pub(super) enum Gathered {
@@ -34,14 +34,14 @@ impl Received {
         data: DataContext,
         rx_bytes: Signal<u64>,
         history: Signal<ReceivedHistory>,
-        logger: CopyValue<Option<Logger>>,
+        recorder: CopyValue<Option<Recorder>>,
     ) -> Self {
         Self {
             chunks: Rc::default(),
             data,
             rx_bytes,
             history,
-            logger,
+            recorder,
         }
     }
 
@@ -60,16 +60,16 @@ impl Received {
         if chunks.is_empty() {
             return;
         }
-        let (mut data, mut rx_bytes, mut history, mut logger) =
-            (self.data, self.rx_bytes, self.history, self.logger);
+        let (mut data, mut rx_bytes, mut history, mut recorder) =
+            (self.data, self.rx_bytes, self.history, self.recorder);
         *rx_bytes.write() += chunks
             .iter()
             .map(|chunk| chunk.value().len() as u64)
             .sum::<u64>();
         // Before the data, where they may be dropped or cleared
         history.write().extend(&chunks);
-        if let Some(logger) = logger.write().as_mut() {
-            logger.received(&chunks);
+        if let Some(recorder) = recorder.write().as_mut() {
+            recorder.received(&chunks);
         }
         data.push_all(RAW_BYTES_LABEL, chunks);
     }
@@ -84,7 +84,7 @@ mod tests {
     use super::*;
     use crate::{
         data::{DataProvider, TypedData},
-        serial::log::{LogFormat, tests::Recorded},
+        serial::record::{RecordFormat, tests::Recorded},
     };
 
     thread_local! {
@@ -97,15 +97,15 @@ mod tests {
         let data = use_context::<DataContext>();
         let rx_bytes = use_signal(|| 0);
         let history = use_signal(ReceivedHistory::default);
-        let logger = use_hook(|| {
-            let format = LogFormat::Text {
+        let recorder = use_hook(|| {
+            let format = RecordFormat::Text {
                 timestamps: false,
                 sent: false,
             };
-            CopyValue::new(Some(Logger::new(format, SINK.with(Rc::clone) as _)))
+            CopyValue::new(Some(Recorder::new(format, SINK.with(Rc::clone) as _)))
         });
         GRABBED.with(|cell| {
-            *cell.borrow_mut() = Some((Received::new(data, rx_bytes, history, logger), data))
+            *cell.borrow_mut() = Some((Received::new(data, rx_bytes, history, recorder), data))
         });
         rsx! {}
     }
@@ -119,7 +119,7 @@ mod tests {
     }
 
     #[test]
-    fn flush_logs_the_chunks_and_keeps_them_in_the_data() {
+    fn flush_records_the_chunks_and_keeps_them_in_the_data() {
         let mut dom = VirtualDom::new(|| rsx! { DataProvider { Grab {} } });
         dom.rebuild_in_place();
         dom.in_runtime(|| {
@@ -130,7 +130,7 @@ mod tests {
             assert_eq!(raw_bytes(&data), 2);
             assert_eq!(SINK.with(|sink| sink.text()), "temp:20.5\n");
 
-            // The log keeps what the data no longer does
+            // The record keeps what the data no longer does
             data.clear_all();
             received.gather(ByteData::new(3, b"volt:3.3\n".to_vec()));
             received.flush();

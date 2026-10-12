@@ -18,10 +18,10 @@ def test_initial_map_splits_raw_bytes_into_lines(app: App):
     assert is_whole_line(app.data_rows()["message"][1])
 
 
-def test_initial_regex_map_reads_numbers_with_no_label(app: App):
+def test_initial_match_map_reads_numbers_with_no_label(app: App):
     app.tab("Data")
     card = app.map_cards().nth(1)
-    expect(card.locator(".map-title-text")).to_have_text("Regex")
+    expect(card.locator(".map-title-text")).to_have_text("Match")
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
     expect(card.get_by_placeholder("Input label")).to_have_value("message")
@@ -37,10 +37,10 @@ def test_initial_regex_map_reads_numbers_with_no_label(app: App):
     assert app.data_rows()["anonymous data"][1] == "-150.00"
 
 
-def test_initial_regex_map_reads_name_value_numbers(app: App):
+def test_initial_match_map_reads_name_value_numbers(app: App):
     app.tab("Data")
     card = app.map_cards().nth(2)
-    expect(card.locator(".map-title-text")).to_have_text("Regex")
+    expect(card.locator(".map-title-text")).to_have_text("Match")
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
     expect(card.get_by_placeholder("Input label")).to_have_value("message")
@@ -51,10 +51,10 @@ def test_initial_regex_map_reads_name_value_numbers(app: App):
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
 
 
-def test_regex_map_extracts_numbers(app: App):
+def test_match_map_extracts_numbers(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("temp", "volt")
     rows = app.data_rows()
     assert rows["temp"][0] == "Number"
@@ -64,7 +64,7 @@ def test_regex_map_extracts_numbers(app: App):
 def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     app.wait_for_labels("message", "temp", "volt")
 
     app.clear_all()
@@ -81,14 +81,14 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
 
 def test_invalid_regex_shows_an_error(app: App):
     app.tab("Data")
-    app.add_regex_map(pattern="(")
+    app.add_match_map(pattern="(")
     expect(app.page.locator(".field-error")).to_contain_text("Invalid regex")
 
 
 def test_settings_are_locked_while_the_map_is_on(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map(target="all_$1")
+    app.add_match_map(target="all_$1")
     app.wait_for_labels("all_temp", "all_volt")
     card = app.map_cards().last
     fields = card.locator(".map-content input")
@@ -131,7 +131,7 @@ def test_settings_are_locked_while_the_map_is_on(app: App):
 def test_changed_settings_read_the_input_again(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map(target="first_$1")
+    app.add_match_map(target="first_$1")
     app.wait_for_labels("first_temp", "first_volt")
     app.page.get_by_role("button", name="Close port").click()
     app.page.get_by_role("button", name="Open port").wait_for()
@@ -151,9 +151,9 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     app.tab("Data")
     start = len(app.console)
     for kind in [
-        ("Regex", "String", "Number"),
+        ("Match", "String", "Number"),
         ("Decode", "Bytes", "String"),
-        ("Regex", "String", "String"),
+        ("Match", "String", "String"),
     ]:
         app.add_map(*kind)
     expect(app.map_cards()).to_have_count(6)
@@ -196,7 +196,7 @@ def test_add_menus_open_on_hover(app: App):
     expect(number).to_have_attribute("aria-expanded", "true")
     option = bar.get_by_role("option")
     expect(option.locator(".add-map-title")).to_have_text(
-        ["Add", "Subtract", "Multiply", "Divide", "Differentiate", "Integrate", "Regex"]
+        ["Add", "Subtract", "Multiply", "Divide", "Differentiate", "Integrate", "Match"]
     )
     expect(option.locator(".map-types").last).to_have_text("StringNumber")
 
@@ -292,7 +292,7 @@ def test_cards_open_to_their_settings(app: App):
     app.tab("Data")
     initial = app.map_cards().first
     expect(initial.get_by_placeholder("Input label")).to_be_hidden()
-    app.add_map("Regex", "String", "Number")
+    app.add_map("Match", "String", "Number")
     expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
 
     initial.locator(".map-title").click()
@@ -311,7 +311,7 @@ def test_delete_button_shows_on_hover(app: App):
 def test_title_shows_the_latest_conversion(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     latest = app.map_cards().last.locator(".map-latest")
     expect(latest).to_contain_text("message")
 
@@ -324,7 +324,7 @@ def test_title_shows_the_latest_conversion(app: App):
 def test_fixed_parts_of_the_target_are_not_marked(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map(output="String", target="reading_$1", replacement="ok")
+    app.add_match_map(output="String", target="reading_$1", replacement="ok")
     latest = app.map_cards().last.locator(".map-latest")
     expect(latest.locator(".map-segment")).to_have_count(3)
     expect(latest.locator('.map-segment[data-from-input="false"]')).to_have_text(
@@ -335,7 +335,7 @@ def test_fixed_parts_of_the_target_are_not_marked(app: App):
 def test_output_label_leaves_out_the_text_around_the_match(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map(
+    app.add_match_map(
         pattern="{number}",
         target="foo",
         replacement="$0",
@@ -346,9 +346,9 @@ def test_output_label_leaves_out_the_text_around_the_match(app: App):
 
 def test_card_header_shows_the_types(app: App):
     app.tab("Data")
-    app.add_map("Regex", "String", "Number")
+    app.add_map("Match", "String", "Number")
     expect(app.map_cards().locator(".map-title-text")).to_have_text(
-        ["Decode", "Regex", "Regex", "Regex"]
+        ["Decode", "Match", "Match", "Match"]
     )
     expect(app.map_cards().locator(".map-types")).to_have_text(
         ["BytesString", "StringNumber", "StringNumber", "StringNumber"]
@@ -426,7 +426,7 @@ def latest_numbers(card) -> tuple[list[str], float]:
 def test_arithmetic_with_a_constant(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     card = add_arithmetic_map(app, "Multiply", "temp", "2", "doubled")
     app.wait_for_labels("doubled")
     assert app.data_rows()["doubled"][0] == "Number"
@@ -442,8 +442,8 @@ def test_arithmetic_with_a_constant(app: App):
 def test_arithmetic_prefers_a_label_to_a_number(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
-    app.add_regex_map(target="10")
+    app.add_match_map()
+    app.add_match_map(target="10")
     app.wait_for_labels("10")
     card = add_arithmetic_map(app, "Add", "temp", "10", "sum")
     app.wait_for_labels("sum")
@@ -485,18 +485,18 @@ def test_formula_renders_with_katex(app: App):
     assert failed == []
 
 
-def regex_item(app: App, output: str):
+def match_item(app: App, output: str):
     trigger = app.page.get_by_role("button", name=output, exact=True)
     menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
     trigger.hover()
     return menu.get_by_role("option").filter(
-        has=app.page.locator(".add-map-title", has_text=re.compile("^Regex$"))
+        has=app.page.locator(".add-map-title", has_text=re.compile("^Match$"))
     )
 
 
-def test_regex_presets_show_beside_the_item(app: App):
+def test_match_presets_show_beside_the_item(app: App):
     app.tab("Data")
-    item = regex_item(app, "Number")
+    item = match_item(app, "Number")
     presets = item.get_by_role("menuitem")
     expect(presets.first).to_be_hidden()
     item.hover()
@@ -504,16 +504,16 @@ def test_regex_presets_show_beside_the_item(app: App):
         ["value", "name: value", "Arduino", "Teleplot"]
     )
 
-    item = regex_item(app, "String")
+    item = match_item(app, "String")
     item.hover()
     expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
         ["name: value", "Arduino"]
     )
 
 
-def test_regex_preset_adds_a_set_map(app: App):
+def test_match_preset_adds_a_set_map(app: App):
     app.tab("Data")
-    item = regex_item(app, "Number")
+    item = match_item(app, "Number")
     item.hover()
     item.get_by_role("menuitem").filter(has_text="Teleplot").click()
 
@@ -529,7 +529,7 @@ def test_regex_preset_adds_a_set_map(app: App):
 
 def test_value_preset_leaves_the_output_label_to_be_set(app: App):
     app.tab("Data")
-    item = regex_item(app, "Number")
+    item = match_item(app, "Number")
     item.hover()
     item.get_by_role("menuitem").filter(
         has=app.page.locator(".add-map-preset-name", has_text=re.compile("^value$"))
@@ -541,9 +541,9 @@ def test_value_preset_leaves_the_output_label_to_be_set(app: App):
     expect(card.get_by_label("To", exact=True)).to_have_value("$0")
 
 
-def test_regex_presets_by_keyboard(app: App):
+def test_match_presets_by_keyboard(app: App):
     app.tab("Data")
-    item = regex_item(app, "String")
+    item = match_item(app, "String")
     item.focus()
     app.page.keyboard.press("ArrowRight")
     presets = item.get_by_role("menuitem")
@@ -574,7 +574,7 @@ def add_calculus_map(app: App, name: str, target: str):
 def test_differentiate_and_integrate(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_regex_map()
+    app.add_match_map()
     add_calculus_map(app, "Differentiate", "temp_rate")
     add_calculus_map(app, "Integrate", "temp_total")
     derivative = app.map_cards().nth(-2)
