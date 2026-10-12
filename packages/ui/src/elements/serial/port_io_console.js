@@ -3,7 +3,8 @@
 // `["data", reset, bytes, times]` (where in `bytes` each chunk starts, and when
 // it came), then `null` on unmount.
 // To Rust: `["typed", text]`, what is typed or pasted, to send; `["redraw"]`
-// for all the bytes again, to draw them anew.
+// for all the bytes again, to draw them anew; `["break"]` to send a break;
+// `["maximize"]` to maximize the console, or back.
 
 // Tera Term's default
 const SCROLLBACK = 10000;
@@ -42,6 +43,9 @@ const term = new Terminal({
     'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace',
   fontSize: 14,
   theme: theme(),
+  // Alt is for a block selection (its drag), not to move the cursor by sending
+  // arrow keys
+  altClickMovesCursor: false,
 });
 const fit = new FitAddon.FitAddon();
 term.loadAddon(fit);
@@ -206,14 +210,19 @@ themeObserver.observe(document.documentElement, {
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
 systemTheme.addEventListener("change", updateTheme);
 
-async function paste() {
+async function clipboardText() {
   try {
-    const text = await navigator.clipboard.readText();
-    if (text) {
-      term.paste(text);
-    }
+    return await navigator.clipboard.readText();
   } catch {
     // Clipboard access refused
+    return "";
+  }
+}
+
+async function paste() {
+  const text = await clipboardText();
+  if (text) {
+    term.paste(text);
   }
 }
 
@@ -273,7 +282,21 @@ function writeHex(chunk, time) {
 
 const send = (data) => dioxus.send(["typed", data]);
 term.onData(send);
-// As Tera Term: Backspace sends BS and Delete DEL; Alt+V pastes
+// As Tera Term: Backspace sends BS and Delete DEL; Alt+V pastes, Alt+R pastes
+// with a CR after, Alt+B sends a break and Alt+Enter maximizes the console (or
+// back). Alt+key by where it is, as the letter Alt types differs on a Mac.
+const altActions = {
+  KeyV: paste,
+  KeyR: async () => {
+    const text = await clipboardText();
+    if (text) {
+      send(`${text.replace(/\r?\n/g, "\r")}\r`);
+    }
+  },
+  KeyB: () => dioxus.send(["break"]),
+  Enter: () => dioxus.send(["maximize"]),
+  NumpadEnter: () => dioxus.send(["maximize"]),
+};
 term.attachCustomKeyEventHandler((event) => {
   if (event.type !== "keydown" || event.ctrlKey || event.metaKey) {
     return true;
@@ -286,8 +309,13 @@ term.attachCustomKeyEventHandler((event) => {
     send("\x7f");
     return false;
   }
-  if (event.altKey && event.key.toLowerCase() === "v") {
-    paste();
+  const action = event.altKey && altActions[event.code];
+  if (action) {
+    // Not the browser's, if it has one; once a press, not as the key repeats
+    event.preventDefault();
+    if (!event.repeat) {
+      action();
+    }
     return false;
   }
   return true;

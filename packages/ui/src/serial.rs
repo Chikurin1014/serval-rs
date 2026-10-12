@@ -40,6 +40,8 @@ const OUTGOING_MS: u32 = 3000;
 /// How much of a file is written at once: a while each, to show its progress
 /// and to stop it between them.
 const FILE_CHUNK_BYTES: usize = 4096;
+/// How long a break holds the line low: as POSIX `tcsendbreak` at least.
+const BREAK_MS: u32 = 250;
 
 pub trait SerialBackend {
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
@@ -70,6 +72,9 @@ pub trait SerialPort {
 
     /// Sets DTR and RTS, each if given.
     fn set_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> LocalFuture<SerialResult<()>>;
+
+    /// Holds the line low (a break) while on.
+    fn set_break(&self, on: bool) -> LocalFuture<SerialResult<()>>;
 
     fn close(&self) -> LocalFuture<SerialResult<()>>;
 }
@@ -176,6 +181,8 @@ pub struct SerialContext {
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
     signals: Signal<Signals>,
+    /// A break is being sent.
+    breaking: CopyValue<bool>,
     notifications: Signal<VecDeque<Notification>>,
     /// What the console shows; on while ports open and close.
     history: Signal<ReceivedHistory>,
@@ -244,6 +251,34 @@ impl SerialContext {
                     wait.await;
                 }
             }
+        });
+    }
+
+    /// Sends a break on the open port, if not sending one already.
+    pub fn send_break(&self) {
+        let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
+            return;
+        };
+        if *self.breaking.peek() {
+            return;
+        }
+        let mut breaking = self.breaking;
+        breaking.set(true);
+        let context = *self;
+        self.spawn(async move {
+            let sent = async {
+                port.handle.set_break(true).await?;
+                let wait = context.time.read().after_ms(BREAK_MS);
+                wait.await;
+                port.handle.set_break(false).await
+            };
+            match sent.await {
+                Ok(()) => context.log_event("Break sent"),
+                Err(error) => {
+                    context.report(NotificationKind::Error, "Failed to send a break", &error)
+                }
+            }
+            breaking.set(false);
         });
     }
 
@@ -756,6 +791,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
             dtr: true,
             rts: true,
         }),
+        breaking: CopyValue::new(false),
         notifications: Signal::new(VecDeque::new()),
         history: Signal::new(ReceivedHistory::default()),
         logger: CopyValue::new(None),

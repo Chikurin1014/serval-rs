@@ -85,6 +85,11 @@ export function setSignals(port, dtr, rts) {
   return port.setSignals(signals);
 }
 
+/** The line held low while on. */
+export function setBreak(port, on) {
+  return port.setSignals({ break: on });
+}
+
 /** After the port's earlier writes: a second writer would find the stream locked. */
 export function writePort(port, bytes) {
   const write = (writing.get(port) ?? Promise.resolve())

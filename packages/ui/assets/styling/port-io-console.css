@@ -8,6 +8,16 @@
   min-height: 0;
 }
 
+/* Over all the window (Alt+Enter), above the bars too; the terminal refits */
+.console[data-maximized="true"] {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  background: var(--dc-page);
+}
+
 /* The time column and the terminal, in one screen */
 .console-screen {
   position: relative;
