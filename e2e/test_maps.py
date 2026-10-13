@@ -1359,8 +1359,10 @@ def test_replace_keeps_the_level_and_concat_takes_the_one_that_matters_more(app:
 
 def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
     app.tab("Data")
-    add_level_map(app, "first")
-    add_level_map(app, "second")
+    # Each input of its own lines, so each new value is of one alone (with both of
+    # one line, which pairs first would be up to the order the maps run in)
+    add_log_match(app, "^first (.*)", "${level:0}", "$1", "first")
+    add_log_match(app, "^second (.*)", "${level:0}", "$1", "second")
     app.add_map("Concat", "Log", "Log")
     card = app.map_cards().nth(app.map_cards().count() - 1)
     card.get_by_placeholder("First input label").fill("first")
@@ -1371,11 +1373,16 @@ def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
     card.get_by_role("switch").click()
     app.open_port()
     app.mock("mute()")
-    app.mock("receive('[info] a\\n')")
-    app.page.wait_for_timeout(500)
+    # Weaker than the first's: left out
+    app.mock("receive('[info] first a\\n')")
+    app.mock("receive('[info] second x\\n')")
+    wait_for_latest(app, "second", "INFO x")
+    wait_for_latest(app, "first", "INFO a")
+    app.page.wait_for_timeout(300)
     assert "joined" not in app.data_rows()
-    app.mock("receive('[error] b\\n')")
-    wait_for_latest(app, "joined", "ERROR bb")
+    app.mock("receive('[error] first b\\n')")
+    # The second's taken whatever its level, with the first's
+    wait_for_latest(app, "joined", "ERROR bx")
 
 
 def test_decode_preset_is_as_the_initial_one(app: App):
