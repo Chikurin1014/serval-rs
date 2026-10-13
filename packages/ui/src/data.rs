@@ -16,7 +16,7 @@ pub use map::{
     DecodeSettings, Decompose, DecomposeSettings, Encode, EncodeSettings, InitialMap, Magnitude,
     MagnitudeSettings, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Match,
     MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment, VectorArithmetic,
-    VectorArithmeticSettings, VectorOperation,
+    VectorArithmeticSettings, VectorCalculus, VectorOperation,
 };
 pub(crate) use map::{
     Endpoints, Input, Operand, endpoints, keep_taken, take_newest_all, take_newest_pair,

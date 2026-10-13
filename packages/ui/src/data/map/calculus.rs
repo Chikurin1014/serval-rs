@@ -1,10 +1,12 @@
 use std::any::Any;
+use std::marker::PhantomData;
 
 use dioxus::prelude::*;
 
+use super::vector_arithmetic::vector_text;
 use crate::data::{
-    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, NumberData,
-    Segment, SourceCursor, format_number, keep_taken,
+    Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Endpoints,
+    MapRunner, NumberData, Segment, SourceCursor, Vector, format_number, keep_taken,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,6 +30,14 @@ impl Calculus {
         match self {
             Calculus::Differentiate => "d/dt f(t)",
             Calculus::Integrate => "∫ f(t) dt",
+        }
+    }
+
+    /// Its formula in LaTeX, of a vector.
+    pub fn vector_latex(self) -> &'static str {
+        match self {
+            Calculus::Differentiate => r"\frac{d}{dt} \vec{f}(t)",
+            Calculus::Integrate => r"\int \vec{f}(t)\,dt",
         }
     }
 }
@@ -140,9 +150,108 @@ impl MapRunner for CalculusMap {
     }
 }
 
+/// Differentiates or integrates a vector label over time, in seconds: each
+/// component as a number.
+pub struct VectorCalculus<V> {
+    settings: CalculusSettings,
+    endpoints: Option<Endpoints>,
+    cursor: SourceCursor,
+    /// One for each component.
+    states: Vec<State>,
+    _vector: PhantomData<V>,
+}
+
+impl<V> VectorCalculus<V> {
+    pub fn new(calculus: Calculus) -> Self {
+        Self {
+            settings: CalculusSettings {
+                calculus,
+                from_label: Signal::new(String::new()),
+                to_label: Signal::new(String::new()),
+            },
+            endpoints: None,
+            cursor: SourceCursor::default(),
+            states: Vec::new(),
+            _vector: PhantomData,
+        }
+    }
+}
+
+/// The result of the next vector, once each component has one: by `states`,
+/// one for each.
+fn next_vector<V: Vector>(
+    states: &mut Vec<State>,
+    calculus: Calculus,
+    timestamp: i64,
+    vector: &V,
+) -> Option<V> {
+    let components = vector.components();
+    states.resize_with(components.len(), State::default);
+    let results: Vec<Option<f64>> = states
+        .iter_mut()
+        .zip(components)
+        .map(|(state, &value)| state.next(calculus, timestamp, value))
+        .collect();
+    V::from_components(&results.into_iter().collect::<Option<Vec<_>>>()?)
+}
+
+impl<V: Vector> MapRunner for VectorCalculus<V>
+where
+    Data<V>: DataEntry,
+{
+    fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn start(&mut self) {
+        let CalculusSettings {
+            from_label,
+            to_label,
+            ..
+        } = self.settings;
+        let endpoints = Endpoints::new(&from_label.peek(), &to_label.peek());
+        if keep_taken(&mut self.endpoints, endpoints) {
+            self.cursor.reset();
+            self.states.clear();
+        }
+    }
+
+    fn run(&mut self, data: &mut DataContext, _timestamp: i64) -> Option<Conversion> {
+        let Endpoints { from, to } = self.endpoints.clone()?;
+        let Some(read) = self.cursor.new_entries::<Data<V>>(data, &from) else {
+            self.cursor.reset();
+            self.states.clear();
+            return None;
+        };
+        if read.restarted {
+            self.states.clear();
+        }
+
+        let mut latest = None;
+        for entry in &read.entries {
+            let calculus = self.settings.calculus;
+            if let Some(result) =
+                next_vector(&mut self.states, calculus, entry.timestamp(), entry.value())
+            {
+                data.push(&to, Data::new(entry.timestamp(), result));
+                latest = Some((*entry.value(), result));
+            }
+        }
+        let (vector, result) = latest?;
+        Some(Conversion {
+            from: vec![ConversionInput::new(&from, vector_text(&vector))],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(&to)],
+                vec![Segment::from_input(vector_text(&result))],
+            )],
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Calculus, State};
+    use super::{Calculus, State, next_vector};
+    use crate::data::Vector2d;
 
     fn results(calculus: Calculus, points: &[(i64, f64)]) -> Vec<Option<f64>> {
         let mut state = State::default();
@@ -181,5 +290,32 @@ mod tests {
             results(Calculus::Integrate, &[(0, 1.0), (0, 5.0)]),
             vec![Some(0.0), Some(0.0)]
         );
+    }
+
+    #[test]
+    fn vectors_go_by_each_component() {
+        let mut states = Vec::new();
+        let mut next = |timestamp, x, y| {
+            next_vector(
+                &mut states,
+                Calculus::Differentiate,
+                timestamp,
+                &Vector2d::new(x, y),
+            )
+        };
+        assert_eq!(next(0, 1.0, 0.0), None);
+        assert_eq!(next(500, 2.0, -1.0), Some(Vector2d::new(2.0, -2.0)));
+
+        let mut states = Vec::new();
+        let mut next = |timestamp, x, y| {
+            next_vector(
+                &mut states,
+                Calculus::Integrate,
+                timestamp,
+                &Vector2d::new(x, y),
+            )
+        };
+        assert_eq!(next(0, 1.0, 2.0), Some(Vector2d::new(0.0, 0.0)));
+        assert_eq!(next(1000, 3.0, 2.0), Some(Vector2d::new(2.0, 2.0)));
     }
 }

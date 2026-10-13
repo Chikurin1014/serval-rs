@@ -971,7 +971,16 @@ def test_vector_menu_lists_the_vector_maps(app: App):
     trigger.hover()
     options = menu.get_by_role("option")
     expect(options.locator(".add-map-title")).to_have_text(
-        ["Compose", "Match", "Add", "Subtract", "Multiply", "Cross"]
+        [
+            "Compose",
+            "Match",
+            "Add",
+            "Subtract",
+            "Multiply",
+            "Cross",
+            "Differentiate",
+            "Integrate",
+        ]
     )
     expect(options.locator("> .map-types")).to_have_text(
         [
@@ -982,6 +991,8 @@ def test_vector_menu_lists_the_vector_maps(app: App):
             "NumberVectorVector",
             # 3D alone, so as it is
             "Vector3dVector3dVector3d",
+            "VectorVector",
+            "VectorVector",
         ]
     )
 
@@ -1143,3 +1154,29 @@ def test_decompose_takes_the_components_with_labels(app: App):
     x, z = (latest.locator(".map-latest-label").nth(index).bounding_box() for index in (0, 1))
     value = latest.locator(".map-latest-value").first.bounding_box()
     assert z["y"] > x["y"] and value["x"] > x["x"] and abs(value["y"] - x["y"]) < 1
+
+
+def test_vectors_differentiate_and_integrate_by_component(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "2D", ["temp", "volt"], "p")
+    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
+    for title, variant, source, target in [
+        ("Differentiate", "2D", "p", "dp"),
+        ("Integrate", "3D", "v", "iv"),
+    ]:
+        vector_variant(app, title, variant).locator("> [role=menuitem]").click()
+        card = app.map_cards().nth(app.map_cards().count() - 1)
+        card.get_by_label("f(t)", exact=True).fill(source)
+        card.get_by_placeholder("Output label").fill(target)
+        card.get_by_role("switch").click()
+    app.open_port()
+    app.wait_for_labels("dp", "iv")
+    rows = app.data_rows()
+    assert rows["dp"][0] == "Vector2d"
+    assert re.fullmatch(r"\(-?[\d.e]+, -?[\d.e]+\)", rows["dp"][1])
+    assert rows["iv"][0] == "Vector3d"
+    # The integral of z = 1 is the seconds since the first
+    app.page.wait_for_timeout(1000)
+    z = float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])
+    assert z > 0.5

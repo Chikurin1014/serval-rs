@@ -21,7 +21,10 @@ pub use arithmetic::{
     ADD, ADD_2D, ADD_3D, ArithmeticForm, CROSS_2D, CROSS_3D, DIVIDE, DOT_2D, DOT_3D, MULTIPLY,
     MULTIPLY_2D, MULTIPLY_3D, SUBTRACT, SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
 };
-pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
+pub use calculus::{
+    CalculusForm, DIFFERENTIATE, DIFFERENTIATE_2D, DIFFERENTIATE_3D, INTEGRATE, INTEGRATE_2D,
+    INTEGRATE_3D,
+};
 pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
@@ -67,6 +70,10 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         MULTIPLY_2D,
         MULTIPLY_3D,
         CROSS_3D,
+        DIFFERENTIATE_2D,
+        DIFFERENTIATE_3D,
+        INTEGRATE_2D,
+        INTEGRATE_3D,
         DOT_2D,
         DOT_3D,
         CROSS_2D,

@@ -30,7 +30,7 @@ use crate::{
 };
 
 pub use arithmetic::{Arithmetic, ArithmeticSettings, Operation};
-pub use calculus::{Calculus, CalculusMap, CalculusSettings};
+pub use calculus::{Calculus, CalculusMap, CalculusSettings, VectorCalculus};
 pub use compose::{Compose, ComposeSettings};
 pub use concat::{Concat, ConcatSettings};
 pub(crate) use conversion::trim_segments;

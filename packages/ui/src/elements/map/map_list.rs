@@ -26,14 +26,6 @@ pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
 pub(crate) const VECTOR2D_LABELS_LIST_ID: &str = "map-vector2d-labels";
 pub(crate) const VECTOR3D_LABELS_LIST_ID: &str = "map-vector3d-labels";
 
-const TYPE_ORDER: [DataType; 5] = [
-    DataType::Bytes,
-    DataType::Number,
-    DataType::String,
-    DataType::Vector2d,
-    DataType::Vector3d,
-];
-
 /// The add menus, each of the maps to the types it names.
 const ADD_MENUS: [(&str, &[DataType]); 4] = [
     ("Bytes", &[DataType::Bytes]),
@@ -232,11 +224,16 @@ fn AddMapMenu(
     menu: usize,
 ) -> Element {
     let mut context = use_context::<MapContext>();
-    // By their inputs' last type: a number times a vector with the vector maps
+    // By their inputs' last menu: a number times a vector with the vector maps,
+    // and those of 2D and 3D vectors together
     kinds.sort_by_key(|kind| {
         kind.from
             .iter()
-            .filter_map(|&from| TYPE_ORDER.iter().position(|&order| order == from))
+            .filter_map(|&from| {
+                ADD_MENUS
+                    .iter()
+                    .position(|(_, types)| types.contains(&from))
+            })
             .max()
     });
     let mut items: Vec<Vec<MapKind>> = Vec::new();
