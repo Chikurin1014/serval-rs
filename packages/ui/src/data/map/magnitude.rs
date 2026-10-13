@@ -5,8 +5,8 @@ use dioxus::prelude::*;
 
 use super::vector_arithmetic::vector_text;
 use crate::data::{
-    Conversion, ConversionInput, Data, DataContext, DataEntry, Endpoints, MapRunner, NumberData,
-    Segment, SourceCursor, Vector, format_number, keep_taken,
+    Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Endpoints,
+    MapRunner, NumberData, Segment, SourceCursor, Vector, format_number, keep_taken,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -78,8 +78,10 @@ where
         let (vector, magnitude) = latest?;
         Some(Conversion {
             from: vec![ConversionInput::new(from, vector_text(&vector))],
-            to_label: vec![Segment::fixed(to)],
-            to_value: vec![Segment::from_input(format_number(magnitude))],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                vec![Segment::from_input(format_number(magnitude))],
+            )],
         })
     }
 }

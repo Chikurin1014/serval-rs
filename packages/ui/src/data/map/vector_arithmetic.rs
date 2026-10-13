@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, Data, DataContext, DataEntry, Input, MapRunner, NumberData,
-    Operand, Segment, Vector, format_number, keep_taken, take_newest_pair,
+    Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Input, MapRunner,
+    NumberData, Operand, Segment, Vector, format_number, keep_taken, take_newest_pair,
 };
 use crate::helper::set_if_changed;
 
@@ -365,8 +365,10 @@ where
                 ConversionInput::new(first_label, first_value),
                 ConversionInput::new(second_label, second_value),
             ],
-            to_label: vec![Segment::fixed(&to)],
-            to_value: vec![Segment::from_input(result.text())],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(&to)],
+                vec![Segment::from_input(result.text())],
+            )],
         })
     }
 }

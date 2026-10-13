@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, DataContext, Input, MapRunner, Operand, Segment, Vector2d, Vector2dData, Vector3d,
-    Vector3dData, format_number, keep_taken, take_newest_all,
+    Conversion, ConversionOutput, DataContext, Input, MapRunner, Operand, Segment, Vector2d,
+    Vector2dData, Vector3d, Vector3dData, format_number, keep_taken, take_newest_all,
 };
 use crate::helper::set_if_changed;
 
@@ -171,8 +171,10 @@ impl MapRunner for Compose {
                 .zip(&values)
                 .map(|(operand, &value)| operand.input(value))
                 .collect(),
-            to_label: vec![Segment::fixed(&to)],
-            to_value: vector_segments(&values),
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(&to)],
+                vector_segments(&values),
+            )],
         })
     }
 }

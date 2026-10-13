@@ -209,6 +209,7 @@ def test_add_menus_open_on_hover(app: App):
             "Dot",
             "Cross",
             "Magnitude",
+            "Decompose",
         ]
     )
     expect(option.locator("> .map-types").nth(6)).to_have_text("StringNumber")
@@ -385,7 +386,7 @@ def test_replace_replaces_every_match(app: App):
     app.wait_for_labels("assigned")
     assert re.fullmatch(r"(temp|volt)=[\d.]+", app.data_rows()["assigned"][1])
 
-    value = app.map_cards().last.locator(".map-latest > .map-latest-value")
+    value = app.map_cards().last.locator(".map-latest-to > .map-latest-value")
     expect(value.locator('.map-segment[data-from-input="false"]')).to_have_text(["="])
     expect(value.locator('.map-segment[data-from-input="true"]').first).to_have_text(
         re.compile(r"^(temp|volt)$")
@@ -430,7 +431,7 @@ def latest_numbers(card) -> tuple[list[str], float]:
     inputs, result = card.evaluate(
         """card => [
             [...card.querySelectorAll(".map-latest-from .map-latest-value")].map(v => v.textContent),
-            card.querySelector(".map-latest > .map-latest-value").textContent,
+            card.querySelector(".map-latest-to > .map-latest-value").textContent,
         ]"""
     )
     return inputs, float(result)
@@ -1107,3 +1108,38 @@ def test_magnitudes_are_lengths_of_vectors(app: App):
     wait_for_latest(app, "v_length", "13.000")
     assert app.data_rows()["v_length"][0] == "Number"
     expect(card.locator(".map-latest")).to_contain_text("13.000")
+
+
+def test_decompose_takes_the_components_with_labels(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    add_compose_map(app, "2D", ["temp", "volt"], "p")
+    add_compose_map(app, "3D", ["temp", "volt", "12"], "v")
+    for variant, source, targets in [
+        ("2D", "p", ["p_x", "p_y"]),
+        # y left out
+        ("3D", "v", ["v_x", "", "v_z"]),
+    ]:
+        vector_variant(app, "Decompose", variant, "Number").locator("> [role=menuitem]").click()
+        card = app.map_cards().nth(app.map_cards().count() - 1)
+        card.get_by_placeholder("Input label").fill(source)
+        expect(card.get_by_placeholder("Output label")).to_have_count(len(targets))
+        for name, target in zip("xyz", targets):
+            card.get_by_label(name, exact=True).fill(target)
+        card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('temp:3\\nvolt:4\\n')")
+    wait_for_latest(app, "p_x", "3.0000")
+    wait_for_latest(app, "p_y", "4.0000")
+    wait_for_latest(app, "v_x", "3.0000")
+    wait_for_latest(app, "v_z", "12.000")
+    assert "v_y" not in app.data_rows()
+    assert app.data_rows()["v_z"][0] == "Number"
+    # As the inputs: each label beside its value, one above another
+    latest = card.locator(".map-latest-to")
+    expect(latest.locator(".map-latest-label")).to_have_text(["v_x", "v_z"])
+    expect(latest.locator(".map-latest-value")).to_have_text(["3.0000", "12.000"])
+    x, z = (latest.locator(".map-latest-label").nth(index).bounding_box() for index in (0, 1))
+    value = latest.locator(".map-latest-value").first.bounding_box()
+    assert z["y"] > x["y"] and value["x"] > x["x"] and abs(value["y"] - x["y"]) < 1

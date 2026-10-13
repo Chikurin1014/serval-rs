@@ -4,9 +4,9 @@ use dioxus::prelude::*;
 use fancy_regex::{Captures, Regex};
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, NumberData, Segment,
-    SourceCursor, StringData, Vector2d, Vector2dData, Vector3d, Vector3dData, compile_for_map,
-    format_number, keep_taken, trim_segments,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, NumberData,
+    Segment, SourceCursor, StringData, Vector2d, Vector2dData, Vector3d, Vector3dData,
+    compile_for_map, format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
@@ -274,8 +274,10 @@ impl MapRunner for Match {
         };
         Some(Conversion {
             from: vec![ConversionInput::new(from, input)],
-            to_label: label_segments(&captures, to),
-            to_value,
+            to: vec![ConversionOutput::new(
+                label_segments(&captures, to),
+                to_value,
+            )],
         })
     }
 }

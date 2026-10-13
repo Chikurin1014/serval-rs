@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, NumberData, Segment,
-    SourceCursor, format_number, keep_taken,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, NumberData,
+    Segment, SourceCursor, format_number, keep_taken,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,8 +132,10 @@ impl MapRunner for CalculusMap {
         let (value, result) = latest?;
         Some(Conversion {
             from: vec![ConversionInput::new(from, format_number(value))],
-            to_label: vec![Segment::fixed(to)],
-            to_value: vec![Segment::from_input(format_number(result))],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                vec![Segment::from_input(format_number(result))],
+            )],
         })
     }
 }

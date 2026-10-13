@@ -3,6 +3,7 @@ mod calculus;
 mod compose;
 mod concat;
 mod decode;
+mod decompose;
 mod encode;
 mod field;
 mod magnitude;
@@ -24,6 +25,7 @@ pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
 pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
+pub use decompose::{DECOMPOSE_2D, DECOMPOSE_3D, DecomposeForm};
 pub use encode::{ENCODE, EncodeForm};
 pub use magnitude::{MAGNITUDE_2D, MAGNITUDE_3D, MagnitudeForm};
 pub use map_list::MapList;
@@ -70,6 +72,8 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         CROSS_2D,
         MAGNITUDE_2D,
         MAGNITUDE_3D,
+        DECOMPOSE_2D,
+        DECOMPOSE_3D,
         DIFFERENTIATE,
         INTEGRATE,
     ]

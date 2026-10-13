@@ -5,8 +5,8 @@ use fancy_regex::Regex;
 
 use super::matching::{Matching, replacement_segments};
 use crate::data::{
-    Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment, SourceCursor,
-    StringData, keep_taken,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, Segment,
+    SourceCursor, StringData, keep_taken,
 };
 use crate::helper::set_if_changed;
 
@@ -83,8 +83,10 @@ impl MapRunner for Replace {
 
         let conversion = Conversion {
             from: vec![ConversionInput::new(from, last.value().as_str())],
-            to_label: vec![Segment::fixed(to)],
-            to_value: replaced_segments(regex, last.value(), replacement),
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                replaced_segments(regex, last.value(), replacement),
+            )],
         };
         let mut failure = None;
         for entry in &read.entries {

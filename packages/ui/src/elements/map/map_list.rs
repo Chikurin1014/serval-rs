@@ -571,11 +571,7 @@ fn Latest(latest: ReadSignal<Option<Conversion>>) -> Element {
 /// `input -> output`, marking the parts of the output taken from the input.
 #[component]
 fn LatestConversion(conversion: Conversion) -> Element {
-    let Conversion {
-        from,
-        to_label,
-        to_value,
-    } = conversion;
+    let Conversion { from, to } = conversion;
 
     rsx! {
         span {
@@ -588,13 +584,19 @@ fn LatestConversion(conversion: Conversion) -> Element {
                 }
             }
             lucide::MoveRight {}
+            // As the inputs: each label beside its value, one above another
             span {
-                class: "map-latest-label",
-                Segments { segments: to_label }
-            }
-            span {
-                class: "map-latest-value",
-                Segments { segments: to_value }
+                class: "map-latest-to",
+                for output in to {
+                    span {
+                        class: "map-latest-label",
+                        Segments { segments: output.label }
+                    }
+                    span {
+                        class: "map-latest-value",
+                        Segments { segments: output.value }
+                    }
+                }
             }
         }
     }

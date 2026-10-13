@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, DataContext, Input, MapRunner, NumberData, Operand, Segment, format_number,
-    keep_taken, take_newest_pair,
+    Conversion, ConversionOutput, DataContext, Input, MapRunner, NumberData, Operand, Segment,
+    format_number, keep_taken, take_newest_pair,
 };
 use crate::helper::set_if_changed;
 
@@ -189,8 +189,10 @@ impl MapRunner for Arithmetic {
         let (first_value, second_value, result) = latest?;
         Some(Conversion {
             from: vec![first.input(first_value), second.input(second_value)],
-            to_label: vec![Segment::fixed(to)],
-            to_value: vec![Segment::from_input(format_number(result))],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                vec![Segment::from_input(format_number(result))],
+            )],
         })
     }
 }
