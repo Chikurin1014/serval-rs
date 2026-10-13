@@ -9,6 +9,7 @@ mod conversion;
 mod decode;
 mod encode;
 mod input;
+mod magnitude;
 mod matching;
 mod replace;
 mod vector_arithmetic;
@@ -36,9 +37,10 @@ pub use conversion::{Conversion, ConversionInput, Segment};
 pub use decode::{Decode, DecodeSettings};
 pub use encode::{Encode, EncodeSettings};
 pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, take_newest_pair};
+pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
-pub use vector_arithmetic::VectorArithmetic;
+pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOperation};
 
 /// The processing of one map. Its settings are signals made in its
 /// constructor, shared with its form.

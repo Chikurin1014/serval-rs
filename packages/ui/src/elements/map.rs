@@ -5,6 +5,7 @@ mod concat;
 mod decode;
 mod encode;
 mod field;
+mod magnitude;
 mod map_list;
 mod matching;
 mod replace;
@@ -16,14 +17,15 @@ use dioxus::prelude::*;
 use crate::data::{Decode, InitialMap, MapKind, Match, MatchOutput, RAW_BYTES_LABEL};
 
 pub use arithmetic::{
-    ADD, ADD_2D, ADD_3D, ArithmeticForm, DIVIDE, MULTIPLY, MULTIPLY_2D, MULTIPLY_3D, SUBTRACT,
-    SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
+    ADD, ADD_2D, ADD_3D, ArithmeticForm, CROSS_2D, CROSS_3D, DIVIDE, DOT_2D, DOT_3D, MULTIPLY,
+    MULTIPLY_2D, MULTIPLY_3D, SUBTRACT, SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
 };
 pub use calculus::{CalculusForm, DIFFERENTIATE, INTEGRATE};
 pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
 pub use decode::{DECODE, DecodeForm};
 pub use encode::{ENCODE, EncodeForm};
+pub use magnitude::{MAGNITUDE_2D, MAGNITUDE_3D, MagnitudeForm};
 pub use map_list::MapList;
 pub use matching::{
     ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
@@ -62,6 +64,12 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         SUBTRACT_3D,
         MULTIPLY_2D,
         MULTIPLY_3D,
+        CROSS_3D,
+        DOT_2D,
+        DOT_3D,
+        CROSS_2D,
+        MAGNITUDE_2D,
+        MAGNITUDE_3D,
         DIFFERENTIATE,
         INTEGRATE,
     ]

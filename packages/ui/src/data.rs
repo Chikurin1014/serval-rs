@@ -13,9 +13,9 @@ pub use data_type::{
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Compose,
     ComposeSettings, Concat, ConcatSettings, Conversion, ConversionInput, Decode, DecodeSettings,
-    Encode, EncodeSettings, InitialMap, Map, MapContext, MapKind, MapPreset, MapProvider,
-    MapRunner, Match, MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment,
-    VectorArithmetic,
+    Encode, EncodeSettings, InitialMap, Magnitude, MagnitudeSettings, Map, MapContext, MapKind,
+    MapPreset, MapProvider, MapRunner, Match, MatchOutput, MatchSettings, Operation, Replace,
+    ReplaceSettings, Segment, VectorArithmetic, VectorArithmeticSettings, VectorOperation,
 };
 pub(crate) use map::{
     Endpoints, Input, Operand, endpoints, keep_taken, take_newest_all, take_newest_pair,

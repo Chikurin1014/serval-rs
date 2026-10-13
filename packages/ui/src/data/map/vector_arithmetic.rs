@@ -3,25 +3,130 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    ArithmeticSettings, Conversion, ConversionInput, Data, DataContext, DataEntry, Input,
-    MapRunner, Operand, Operation, Segment, Vector, format_number, keep_taken, take_newest_pair,
+    Conversion, ConversionInput, Data, DataContext, DataEntry, Input, MapRunner, NumberData,
+    Operand, Segment, Vector, format_number, keep_taken, take_newest_pair,
 };
 use crate::helper::set_if_changed;
 
-/// Adds or subtracts two vectors, or multiplies one by a number: each from a
-/// label or a constant. With two labels, a result comes once both have a new
-/// value.
+/// What a vector map works out: on two vectors, or a number and one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VectorOperation {
+    Add,
+    Subtract,
+    /// A number times a vector, the number first.
+    Multiply,
+    /// A number, of vectors of either dimensions.
+    Dot,
+    /// A 3D vector of 3D vectors; of 2D ones, a number (its z).
+    Cross,
+}
+
+impl VectorOperation {
+    pub fn symbol(self) -> &'static str {
+        match self {
+            VectorOperation::Add => "+",
+            VectorOperation::Subtract => "−",
+            VectorOperation::Multiply => "",
+            VectorOperation::Dot => "·",
+            VectorOperation::Cross => "×",
+        }
+    }
+
+    /// Its formula in LaTeX.
+    pub fn latex(self) -> &'static str {
+        match self {
+            VectorOperation::Add => "\\vec{a} + \\vec{b}",
+            VectorOperation::Subtract => "\\vec{a} - \\vec{b}",
+            VectorOperation::Multiply => "a \\vec{b}",
+            VectorOperation::Dot => "\\vec{a} \\cdot \\vec{b}",
+            VectorOperation::Cross => "\\vec{a} \\times \\vec{b}",
+        }
+    }
+
+    /// On two vectors; `None` for one with a number.
+    fn of_vectors<V: Vector>(self, first: &V, second: &V) -> Option<Product<V>> {
+        let pairs = || first.components().iter().zip(second.components());
+        let each = |apply: fn(f64, f64) -> f64| {
+            let components: Vec<f64> = pairs()
+                .map(|(&first, &second)| apply(first, second))
+                .collect();
+            V::from_components(&components).map(Product::Vector)
+        };
+        match self {
+            VectorOperation::Add => each(|first, second| first + second),
+            VectorOperation::Subtract => each(|first, second| first - second),
+            VectorOperation::Multiply => None,
+            VectorOperation::Dot => Some(Product::Number(
+                pairs().map(|(&first, &second)| first * second).sum(),
+            )),
+            VectorOperation::Cross => match (first.components(), second.components()) {
+                (&[ax, ay], &[bx, by]) => Some(Product::Number(ax * by - ay * bx)),
+                _ => first.cross(second).map(Product::Vector),
+            },
+        }
+    }
+}
+
+/// What a vector map gives: a vector, or a number (as a dot product).
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Product<V> {
+    Vector(V),
+    Number(f64),
+}
+
+impl<V: Vector> Product<V>
+where
+    Data<V>: DataEntry,
+{
+    fn text(&self) -> String {
+        match self {
+            Product::Vector(vector) => vector_text(vector),
+            Product::Number(number) => format_number(*number),
+        }
+    }
+
+    fn push_to(self, data: &mut DataContext, label: &str, timestamp: i64) {
+        match self {
+            Product::Vector(vector) => data.push(label, Data::new(timestamp, vector)),
+            Product::Number(number) => data.push(label, NumberData::new(timestamp, number)),
+        }
+    }
+}
+
+/// `vector` times `number`.
+fn scale<V: Vector>(number: f64, vector: &V) -> Option<Product<V>> {
+    let components: Vec<f64> = vector
+        .components()
+        .iter()
+        .map(|&component| number * component)
+        .collect();
+    V::from_components(&components).map(Product::Vector)
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct VectorArithmeticSettings {
+    pub operation: VectorOperation,
+    /// A label, or else a constant: a number to multiply by, or a vector.
+    pub first: Signal<String>,
+    /// A vector label, or else a vector.
+    pub second: Signal<String>,
+    pub to_label: Signal<String>,
+    pub error: Signal<Option<String>>,
+}
+
+/// Adds, subtracts, dots or crosses two vectors, or multiplies one by a number:
+/// each from a label or a constant. With two labels, a result comes once both have
+/// a new value.
 pub struct VectorArithmetic<V> {
-    settings: ArithmeticSettings,
+    settings: VectorArithmeticSettings,
     taken: Option<[String; 3]>,
     vectors: Input<V>,
-    /// The second vector, to add or subtract.
-    second_vectors: Input<V>,
+    /// The first vector, of two.
+    first_vectors: Input<V>,
     /// The number, to multiply by.
     numbers: Input<f64>,
     /// The constants have given their result, with no label.
     constants_used: bool,
-    failure: Option<String>,
 }
 
 /// Where a value comes from.
@@ -76,7 +181,7 @@ fn parse_vector<V: Vector>(text: &str) -> Option<V> {
 }
 
 /// `(x, y)` or `(x, y, z)`, rounded as numbers are shown.
-fn vector_text<V: Vector>(vector: &V) -> String {
+pub(super) fn vector_text<V: Vector>(vector: &V) -> String {
     let components: Vec<String> = vector
         .components()
         .iter()
@@ -137,33 +242,16 @@ where
     }
 }
 
-/// `operation` on each component of `first`, with `second`'s or a number.
-fn apply<V: Vector>(
-    operation: Operation,
-    first: &V,
-    second: impl Fn(usize) -> f64,
-) -> Result<V, String> {
-    let components = first
-        .components()
-        .iter()
-        .enumerate()
-        .map(|(index, &component)| operation.apply(component, second(index)))
-        .collect::<Result<Vec<_>, _>>()?;
-    V::from_components(&components).ok_or_else(|| "The wrong number of components".to_string())
-}
-
 /// A result, after its operands as text.
-type Worked<V> = (String, String, V);
+type Worked<V> = (String, String, Product<V>);
 
 impl<V: Vector> VectorArithmetic<V>
 where
     Data<V>: DataEntry,
 {
-    /// Adds or subtracts two vectors, or multiplies one by a number (before
-    /// it, as `b` in `a × b`): others are not on vectors.
-    pub fn new(operation: Operation) -> Self {
+    pub fn new(operation: VectorOperation) -> Self {
         Self {
-            settings: ArithmeticSettings {
+            settings: VectorArithmeticSettings {
                 operation,
                 first: Signal::new(String::new()),
                 second: Signal::new(String::new()),
@@ -172,10 +260,9 @@ where
             },
             taken: None,
             vectors: Input::default(),
-            second_vectors: Input::default(),
+            first_vectors: Input::default(),
             numbers: Input::default(),
             constants_used: false,
-            failure: None,
         }
     }
 
@@ -188,45 +275,38 @@ where
         second: &str,
     ) -> Result<(Vec<Worked<V>>, [String; 2]), String> {
         let operation = self.settings.operation;
-        let mut results = Vec::new();
-        let mut failure = None;
-        let labels;
-        if operation == Operation::Multiply {
+        let vector = Source::<V>::resolve_vector(data, second)?;
+        if operation == VectorOperation::Multiply {
             let number = Source::resolve_number(data, first)?;
-            let vector = Source::<V>::resolve_vector(data, second)?;
-            labels = [number.label().to_string(), vector.label().to_string()];
-            let pairs = pairs::<f64, V>(
+            let labels = [number.label().to_string(), vector.label().to_string()];
+            let results = pairs::<f64, V>(
                 data,
                 (&number, &vector),
                 (&mut self.numbers, &mut self.vectors),
                 &mut self.constants_used,
-            );
-            for (number, vector) in pairs {
-                match apply(operation, &vector, |_| number) {
-                    Ok(result) => {
-                        results.push((format_number(number), vector_text(&vector), result))
-                    }
-                    Err(message) => failure = Some(message),
-                }
-            }
-        } else {
-            let first = Source::<V>::resolve_vector(data, first)?;
-            let second = Source::<V>::resolve_vector(data, second)?;
-            labels = [first.label().to_string(), second.label().to_string()];
-            let pairs = pairs::<V, V>(
-                data,
-                (&first, &second),
-                (&mut self.vectors, &mut self.second_vectors),
-                &mut self.constants_used,
-            );
-            for (first, second) in pairs {
-                match apply(operation, &first, |index| second.components()[index]) {
-                    Ok(result) => results.push((vector_text(&first), vector_text(&second), result)),
-                    Err(message) => failure = Some(message),
-                }
-            }
+            )
+            .into_iter()
+            .filter_map(|(number, vector)| {
+                let result = scale(number, &vector)?;
+                Some((format_number(number), vector_text(&vector), result))
+            })
+            .collect();
+            return Ok((results, labels));
         }
-        self.failure = failure;
+        let first = Source::<V>::resolve_vector(data, first)?;
+        let labels = [first.label().to_string(), vector.label().to_string()];
+        let results = pairs::<V, V>(
+            data,
+            (&first, &vector),
+            (&mut self.first_vectors, &mut self.vectors),
+            &mut self.constants_used,
+        )
+        .into_iter()
+        .filter_map(|(first, second)| {
+            let result = operation.of_vectors(&first, &second)?;
+            Some((vector_text(&first), vector_text(&second), result))
+        })
+        .collect();
         Ok((results, labels))
     }
 }
@@ -240,7 +320,7 @@ where
     }
 
     fn start(&mut self) {
-        let ArithmeticSettings {
+        let VectorArithmeticSettings {
             first,
             second,
             to_label,
@@ -251,10 +331,9 @@ where
         let taken = (!texts.iter().any(String::is_empty)).then_some(texts);
         if keep_taken(&mut self.taken, taken) {
             self.vectors = Input::default();
-            self.second_vectors = Input::default();
+            self.first_vectors = Input::default();
             self.numbers = Input::default();
             self.constants_used = false;
-            self.failure = None;
         }
         set_if_changed(&mut error, None);
     }
@@ -275,10 +354,10 @@ where
                 return None;
             }
         };
-        set_if_changed(&mut error, self.failure.clone());
+        set_if_changed(&mut error, None);
 
         for &(_, _, result) in &results {
-            data.push(&to, Data::new(timestamp, result));
+            result.push_to(data, &to, timestamp);
         }
         let (first_value, second_value, result) = results.into_iter().last()?;
         Some(Conversion {
@@ -287,15 +366,15 @@ where
                 ConversionInput::new(second_label, second_value),
             ],
             to_label: vec![Segment::fixed(&to)],
-            to_value: vec![Segment::from_input(vector_text(&result))],
+            to_value: vec![Segment::from_input(result.text())],
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{apply, parse_vector, vector_text};
-    use crate::data::{Operation, Vector2d, Vector3d};
+    use super::{Product, VectorOperation, parse_vector, scale, vector_text};
+    use crate::data::{Vector2d, Vector3d};
 
     #[test]
     fn vectors_parse_with_or_without_parentheses() {
@@ -306,22 +385,68 @@ mod tests {
     }
 
     #[test]
-    fn operations_apply_to_each_component() {
+    fn operations_apply_to_vectors() {
         let a = Vector2d::new(6.0, 4.0);
         let b = Vector2d::new(3.0, 2.0);
-        let component = |index| b.components()[index];
+        let of = |operation: VectorOperation| operation.of_vectors(&a, &b);
         assert_eq!(
-            apply(Operation::Add, &a, component),
-            Ok(Vector2d::new(9.0, 6.0))
+            of(VectorOperation::Add),
+            Some(Product::Vector(Vector2d::new(9.0, 6.0)))
         );
         assert_eq!(
-            apply(Operation::Subtract, &a, component),
-            Ok(Vector2d::new(3.0, 2.0))
+            of(VectorOperation::Subtract),
+            Some(Product::Vector(Vector2d::new(3.0, 2.0)))
         );
         assert_eq!(
-            apply(Operation::Multiply, &a, |_| 0.5),
-            Ok(Vector2d::new(3.0, 2.0))
+            scale(0.5, &a),
+            Some(Product::Vector(Vector2d::new(3.0, 2.0)))
         );
+        assert_eq!(of(VectorOperation::Multiply), None);
         assert_eq!(vector_text(&Vector2d::new(1.0, 0.5)), "(1.0000, 0.50000)");
+    }
+
+    #[test]
+    fn dot_products_are_numbers() {
+        let dot = VectorOperation::Dot;
+        assert_eq!(
+            dot.of_vectors(&Vector2d::new(1.0, 2.0), &Vector2d::new(3.0, 4.0)),
+            Some(Product::Number(11.0))
+        );
+        assert_eq!(
+            dot.of_vectors(
+                &Vector3d::new(1.0, 2.0, 3.0),
+                &Vector3d::new(4.0, -5.0, 6.0)
+            ),
+            Some(Product::Number(12.0))
+        );
+    }
+
+    #[test]
+    fn cross_products_follow_the_right_hand_rule() {
+        let x = Vector3d::new(1.0, 0.0, 0.0);
+        let y = Vector3d::new(0.0, 1.0, 0.0);
+        let cross = |a, b| VectorOperation::Cross.of_vectors(&a, &b);
+        assert_eq!(
+            cross(x, y),
+            Some(Product::Vector(Vector3d::new(0.0, 0.0, 1.0)))
+        );
+        assert_eq!(
+            cross(y, x),
+            Some(Product::Vector(Vector3d::new(0.0, 0.0, -1.0)))
+        );
+        assert_eq!(
+            cross(Vector3d::new(1.0, 2.0, 3.0), Vector3d::new(4.0, 5.0, 6.0)),
+            Some(Product::Vector(Vector3d::new(-3.0, 6.0, -3.0)))
+        );
+        // Of 2D vectors: the z of theirs as 3D ones
+        let cross = |a, b| VectorOperation::Cross.of_vectors(&a, &b);
+        assert_eq!(
+            cross(Vector2d::new(1.0, 0.0), Vector2d::new(0.0, 1.0)),
+            Some(Product::Number(1.0))
+        );
+        assert_eq!(
+            cross(Vector2d::new(2.0, 3.0), Vector2d::new(4.0, 5.0)),
+            Some(Product::Number(-2.0))
+        );
     }
 }

@@ -311,7 +311,7 @@ fn AddMapMenu(
                                                     in_presets.set(false);
                                                     menus.close(menu);
                                                 },
-                                                span { class: "add-map-preset-name", "{variant_name(variant.to)}" }
+                                                span { class: "add-map-preset-name", "{variant_name(variant)}" }
                                                 MapTypes { from: type_names(variant.from), to: variant.to.name() }
                                                 if !variant.presets.is_empty() {
                                                     lucide::ChevronRight {}
@@ -319,7 +319,7 @@ fn AddMapMenu(
                                             }
                                             if !variant.presets.is_empty() {
                                                 AddMapSubmenu {
-                                                    label: "{kind.name} {variant_name(variant.to)} presets",
+                                                    label: "{kind.name} {variant_name(variant)} presets",
                                                     open: in_presets,
                                                     for preset in variant.presets {
                                                         button {
@@ -432,14 +432,17 @@ fn AddMapSubmenu(label: String, open: Signal<bool>, children: Element) -> Elemen
     }
 }
 
-/// What tells a variant from the others of its kind: its dimensions, for a
-/// vector.
-fn variant_name(to: DataType) -> &'static str {
-    match to {
-        DataType::Vector2d => "2D",
-        DataType::Vector3d => "3D",
-        to => to.name(),
-    }
+/// What tells a variant from the others of its kind: the dimensions of the
+/// vectors it gives, or else takes (as a dot product); or what it gives.
+fn variant_name(kind: MapKind) -> &'static str {
+    let dimensions = |data_type| match data_type {
+        DataType::Vector2d => Some("2D"),
+        DataType::Vector3d => Some("3D"),
+        _ => None,
+    };
+    dimensions(kind.to)
+        .or_else(|| kind.from.iter().copied().find_map(dimensions))
+        .unwrap_or(kind.to.name())
 }
 
 #[component]

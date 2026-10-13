@@ -158,6 +158,21 @@ pub trait Vector: Copy + PartialEq + 'static {
 
     /// `None` if there are not as many as its dimensions.
     fn from_components(components: &[f64]) -> Option<Self>;
+
+    /// Its length.
+    fn magnitude(&self) -> f64 {
+        self.components()
+            .iter()
+            .map(|component| component * component)
+            .sum::<f64>()
+            .sqrt()
+    }
+
+    /// `self × other`, for 3D vectors alone.
+    fn cross(&self, other: &Self) -> Option<Self> {
+        let _ = other;
+        None
+    }
 }
 
 impl Vector for Vector2d {
@@ -181,6 +196,15 @@ impl Vector for Vector3d {
 
     fn from_components(components: &[f64]) -> Option<Self> {
         components.try_into().ok().map(Self)
+    }
+
+    fn cross(&self, other: &Self) -> Option<Self> {
+        let ([ax, ay, az], [bx, by, bz]) = (self.0, other.0);
+        Some(Self([
+            ay * bz - az * by,
+            az * bx - ax * bz,
+            ax * by - ay * bx,
+        ]))
     }
 }
 
