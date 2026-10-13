@@ -646,6 +646,14 @@ def test_maps_are_reordered_by_dragging(app: App):
     assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
 
     items = map_items(app)
+    # Not while it is open
+    replace = app.map_cards().nth(3)
+    items.nth(3).locator("> svg").drag_to(items.nth(0), target_position={"x": 40, "y": 4})
+    app.page.wait_for_timeout(300)
+    assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
+    expect(items.nth(3).locator("> svg")).to_have_css("opacity", "0.3")
+    replace.locator(".map-title").click()
+    expect(items.nth(3).locator("> svg")).to_have_css("opacity", "1")
     items.nth(3).locator("> svg").drag_to(
         items.nth(0), target_position={"x": 40, "y": 4}
     )
@@ -1405,3 +1413,21 @@ def test_decode_preset_is_as_the_initial_one(app: App):
         expect(card.get_by_placeholder(placeholder)).to_have_value(
             initial.get_by_placeholder(placeholder).input_value()
         )
+
+
+def test_text_in_an_open_card_is_chosen_by_the_pointer(app: App):
+    app.tab("Data")
+    app.add_map("Replace", "Log", "Log")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    field = card.get_by_placeholder("Text to be replaced")
+    field.fill("hello world")
+    box = field.bounding_box()
+    mouse = app.page.mouse
+    # Across the text, from its start: a choice of it, not a drag of the card
+    mouse.move(box["x"] + 2, box["y"] + box["height"] / 2)
+    mouse.down()
+    mouse.move(box["x"] + box["width"] - 2, box["y"] + box["height"] / 2, steps=10)
+    mouse.up()
+    chosen = field.evaluate("f => f.value.slice(f.selectionStart, f.selectionEnd)")
+    assert chosen == "hello world"
+    assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]

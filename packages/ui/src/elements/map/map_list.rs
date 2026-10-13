@@ -34,11 +34,38 @@ const ADD_MENUS: [(&str, &[DataType]); 4] = [
     ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
 ];
 
+/// An open card is not dragged: its form is being used, its text chosen by the
+/// pointer. Its item made undraggable as the pointer is pressed on it, before a
+/// drag would start (for all browsers: Chromium, but Firefox too); and a drag
+/// of it still begun taken before the list hears of it. Once for the page.
+const OPEN_CARD_UNDRAGGABLE_JS: &str = r#"
+if (!window.servalOpenCardUndraggable) {
+  window.servalOpenCardPressed = (event) => {
+    const item = event.target.closest?.('.map-list li[aria-roledescription="sortable item"]');
+    if (item) {
+      item.draggable = !item.querySelector('.map-card[data-open="true"]');
+    }
+  };
+  document.addEventListener("pointerdown", window.servalOpenCardPressed, true);
+  window.servalOpenCardUndraggable = (event) => {
+    const item = event.target.closest?.('.map-list li[aria-roledescription="sortable item"]');
+    if (item?.querySelector('.map-card[data-open="true"]')) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+  document.addEventListener("dragstart", window.servalOpenCardUndraggable, true);
+}
+"#;
+
 /// Lists the maps for editing; they run in `MapProvider` regardless.
 #[component]
 pub fn MapList() -> Element {
     let data_context = use_context::<DataContext>();
     let context = use_context::<MapContext>();
+    use_effect(|| {
+        document::eval(OPEN_CARD_UNDRAGGABLE_JS);
+    });
     let maps = use_memo(move || context.list());
     // Which maps there are, in no order
     let map_set = use_memo(move || {
