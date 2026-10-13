@@ -1296,6 +1296,11 @@ def test_maps_of_logs_take_all_levels_by_default(app: App):
     first, last = options.first.bounding_box(), options.last.bounding_box()
     assert abs(first["y"] - last["y"]) < 1 and first["x"] < last["x"]
     expect(options.locator(".log-level-tag")).to_have_count(5)
+    # Within the map list, which clips what goes past it
+    within = app.page.locator(".map-list").bounding_box()
+    for option in (first, last):
+        assert within["x"] <= option["x"]
+        assert option["x"] + option["width"] <= within["x"] + within["width"]
     app.page.mouse.move(0, 0)
     expect(card.get_by_role("option")).to_have_count(0)
 

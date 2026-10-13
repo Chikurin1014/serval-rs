@@ -171,7 +171,9 @@ fn LevelFilter(weakest_level: Signal<LogLevel>, locked: bool) -> Element {
                 PopoverContent {
                     class: "field-level-content",
                     side: ContentSide::Bottom,
-                    align: ContentAlign::End,
+                    // To the right, over the form: to the left, it would go past the map
+                    // list, which clips it
+                    align: ContentAlign::Start,
                     div {
                         class: "field-level-choices",
                         role: "listbox",
