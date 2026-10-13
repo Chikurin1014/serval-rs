@@ -186,7 +186,7 @@ def test_add_menus_are_by_output_type(app: App):
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
     expect(bar.get_by_role("button")).to_have_text(
-        ["Bytes", "Number", "Log", "Vector"]
+        ["Bytes", "Log", "Number", "Vector"]
     )
 
 
@@ -199,20 +199,20 @@ def test_add_menus_open_on_hover(app: App):
     option = bar.get_by_role("option")
     expect(option.locator(".add-map-title")).to_have_text(
         [
+            "Match",
             "Add",
             "Subtract",
             "Multiply",
             "Divide",
             "Differentiate",
             "Integrate",
-            "Match",
             "Dot",
             "Cross",
             "Magnitude",
             "Decompose",
         ]
     )
-    expect(option.locator("> .map-types").nth(6)).to_have_text("LogNumber")
+    expect(option.locator("> .map-types").first).to_have_text("LogNumber")
 
     number.click()
     expect(number).to_have_attribute("aria-expanded", "true")
@@ -977,8 +977,8 @@ def test_vector_menu_lists_the_vector_maps(app: App):
     options = menu.get_by_role("option")
     expect(options.locator(".add-map-title")).to_have_text(
         [
-            "Compose",
             "Match",
+            "Compose",
             "Add",
             "Subtract",
             "Multiply",
@@ -989,8 +989,8 @@ def test_vector_menu_lists_the_vector_maps(app: App):
     )
     expect(options.locator("> .map-types")).to_have_text(
         [
-            "NumberVector",
             "LogVector",
+            "NumberVector",
             "VectorVector",
             "VectorVector",
             "NumberVectorVector",

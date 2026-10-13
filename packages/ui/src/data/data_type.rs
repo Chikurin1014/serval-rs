@@ -2,53 +2,53 @@ use crate::data::{Log, LogLevel, Queue};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DataType {
-    Number,
     Bytes,
+    Log,
+    Number,
     Vector2d,
     Vector3d,
-    Log,
 }
 
 impl DataType {
     pub fn name(&self) -> &'static str {
         match self {
-            DataType::Number => "Number",
             DataType::Bytes => "Bytes",
+            DataType::Log => "Log",
+            DataType::Number => "Number",
             DataType::Vector2d => "Vector2d",
             DataType::Vector3d => "Vector3d",
-            DataType::Log => "Log",
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedData {
-    Number(Queue<NumberData>),
     Bytes(Queue<ByteData>),
+    Log(Queue<LogData>),
+    Number(Queue<NumberData>),
     Vector2d(Queue<Vector2dData>),
     Vector3d(Queue<Vector3dData>),
-    Log(Queue<LogData>),
 }
 
 impl TypedData {
     pub fn data_type(&self) -> DataType {
         match self {
-            TypedData::Number(_) => DataType::Number,
             TypedData::Bytes(_) => DataType::Bytes,
+            TypedData::Log(_) => DataType::Log,
+            TypedData::Number(_) => DataType::Number,
             TypedData::Vector2d(_) => DataType::Vector2d,
             TypedData::Vector3d(_) => DataType::Vector3d,
-            TypedData::Log(_) => DataType::Log,
         }
     }
 
     /// When the newest entry was received, if there is one.
     pub fn latest_timestamp(&self) -> Option<i64> {
         match self {
-            TypedData::Number(queue) => queue.back().map(Data::timestamp),
             TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
+            TypedData::Log(queue) => queue.back().map(Data::timestamp),
+            TypedData::Number(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector2d(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector3d(queue) => queue.back().map(Data::timestamp),
-            TypedData::Log(queue) => queue.back().map(Data::timestamp),
         }
     }
 

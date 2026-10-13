@@ -29,8 +29,8 @@ pub(crate) const LOG_LABELS_LIST_ID: &str = "map-log-labels";
 /// The add menus, each of the maps to the types it names.
 const ADD_MENUS: [(&str, &[DataType]); 4] = [
     ("Bytes", &[DataType::Bytes]),
-    ("Number", &[DataType::Number]),
     ("Log", &[DataType::Log]),
+    ("Number", &[DataType::Number]),
     ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
 ];
 
