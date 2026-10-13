@@ -27,13 +27,13 @@ pub use calculus::{
 };
 pub use compose::{COMPOSE_2D, COMPOSE_3D, ComposeForm};
 pub use concat::{CONCAT, ConcatForm};
-pub use decode::{DECODE, DecodeForm};
+pub use decode::{DECODE, DecodeForm, LOG_LINE};
 pub use decompose::{DECOMPOSE_2D, DECOMPOSE_3D, DecomposeForm};
 pub use encode::{ENCODE, EncodeForm};
 pub use magnitude::{MAGNITUDE_2D, MAGNITUDE_3D, MagnitudeForm};
 pub use map_list::MapList;
 pub use matching::{
-    ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
+    ANONYMOUS_LABEL, MATCH_TO_LOG, MATCH_TO_NUMBER, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
     NAME_COLON_NUMBER, NUMBER_ONLY,
 };
 pub use replace::{REPLACE, ReplaceForm};
@@ -45,16 +45,17 @@ fn form_of<S: Copy + 'static>(settings: &dyn Any, form: impl FnOnce(S) -> Elemen
         .map_or_else(VNode::empty, |&settings| form(settings))
 }
 
-pub const MESSAGE_LABEL: &str = "message";
+/// Where the initial Decode puts the lines of the raw bytes, as logs.
+pub const LOG_LABEL: &str = "log";
 
 pub fn builtin_map_kinds() -> Vec<MapKind> {
     vec![
         DECODE,
         ENCODE,
         MATCH_TO_NUMBER,
-        MATCH_TO_STRING,
         MATCH_TO_VECTOR2D,
         MATCH_TO_VECTOR3D,
+        MATCH_TO_LOG,
         REPLACE,
         CONCAT,
         COMPOSE_2D,
@@ -86,13 +87,22 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
     ]
 }
 
-/// Decodes the raw bytes into lines, and reads numbers from them.
+/// Decodes the raw bytes into lines, as logs with their levels if they have them,
+/// and reads numbers from them.
 pub fn initial_maps() -> Vec<InitialMap> {
     vec![
         InitialMap {
             kind: DECODE,
             enabled: true,
-            create: || Box::new(Decode::new(RAW_BYTES_LABEL, MESSAGE_LABEL)),
+            create: || {
+                Box::new(Decode::with(
+                    RAW_BYTES_LABEL,
+                    LOG_LINE,
+                    LOG_LABEL,
+                    "$1",
+                    "$2",
+                ))
+            },
         },
         InitialMap {
             kind: MATCH_TO_NUMBER,
@@ -100,7 +110,7 @@ pub fn initial_maps() -> Vec<InitialMap> {
             create: || {
                 Box::new(Match::with(
                     MatchOutput::Number,
-                    MESSAGE_LABEL,
+                    LOG_LABEL,
                     NUMBER_ONLY,
                     ANONYMOUS_LABEL,
                     "$0",
@@ -113,7 +123,7 @@ pub fn initial_maps() -> Vec<InitialMap> {
             create: || {
                 Box::new(Match::with(
                     MatchOutput::Number,
-                    MESSAGE_LABEL,
+                    LOG_LABEL,
                     NAME_COLON_NUMBER,
                     "$1",
                     "$2",

@@ -325,3 +325,17 @@
   font-family: ui-monospace, monospace;
   font-size: 0.7rem;
 }
+
+/* An open card's form lets its dropdowns past it, once it has slid open (its
+   clipping is for the sliding alone) */
+.map-card [data-slot="card"] > [data-open="true"] > div {
+  /* As wide as the card, as when it clips its content */
+  min-width: 0;
+  animation: map-card-opened 0s linear 200ms forwards;
+}
+
+@keyframes map-card-opened {
+  to {
+    overflow: visible;
+  }
+}

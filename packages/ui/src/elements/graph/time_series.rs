@@ -351,7 +351,7 @@ mod tests {
         let data = HashMap::from([
             ("temp".to_string(), numbers(&[(1, 1.0)])),
             ("volt".to_string(), numbers(&[(1, 3.3)])),
-            ("message".to_string(), TypedData::String(Queue::new())),
+            ("message".to_string(), TypedData::Log(Queue::new())),
         ]);
 
         let (labels, _) = feed.next(&each(&data), shown(&["volt", "message"]));

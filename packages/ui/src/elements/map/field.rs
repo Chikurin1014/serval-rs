@@ -7,8 +7,12 @@ use dioxus_icons::lucide;
 
 use crate::components::{
     input::Input,
+    popover::{PopoverContent, PopoverRoot, PopoverTrigger},
     toggle_group::{ToggleGroup, ToggleItem},
 };
+use crate::data::LogLevel;
+use crate::elements::LogLevelTag;
+use dioxus_primitives::{ContentAlign, ContentSide};
 
 /// Whether the map of the form is on, provided by its card.
 #[derive(Clone, Copy)]
@@ -18,13 +22,15 @@ fn use_map_enabled() -> bool {
     try_use_context::<MapEnabled>().is_some_and(|MapEnabled(enabled)| enabled())
 }
 
-/// A field for a label, offering those in the `datalist` with id `list`.
+/// A field for a label, offering those in the `datalist` with id `list`; for an
+/// input of logs, the weakest level taken chosen beside it.
 #[component]
 pub(super) fn LabelField(
     value: Signal<String>,
     list: String,
     placeholder: String,
     #[props(default)] name: Option<String>,
+    #[props(default)] weakest_level: Option<Signal<LogLevel>>,
 ) -> Element {
     let mut value = value;
     let locked = use_map_enabled();
@@ -44,6 +50,9 @@ pub(super) fn LabelField(
                 readonly: locked,
                 value: "{value}",
                 oninput: move |event: FormEvent| value.set(event.value()),
+            }
+            if let Some(weakest_level) = weakest_level {
+                LevelFilter { weakest_level, locked }
             }
         }
     }
@@ -115,6 +124,74 @@ pub(super) fn ChoicesField(
                 },
                 for (index, option) in options.iter().enumerate() {
                     ToggleItem { index, "{option}" }
+                }
+            }
+        }
+    }
+}
+
+/// A level as a filter down to it shows it: as a tag in its color; ALL for None,
+/// the weakest.
+#[component]
+fn LevelChoice(level: LogLevel) -> Element {
+    rsx! {
+        if level == LogLevel::None {
+            span { class: "field-level-all", "ALL" }
+        } else {
+            LogLevelTag { level }
+        }
+    }
+}
+
+/// The weakest level a map takes of an input: its choices side by side, as the
+/// pointer is over it (or by a click).
+#[component]
+fn LevelFilter(weakest_level: Signal<LogLevel>, locked: bool) -> Element {
+    let mut weakest_level = weakest_level;
+    let mut open = use_signal(|| false);
+
+    rsx! {
+        span {
+            class: "field-level",
+            onmouseenter: move |_| open.set(!locked),
+            onmouseleave: move |_| open.set(false),
+            PopoverRoot {
+                class: "field-level-popover",
+                is_modal: false,
+                open: Some(open()),
+                on_open_change: move |value| open.set(value && !locked),
+                PopoverTrigger {
+                    class: "field-level-trigger",
+                    aria_label: "Weakest level",
+                    title: "The weakest level taken: those weaker are left out",
+                    disabled: locked,
+                    span { class: "field-label", "Filter by" }
+                    LevelChoice { level: weakest_level() }
+                }
+                PopoverContent {
+                    class: "field-level-content",
+                    side: ContentSide::Bottom,
+                    // To the right, over the form: to the left, it would go past the map
+                    // list, which clips it
+                    align: ContentAlign::Start,
+                    div {
+                        class: "field-level-choices",
+                        role: "listbox",
+                        aria_label: "Weakest level",
+                        for level in LogLevel::ALL {
+                            button {
+                                class: "field-level-choice",
+                                r#type: "button",
+                                role: "option",
+                                aria_selected: level == weakest_level(),
+                                onclick: move |_| {
+                                    weakest_level.set(level);
+                                    open.set(false);
+                                },
+                                LevelChoice { level }
+                            }
+                        }
+                    }
                 }
             }
         }

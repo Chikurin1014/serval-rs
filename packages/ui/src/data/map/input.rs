@@ -71,6 +71,20 @@ impl<T: Clone> Input<T> {
         }
     }
 
+    /// As [`Self::read_newest`], of those `taken` alone.
+    pub(crate) fn read_newest_where(
+        &mut self,
+        data: &DataContext,
+        label: &str,
+        taken: impl Fn(&T) -> bool,
+    ) where
+        Data<T>: DataEntry,
+    {
+        if let Some(last) = self.read(data, label).into_iter().filter(taken).last() {
+            self.newest = Some(last);
+        }
+    }
+
     pub(crate) fn forget(&mut self) {
         self.cursor.reset();
         self.newest = None;

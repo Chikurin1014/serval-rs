@@ -1,0 +1,35 @@
+/* A log level in its color, as env_logger colors them: on a tint of it */
+.log-level-tag {
+  display: inline-block;
+  margin-right: 0.4em;
+  padding: 0 0.35em;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--log-level-color) 18%, transparent);
+  color: var(--log-level-color);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  vertical-align: baseline;
+}
+
+.log-level-tag[data-level="ERROR"] {
+  --log-level-color: var(--light, #c0392b) var(--dark, #ff7b72);
+}
+
+.log-level-tag[data-level="WARN"] {
+  --log-level-color: var(--light, #9a6700) var(--dark, #e3b341);
+}
+
+.log-level-tag[data-level="INFO"] {
+  --log-level-color: var(--light, #1a7f37) var(--dark, #56d364);
+}
+
+.log-level-tag[data-level="DEBUG"] {
+  --log-level-color: var(--light, #0969da) var(--dark, #79c0ff);
+}
+
+.log-level-tag[data-level="TRACE"] {
+  --log-level-color: var(--light, #1b7c83) var(--dark, #56d4dd);
+}

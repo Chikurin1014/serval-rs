@@ -163,7 +163,7 @@ mod tests {
     use dioxus::prelude::*;
 
     use super::{DataContext, DataProvider};
-    use crate::data::{DataType, NumberData, StringData, TypedData};
+    use crate::data::{DataType, Log, LogData, NumberData, TypedData};
 
     thread_local! {
         static DATA: RefCell<Option<DataContext>> = const { RefCell::new(None) };
@@ -251,23 +251,23 @@ mod tests {
         let mut dom = dom();
         write(&mut dom, |data| {
             data.push_all("temp", [NumberData::new(1, 1.0), NumberData::new(2, 2.0)]);
-            data.push("message", StringData::new(1, "a".to_string()));
+            data.push("message", LogData::new(1, Log::text("a")));
         });
         dom.in_runtime(|| {
             let data = DATA.with(|cell| cell.borrow().expect("grabbed"));
             assert_eq!(data.labels_of(DataType::Number), ["temp"]);
-            assert_eq!(data.data_type_of("message"), Some(DataType::String));
+            assert_eq!(data.data_type_of("message"), Some(DataType::Log));
         });
 
         assert_eq!(
             write(&mut dom, |data| data
-                .push("temp", StringData::new(3, "x".to_string()))),
+                .push("temp", LogData::new(3, Log::text("x")))),
             (1, Some(0))
         );
         dom.in_runtime(|| {
             let data = DATA.with(|cell| cell.borrow().expect("grabbed"));
-            assert_eq!(data.labels_of(DataType::String), ["message", "temp"]);
-            data.with_each(Some(DataType::String), |each| {
+            assert_eq!(data.labels_of(DataType::Log), ["message", "temp"]);
+            data.with_each(Some(DataType::Log), |each| {
                 assert_eq!(
                     each.iter().map(|(label, _)| *label).collect::<Vec<_>>(),
                     ["message", "temp"]

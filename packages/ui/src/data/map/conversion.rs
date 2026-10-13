@@ -1,3 +1,5 @@
+use crate::data::LogLevel;
+
 /// A map's latest conversion, as shown in its card.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conversion {
@@ -38,6 +40,8 @@ pub struct Segment {
     pub text: String,
     /// From the input (e.g. a regex's `$1`), not the settings.
     pub from_input: bool,
+    /// A log's level, shown as a tag (its name the text).
+    pub level: Option<LogLevel>,
 }
 
 impl Segment {
@@ -45,6 +49,7 @@ impl Segment {
         Self {
             text: text.into(),
             from_input: false,
+            level: None,
         }
     }
 
@@ -52,6 +57,16 @@ impl Segment {
         Self {
             text: text.into(),
             from_input: true,
+            level: None,
+        }
+    }
+
+    /// A log's level, as a tag; `from_input` as [`Self::from_input`]'s.
+    pub fn level(level: LogLevel, from_input: bool) -> Self {
+        Self {
+            text: level.as_str().to_string(),
+            from_input,
+            level: Some(level),
         }
     }
 }

@@ -9,7 +9,9 @@ pub const PATTERN_ALIASES: &[(&str, &str)] = &[
     // e.g. `20`, `-0.5`, `.5`, `+1.` or `1.5e-3`
     ("number", r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"),
     // Lazy, so it ends at the first separator after it
-    ("word", r"[^\s]+?"),
+    ("word", r"\S+?"),
+    // A log level as `LogLevel` reads it: in any case, `warning` too
+    ("level", r"(?i:error|warn(?:ing)?|info|debug|trace)"),
 ];
 
 /// Compiles `pattern` with its aliases expanded.
@@ -167,20 +169,34 @@ mod tests {
     }
 
     #[test]
+    fn level_matches_log_levels_in_any_case() {
+        for level in ["ERROR", "warn", "Warning", "info", "DEBUG", "trace"] {
+            // The whole match, then the group
+            assert_eq!(
+                captures("^({level})$", level),
+                Some(vec![level.to_string(), level.to_string()])
+            );
+        }
+        assert_eq!(captures("^{level}$", "fatal"), None);
+        // Its own case alone: the rest of the pattern keeps its own
+        assert_eq!(captures("^{level} OK$", "info ok"), None);
+    }
+
+    #[test]
     fn aliases_take_no_group_number_of_their_own() {
         assert_eq!(
             captures("{word}=({number})", "volt=3.3"),
             Some(vec!["volt=3.3".to_string(), "3.3".to_string()])
         );
-        assert_eq!(expand_aliases("{word}?"), r"(?:[^\s]+?)?");
+        assert_eq!(expand_aliases("{word}?"), r"(?:\S+?)?");
     }
 
     #[test]
     fn escaped_or_in_a_class_aliases_are_left_alone() {
         assert_eq!(expand_aliases(r"\{word}"), r"\{word}");
-        assert_eq!(expand_aliases(r"\\{word}"), r"\\(?:[^\s]+?)");
+        assert_eq!(expand_aliases(r"\\{word}"), r"\\(?:\S+?)");
         assert_eq!(expand_aliases("[{word}]"), "[{word}]");
-        assert_eq!(expand_aliases("[]{word}]{word}"), r"[]{word}](?:[^\s]+?)");
+        assert_eq!(expand_aliases("[]{word}]{word}"), r"[]{word}](?:\S+?)");
         assert_eq!(expand_aliases(r"[\]{word}]"), r"[\]{word}]");
     }
 

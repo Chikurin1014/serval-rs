@@ -1,5 +1,6 @@
 mod data_context;
 mod data_type;
+mod log;
 mod map;
 mod pattern;
 mod queue;
@@ -7,16 +8,17 @@ mod source_cursor;
 
 pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
-    ByteData, Data, DataEntry, DataType, NumberData, NumberText, StringData, TypedData, Vector,
-    Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,
+    ByteData, Data, DataEntry, DataType, LogData, NumberData, NumberText, ShownValue, TypedData,
+    Vector, Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,
 };
+pub use log::{Log, LogLevel, ParseLogLevelError, expand_levels};
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Compose,
     ComposeSettings, Concat, ConcatSettings, Conversion, ConversionInput, ConversionOutput, Decode,
-    DecodeSettings, Decompose, DecomposeSettings, Encode, EncodeSettings, InitialMap, Magnitude,
-    MagnitudeSettings, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner, Match,
-    MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment, VectorArithmetic,
-    VectorArithmeticSettings, VectorCalculus, VectorOperation,
+    DecodeSettings, Decompose, DecomposeSettings, Encode, EncodeSettings, InitialMap, MORE_LEVEL,
+    Magnitude, MagnitudeSettings, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner,
+    Match, MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment,
+    VectorArithmetic, VectorArithmeticSettings, VectorCalculus, VectorOperation,
 };
 pub(crate) use map::{
     Endpoints, Input, Operand, endpoints, keep_taken, take_newest_all, take_newest_pair,

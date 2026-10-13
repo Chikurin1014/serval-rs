@@ -10,7 +10,8 @@ use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle},
 };
-use crate::data::{DataContext, NumberText, TypedData};
+use crate::data::{DataContext, LogLevel, NumberText, ShownValue, TypedData};
+use crate::elements::LogLevelTag;
 use crate::time::TimeContext;
 
 use export::ExportCsvButton;
@@ -122,10 +123,10 @@ fn DataRows() -> Element {
 fn DataRow(
     label: String,
     type_name: &'static str,
-    preview: String,
+    preview: ShownValue,
     time: String,
     /// `(time, value)`, newest first.
-    history: Vec<(String, String)>,
+    history: Vec<(String, ShownValue)>,
     expanded: Signal<HashSet<String>>,
 ) -> Element {
     let is_expanded = expanded.read().contains(&label);
@@ -163,7 +164,12 @@ fn DataRow(
                     }
                 }
                 td { class: "data-cell", "{type_name}" }
-                td { class: "data-cell", title: "{preview}", "{preview}" }
+                td {
+                    class: "data-cell",
+                    title: shown_title(&preview),
+                    LogLevelTag { level: preview.level }
+                    "{preview.text}"
+                }
                 td { class: "data-cell", "{time}" }
                 td {
                     DeleteLabel { label: label.clone() }
@@ -177,8 +183,11 @@ fn DataRow(
                     td {}
                     td {
                         class: "data-cell",
-                        title: "{value}",
-                        HistorySlide { "{value}" }
+                        title: shown_title(&value),
+                        HistorySlide {
+                            LogLevelTag { level: value.level }
+                            "{value.text}"
+                        }
                     }
                     td {
                         class: "data-cell",
@@ -223,15 +232,29 @@ fn HistorySlide(children: Element) -> Element {
     }
 }
 
-fn latest_value_preview(data: &TypedData) -> String {
-    data.newest_as_text(1, NumberText::Rounded)
+fn latest_value_preview(data: &TypedData) -> ShownValue {
+    data.newest_as_shown(1, NumberText::Rounded)
         .pop()
-        .map_or_else(|| "empty".to_string(), |(_, text)| text)
+        .map_or_else(
+            || ShownValue {
+                level: LogLevel::None,
+                text: "empty".to_string(),
+            },
+            |(_, shown)| shown,
+        )
+}
+
+/// As a value is shown, in words: a log's level before its message.
+fn shown_title(shown: &ShownValue) -> String {
+    match shown.level {
+        LogLevel::None => shown.text.clone(),
+        level => format!("{level} {}", shown.text),
+    }
 }
 
 /// The `count` entries before the newest, newest first.
-fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, String)> {
-    let mut values = data.newest_as_text(count + 1, NumberText::Rounded);
+fn values_before_latest(data: &TypedData, count: usize) -> Vec<(i64, ShownValue)> {
+    let mut values = data.newest_as_shown(count + 1, NumberText::Rounded);
     values.pop();
     values.reverse();
     values
@@ -249,26 +272,41 @@ mod tests {
             crate::data::NumberData::new(2, 20.0),
         ]));
 
-        assert_eq!(latest_value_preview(&data), "20.000");
+        assert_eq!(latest_value_preview(&data).text, "20.000");
     }
 
     #[test]
     fn latest_value_preview_handles_string_queue() {
-        let data = TypedData::String(Queue::from_iter([
-            crate::data::StringData::new(1, "first".to_string()),
-            crate::data::StringData::new(2, "second".to_string()),
+        let data = TypedData::Log(Queue::from_iter([
+            crate::data::LogData::new(1, crate::data::Log::text("first")),
+            crate::data::LogData::new(2, crate::data::Log::text("second")),
         ]));
 
-        assert_eq!(latest_value_preview(&data), "second");
+        assert_eq!(latest_value_preview(&data).text, "second");
+
+        let data = TypedData::Log(Queue::from_iter([crate::data::LogData::new(
+            1,
+            crate::data::Log::new(LogLevel::Warn, "low battery"),
+        )]));
+        let preview = latest_value_preview(&data);
+        assert_eq!(
+            (preview.level, preview.text.as_str()),
+            (LogLevel::Warn, "low battery")
+        );
+        assert_eq!(shown_title(&preview), "WARN low battery");
     }
 
     #[test]
     fn values_before_latest_are_the_newest_first() {
-        let data = TypedData::String(Queue::from_iter(
-            (1..=7).map(|n| crate::data::StringData::new(n, n.to_string())),
-        ));
+        let data =
+            TypedData::Log(Queue::from_iter((1..=7).map(|n| {
+                crate::data::LogData::new(n, crate::data::Log::text(n.to_string()))
+            })));
 
-        let values = values_before_latest(&data, 4);
+        let values: Vec<(i64, String)> = values_before_latest(&data, 4)
+            .into_iter()
+            .map(|(timestamp, shown)| (timestamp, shown.text))
+            .collect();
         let expected = (3..=6)
             .rev()
             .map(|n| (n, n.to_string()))

@@ -6,8 +6,7 @@ use std::any::Any;
 use super::field::{LabelField, TextField};
 use super::form_of;
 use super::map_list::{
-    NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID,
-    VECTOR3D_LABELS_LIST_ID,
+    LOG_LABELS_LIST_ID, NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID,
 };
 use crate::data::{DataType, MapKind, MapPreset, MapRunner, Match, MatchOutput, MatchSettings};
 
@@ -41,21 +40,9 @@ pub const ANONYMOUS_LABEL: &str = "anonymous data";
 /// `name: value` with a number value, e.g. `temp: 20.5`.
 pub const NAME_COLON_NUMBER: &str = "({word}): ({number})";
 
-pub const MATCH_TO_STRING: MapKind = MapKind {
-    name: "Match",
-    from: &[DataType::String],
-    to: DataType::String,
-    create: || Box::new(Match::new(MatchOutput::String)),
-    form: |settings: &dyn Any| match_form(settings, STRINGS_LABELS_LIST_ID),
-    presets: &[
-        preset!("name: value", String, "({word}): (?!{number})(.+)"),
-        preset!("Arduino", String, "({word}):(?!{number})(.+)"),
-    ],
-};
-
 pub const MATCH_TO_NUMBER: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Number,
     create: || Box::new(Match::new(MatchOutput::Number)),
     form: |settings: &dyn Any| match_form(settings, NUMBERS_LABELS_LIST_ID),
@@ -68,8 +55,9 @@ pub const MATCH_TO_NUMBER: MapKind = MapKind {
     ],
 };
 
-/// A preset to a vector, its components from the groups `$components`.
-macro_rules! vector_preset {
+/// A preset to a vector or log, its components (or level and message) from the
+/// groups `$components`.
+macro_rules! components_preset {
     ($name:literal, $output:ident, $pattern:expr, $to_label:expr, $components:expr) => {
         MapPreset {
             name: $name,
@@ -102,27 +90,27 @@ pub const NAME_COLON_XYZ: &str = r"({word}):  \(({number}), ({number}), ({number
 /// A vector's components from the groups, e.g. `$2` and `$3`.
 pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Vector2d,
     create: || Box::new(Match::new(MatchOutput::Vector2d)),
     form: |settings: &dyn Any| match_form(settings, VECTOR2D_LABELS_LIST_ID),
     presets: &[
         // No name to take the output label from
-        vector_preset!("(x, y)", Vector2d, XY_ONLY, "", ["$1", "$2"]),
-        vector_preset!("name: (x, y)", Vector2d, NAME_COLON_XY, "$1", ["$2", "$3"]),
+        components_preset!("(x, y)", Vector2d, XY_ONLY, "", ["$1", "$2"]),
+        components_preset!("name: (x, y)", Vector2d, NAME_COLON_XY, "$1", ["$2", "$3"]),
     ],
 };
 
 pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Vector3d,
     create: || Box::new(Match::new(MatchOutput::Vector3d)),
     form: |settings: &dyn Any| match_form(settings, VECTOR3D_LABELS_LIST_ID),
     presets: &[
         // No name to take the output label from
-        vector_preset!("(x, y, z)", Vector3d, XYZ_ONLY, "", ["$1", "$2", "$3"]),
-        vector_preset!(
+        components_preset!("(x, y, z)", Vector3d, XYZ_ONLY, "", ["$1", "$2", "$3"]),
+        components_preset!(
             "name: (x, y, z)",
             Vector3d,
             NAME_COLON_XYZ,
@@ -130,6 +118,26 @@ pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
             ["$2", "$3", "$4"]
         ),
     ],
+};
+
+/// A log's level and message from the groups, e.g. `$1` and `$2`.
+pub const MATCH_TO_LOG: MapKind = MapKind {
+    name: "Match",
+    from: &[DataType::Log],
+    to: DataType::Log,
+    create: || Box::new(Match::new(MatchOutput::Log)),
+    form: |settings: &dyn Any| {
+        form_of(settings, |settings: MatchSettings| {
+            rsx! {
+                MatchForm {
+                    settings,
+                    output_list: LOG_LABELS_LIST_ID.to_string(),
+                    component_names: vec!["Level".to_string(), "Message".to_string()],
+                }
+            }
+        })
+    },
+    presets: &[],
 };
 
 fn match_form(settings: &dyn Any, output_list: &str) -> Element {
@@ -143,8 +151,14 @@ fn match_form(settings: &dyn Any, output_list: &str) -> Element {
     })
 }
 
+/// A vector's or log's fields named by `component_names` (x, y and z unless
+/// given).
 #[component]
-pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
+pub fn MatchForm(
+    settings: MatchSettings,
+    output_list: String,
+    #[props(default)] component_names: Vec<String>,
+) -> Element {
     let MatchSettings {
         from_label,
         to_label,
@@ -154,7 +168,14 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
         z_replacement,
         pattern_error,
         replacement_error,
+        weakest_level,
     } = settings;
+    let name = |index: usize| {
+        component_names
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| ["x", "y", "z"][index].to_string())
+    };
 
     rsx! {
         div {
@@ -163,8 +184,9 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: from_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Input label",
+                    weakest_level,
                 }
                 TextField {
                     name: "From",
@@ -182,11 +204,11 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
                 class: "field-stack",
                 LabelField { value: to_label, list: output_list, placeholder: "Output label" }
                 if let Some(y_replacement) = y_replacement {
-                    // A vector: each component in its own field
-                    TextField { name: "x", value: replacement, error: replacement_error }
-                    TextField { name: "y", value: y_replacement, error: replacement_error }
+                    // A vector or log: each component in its own field
+                    TextField { name: name(0), value: replacement, error: replacement_error }
+                    TextField { name: name(1), value: y_replacement, error: replacement_error }
                     if let Some(z_replacement) = z_replacement {
-                        TextField { name: "z", value: z_replacement, error: replacement_error }
+                        TextField { name: name(2), value: z_replacement, error: replacement_error }
                     }
                 } else {
                     TextField { name: "To", value: replacement, error: replacement_error }
@@ -203,7 +225,7 @@ pub fn MatchForm(settings: MatchSettings, output_list: String) -> Element {
 mod tests {
     use crate::data::compile_pattern;
 
-    use super::{MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D};
+    use super::{MATCH_TO_NUMBER, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D};
 
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
@@ -259,23 +281,6 @@ mod tests {
         assert_eq!(value("-20.5"), Some("-20.5".to_string()));
         assert_eq!(value("1.5e3"), Some("1.5e3".to_string()));
         assert_eq!(value("temp: 20.5"), None);
-    }
-
-    #[test]
-    fn string_presets_match_their_formats() {
-        let kind = &MATCH_TO_STRING;
-        assert_eq!(
-            name_value(kind, "name: value", "led: on"),
-            pair("led", "on")
-        );
-        assert_eq!(
-            name_value(kind, "Arduino", "mode:auto"),
-            pair("mode", "auto")
-        );
-        assert_eq!(
-            name_value(kind, "name: value", "[log] led: on"),
-            pair("led", "on")
-        );
     }
 
     /// The groups of `preset`'s pattern in `input`, if it matches.

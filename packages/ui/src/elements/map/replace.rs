@@ -3,13 +3,13 @@ use dioxus_icons::lucide;
 
 use super::field::{LabelField, TextField};
 use super::form_of;
-use super::map_list::STRINGS_LABELS_LIST_ID;
+use super::map_list::LOG_LABELS_LIST_ID;
 use crate::data::{DataType, MapKind, Replace, ReplaceSettings};
 
 pub const REPLACE: MapKind = MapKind {
     name: "Replace",
-    from: &[DataType::String],
-    to: DataType::String,
+    from: &[DataType::Log],
+    to: DataType::Log,
     create: || Box::new(Replace::new()),
     form: |settings| {
         form_of(
@@ -28,6 +28,7 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
         pattern,
         replacement,
         pattern_error,
+        weakest_level,
     } = settings;
 
     rsx! {
@@ -37,8 +38,9 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: from_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Input label",
+                    weakest_level,
                 }
                 TextField {
                     name: "From",
@@ -56,7 +58,7 @@ pub fn ReplaceForm(settings: ReplaceSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: to_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Output label",
                 }
                 TextField { name: "To", value: replacement }
