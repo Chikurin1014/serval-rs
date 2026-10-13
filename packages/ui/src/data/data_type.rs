@@ -1,4 +1,4 @@
-use crate::data::Queue;
+use crate::data::{Log, Queue};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DataType {
@@ -7,6 +7,7 @@ pub enum DataType {
     Bytes,
     Vector2d,
     Vector3d,
+    Log,
 }
 
 impl DataType {
@@ -17,6 +18,7 @@ impl DataType {
             DataType::Bytes => "Bytes",
             DataType::Vector2d => "Vector2d",
             DataType::Vector3d => "Vector3d",
+            DataType::Log => "Log",
         }
     }
 }
@@ -28,6 +30,7 @@ pub enum TypedData {
     Bytes(Queue<ByteData>),
     Vector2d(Queue<Vector2dData>),
     Vector3d(Queue<Vector3dData>),
+    Log(Queue<LogData>),
 }
 
 impl TypedData {
@@ -38,6 +41,7 @@ impl TypedData {
             TypedData::Bytes(_) => DataType::Bytes,
             TypedData::Vector2d(_) => DataType::Vector2d,
             TypedData::Vector3d(_) => DataType::Vector3d,
+            TypedData::Log(_) => DataType::Log,
         }
     }
 
@@ -49,6 +53,7 @@ impl TypedData {
             TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector2d(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector3d(queue) => queue.back().map(Data::timestamp),
+            TypedData::Log(queue) => queue.back().map(Data::timestamp),
         }
     }
 
@@ -77,6 +82,7 @@ impl TypedData {
             TypedData::Vector3d(queue) => newest(queue, count, |value| {
                 vector_text(value.components(), numbers)
             }),
+            TypedData::Log(queue) => newest(queue, count, Log::to_string),
         }
     }
 }
@@ -127,6 +133,7 @@ pub type StringData = Data<String>;
 pub type ByteData = Data<Vec<u8>>;
 pub type Vector2dData = Data<Vector2d>;
 pub type Vector3dData = Data<Vector3d>;
+pub type LogData = Data<Log>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector2d([f64; 2]);
@@ -298,12 +305,13 @@ data_entry!(StringData, String);
 data_entry!(ByteData, Bytes);
 data_entry!(Vector2dData, Vector2d);
 data_entry!(Vector3dData, Vector3d);
+data_entry!(LogData, Log);
 
 #[cfg(test)]
 mod tests {
     use super::{
-        ByteData, DataEntry, DataType, NumberData, NumberText, StringData, TypedData, Vector2d,
-        Vector2dData, Vector3d, Vector3dData, format_number,
+        ByteData, DataEntry, DataType, LogData, NumberData, NumberText, StringData, TypedData,
+        Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,
     };
 
     #[test]
@@ -409,6 +417,18 @@ mod tests {
         assert_eq!(
             vectors.newest_as_text(1, NumberText::Exact),
             vec![(1, "(0.5, 1, 1000000)".to_string())]
+        );
+    }
+
+    #[test]
+    fn logs_as_text_show_their_level_first() {
+        use crate::data::{Log, LogLevel};
+
+        let logs: TypedData = LogData::new(1, Log::new(LogLevel::Warn, "low battery")).into();
+        assert_eq!(logs.data_type(), DataType::Log);
+        assert_eq!(
+            logs.newest_as_text(1, NumberText::Exact),
+            vec![(1, "[WARN] low battery".to_string())]
         );
     }
 }
