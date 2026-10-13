@@ -19,3 +19,4 @@ pub mod toggle_group;
 pub mod tooltip;
 pub mod dialog;
 pub mod drag_and_drop_list;
+pub mod popover;

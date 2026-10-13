@@ -14,8 +14,8 @@ def test_initial_map_splits_raw_bytes_into_lines(app: App):
     app.open_port()
     app.tab("Data")
     expect(app.map_cards()).to_have_count(3)
-    app.wait_for_labels("message")
-    assert is_whole_line(app.data_rows()["message"][1])
+    app.wait_for_labels("log")
+    assert is_whole_line(app.data_rows()["log"][1])
 
 
 def test_initial_match_map_reads_numbers_with_no_label(app: App):
@@ -24,7 +24,7 @@ def test_initial_match_map_reads_numbers_with_no_label(app: App):
     expect(card.locator(".map-title-text")).to_have_text("Match")
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("message")
+    expect(card.get_by_placeholder("Input label")).to_have_value("log")
     expect(card.get_by_placeholder("Text to be matched")).to_have_value("^{number}")
     expect(card.get_by_placeholder("Output label")).to_have_value("anonymous data")
     expect(card.get_by_label("To", exact=True)).to_have_value("$0")
@@ -43,7 +43,7 @@ def test_initial_match_map_reads_name_value_numbers(app: App):
     expect(card.locator(".map-title-text")).to_have_text("Match")
     expect(card.get_by_role("switch")).to_be_checked()
     card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("message")
+    expect(card.get_by_placeholder("Input label")).to_have_value("log")
     expect(card.get_by_placeholder("Text to be matched")).to_have_value(
         "({word}): ({number})"
     )
@@ -65,14 +65,14 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     app.open_port()
     app.tab("Data")
     app.add_match_map()
-    app.wait_for_labels("message", "temp", "volt")
+    app.wait_for_labels("log", "temp", "volt")
 
     app.clear_all()
-    app.wait_for_labels("message", "temp", "volt")
+    app.wait_for_labels("log", "temp", "volt")
 
     broken = []
     for _ in range(20):
-        line = app.data_rows()["message"][1]
+        line = app.data_rows()["log"][1]
         if not is_whole_line(line):
             broken.append(line)
         app.page.wait_for_timeout(100)
@@ -151,15 +151,15 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     app.tab("Data")
     start = len(app.console)
     for kind in [
-        ("Match", "String", "Number"),
-        ("Decode", "Bytes", "String"),
-        ("Match", "String", "String"),
+        ("Match", "Log", "Number"),
+        ("Decode", "Bytes", "Log"),
+        ("Match", "Log", "Log"),
     ]:
         app.add_map(*kind)
     expect(app.map_cards()).to_have_count(6)
 
     card = app.map_cards().nth(3)
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     card.get_by_placeholder("Text to be matched").fill(NAME_VALUE)
     card.get_by_placeholder("Output label").fill("$1")
     card.get_by_label("To", exact=True).fill("$2")
@@ -186,7 +186,7 @@ def test_add_menus_are_by_output_type(app: App):
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
     expect(bar.get_by_role("button")).to_have_text(
-        ["Bytes", "Number", "String", "Vector", "Log"]
+        ["Bytes", "Number", "Log", "Vector"]
     )
 
 
@@ -212,12 +212,12 @@ def test_add_menus_open_on_hover(app: App):
             "Decompose",
         ]
     )
-    expect(option.locator("> .map-types").nth(6)).to_have_text("StringNumber")
+    expect(option.locator("> .map-types").nth(6)).to_have_text("LogNumber")
 
     number.click()
     expect(number).to_have_attribute("aria-expanded", "true")
 
-    string = bar.get_by_role("button", name="String", exact=True)
+    string = bar.get_by_role("button", name="Log", exact=True)
     string.hover()
     expect(number).to_have_attribute("aria-expanded", "false")
     expect(string).to_have_attribute("aria-expanded", "true")
@@ -233,14 +233,14 @@ def test_bytes_menu_offers_encode(app: App):
     bar.get_by_role("button", name="Bytes", exact=True).hover()
     option = bar.get_by_role("option")
     expect(option.locator(".add-map-title")).to_have_text(["Encode"])
-    expect(option.locator(".map-types")).to_have_text(["StringBytes"])
+    expect(option.locator(".map-types")).to_have_text(["LogBytes"])
 
 
 def test_decode_splits_at_the_chosen_delimiters(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    app.add_map("Decode", "Bytes", "String")
+    app.add_map("Decode", "Bytes", "Log")
     card = app.map_cards().last
     card.get_by_placeholder("Input label").fill("raw_bytes")
     card.get_by_placeholder("Output label").fill("line")
@@ -290,9 +290,9 @@ def test_decode_delimiters_are_locked_while_the_map_is_on(app: App):
 def test_encode_turns_strings_into_bytes(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_map("Encode", "String", "Bytes")
+    app.add_map("Encode", "Log", "Bytes")
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     card.get_by_placeholder("Output label").fill("line_bytes")
     expect(card.get_by_label("Delimiter")).to_have_count(0)
     card.get_by_role("switch").click()
@@ -306,7 +306,7 @@ def test_cards_open_to_their_settings(app: App):
     app.tab("Data")
     initial = app.map_cards().first
     expect(initial.get_by_placeholder("Input label")).to_be_hidden()
-    app.add_map("Match", "String", "Number")
+    app.add_map("Match", "Log", "Number")
     expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
 
     initial.locator(".map-title").click()
@@ -327,7 +327,7 @@ def test_title_shows_the_latest_conversion(app: App):
     app.tab("Data")
     app.add_match_map()
     latest = app.map_cards().last.locator(".map-latest")
-    expect(latest).to_contain_text("message")
+    expect(latest).to_contain_text("log")
 
     taken = latest.locator('.map-segment[data-from-input="true"]')
     expect(taken).to_have_count(2)
@@ -338,7 +338,7 @@ def test_title_shows_the_latest_conversion(app: App):
 def test_fixed_parts_of_the_target_are_not_marked(app: App):
     app.open_port()
     app.tab("Data")
-    app.add_match_map(output="String", target="reading_$1", replacement="ok")
+    app.add_match_map(output="Log", target="reading_$1", replacement="ok")
     latest = app.map_cards().last.locator(".map-latest")
     expect(latest.locator(".map-segment")).to_have_count(3)
     expect(latest.locator('.map-segment[data-from-input="false"]')).to_have_text(
@@ -360,19 +360,19 @@ def test_output_label_leaves_out_the_text_around_the_match(app: App):
 
 def test_card_header_shows_the_types(app: App):
     app.tab("Data")
-    app.add_map("Match", "String", "Number")
+    app.add_map("Match", "Log", "Number")
     expect(app.map_cards().locator(".map-title-text")).to_have_text(
         ["Decode", "Match", "Match", "Match"]
     )
     expect(app.map_cards().locator(".map-types")).to_have_text(
-        ["BytesString", "StringNumber", "StringNumber", "StringNumber"]
+        ["BytesLog", "LogNumber", "LogNumber", "LogNumber"]
     )
 
 
 def add_replace_map(app: App, pattern: str, replacement: str, target: str):
-    app.add_map("Replace", "String", "String")
+    app.add_map("Replace", "Log", "Log")
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     card.get_by_placeholder("Text to be replaced").fill(pattern)
     card.get_by_placeholder("Output label").fill(target)
     card.get_by_label("To", exact=True).fill(replacement)
@@ -397,9 +397,9 @@ def test_concat_joins_the_newest_of_both(app: App):
     app.open_port()
     app.tab("Data")
     add_replace_map(app, ":", "=", "assigned")
-    app.add_map("Concat", "String", "String")
+    app.add_map("Concat", "Log", "Log")
     card = app.map_cards().last
-    card.get_by_placeholder("First input label").fill("message")
+    card.get_by_placeholder("First input label").fill("log")
     card.get_by_placeholder("Second input label").fill("assigned")
     card.get_by_placeholder("Output label").fill("joined")
     card.get_by_label("Separator").fill(" | ")
@@ -409,9 +409,9 @@ def test_concat_joins_the_newest_of_both(app: App):
         r"(temp|volt):[\d.]+ \| (temp|volt)=[\d.]+", app.data_rows()["joined"][1]
     )
 
-    expect(card.locator(".map-types-from > span")).to_have_text(["String", "String"])
+    expect(card.locator(".map-types-from > span")).to_have_text(["Log", "Log"])
     expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
-        ["message", "assigned"]
+        ["log", "assigned"]
     )
 
 
@@ -518,11 +518,8 @@ def test_match_presets_show_beside_the_item(app: App):
         ["value", "name: value", "Arduino", "Teleplot"]
     )
 
-    item = match_item(app, "String")
-    item.hover()
-    expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
-        ["name: value", "Arduino"]
-    )
+    # None for logs: Decode reads them
+    expect(match_item(app, "Log").get_by_role("menuitem")).to_have_count(0)
 
 
 def test_match_preset_adds_a_set_map(app: App):
@@ -538,7 +535,7 @@ def test_match_preset_adds_a_set_map(app: App):
     )
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("To", exact=True)).to_have_value("$2")
-    expect(card.locator(".map-types")).to_have_text("StringNumber")
+    expect(card.locator(".map-types")).to_have_text("LogNumber")
 
 
 def test_value_preset_leaves_the_output_label_to_be_set(app: App):
@@ -557,7 +554,7 @@ def test_value_preset_leaves_the_output_label_to_be_set(app: App):
 
 def test_match_presets_by_keyboard(app: App):
     app.tab("Data")
-    item = match_item(app, "String")
+    item = match_item(app, "Number")
     item.focus()
     app.page.keyboard.press("ArrowRight")
     presets = item.get_by_role("menuitem")
@@ -572,7 +569,7 @@ def test_match_presets_by_keyboard(app: App):
     app.page.keyboard.press("Enter")
     expect(app.map_cards()).to_have_count(4)
     expect(app.map_cards().last.get_by_placeholder("Text to be matched")).to_have_value(
-        "({word}):(?!{number})(.+)"
+        "({word}): ({number})"
     )
 
 
@@ -644,7 +641,7 @@ def map_items(app: App):
 
 def test_maps_are_reordered_by_dragging(app: App):
     app.tab("Data")
-    app.add_map("Replace", "String", "String")
+    app.add_map("Replace", "Log", "Log")
     expect(app.map_cards()).to_have_count(4)
     assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
 
@@ -662,7 +659,7 @@ def test_maps_are_reordered_by_dragging(app: App):
         ["Replace", "Decode", "Match", "Match"]
     )
     # A map added after them comes last
-    app.add_map("Replace", "String", "String")
+    app.add_map("Replace", "Log", "Log")
     expect(app.map_cards().locator(".map-title-text")).to_have_text(
         ["Replace", "Decode", "Match", "Match", "Replace"]
     )
@@ -670,7 +667,7 @@ def test_maps_are_reordered_by_dragging(app: App):
 
 def test_maps_are_reordered_by_keyboard(app: App):
     app.tab("Data")
-    app.add_map("Replace", "String", "String")
+    app.add_map("Replace", "Log", "Log")
     expect(app.map_cards()).to_have_count(4)
     map_items(app).nth(3).focus()
     for key in ["Enter", "ArrowUp", "ArrowUp", "Enter"]:
@@ -688,7 +685,7 @@ def test_maps_are_reordered_by_keyboard(app: App):
 
 def test_keys_typed_in_a_card_stay_in_it(app: App):
     app.tab("Data")
-    app.add_map("Replace", "String", "String")
+    app.add_map("Replace", "Log", "Log")
     card = app.map_cards().last
     field = card.get_by_placeholder("Input label")
     field.click()
@@ -808,7 +805,7 @@ def add_vector_match_map(
         has=app.page.locator(".add-map-preset-name", has_text=re.compile(f"^{variant}$"))
     ).click()
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     card.get_by_placeholder("Text to be matched").fill(pattern)
     card.get_by_placeholder("Output label").fill(target)
     for name, component in zip("xyz", components):
@@ -895,7 +892,7 @@ def test_match_vector3d_preset_adds_a_set_map(app: App):
     variant = vector_variant(app, "Match", "3D")
     variant.get_by_role("menuitem", name="name: (x, y, z)").click()
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("z", exact=True)).to_have_value("$4")
     card.get_by_role("switch").click()
@@ -911,7 +908,7 @@ def test_match_vector2d_preset_adds_a_set_map(app: App):
     variant = vector_variant(app, "Match", "2D")
     variant.get_by_role("menuitem", name="(x, y)").first.click()
     card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill("log")
     expect(card.get_by_label("y", exact=True)).to_have_value("$2")
     # No name in the text to take the output label from
     card.get_by_placeholder("Output label").fill("pos")
@@ -959,7 +956,7 @@ def add_vector_arithmetic_map(
 def wait_for_latest(app: App, label: str, latest: str):
     app.page.wait_for_function(
         """([label, latest]) => [...document.querySelectorAll('.data-row')].some(row =>
-            row.children[0].textContent === label && row.children[2].textContent === latest)""",
+            row.children[0].textContent === label && row.children[2].title === latest)""",
         arg=[label, latest],
     )
 
@@ -985,7 +982,7 @@ def test_vector_menu_lists_the_vector_maps(app: App):
     expect(options.locator("> .map-types")).to_have_text(
         [
             "NumberVector",
-            "StringVector",
+            "LogVector",
             "VectorVector",
             "VectorVector",
             "NumberVectorVector",
@@ -1182,53 +1179,217 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
     assert z > 0.5
 
 
-def add_log_preset(app: App, preset: str):
-    item = match_item(app, "Log")
-    item.hover()
-    item.get_by_role("menuitem", name=preset).click()
+def add_log_match(
+    app: App,
+    pattern: str,
+    level: str,
+    message: str,
+    target: str = "log",
+    source: str = "log",
+):
+    """Adds a Match map of logs to logs, turned on."""
+    match_item(app, "Log").click()
     card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Input label").fill(source)
+    card.get_by_placeholder("Text to be matched").fill(pattern)
+    card.get_by_placeholder("Output label").fill(target)
+    card.get_by_label("Level", exact=True).fill(level)
+    card.get_by_label("Message", exact=True).fill(message)
+    card.get_by_role("switch").click()
     return card
 
 
-def test_match_reads_logs_of_env_logger(app: App):
-    app.tab("Data")
-    card = add_log_preset(app, "env_logger")
-    expect(card.get_by_label("Level", exact=True)).to_have_value("$1")
-    expect(card.get_by_label("Message", exact=True)).to_have_value("$3")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('[2026-10-13T01:23:45Z WARN  app::sensor] low battery\\n')")
-    # Its target as the label
-    app.wait_for_labels("app::sensor")
-    assert app.data_rows()["app::sensor"][:2] == ["Log", "[WARN] low battery"]
-    expect(card.locator(".map-latest-to")).to_contain_text("[WARN] low battery")
+def add_level_map(app: App, target: str):
+    """Copies the logs of the initial Decode, their levels kept, to `target`."""
+    return add_log_match(app, "(.*)", "${level:0}", "$1", target, "log")
 
 
-def test_match_reads_logs_of_level_and_message(app: App):
+def test_initial_decode_reads_levels_and_messages(app: App):
     app.tab("Data")
-    card = add_log_preset(app, "[level] message")
-    card.get_by_placeholder("Output label").fill("log")
-    card.get_by_role("switch").click()
+    card = app.map_cards().first
     app.open_port()
     app.mock("mute()")
     app.mock("receive('[warning] disk full\\n')")
-    wait_for_latest(app, "log", "[WARN] disk full")
+    wait_for_latest(app, "log", "WARN disk full")
     assert app.data_rows()["log"][0] == "Log"
+    # Its level as a tag in its color, in the data list too
+    row = app.page.locator(".data-row").filter(has=app.page.locator("th", has_text="log"))
+    tag = row.locator(".log-level-tag")
+    expect(tag).to_have_text("WARN")
+    expect(tag).to_have_attribute("data-level", "WARN")
+    colors = tag.evaluate(
+        "t => [getComputedStyle(t).color, getComputedStyle(t.parentElement).color]"
+    )
+    assert colors[0] != colors[1]
+    # Its level by its name, in capitals
+    latest = card.locator(".map-latest-to")
+    expect(latest.locator(".log-level-tag")).to_have_text("WARN")
+    expect(latest).to_contain_text("disk full")
+    # As env_logger writes them too
+    app.mock("receive('[2026-10-13T01:23:45Z INFO  app::sensor] ready\\n')")
+    wait_for_latest(app, "log", "INFO ready")
 
 
 def test_match_to_a_log_tells_a_level_it_does_not_know(app: App):
     app.tab("Data")
-    match_item(app, "Log").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill("message")
-    card.get_by_placeholder("Text to be matched").fill(r"(\w+): (.*)")
-    card.get_by_placeholder("Output label").fill("log")
-    card.get_by_label("Level", exact=True).fill("$1")
-    card.get_by_label("Message", exact=True).fill("$2")
-    card.get_by_role("switch").click()
+    card = add_log_match(app, r"(\w+): (.*)", "$1", "$2", "out")
     app.open_port()
     app.mock("mute()")
     app.mock("receive('fatal: no sensor\\n')")
     expect(card.locator(".field-error")).to_have_text("No log level 'fatal'")
+
+
+def test_templates_name_the_levels_of_the_inputs(app: App):
+    app.tab("Data")
+    # Its level kept, and named in the message
+    add_log_match(app, "disk (.*)", "${level:0}", "${level:0}: $1", "kept", "log")
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('[error] disk lost\\n')")
+    wait_for_latest(app, "kept", "ERROR ERROR: lost")
+
+
+def choose_weakest(card, level: str, input: int = 0):
+    """Takes the levels of the card's `input`th input down to `level`."""
+    # Its choices as the pointer is over it
+    card.get_by_role("button", name="Weakest level").nth(input).hover()
+    card.get_by_role("option", name=level, exact=True).click()
+    expect(card.get_by_role("button", name="Weakest level").nth(input)).to_have_text(
+        f"Filter by{level}"
+    )
+
+
+def test_initial_decode_takes_lines_as_logs(app: App):
+    app.tab("Data")
+    card = app.map_cards().first
+    expect(card.locator(".map-title-text")).to_have_text("Decode")
+    card.locator(".map-title").click()
+    expect(card.get_by_placeholder("Input label")).to_have_value("raw_bytes")
+    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
+        r"^(?:\[(?:.*? )??({level})(?: .*?)?\] )?(.*)$"
+    )
+    expect(card.get_by_placeholder("Output label")).to_have_value("log")
+    expect(card.get_by_label("Level", exact=True)).to_have_value("$1")
+    expect(card.get_by_label("Message", exact=True)).to_have_value("$2")
+    app.open_port()
+    app.wait_for_labels("log")
+    kind, latest, _ = app.data_rows()["log"]
+    # Of no level, so the line alone
+    assert kind == "Log" and latest.startswith(("temp:", "volt:"))
+
+
+def test_maps_of_logs_take_all_levels_by_default(app: App):
+    app.tab("Data")
+    app.add_map("Match", "Log", "Number")
+    card = app.map_cards().last
+    weakest = card.get_by_role("button", name="Weakest level")
+    # The weakest of all: so all of them
+    expect(weakest).to_have_text("Filter byALL")
+    # At the end of the input label's field, after what it is
+    field = card.locator(".field").filter(has=app.page.get_by_placeholder("Input label"))
+    expect(field.locator(".field-level")).to_have_text("Filter byALL")
+    # Side by side, as the pointer is over it; gone as it leaves
+    expect(card.get_by_role("option")).to_have_count(0)
+    weakest.hover()
+    options = card.get_by_role("option")
+    expect(options).to_have_text(["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"])
+    first, last = options.first.bounding_box(), options.last.bounding_box()
+    assert abs(first["y"] - last["y"]) < 1 and first["x"] < last["x"]
+    expect(options.locator(".log-level-tag")).to_have_count(5)
+    app.page.mouse.move(0, 0)
+    expect(card.get_by_role("option")).to_have_count(0)
+
+
+def test_maps_of_logs_leave_out_the_weaker_levels(app: App):
+    app.tab("Data")
+    app.add_map("Match", "Log", "Number")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("Input label").fill("log")
+    choose_weakest(card, "WARN")
+    card.get_by_placeholder("Text to be matched").fill("temp=({number})")
+    card.get_by_placeholder("Output label").fill("warned")
+    card.get_by_label("To", exact=True).fill("$1")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('[error] temp=1\\n[info] temp=2\\n')")
+    wait_for_latest(app, "log", "INFO temp=2")
+    wait_for_latest(app, "warned", "1.0000")
+    app.page.wait_for_timeout(300)
+    assert app.data_rows()["warned"][1] == "1.0000"
+
+
+def test_replace_keeps_the_level_and_concat_takes_the_one_that_matters_more(app: App):
+    app.tab("Data")
+    add_level_map(app, "first")
+    add_level_map(app, "second")
+    app.add_map("Replace", "Log", "Log")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("Input label").fill("first")
+    card.get_by_placeholder("Text to be replaced").fill("disk")
+    card.get_by_placeholder("Output label").fill("replaced")
+    card.get_by_label("To", exact=True).fill("drive")
+    card.get_by_role("switch").click()
+    app.add_map("Concat", "Log", "Log")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("First input label").fill("first")
+    card.get_by_placeholder("Second input label").fill("second")
+    card.get_by_placeholder("Output label").fill("joined")
+    card.get_by_label("Separator", exact=True).fill(" / ")
+    # The one that matters more, unless set
+    expect(card.get_by_label("Level", exact=True)).to_have_value("${level:max}")
+    card.get_by_role("switch").click()
+    app.add_map("Concat", "Log", "Log")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("First input label").fill("first")
+    card.get_by_placeholder("Second input label").fill("log")
+    card.get_by_placeholder("Output label").fill("less")
+    card.get_by_label("Level", exact=True).fill("${level:min}")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    # Each line to the first, second and log maps
+    app.mock("receive('[info] disk full\\n')")
+    wait_for_latest(app, "replaced", "INFO drive full")
+    app.mock("receive('[error] disk lost\\n')")
+    wait_for_latest(app, "replaced", "ERROR drive lost")
+    wait_for_latest(app, "joined", "ERROR disk lost / disk lost")
+    wait_for_latest(app, "less", "ERROR disk lostdisk lost")
+
+
+def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
+    app.tab("Data")
+    add_level_map(app, "first")
+    add_level_map(app, "second")
+    app.add_map("Concat", "Log", "Log")
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("First input label").fill("first")
+    card.get_by_placeholder("Second input label").fill("second")
+    expect(card.get_by_role("button", name="Weakest level")).to_have_count(2)
+    choose_weakest(card, "ERROR")
+    card.get_by_placeholder("Output label").fill("joined")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('[info] a\\n')")
+    app.page.wait_for_timeout(500)
+    assert "joined" not in app.data_rows()
+    app.mock("receive('[error] b\\n')")
+    wait_for_latest(app, "joined", "ERROR bb")
+
+
+def test_decode_preset_is_as_the_initial_one(app: App):
+    app.tab("Data")
+    item = match_item(app, "Log", "Decode")
+    item.hover()
+    expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
+        ["[... level ...] message"]
+    )
+    item.get_by_role("menuitem").click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    initial = app.map_cards().first
+    initial.locator(".map-title").click()
+    for placeholder in ["Input label", "Text to be matched", "Output label"]:
+        expect(card.get_by_placeholder(placeholder)).to_have_value(
+            initial.get_by_placeholder(placeholder).input_value()
+        )

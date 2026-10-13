@@ -9,7 +9,9 @@ _DATA_ROWS = """() => {
     const table = [...document.querySelectorAll('.data-table')].find(t => t.offsetParent);
     if (!table) return {};
     return Object.fromEntries([...table.querySelectorAll('tbody tr.data-row')].map(row => {
-        const [label, ...cells] = [...row.children].slice(0, 4).map(c => c.textContent);
+        // The latest by its title: a log's level is a tag, there in words before it
+        const [label, ...cells] = [...row.children].slice(0, 4)
+            .map((c, i) => i === 2 ? c.title : c.textContent);
         return [label, cells];
     }));
 }"""
@@ -90,17 +92,20 @@ class App:
     def add_match_map(
         self,
         output: str = "Number",
-        source: str = "message",
+        source: str = "log",
         pattern: str = NAME_VALUE,
         target: str = "$1",
         replacement: str = "$2",
     ):
-        self.add_map("Match", "String", output)
+        self.add_map("Match", "Log", output)
         card = self.map_cards().last
         card.get_by_placeholder("Input label").fill(source)
         card.get_by_placeholder("Text to be matched").fill(pattern)
         card.get_by_placeholder("Output label").fill(target)
-        card.get_by_label("To", exact=True).fill(replacement)
+        # A log's value is its message (of no level, left empty)
+        card.get_by_label("Message" if output == "Log" else "To", exact=True).fill(
+            replacement
+        )
         card.get_by_role("switch").click()
 
     def map_cards(self):

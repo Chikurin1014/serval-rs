@@ -1,9 +1,8 @@
-use crate::data::{Log, Queue};
+use crate::data::{Log, LogLevel, Queue};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DataType {
     Number,
-    String,
     Bytes,
     Vector2d,
     Vector3d,
@@ -14,7 +13,6 @@ impl DataType {
     pub fn name(&self) -> &'static str {
         match self {
             DataType::Number => "Number",
-            DataType::String => "String",
             DataType::Bytes => "Bytes",
             DataType::Vector2d => "Vector2d",
             DataType::Vector3d => "Vector3d",
@@ -26,7 +24,6 @@ impl DataType {
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedData {
     Number(Queue<NumberData>),
-    String(Queue<StringData>),
     Bytes(Queue<ByteData>),
     Vector2d(Queue<Vector2dData>),
     Vector3d(Queue<Vector3dData>),
@@ -37,7 +34,6 @@ impl TypedData {
     pub fn data_type(&self) -> DataType {
         match self {
             TypedData::Number(_) => DataType::Number,
-            TypedData::String(_) => DataType::String,
             TypedData::Bytes(_) => DataType::Bytes,
             TypedData::Vector2d(_) => DataType::Vector2d,
             TypedData::Vector3d(_) => DataType::Vector3d,
@@ -49,7 +45,6 @@ impl TypedData {
     pub fn latest_timestamp(&self) -> Option<i64> {
         match self {
             TypedData::Number(queue) => queue.back().map(Data::timestamp),
-            TypedData::String(queue) => queue.back().map(Data::timestamp),
             TypedData::Bytes(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector2d(queue) => queue.back().map(Data::timestamp),
             TypedData::Vector3d(queue) => queue.back().map(Data::timestamp),
@@ -72,7 +67,6 @@ impl TypedData {
         }
         match self {
             TypedData::Number(queue) => newest(queue, count, |value| number_text(*value, numbers)),
-            TypedData::String(queue) => newest(queue, count, String::clone),
             TypedData::Bytes(queue) => newest(queue, count, |value| {
                 String::from_utf8_lossy(value).into_owned()
             }),
@@ -84,6 +78,44 @@ impl TypedData {
             }),
             TypedData::Log(queue) => newest(queue, count, Log::to_string),
         }
+    }
+}
+
+/// A value as it is shown: a log's level apart from its message, as a tag.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShownValue {
+    /// None but for a log.
+    pub level: LogLevel,
+    pub text: String,
+}
+
+impl TypedData {
+    /// As [`Self::newest_as_text`], a log's level apart.
+    pub fn newest_as_shown(&self, count: usize, numbers: NumberText) -> Vec<(i64, ShownValue)> {
+        if let TypedData::Log(queue) = self {
+            return queue
+                .iter()
+                .skip(queue.len().saturating_sub(count))
+                .map(|entry| {
+                    let log = entry.value();
+                    let shown = ShownValue {
+                        level: log.level(),
+                        text: log.message().to_string(),
+                    };
+                    (entry.timestamp(), shown)
+                })
+                .collect();
+        }
+        self.newest_as_text(count, numbers)
+            .into_iter()
+            .map(|(timestamp, text)| {
+                let shown = ShownValue {
+                    level: LogLevel::None,
+                    text,
+                };
+                (timestamp, shown)
+            })
+            .collect()
     }
 }
 
@@ -129,7 +161,6 @@ pub fn format_number(value: f64) -> String {
 }
 
 pub type NumberData = Data<f64>;
-pub type StringData = Data<String>;
 pub type ByteData = Data<Vec<u8>>;
 pub type Vector2dData = Data<Vector2d>;
 pub type Vector3dData = Data<Vector3d>;
@@ -301,7 +332,6 @@ macro_rules! data_entry {
 }
 
 data_entry!(NumberData, Number);
-data_entry!(StringData, String);
 data_entry!(ByteData, Bytes);
 data_entry!(Vector2dData, Vector2d);
 data_entry!(Vector3dData, Vector3d);
@@ -310,8 +340,8 @@ data_entry!(LogData, Log);
 #[cfg(test)]
 mod tests {
     use super::{
-        ByteData, DataEntry, DataType, LogData, NumberData, NumberText, StringData, TypedData,
-        Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,
+        ByteData, DataEntry, DataType, Log, LogData, NumberData, NumberText, TypedData, Vector2d,
+        Vector2dData, Vector3d, Vector3dData, format_number,
     };
 
     #[test]
@@ -331,22 +361,22 @@ mod tests {
     fn each_entry_type_has_its_own_queue() {
         let mut numbers: TypedData = NumberData::new(1, 1.5).into();
         assert_eq!(NumberData::queue(&numbers).map(Queue::len), Some(1));
-        assert!(StringData::queue(&numbers).is_none());
+        assert!(LogData::queue(&numbers).is_none());
         assert!(ByteData::queue(&numbers).is_none());
 
         NumberData::queue_mut(&mut numbers)
             .unwrap()
             .push(NumberData::new(2, 2.5));
         assert_eq!(NumberData::queue(&numbers).map(Queue::len), Some(2));
-        assert!(StringData::queue_mut(&mut numbers).is_none());
+        assert!(LogData::queue_mut(&mut numbers).is_none());
     }
 
     #[test]
     fn latest_timestamp_is_the_newest_entry() {
-        let mut strings: TypedData = StringData::new(10, "a".to_string()).into();
-        StringData::queue_mut(&mut strings)
+        let mut strings: TypedData = LogData::new(10, Log::text("a")).into();
+        LogData::queue_mut(&mut strings)
             .unwrap()
-            .push(StringData::new(20, "b".to_string()));
+            .push(LogData::new(20, Log::text("b")));
         assert_eq!(strings.latest_timestamp(), Some(20));
         assert_eq!(TypedData::Bytes(Queue::new()).latest_timestamp(), None);
     }

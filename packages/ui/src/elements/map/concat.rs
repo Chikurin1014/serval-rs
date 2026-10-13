@@ -3,13 +3,13 @@ use dioxus_icons::lucide;
 
 use super::field::{LabelField, TextField};
 use super::form_of;
-use super::map_list::STRINGS_LABELS_LIST_ID;
+use super::map_list::LOG_LABELS_LIST_ID;
 use crate::data::{Concat, ConcatSettings, DataType, MapKind};
 
 pub const CONCAT: MapKind = MapKind {
     name: "Concat",
-    from: &[DataType::String, DataType::String],
-    to: DataType::String,
+    from: &[DataType::Log, DataType::Log],
+    to: DataType::Log,
     create: || Box::new(Concat::new()),
     form: |settings| {
         form_of(
@@ -25,8 +25,12 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
     let ConcatSettings {
         first_label,
         second_label,
+        first_weakest_level,
+        second_weakest_level,
         to_label,
         separator,
+        level,
+        error,
     } = settings;
 
     rsx! {
@@ -36,13 +40,15 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: first_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "First input label",
+                    weakest_level: first_weakest_level,
                 }
                 LabelField {
                     value: second_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Second input label",
+                    weakest_level: second_weakest_level,
                 }
             }
             lucide::MoveRight { size: 20 }
@@ -50,10 +56,14 @@ pub fn ConcatForm(settings: ConcatSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: to_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Output label",
                 }
                 TextField { name: "Separator", value: separator, placeholder: "None" }
+                TextField { name: "Level", value: level, placeholder: "None", error }
+                if let Some(error) = error() {
+                    span { class: "field-error", "{error}" }
+                }
             }
         }
     }

@@ -5,8 +5,8 @@ use fancy_regex::Regex;
 
 use super::matching::{Matching, replacement_segments};
 use crate::data::{
-    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, Segment,
-    SourceCursor, StringData, keep_taken,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
+    MapRunner, Segment, SourceCursor, expand_levels, keep_taken,
 };
 use crate::helper::set_if_changed;
 
@@ -17,12 +17,14 @@ pub struct ReplaceSettings {
     pub pattern: Signal<String>,
     pub replacement: Signal<String>,
     pub pattern_error: Signal<Option<String>>,
+    /// The weakest level of the input taken: those weaker left out.
+    pub weakest_level: Signal<LogLevel>,
 }
 
-/// Replaces every match of a regex in each string.
+/// Replaces every match of a regex in each log message, its level kept.
 pub struct Replace {
     settings: ReplaceSettings,
-    taken: [String; 4],
+    taken: ([String; 4], LogLevel),
     matching: Option<Matching>,
     cursor: SourceCursor,
 }
@@ -36,6 +38,7 @@ impl Replace {
                 pattern: Signal::new(String::new()),
                 replacement: Signal::new(String::new()),
                 pattern_error: Signal::new(None),
+                weakest_level: Signal::new(LogLevel::None),
             },
             taken: Default::default(),
             matching: None,
@@ -62,11 +65,12 @@ impl MapRunner for Replace {
             pattern,
             replacement,
             mut pattern_error,
+            weakest_level,
         } = self.settings;
         let taken = [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
-        if keep_taken(&mut self.taken, taken) {
+        if keep_taken(&mut self.taken, (taken, *weakest_level.peek())) {
             self.cursor.reset();
-            self.matching = Matching::new(&self.taken, &mut pattern_error);
+            self.matching = Matching::new(&self.taken.0, &mut pattern_error);
         }
     }
 
@@ -78,20 +82,35 @@ impl MapRunner for Replace {
             replacement,
         } = self.matching.as_ref()?;
 
-        let read = self.cursor.new_entries::<StringData>(data, from)?;
-        let last = read.entries.last()?;
+        let weakest = self.taken.1;
+        let read = self.cursor.new_entries::<LogData>(data, from)?;
+        let entries: Vec<_> = read
+            .entries
+            .iter()
+            .filter(|entry| entry.value().level() <= weakest)
+            .collect();
+        let last = entries.last()?.value();
 
         let conversion = Conversion {
-            from: vec![ConversionInput::new(from, last.value().as_str())],
+            from: vec![ConversionInput::new(from, last.message())],
             to: vec![ConversionOutput::new(
                 vec![Segment::fixed(to)],
-                replaced_segments(regex, last.value(), replacement),
+                replaced_segments(
+                    regex,
+                    last.message(),
+                    &expand_levels(replacement, &[last.level()]),
+                ),
             )],
         };
         let mut failure = None;
-        for entry in &read.entries {
-            match regex.try_replacen(entry.value(), 0, replacement.as_str()) {
-                Ok(value) => data.push(to, StringData::new(timestamp, value.into_owned())),
+        for entry in entries {
+            let log = entry.value();
+            // Its level, where the replacement names it
+            let replacement = expand_levels(replacement, &[log.level()]);
+            match regex.try_replacen(log.message(), 0, replacement.as_str()) {
+                Ok(message) => {
+                    data.push(to, LogData::new(timestamp, Log::new(log.level(), message)))
+                }
                 Err(failed) => failure = Some(format!("Matching failed: {failed}")),
             }
         }

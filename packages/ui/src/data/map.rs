@@ -32,7 +32,7 @@ use crate::{
 pub use arithmetic::{Arithmetic, ArithmeticSettings, Operation};
 pub use calculus::{Calculus, CalculusMap, CalculusSettings, VectorCalculus};
 pub use compose::{Compose, ComposeSettings};
-pub use concat::{Concat, ConcatSettings};
+pub use concat::{Concat, ConcatSettings, MORE_LEVEL};
 pub(crate) use conversion::trim_segments;
 pub use conversion::{Conversion, ConversionInput, ConversionOutput, Segment};
 pub use decode::{Decode, DecodeSettings};

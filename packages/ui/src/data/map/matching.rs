@@ -5,14 +5,13 @@ use fancy_regex::{Captures, Regex};
 
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
-    MapRunner, NumberData, Segment, SourceCursor, StringData, Vector2d, Vector2dData, Vector3d,
-    Vector3dData, compile_for_map, format_number, keep_taken, trim_segments,
+    MapRunner, NumberData, Segment, SourceCursor, Vector2d, Vector2dData, Vector3d, Vector3dData,
+    compile_for_map, expand_levels, format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MatchOutput {
-    String,
     Number,
     Vector2d,
     Vector3d,
@@ -25,7 +24,7 @@ impl MatchOutput {
     /// message, or one.
     fn components(self) -> usize {
         match self {
-            MatchOutput::String | MatchOutput::Number => 1,
+            MatchOutput::Number => 1,
             MatchOutput::Vector2d | MatchOutput::Log => 2,
             MatchOutput::Vector3d => 3,
         }
@@ -35,22 +34,11 @@ impl MatchOutput {
         self,
         data: &mut DataContext,
         label: &str,
-        mut values: Vec<String>,
+        values: Vec<String>,
         timestamp: i64,
     ) -> Result<(), String> {
-        if self == MatchOutput::String {
-            let value = values.pop().unwrap_or_default();
-            data.push(label, StringData::new(timestamp, value));
-            return Ok(());
-        }
         if let (MatchOutput::Log, [level, message]) = (self, values.as_slice()) {
-            let level = level
-                .parse::<LogLevel>()
-                .map_err(|error| error.to_string())?;
-            data.push(
-                label,
-                LogData::new(timestamp, Log::new(level, message.as_str())),
-            );
+            data.push(label, LogData::new(timestamp, log_of(level, message)?));
             return Ok(());
         }
         let numbers = values
@@ -89,15 +77,18 @@ pub struct MatchSettings {
     pub z_replacement: Option<Signal<String>>,
     pub pattern_error: Signal<Option<String>>,
     pub replacement_error: Signal<Option<String>>,
+    /// The weakest level of the input taken: those weaker left out.
+    pub weakest_level: Signal<LogLevel>,
 }
 
-/// Converts each string matching a regex; the output label may use its groups.
+/// Converts each log message matching a regex; the output label may use its
+/// groups.
 pub struct Match {
     output: MatchOutput,
     settings: MatchSettings,
     /// The input and output labels, pattern and replacement; then a vector's y
-    /// (and z).
-    taken: ([String; 4], Vec<String>),
+    /// (and z); then the weakest level taken.
+    taken: ([String; 4], Vec<String>, LogLevel),
     matching: Option<Matching>,
     cursor: SourceCursor,
 }
@@ -173,6 +164,7 @@ impl Match {
                 z_replacement: component(2),
                 pattern_error: Signal::new(None),
                 replacement_error: Signal::new(None),
+                weakest_level: Signal::new(LogLevel::None),
             },
             taken: Default::default(),
             matching: None,
@@ -196,6 +188,7 @@ impl MapRunner for Match {
             z_replacement,
             mut pattern_error,
             mut replacement_error,
+            weakest_level,
         } = self.settings;
         let mut taken =
             [from_label, to_label, pattern, replacement].map(|text| text.peek().clone());
@@ -208,7 +201,7 @@ impl MapRunner for Match {
             .flatten()
             .map(|text| text.peek().clone())
             .collect();
-        if keep_taken(&mut self.taken, (taken, components)) {
+        if keep_taken(&mut self.taken, (taken, components, *weakest_level.peek())) {
             self.cursor.reset();
             self.matching = Matching::new(&self.taken.0, &mut pattern_error);
         }
@@ -227,12 +220,10 @@ impl MapRunner for Match {
             replacement,
         } = self.matching.as_ref()?;
         // The value, or a vector's components
-        let replacements: Vec<&str> = std::iter::once(replacement)
-            .chain(&self.taken.1)
-            .map(String::as_str)
-            .collect();
+        let templates: Vec<&String> = std::iter::once(replacement).chain(&self.taken.1).collect();
 
-        let entries = self.cursor.new_entries::<StringData>(data, from)?.entries;
+        let weakest = self.taken.2;
+        let entries = self.cursor.new_entries::<LogData>(data, from)?.entries;
         if entries.is_empty() {
             return None;
         }
@@ -241,7 +232,17 @@ impl MapRunner for Match {
         let mut failure = None;
         let mut latest = None;
         for entry in &entries {
-            let input = entry.value().as_str();
+            if entry.value().level() > weakest {
+                continue;
+            }
+            let input = entry.value().message();
+            // Its level, where the templates name it
+            let levels = [entry.value().level()];
+            let to = expand_levels(to, &levels);
+            let replacements: Vec<String> = templates
+                .iter()
+                .map(|template| expand_levels(template, &levels))
+                .collect();
             let captures = match regex.captures(input) {
                 Ok(Some(captures)) => captures,
                 Ok(None) => continue,
@@ -250,7 +251,7 @@ impl MapRunner for Match {
                     continue;
                 }
             };
-            let label = text(&label_segments(&captures, to));
+            let label = text(&label_segments(&captures, &to));
             if label.is_empty() {
                 continue;
             }
@@ -262,17 +263,16 @@ impl MapRunner for Match {
                 .output
                 .push_to_data_context(data, &label, values, timestamp)
             {
-                Ok(()) => latest = Some((input, captures)),
+                Ok(()) => latest = Some((input, captures, to, replacements)),
                 Err(message) => error = Some(message),
             }
         }
         set_if_changed(&mut pattern_error, failure);
         set_if_changed(&mut replacement_error, error);
 
-        let (input, captures) = latest?;
+        let (input, captures, to, replacements) = latest?;
         let to_value = match self.output {
-            MatchOutput::String => replacement_segments(&captures, replacement),
-            MatchOutput::Number => number_segments(&captures, replacement),
+            MatchOutput::Number => number_segments(&captures, &replacements[0]),
             MatchOutput::Vector2d | MatchOutput::Vector3d => {
                 let mut segments = vec![Segment::fixed("(")];
                 for (index, replacement) in replacements.iter().enumerate() {
@@ -284,28 +284,52 @@ impl MapRunner for Match {
                 segments.push(Segment::fixed(")"));
                 segments
             }
-            // As `Log` shows: `[ERROR] message`, its level as the device wrote it
-            MatchOutput::Log => {
-                let mut segments = vec![Segment::fixed("[")];
-                segments.extend(replacement_segments(&captures, replacements[0]));
-                segments.push(Segment::fixed("] "));
-                if let Some(message) = replacements.get(1) {
-                    segments.extend(replacement_segments(&captures, message));
-                }
-                segments
-            }
+            MatchOutput::Log => log_segments(
+                &captures,
+                &replacements[0],
+                replacements.get(1).map_or("", String::as_str),
+            ),
         };
         Some(Conversion {
             from: vec![ConversionInput::new(from, input)],
             to: vec![ConversionOutput::new(
-                label_segments(&captures, to),
+                label_segments(&captures, &to),
                 to_value,
             )],
         })
     }
 }
 
-fn text(segments: &[Segment]) -> String {
+/// A log of `level` (a level's name, or nothing for None) and `message`.
+pub(super) fn log_of(level: &str, message: &str) -> Result<Log, String> {
+    let level = level
+        .parse::<LogLevel>()
+        .map_err(|error| error.to_string())?;
+    Ok(Log::new(level, message))
+}
+
+/// A log as it is shown: its level as a tag before its message; the message
+/// alone, with no level.
+pub(super) fn log_segments(captures: &Captures<str>, level: &str, message: &str) -> Vec<Segment> {
+    let message = replacement_segments(captures, message);
+    let level_segments = replacement_segments(captures, level);
+    let from_input = level_segments.iter().any(|segment| segment.from_input);
+    let mut segments = match text(&level_segments).parse::<LogLevel>() {
+        Ok(LogLevel::None) => return message,
+        Ok(name) => vec![Segment::level(name, from_input)],
+        // Not a level: as it is, with the error beside the form
+        Err(_) => {
+            let mut segments = vec![Segment::fixed("[")];
+            segments.extend(level_segments);
+            segments.push(Segment::fixed("] "));
+            segments
+        }
+    };
+    segments.extend(message);
+    segments
+}
+
+pub(super) fn text(segments: &[Segment]) -> String {
     segments
         .iter()
         .map(|segment| segment.text.as_str())
@@ -336,7 +360,7 @@ pub(super) fn expand(captures: &Captures<str>, replacement: &str) -> String {
     value
 }
 
-fn label_segments(captures: &Captures<str>, template: &str) -> Vec<Segment> {
+pub(super) fn label_segments(captures: &Captures<str>, template: &str) -> Vec<Segment> {
     trim_segments(replacement_segments(captures, template))
 }
 

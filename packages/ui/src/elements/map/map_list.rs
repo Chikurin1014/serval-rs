@@ -10,7 +10,7 @@ use crate::components::{
     switch::Switch,
 };
 use crate::data::{Conversion, DataContext, DataType, Map, MapContext, MapKind, Segment};
-use crate::elements::{HoverMenu, HoverMenus, submenu};
+use crate::elements::{HoverMenu, HoverMenus, LogLevelTag, submenu};
 use crate::helper::single_line;
 use dioxus_primitives::drag_and_drop_list::use_drag_and_drop_list_items;
 
@@ -21,19 +21,17 @@ const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
 pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
-pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
 pub(crate) const VECTOR2D_LABELS_LIST_ID: &str = "map-vector2d-labels";
 pub(crate) const VECTOR3D_LABELS_LIST_ID: &str = "map-vector3d-labels";
 pub(crate) const LOG_LABELS_LIST_ID: &str = "map-log-labels";
 
 /// The add menus, each of the maps to the types it names.
-const ADD_MENUS: [(&str, &[DataType]); 5] = [
+const ADD_MENUS: [(&str, &[DataType]); 4] = [
     ("Bytes", &[DataType::Bytes]),
     ("Number", &[DataType::Number]),
-    ("String", &[DataType::String]),
-    ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
     ("Log", &[DataType::Log]),
+    ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
 ];
 
 /// Lists the maps for editing; they run in `MapProvider` regardless.
@@ -51,7 +49,6 @@ pub fn MapList() -> Element {
     // Bumped to make the list anew with all the maps, as it left one out
     let generation = use_signal(|| 0_u32);
     let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
-    let strings_labels = use_memo(move || data_context.labels_of(DataType::String));
     let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let vector2d_labels = use_memo(move || data_context.labels_of(DataType::Vector2d));
     let vector3d_labels = use_memo(move || data_context.labels_of(DataType::Vector3d));
@@ -101,12 +98,6 @@ pub fn MapList() -> Element {
             datalist {
                 id: BYTES_LABELS_LIST_ID,
                 for label in bytes_labels() {
-                    option { value: "{label}" }
-                }
-            }
-            datalist {
-                id: STRINGS_LABELS_LIST_ID,
-                for label in strings_labels() {
                     option { value: "{label}" }
                 }
             }
@@ -612,10 +603,14 @@ fn LatestConversion(conversion: Conversion) -> Element {
 fn Segments(segments: Vec<Segment>) -> Element {
     rsx! {
         for segment in segments {
-            span {
-                class: "map-segment",
-                "data-from-input": segment.from_input,
-                {single_line(&segment.text)}
+            if let Some(level) = segment.level {
+                LogLevelTag { level }
+            } else {
+                span {
+                    class: "map-segment",
+                    "data-from-input": segment.from_input,
+                    {single_line(&segment.text)}
+                }
             }
         }
     }

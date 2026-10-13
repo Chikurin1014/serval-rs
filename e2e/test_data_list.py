@@ -50,7 +50,7 @@ def test_raw_bytes_are_hidden_by_default(app: App):
     app.tab("Data")
     expect(filter_tags(app)).to_have_text(["raw_bytes"])
     expect(filter_tags(app)).to_have_attribute("data-kind", "Hide")
-    app.wait_for_labels("message")
+    app.wait_for_labels("log")
     assert "raw_bytes" not in app.data_rows()
 
 
@@ -59,7 +59,7 @@ def test_shows_each_label_with_its_latest_value(app: App):
     app.tab("Data")
     remove_filter(app, "Hide", "raw_bytes")
     app.add_match_map()
-    app.wait_for_labels("raw_bytes", "message", "temp", "volt")
+    app.wait_for_labels("raw_bytes", "log", "temp", "volt")
     rows = app.data_rows()
     recent = app.page.evaluate(
         """[0, 1, 2, 3].map(s => {
@@ -71,11 +71,11 @@ def test_shows_each_label_with_its_latest_value(app: App):
 
     assert {label: row[0] for label, row in rows.items()} == {
         "raw_bytes": "Bytes",
-        "message": "String",
+        "log": "Log",
         "temp": "Number",
         "volt": "Number",
     }
-    assert re.fullmatch(r"(temp|volt):[\d.]+", rows["message"][1])
+    assert re.fullmatch(r"(temp|volt):[\d.]+", rows["log"][1])
     assert re.fullmatch(r"[\d.]+", rows["temp"][1])
     for label, (_, _, time) in rows.items():
         assert re.fullmatch(r"\d{2}:\d{2}:\d{2}\.\d{3}", time), f"{label} at {time}"
@@ -97,34 +97,34 @@ def test_deletes_a_label(app: App):
     ).click()
 
     expect(rows).to_have_count(2)
-    assert set(app.data_rows()) == {"message", "temp"}
+    assert set(app.data_rows()) == {"log", "temp"}
 
 
 def test_filters_show_the_labels_any_of_them_match(app: App):
     app.open_port()
     app.tab("Data")
     app.add_match_map()
-    app.wait_for_labels("message", "temp", "volt")
+    app.wait_for_labels("log", "temp", "volt")
 
     add_filter(app, "temp")
     expect(filter_tags(app)).to_have_text(["raw_bytes", "temp"])
     expect(app.page.get_by_placeholder("Label filter")).to_have_value("")
     wait_for_rows(app, "temp")
 
-    add_filter(app, "raw_.*|message", by_enter=True)
-    expect(filter_tags(app)).to_have_text(["raw_bytes", "temp", "raw_.*|message"])
-    wait_for_rows(app, "temp", "message")
+    add_filter(app, "raw_.*|log", by_enter=True)
+    expect(filter_tags(app)).to_have_text(["raw_bytes", "temp", "raw_.*|log"])
+    wait_for_rows(app, "temp", "log")
 
 
 def test_filters_match_whole_labels(app: App):
     app.open_port()
     app.tab("Data")
     app.add_match_map()
-    app.wait_for_labels("message", "temp", "volt")
-    add_filter(app, "e")
+    app.wait_for_labels("log", "temp", "volt")
+    add_filter(app, "o")
     wait_for_rows(app)
-    add_filter(app, ".*e.*")
-    wait_for_rows(app, "message", "temp")
+    add_filter(app, ".*o.*")
+    wait_for_rows(app, "log", "volt")
 
 
 def test_a_filter_is_removed_from_its_tag(app: App):
@@ -159,17 +159,17 @@ def test_hide_filters_hide_what_they_match(app: App):
     app.open_port()
     app.tab("Data")
     app.add_match_map()
-    app.wait_for_labels("message", "temp", "volt")
+    app.wait_for_labels("log", "temp", "volt")
 
-    add_filter(app, "message", kind="Hide")
+    add_filter(app, "log", kind="Hide")
     expect(filter_tags(app).last).to_have_attribute("data-kind", "Hide")
     wait_for_rows(app, "temp", "volt")
 
-    add_filter(app, "temp|message")
+    add_filter(app, "temp|log")
     wait_for_rows(app, "temp")
 
-    remove_filter(app, "Hide", "message")
-    wait_for_rows(app, "temp", "message")
+    remove_filter(app, "Hide", "log")
+    wait_for_rows(app, "temp", "log")
 
 
 def test_columns_and_rows_stay_put_as_values_change(app: App):
@@ -177,7 +177,7 @@ def test_columns_and_rows_stay_put_as_values_change(app: App):
     app.tab("Data")
     remove_filter(app, "Hide", "raw_bytes")
     app.add_match_map()
-    app.wait_for_labels("raw_bytes", "message", "temp", "volt")
+    app.wait_for_labels("raw_bytes", "log", "temp", "volt")
     layouts = set()
     for _ in range(20):
         layouts.add(
@@ -242,9 +242,9 @@ def test_a_row_opens_to_its_recent_values(app: App):
 def test_delete_button_shows_on_hover(app: App):
     app.open_port()
     app.tab("Data")
-    app.wait_for_labels("message")
+    app.wait_for_labels("log")
     row = app.page.locator(".data-table .data-row").filter(
-        has=app.page.locator("th", has_text=re.compile("^message$"))
+        has=app.page.locator("th", has_text=re.compile("^log$"))
     )
     delete = row.get_by_role("button", name="Delete label")
     app.page.mouse.move(0, 0)
@@ -260,7 +260,7 @@ def test_exports_the_data_shown_as_csv(app: App):
     app.open_port()
     app.tab("Data")
     app.add_match_map()
-    app.wait_for_labels("message", "temp", "volt")
+    app.wait_for_labels("log", "temp", "volt")
     add_filter(app, "temp|volt")
     wait_for_rows(app, "temp", "volt")
 

@@ -79,3 +79,87 @@
   font-weight: 700;
   text-align: center;
 }
+
+/* The weakest level a map takes of an input, at the end of its label field:
+   its chosen one; the others side by side under it, as the pointer is over
+   it */
+.field-level {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: stretch;
+  margin-right: -0.5rem;
+}
+
+.field-level .field-level-popover {
+  height: 100%;
+}
+
+.field-level .field-level-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 100%;
+  padding: 0 0.4rem;
+  border: none;
+  border-left: 1px solid var(--dc-border);
+  border-radius: 0;
+  background: none;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.field-level .field-level-trigger:disabled {
+  cursor: default;
+}
+
+/* Right under the trigger, so the pointer stays over it on the way */
+.field-level .field-level-popover .field-level-content {
+  min-width: 0;
+  margin-top: 0;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.field-level-choices {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.field-level-choice {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: none;
+  color: var(--dc-text);
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.field-level-choice:hover,
+.field-level-choice:focus-visible {
+  background: var(--dark, var(--primary-color-7)) var(--light, var(--primary-color-4));
+  outline: none;
+}
+
+/* No margin after the tag: nothing follows it */
+.field-level .log-level-tag {
+  margin-right: 0;
+}
+
+.field-level-choice[aria-selected="true"] .log-level-tag,
+.field-level-choice[aria-selected="true"] .field-level-all {
+  box-shadow: inset 0 0 0 1px var(--log-level-color, var(--dc-text));
+}
+
+.field-level-all {
+  padding: 0 0.35em;
+  border-radius: 0.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}

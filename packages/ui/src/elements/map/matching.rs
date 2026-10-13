@@ -6,8 +6,7 @@ use std::any::Any;
 use super::field::{LabelField, TextField};
 use super::form_of;
 use super::map_list::{
-    LOG_LABELS_LIST_ID, NUMBERS_LABELS_LIST_ID, STRINGS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID,
-    VECTOR3D_LABELS_LIST_ID,
+    LOG_LABELS_LIST_ID, NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID,
 };
 use crate::data::{DataType, MapKind, MapPreset, MapRunner, Match, MatchOutput, MatchSettings};
 
@@ -41,21 +40,9 @@ pub const ANONYMOUS_LABEL: &str = "anonymous data";
 /// `name: value` with a number value, e.g. `temp: 20.5`.
 pub const NAME_COLON_NUMBER: &str = "({word}): ({number})";
 
-pub const MATCH_TO_STRING: MapKind = MapKind {
-    name: "Match",
-    from: &[DataType::String],
-    to: DataType::String,
-    create: || Box::new(Match::new(MatchOutput::String)),
-    form: |settings: &dyn Any| match_form(settings, STRINGS_LABELS_LIST_ID),
-    presets: &[
-        preset!("name: value", String, "({word}): (?!{number})(.+)"),
-        preset!("Arduino", String, "({word}):(?!{number})(.+)"),
-    ],
-};
-
 pub const MATCH_TO_NUMBER: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Number,
     create: || Box::new(Match::new(MatchOutput::Number)),
     form: |settings: &dyn Any| match_form(settings, NUMBERS_LABELS_LIST_ID),
@@ -103,7 +90,7 @@ pub const NAME_COLON_XYZ: &str = r"({word}):  \(({number}), ({number}), ({number
 /// A vector's components from the groups, e.g. `$2` and `$3`.
 pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Vector2d,
     create: || Box::new(Match::new(MatchOutput::Vector2d)),
     form: |settings: &dyn Any| match_form(settings, VECTOR2D_LABELS_LIST_ID),
@@ -116,7 +103,7 @@ pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
 
 pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Vector3d,
     create: || Box::new(Match::new(MatchOutput::Vector3d)),
     form: |settings: &dyn Any| match_form(settings, VECTOR3D_LABELS_LIST_ID),
@@ -133,17 +120,10 @@ pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
     ],
 };
 
-/// `[level] message` with a level in any case, e.g. `[warning] low`.
-pub const LEVEL_MESSAGE: &str = r"^\[({level})\] (.*)$";
-
-/// `env_logger`'s by default, e.g. `[2026-10-13T01:23:45Z WARN  app::sensor] low`:
-/// its target (`$2`) as the output label.
-pub const ENV_LOGGER: &str = r"^\[{word} +({level}) +({word})\] (.*)$";
-
 /// A log's level and message from the groups, e.g. `$1` and `$2`.
 pub const MATCH_TO_LOG: MapKind = MapKind {
     name: "Match",
-    from: &[DataType::String],
+    from: &[DataType::Log],
     to: DataType::Log,
     create: || Box::new(Match::new(MatchOutput::Log)),
     form: |settings: &dyn Any| {
@@ -157,11 +137,7 @@ pub const MATCH_TO_LOG: MapKind = MapKind {
             }
         })
     },
-    presets: &[
-        // No name to take the output label from
-        components_preset!("[level] message", Log, LEVEL_MESSAGE, "", ["$1", "$2"]),
-        components_preset!("env_logger", Log, ENV_LOGGER, "$2", ["$1", "$3"]),
-    ],
+    presets: &[],
 };
 
 fn match_form(settings: &dyn Any, output_list: &str) -> Element {
@@ -192,6 +168,7 @@ pub fn MatchForm(
         z_replacement,
         pattern_error,
         replacement_error,
+        weakest_level,
     } = settings;
     let name = |index: usize| {
         component_names
@@ -207,8 +184,9 @@ pub fn MatchForm(
                 class: "field-stack",
                 LabelField {
                     value: from_label,
-                    list: STRINGS_LABELS_LIST_ID,
+                    list: LOG_LABELS_LIST_ID,
                     placeholder: "Input label",
+                    weakest_level,
                 }
                 TextField {
                     name: "From",
@@ -247,9 +225,7 @@ pub fn MatchForm(
 mod tests {
     use crate::data::compile_pattern;
 
-    use super::{
-        MATCH_TO_LOG, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
-    };
+    use super::{MATCH_TO_NUMBER, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D};
 
     fn name_value(kind: &super::MapKind, preset: &str, input: &str) -> Option<(String, String)> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
@@ -307,23 +283,6 @@ mod tests {
         assert_eq!(value("temp: 20.5"), None);
     }
 
-    #[test]
-    fn string_presets_match_their_formats() {
-        let kind = &MATCH_TO_STRING;
-        assert_eq!(
-            name_value(kind, "name: value", "led: on"),
-            pair("led", "on")
-        );
-        assert_eq!(
-            name_value(kind, "Arduino", "mode:auto"),
-            pair("mode", "auto")
-        );
-        assert_eq!(
-            name_value(kind, "name: value", "[log] led: on"),
-            pair("led", "on")
-        );
-    }
-
     /// The groups of `preset`'s pattern in `input`, if it matches.
     fn groups(kind: &super::MapKind, preset: &str, input: &str) -> Option<Vec<String>> {
         let preset = kind.presets.iter().find(|p| p.name == preset).unwrap();
@@ -366,32 +325,5 @@ mod tests {
             groups(kind, "name: (x, y, z)", "acc:  (1, 2, 3)"),
             Some(vec!["acc".into(), "1".into(), "2".into(), "3".into()])
         );
-    }
-
-    #[test]
-    fn log_presets_match_their_formats() {
-        let kind = &MATCH_TO_LOG;
-        assert_eq!(
-            groups(
-                kind,
-                "env_logger",
-                "[2026-10-13T01:23:45Z WARN  app::sensor] low battery"
-            ),
-            Some(vec![
-                "WARN".into(),
-                "app::sensor".into(),
-                "low battery".into()
-            ])
-        );
-        assert_eq!(groups(kind, "env_logger", "[WARN] low battery"), None);
-        assert_eq!(
-            groups(kind, "[level] message", "[warning] disk full"),
-            Some(vec!["warning".into(), "disk full".into()])
-        );
-        assert_eq!(
-            groups(kind, "[level] message", "[Info] ready"),
-            Some(vec!["Info".into(), "ready".into()])
-        );
-        assert_eq!(groups(kind, "[level] message", "[1, 2] ready"), None);
     }
 }
