@@ -4,9 +4,9 @@ use dioxus::prelude::*;
 use fancy_regex::{Captures, Regex};
 
 use crate::data::{
-    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner, NumberData,
-    Segment, SourceCursor, StringData, Vector2d, Vector2dData, Vector3d, Vector3dData,
-    compile_for_map, format_number, keep_taken, trim_segments,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
+    MapRunner, NumberData, Segment, SourceCursor, StringData, Vector2d, Vector2dData, Vector3d,
+    Vector3dData, compile_for_map, format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
@@ -16,14 +16,17 @@ pub enum MatchOutput {
     Number,
     Vector2d,
     Vector3d,
+    /// Its level, then its message.
+    Log,
 }
 
 impl MatchOutput {
-    /// How many values it takes: a vector's components, or one.
+    /// How many values it takes: a vector's components, a log's level and
+    /// message, or one.
     fn components(self) -> usize {
         match self {
             MatchOutput::String | MatchOutput::Number => 1,
-            MatchOutput::Vector2d => 2,
+            MatchOutput::Vector2d | MatchOutput::Log => 2,
             MatchOutput::Vector3d => 3,
         }
     }
@@ -38,6 +41,16 @@ impl MatchOutput {
         if self == MatchOutput::String {
             let value = values.pop().unwrap_or_default();
             data.push(label, StringData::new(timestamp, value));
+            return Ok(());
+        }
+        if let (MatchOutput::Log, [level, message]) = (self, values.as_slice()) {
+            let level = level
+                .parse::<LogLevel>()
+                .map_err(|error| error.to_string())?;
+            data.push(
+                label,
+                LogData::new(timestamp, Log::new(level, message.as_str())),
+            );
             return Ok(());
         }
         let numbers = values
@@ -69,9 +82,9 @@ pub struct MatchSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
     pub pattern: Signal<String>,
-    /// The value; a vector's x.
+    /// The value; a vector's x; a log's level.
     pub replacement: Signal<String>,
-    /// A vector's y, and a 3D one's z.
+    /// A vector's y (or a log's message), and a 3D one's z.
     pub y_replacement: Option<Signal<String>>,
     pub z_replacement: Option<Signal<String>>,
     pub pattern_error: Signal<Option<String>>,
@@ -269,6 +282,16 @@ impl MapRunner for Match {
                     segments.extend(number_segments(&captures, replacement));
                 }
                 segments.push(Segment::fixed(")"));
+                segments
+            }
+            // As `Log` shows: `[ERROR] message`, its level as the device wrote it
+            MatchOutput::Log => {
+                let mut segments = vec![Segment::fixed("[")];
+                segments.extend(replacement_segments(&captures, replacements[0]));
+                segments.push(Segment::fixed("] "));
+                if let Some(message) = replacements.get(1) {
+                    segments.extend(replacement_segments(&captures, message));
+                }
                 segments
             }
         };

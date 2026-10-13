@@ -33,8 +33,8 @@ pub use encode::{ENCODE, EncodeForm};
 pub use magnitude::{MAGNITUDE_2D, MAGNITUDE_3D, MagnitudeForm};
 pub use map_list::MapList;
 pub use matching::{
-    ANONYMOUS_LABEL, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D, MATCH_TO_VECTOR3D,
-    NAME_COLON_NUMBER, NUMBER_ONLY,
+    ANONYMOUS_LABEL, MATCH_TO_LOG, MATCH_TO_NUMBER, MATCH_TO_STRING, MATCH_TO_VECTOR2D,
+    MATCH_TO_VECTOR3D, NAME_COLON_NUMBER, NUMBER_ONLY,
 };
 pub use replace::{REPLACE, ReplaceForm};
 
@@ -55,6 +55,7 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         MATCH_TO_STRING,
         MATCH_TO_VECTOR2D,
         MATCH_TO_VECTOR3D,
+        MATCH_TO_LOG,
         REPLACE,
         CONCAT,
         COMPOSE_2D,

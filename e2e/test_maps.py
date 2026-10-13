@@ -186,7 +186,7 @@ def test_add_menus_are_by_output_type(app: App):
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
     expect(bar.get_by_role("button")).to_have_text(
-        ["Bytes", "Number", "String", "Vector"]
+        ["Bytes", "Number", "String", "Vector", "Log"]
     )
 
 
@@ -1180,3 +1180,55 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
     app.page.wait_for_timeout(1000)
     z = float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])
     assert z > 0.5
+
+
+def add_log_preset(app: App, preset: str):
+    item = match_item(app, "Log")
+    item.hover()
+    item.get_by_role("menuitem", name=preset).click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("Input label").fill("message")
+    return card
+
+
+def test_match_reads_logs_of_env_logger(app: App):
+    app.tab("Data")
+    card = add_log_preset(app, "env_logger")
+    expect(card.get_by_label("Level", exact=True)).to_have_value("$1")
+    expect(card.get_by_label("Message", exact=True)).to_have_value("$3")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('[2026-10-13T01:23:45Z WARN  app::sensor] low battery\\n')")
+    # Its target as the label
+    app.wait_for_labels("app::sensor")
+    assert app.data_rows()["app::sensor"][:2] == ["Log", "[WARN] low battery"]
+    expect(card.locator(".map-latest-to")).to_contain_text("[WARN] low battery")
+
+
+def test_match_reads_logs_of_level_and_message(app: App):
+    app.tab("Data")
+    card = add_log_preset(app, "[level] message")
+    card.get_by_placeholder("Output label").fill("log")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('[warning] disk full\\n')")
+    wait_for_latest(app, "log", "[WARN] disk full")
+    assert app.data_rows()["log"][0] == "Log"
+
+
+def test_match_to_a_log_tells_a_level_it_does_not_know(app: App):
+    app.tab("Data")
+    match_item(app, "Log").click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_placeholder("Input label").fill("message")
+    card.get_by_placeholder("Text to be matched").fill(r"(\w+): (.*)")
+    card.get_by_placeholder("Output label").fill("log")
+    card.get_by_label("Level", exact=True).fill("$1")
+    card.get_by_label("Message", exact=True).fill("$2")
+    card.get_by_role("switch").click()
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('fatal: no sensor\\n')")
+    expect(card.locator(".field-error")).to_have_text("No log level 'fatal'")

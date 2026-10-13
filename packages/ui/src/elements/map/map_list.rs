@@ -25,13 +25,15 @@ pub(crate) const STRINGS_LABELS_LIST_ID: &str = "map-strings-labels";
 pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
 pub(crate) const VECTOR2D_LABELS_LIST_ID: &str = "map-vector2d-labels";
 pub(crate) const VECTOR3D_LABELS_LIST_ID: &str = "map-vector3d-labels";
+pub(crate) const LOG_LABELS_LIST_ID: &str = "map-log-labels";
 
 /// The add menus, each of the maps to the types it names.
-const ADD_MENUS: [(&str, &[DataType]); 4] = [
+const ADD_MENUS: [(&str, &[DataType]); 5] = [
     ("Bytes", &[DataType::Bytes]),
     ("Number", &[DataType::Number]),
     ("String", &[DataType::String]),
     ("Vector", &[DataType::Vector2d, DataType::Vector3d]),
+    ("Log", &[DataType::Log]),
 ];
 
 /// Lists the maps for editing; they run in `MapProvider` regardless.
@@ -53,6 +55,7 @@ pub fn MapList() -> Element {
     let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let vector2d_labels = use_memo(move || data_context.labels_of(DataType::Vector2d));
     let vector3d_labels = use_memo(move || data_context.labels_of(DataType::Vector3d));
+    let log_labels = use_memo(move || data_context.labels_of(DataType::Log));
     // So the latest conversions and the add menus' arrows line up
     let columns = use_memo(move || {
         let kinds = context.kinds();
@@ -122,6 +125,12 @@ pub fn MapList() -> Element {
             datalist {
                 id: VECTOR3D_LABELS_LIST_ID,
                 for label in vector3d_labels() {
+                    option { value: "{label}" }
+                }
+            }
+            datalist {
+                id: LOG_LABELS_LIST_ID,
+                for label in log_labels() {
                     option { value: "{label}" }
                 }
             }
