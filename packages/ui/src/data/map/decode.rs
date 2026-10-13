@@ -8,7 +8,7 @@ use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
     MapRunner, SourceCursor, compile_for_map, keep_taken,
 };
-use crate::helper::{AnsiStripper, Delimiter, decode_utf8, set_if_changed, split_lines};
+use crate::helper::{AnsiStripper, Delimiter, decode_utf8, hex, set_if_changed, split_lines};
 
 /// What matches a whole line, for its message.
 pub const WHOLE_LINE: &str = ".*";
@@ -190,9 +190,10 @@ impl MapRunner for Decode {
 
         let (line, delimiter, captures) = latest?;
         Some(Conversion {
+            // Bytes in hex, as they are shown
             from: vec![ConversionInput::new(
                 from,
-                format!("{line}{}", delimiter.text()),
+                hex(format!("{line}{}", delimiter.text()).as_bytes()),
             )],
             to: vec![ConversionOutput::new(
                 label_segments(&captures, to),

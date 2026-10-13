@@ -156,6 +156,11 @@
   text-overflow: ellipsis;
 }
 
+/* Each value 30 characters or so at most: the rest cut off */
+.map-latest-value {
+  max-width: 30ch;
+}
+
 .map-latest-label {
   font-weight: 600;
 }

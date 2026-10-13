@@ -76,6 +76,8 @@ def test_shows_each_label_with_its_latest_value(app: App):
         "volt": "Number",
     }
     assert re.fullmatch(r"(temp|volt):[\d.]+", rows["log"][1])
+    # Bytes in hex
+    assert re.fullmatch(r"[0-9A-F]{2}( [0-9A-F]{2})*", rows["raw_bytes"][1])
     assert re.fullmatch(r"[\d.]+", rows["temp"][1])
     for label, (_, _, time) in rows.items():
         assert re.fullmatch(r"\d{2}:\d{2}:\d{2}\.\d{3}", time), f"{label} at {time}"

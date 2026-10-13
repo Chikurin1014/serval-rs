@@ -6,6 +6,7 @@ use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
     LogLevel, MapRunner, Segment, SourceCursor, keep_taken,
 };
+use crate::helper::hex;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct EncodeSettings {
@@ -73,7 +74,8 @@ impl MapRunner for Encode {
             from: vec![ConversionInput::new(from, last)],
             to: vec![ConversionOutput::new(
                 vec![Segment::fixed(to)],
-                vec![Segment::from_input(last)],
+                // Bytes in hex, as they are shown
+                vec![Segment::from_input(hex(last.as_bytes()))],
             )],
         };
         for message in messages {

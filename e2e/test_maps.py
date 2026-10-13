@@ -299,7 +299,12 @@ def test_encode_turns_strings_into_bytes(app: App):
     app.wait_for_labels("line_bytes")
     line = app.data_rows()["line_bytes"]
     assert line[0] == "Bytes"
-    assert re.fullmatch(r"(temp|volt):[\d.]+", line[1])
+    # In hex: the text's bytes
+    assert re.fullmatch(r"[0-9A-F]{2}( [0-9A-F]{2})*", line[1])
+    assert re.fullmatch(r"(temp|volt):[\d.]+", bytes.fromhex(line[1]).decode())
+    expect(card.locator(".map-latest-to .map-latest-value")).to_have_text(
+        re.compile(r"^[0-9A-F]{2}( [0-9A-F]{2})*$")
+    )
 
 
 def test_cards_open_to_their_settings(app: App):
@@ -1233,6 +1238,10 @@ def test_initial_decode_reads_levels_and_messages(app: App):
     latest = card.locator(".map-latest-to")
     expect(latest.locator(".log-level-tag")).to_have_text("WARN")
     expect(latest).to_contain_text("disk full")
+    # The bytes it took, in hex
+    expect(card.locator(".map-latest-from .map-latest-value")).to_have_text(
+        " ".join(f"{byte:02X}" for byte in b"[warning] disk full\n")
+    )
     # As env_logger writes them too
     app.mock("receive('[2026-10-13T01:23:45Z INFO  app::sensor] ready\\n')")
     wait_for_latest(app, "log", "INFO ready")
@@ -1431,3 +1440,27 @@ def test_text_in_an_open_card_is_chosen_by_the_pointer(app: App):
     chosen = field.evaluate("f => f.value.slice(f.selectionStart, f.selectionEnd)")
     assert chosen == "hello world"
     assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
+
+
+def test_latest_values_are_cut_off_at_30_characters(app: App):
+    app.tab("Data")
+    card = app.map_cards().first
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('" + "x" * 80 + "\\n')")
+    value = card.locator(".map-latest-to .map-latest-value")
+    expect(value).to_contain_text("x" * 80)
+    # Shown up to 30 characters' width, its whole text kept
+    sizes = value.evaluate(
+        """v => {
+            const ch = document.createElement('span');
+            ch.style.font = getComputedStyle(v).font;
+            ch.textContent = '0'.repeat(30);
+            document.body.append(ch);
+            const width = ch.getBoundingClientRect().width;
+            ch.remove();
+            return [v.clientWidth, v.scrollWidth, width];
+        }"""
+    )
+    shown, whole, thirty = sizes
+    assert shown <= thirty + 1 and whole > shown
