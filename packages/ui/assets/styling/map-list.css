@@ -119,7 +119,8 @@
   white-space: nowrap;
 }
 
-.map-latest-from {
+.map-latest-from,
+.map-latest-to {
   display: grid;
   flex: 0 1 auto;
   grid-template-columns: auto minmax(0, auto);
@@ -256,6 +257,29 @@
   top: -0.25rem;
   left: 100%;
   padding-left: 0.25rem;
+}
+
+/* To the right of its item, unless it would go past the window (see
+   `SUBMENU_SIDE_JS`) */
+.add-map-presets[data-side="left"] {
+  right: 100%;
+  left: auto;
+  padding-right: 0.25rem;
+  padding-left: 0;
+}
+
+/* 2D, 3D and the like, each beside its item: their presets beside them */
+.add-map-variant {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+}
+
+.add-map-preset > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-right: -0.25rem;
+  color: var(--dc-text-muted);
 }
 
 .add-map-content [data-presets="true"]:hover > .add-map-presets,

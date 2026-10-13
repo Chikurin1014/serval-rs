@@ -2,8 +2,20 @@
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conversion {
     pub from: Vec<ConversionInput>,
-    pub to_label: Vec<Segment>,
-    pub to_value: Vec<Segment>,
+    /// Each label and value it gave: one, or one a component (as `Decompose`).
+    pub to: Vec<ConversionOutput>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConversionOutput {
+    pub label: Vec<Segment>,
+    pub value: Vec<Segment>,
+}
+
+impl ConversionOutput {
+    pub fn new(label: Vec<Segment>, value: Vec<Segment>) -> Self {
+        Self { label, value }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

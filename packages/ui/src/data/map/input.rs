@@ -1,4 +1,6 @@
-use crate::data::{Data, DataContext, DataEntry, SourceCursor};
+use crate::data::{
+    ConversionInput, Data, DataContext, DataEntry, DataType, SourceCursor, format_number,
+};
 
 /// `from` and `to`, trimmed, if both are set and differ.
 pub(crate) fn endpoints<'a>(from: &'a str, to: &'a str) -> Option<(&'a str, &'a str)> {
@@ -75,6 +77,34 @@ impl<T: Clone> Input<T> {
     }
 }
 
+/// Where a number a map takes comes from: a Number label, or a constant.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Operand {
+    Label(String),
+    Constant(f64),
+}
+
+impl Operand {
+    pub(crate) fn resolve(data: &DataContext, text: &str) -> Result<Self, String> {
+        let text = text.trim();
+        let is_label = data.data_type_of(text) == Some(DataType::Number);
+        if is_label {
+            Ok(Operand::Label(text.to_string()))
+        } else {
+            text.parse()
+                .map(Operand::Constant)
+                .map_err(|_| format!("No Number label or number '{text}'"))
+        }
+    }
+
+    pub(crate) fn input(&self, value: f64) -> ConversionInput {
+        match self {
+            Operand::Label(label) => ConversionInput::new(label.as_str(), format_number(value)),
+            Operand::Constant(_) => ConversionInput::new("", format_number(value)),
+        }
+    }
+}
+
 /// The newest values of both inputs, once each has one.
 pub(crate) fn take_newest_pair<A, B>(
     first: &mut Input<A>,
@@ -86,9 +116,20 @@ pub(crate) fn take_newest_pair<A, B>(
     first.newest.take().zip(second.newest.take())
 }
 
+/// The newest values of all `inputs`, once each has one.
+pub(crate) fn take_newest_all<'a, T: 'a>(
+    inputs: impl IntoIterator<Item = &'a mut Input<T>>,
+) -> Option<Vec<T>> {
+    let mut inputs: Vec<_> = inputs.into_iter().collect();
+    if inputs.is_empty() || inputs.iter().any(|input| input.newest.is_none()) {
+        return None;
+    }
+    inputs.iter_mut().map(|input| input.newest.take()).collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Input, endpoints, take_newest_pair};
+    use super::{Input, endpoints, take_newest_all, take_newest_pair};
 
     #[test]
     fn endpoints_are_set_and_apart() {
@@ -112,5 +153,19 @@ mod tests {
             Some((1.0, "a".to_string()))
         );
         assert_eq!(take_newest_pair(&mut first, &mut second), None);
+    }
+
+    #[test]
+    fn all_need_each_and_use_them_up() {
+        let mut inputs: [Input<f64>; 3] = Default::default();
+        inputs[0].newest = Some(1.0);
+        inputs[2].newest = Some(3.0);
+        assert_eq!(take_newest_all(&mut inputs), None);
+        assert_eq!(inputs[0].newest, Some(1.0));
+
+        inputs[1].newest = Some(2.0);
+        assert_eq!(take_newest_all(&mut inputs), Some(vec![1.0, 2.0, 3.0]));
+        assert_eq!(take_newest_all(&mut inputs), None);
+        assert_eq!(take_newest_all(&mut [] as &mut [Input<f64>]), None);
     }
 }

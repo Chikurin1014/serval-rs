@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    Conversion, ConversionInput, DataContext, Input, MapRunner, Segment, StringData, endpoints,
-    keep_taken, take_newest_pair,
+    Conversion, ConversionInput, ConversionOutput, DataContext, Input, MapRunner, Segment,
+    StringData, endpoints, keep_taken, take_newest_pair,
 };
 use crate::helper::unescape;
 
@@ -99,8 +99,10 @@ impl MapRunner for Concat {
                 ConversionInput::new(first, first_value.as_str()),
                 ConversionInput::new(second, second_value.as_str()),
             ],
-            to_label: vec![Segment::fixed(to)],
-            to_value: concat_segments(&first_value, separator, &second_value),
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                concat_segments(&first_value, separator, &second_value),
+            )],
         };
         let value = format!("{first_value}{separator}{second_value}");
         data.push(to, StringData::new(timestamp, value));

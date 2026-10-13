@@ -3,8 +3,8 @@ use std::any::Any;
 use dioxus::prelude::*;
 
 use crate::data::{
-    ByteData, Conversion, ConversionInput, DataContext, Endpoints, MapRunner, Segment,
-    SourceCursor, StringData, keep_taken,
+    ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, MapRunner,
+    Segment, SourceCursor, StringData, keep_taken,
 };
 use crate::helper::{AnsiStripper, Delimiter, decode_utf8, split_lines};
 
@@ -96,8 +96,10 @@ impl MapRunner for Decode {
                 from,
                 format!("{last}{}", delimiter.text()),
             )],
-            to_label: vec![Segment::fixed(to)],
-            to_value: vec![Segment::from_input(last.as_str())],
+            to: vec![ConversionOutput::new(
+                vec![Segment::fixed(to)],
+                vec![Segment::from_input(last.as_str())],
+            )],
         });
         for (line, _) in lines {
             data.push(to, StringData::new(timestamp, line));

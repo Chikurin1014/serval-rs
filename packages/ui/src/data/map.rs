@@ -3,13 +3,17 @@
 
 mod arithmetic;
 mod calculus;
+mod compose;
 mod concat;
 mod conversion;
 mod decode;
+mod decompose;
 mod encode;
 mod input;
+mod magnitude;
 mod matching;
 mod replace;
+mod vector_arithmetic;
 
 use std::{
     any::Any,
@@ -26,15 +30,19 @@ use crate::{
 };
 
 pub use arithmetic::{Arithmetic, ArithmeticSettings, Operation};
-pub use calculus::{Calculus, CalculusMap, CalculusSettings};
+pub use calculus::{Calculus, CalculusMap, CalculusSettings, VectorCalculus};
+pub use compose::{Compose, ComposeSettings};
 pub use concat::{Concat, ConcatSettings};
 pub(crate) use conversion::trim_segments;
-pub use conversion::{Conversion, ConversionInput, Segment};
+pub use conversion::{Conversion, ConversionInput, ConversionOutput, Segment};
 pub use decode::{Decode, DecodeSettings};
+pub use decompose::{Decompose, DecomposeSettings};
 pub use encode::{Encode, EncodeSettings};
-pub(crate) use input::{Endpoints, Input, endpoints, take_newest_pair};
+pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, take_newest_pair};
+pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
+pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOperation};
 
 /// The processing of one map. Its settings are signals made in its
 /// constructor, shared with its form.

@@ -3,9 +3,12 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::NUMBERS_LABELS_LIST_ID;
+use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
 use crate::{
-    data::{Arithmetic, ArithmeticSettings, DataType, MapKind, Operation},
+    data::{
+        Arithmetic, ArithmeticSettings, DataType, MapKind, MapRunner, Operation, Vector2d,
+        Vector3d, VectorArithmetic, VectorArithmeticSettings, VectorOperation,
+    },
     elements::Formula,
 };
 
@@ -80,6 +83,179 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                 LabelField {
                     value: to_label,
                     list: NUMBERS_LABELS_LIST_ID,
+                    placeholder: "Output label",
+                }
+            }
+        }
+    }
+}
+
+/// A vector map of `operation` on `$from` (vectors of `$vector`, or a number
+/// and one).
+macro_rules! vector_kind {
+    ($name:literal, $operation:ident, $vector:ident, [$first:ident, $second:ident], $list:expr) => {
+        vector_kind!($name, $operation, $vector, [$first, $second] -> $vector, $list, $list)
+    };
+    (
+        $name:literal,
+        $operation:ident,
+        $vector:ident,
+        [$first:ident, $second:ident] -> $to:ident,
+        $list:expr,
+        $output_list:expr
+    ) => {
+        MapKind {
+            name: $name,
+            from: &[DataType::$first, DataType::$second],
+            to: DataType::$to,
+            create: || -> Box<dyn MapRunner> {
+                Box::new(VectorArithmetic::<$vector>::new(
+                    VectorOperation::$operation,
+                ))
+            },
+            form: |settings| {
+                form_of(settings, |settings: VectorArithmeticSettings| {
+                    rsx! {
+                        VectorArithmeticForm {
+                            settings,
+                            vector_list: $list.to_string(),
+                            output_list: $output_list.to_string(),
+                        }
+                    }
+                })
+            },
+            presets: &[],
+        }
+    };
+}
+
+pub const ADD_2D: MapKind = vector_kind!(
+    "Add",
+    Add,
+    Vector2d,
+    [Vector2d, Vector2d],
+    VECTOR2D_LABELS_LIST_ID
+);
+pub const ADD_3D: MapKind = vector_kind!(
+    "Add",
+    Add,
+    Vector3d,
+    [Vector3d, Vector3d],
+    VECTOR3D_LABELS_LIST_ID
+);
+pub const SUBTRACT_2D: MapKind = vector_kind!(
+    "Subtract",
+    Subtract,
+    Vector2d,
+    [Vector2d, Vector2d],
+    VECTOR2D_LABELS_LIST_ID
+);
+pub const SUBTRACT_3D: MapKind = vector_kind!(
+    "Subtract",
+    Subtract,
+    Vector3d,
+    [Vector3d, Vector3d],
+    VECTOR3D_LABELS_LIST_ID
+);
+/// A number times a vector, the number first.
+pub const MULTIPLY_2D: MapKind = vector_kind!(
+    "Multiply",
+    Multiply,
+    Vector2d,
+    [Number, Vector2d],
+    VECTOR2D_LABELS_LIST_ID
+);
+pub const MULTIPLY_3D: MapKind = vector_kind!(
+    "Multiply",
+    Multiply,
+    Vector3d,
+    [Number, Vector3d],
+    VECTOR3D_LABELS_LIST_ID
+);
+/// Of 3D vectors, a 3D vector.
+pub const CROSS_3D: MapKind = vector_kind!(
+    "Cross",
+    Cross,
+    Vector3d,
+    [Vector3d, Vector3d],
+    VECTOR3D_LABELS_LIST_ID
+);
+/// A number, of vectors of either dimensions.
+pub const DOT_2D: MapKind = vector_kind!(
+    "Dot",
+    Dot,
+    Vector2d,
+    [Vector2d, Vector2d] -> Number,
+    VECTOR2D_LABELS_LIST_ID,
+    NUMBERS_LABELS_LIST_ID
+);
+pub const DOT_3D: MapKind = vector_kind!(
+    "Dot",
+    Dot,
+    Vector3d,
+    [Vector3d, Vector3d] -> Number,
+    VECTOR3D_LABELS_LIST_ID,
+    NUMBERS_LABELS_LIST_ID
+);
+/// Of 2D vectors, a number: the z of theirs as 3D ones.
+pub const CROSS_2D: MapKind = vector_kind!(
+    "Cross",
+    Cross,
+    Vector2d,
+    [Vector2d, Vector2d] -> Number,
+    VECTOR2D_LABELS_LIST_ID,
+    NUMBERS_LABELS_LIST_ID
+);
+
+/// As [`ArithmeticForm`], on vectors: `a` and `b` both, or `a` a number to
+/// multiply `b` by; their labels in the `datalist` `vector_list`.
+#[component]
+pub fn VectorArithmeticForm(
+    settings: VectorArithmeticSettings,
+    vector_list: String,
+    output_list: String,
+) -> Element {
+    let VectorArithmeticSettings {
+        operation,
+        first,
+        second,
+        to_label,
+        error,
+    } = settings;
+    let by_number = operation == VectorOperation::Multiply;
+
+    rsx! {
+        div {
+            class: "map-form",
+            Formula {
+                class: "map-formula",
+                latex: operation.latex().to_string(),
+                fallback: format!("a {} b", operation.symbol()),
+            }
+            div {
+                class: "map-row",
+                div {
+                    class: "field-stack",
+                    LabelField {
+                        name: "a",
+                        value: first,
+                        list: if by_number { NUMBERS_LABELS_LIST_ID.to_string() } else { vector_list.clone() },
+                        placeholder: if by_number { "Label or number" } else { "Label or vector" },
+                    }
+                    LabelField {
+                        name: "b",
+                        value: second,
+                        list: vector_list.clone(),
+                        placeholder: "Label or vector",
+                    }
+                    if let Some(error) = error() {
+                        span { class: "field-error", "{error}" }
+                    }
+                }
+                lucide::MoveRight { size: 20 }
+                LabelField {
+                    value: to_label,
+                    list: output_list,
                     placeholder: "Output label",
                 }
             }
