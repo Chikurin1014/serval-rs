@@ -127,7 +127,12 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use crate::data::compile_pattern;
+    use dioxus::prelude::*;
+
+    use crate::{
+        data::{ByteData, Decode, DecodeSettings, compile_pattern, testing::Maps},
+        helper::Delimiter,
+    };
 
     use super::{DECODE, LOG_LINE};
 
@@ -165,5 +170,40 @@ mod tests {
         assert_eq!(log("temp:20.5"), log_of("", "temp:20.5"));
         assert_eq!(log("[1, 2] ready"), log_of("", "[1, 2] ready"));
         assert_eq!(log(""), log_of("", ""));
+    }
+
+    fn bytes(bytes: &[u8]) -> impl FnOnce(i64) -> ByteData {
+        let bytes = bytes.to_vec();
+        move |timestamp| ByteData::new(timestamp, bytes)
+    }
+
+    #[test]
+    fn lines_are_logs_without_escape_sequences() {
+        let mut maps = Maps::new();
+        maps.add(
+            || Decode::with("raw", LOG_LINE, "log", "$1", "$2"),
+            |_: DecodeSettings| {},
+        );
+        maps.push("raw", bytes(b"\x1b[1;31m-1.5e2\x1b[0m\x1b[K\n[warn"));
+        maps.push("raw", bytes(b"ing] disk full\r\n"));
+        maps.push(
+            "raw",
+            bytes(b"[2026-10-13T01:23:45Z INFO  app::sensor] ready\n"),
+        );
+        assert_eq!(
+            maps.values("log"),
+            ["-1.5e2", "[WARN] disk full", "[INFO] ready"]
+        );
+    }
+
+    #[test]
+    fn lines_end_at_the_chosen_delimiters_alone() {
+        let mut maps = Maps::new();
+        maps.add(
+            || Decode::new("raw", "line"),
+            |mut settings: DecodeSettings| settings.delimiters.set(vec![Delimiter::Cr]),
+        );
+        maps.push("raw", bytes(b"x1\ry2\r"));
+        assert_eq!(maps.values("line"), ["x1", "y2"]);
     }
 }

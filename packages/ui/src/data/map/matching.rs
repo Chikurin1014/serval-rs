@@ -409,10 +409,16 @@ fn group_reference_end(text: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use dioxus::prelude::*;
     use fancy_regex::Regex;
 
-    use super::{expand, label_segments, replacement_segments, text};
-    use crate::data::Segment;
+    use super::{
+        Match, MatchOutput, MatchSettings, expand, label_segments, replacement_segments, text,
+    };
+    use crate::data::{
+        LogLevel, Segment,
+        map::testing::{Maps, log},
+    };
 
     fn expand_first(pattern: &str, input: &str, replacement: &str) -> String {
         let regex = Regex::new(pattern).unwrap();
@@ -504,5 +510,81 @@ mod tests {
                 Segment::from_input("on"),
             ]
         );
+    }
+
+    #[test]
+    fn an_invalid_pattern_is_an_error() {
+        let mut maps = Maps::new();
+        let settings: MatchSettings = maps.add(
+            || Match::with(MatchOutput::Number, "log", "(", "out", "$0"),
+            |_| {},
+        );
+        assert!(
+            maps.read(settings.pattern_error)
+                .is_some_and(|error| error.contains("Invalid regex"))
+        );
+    }
+
+    #[test]
+    fn a_level_it_does_not_know_is_an_error() {
+        let mut maps = Maps::new();
+        let settings: MatchSettings = maps.add(
+            || {
+                Match::with_components(
+                    MatchOutput::Log,
+                    "log",
+                    r"(\w+): (.*)",
+                    "out",
+                    &["$1", "$2"],
+                )
+            },
+            |_| {},
+        );
+        maps.push("log", log(LogLevel::None, "fatal: no sensor"));
+        assert_eq!(
+            maps.read(settings.replacement_error).as_deref(),
+            Some("No log level 'fatal'")
+        );
+        assert!(maps.values("out").is_empty());
+    }
+
+    #[test]
+    fn templates_name_the_level_of_the_input() {
+        let mut maps = Maps::new();
+        maps.add(
+            || {
+                Match::with_components(
+                    MatchOutput::Log,
+                    "log",
+                    "disk (.*)",
+                    "kept_${level:0}",
+                    &["${level:0}", "${level:0}: $1"],
+                )
+            },
+            |_: MatchSettings| {},
+        );
+        maps.push("log", log(LogLevel::Error, "disk lost"));
+        assert_eq!(maps.values("kept_ERROR"), ["[ERROR] ERROR: lost"]);
+    }
+
+    #[test]
+    fn weaker_levels_are_left_out() {
+        let mut maps = Maps::new();
+        maps.add(
+            || {
+                Match::with(
+                    MatchOutput::Number,
+                    "log",
+                    "temp=({number})",
+                    "warned",
+                    "$1",
+                )
+            },
+            |mut settings: MatchSettings| settings.weakest_level.set(LogLevel::Warn),
+        );
+        maps.push("log", log(LogLevel::Error, "temp=1"));
+        maps.push("log", log(LogLevel::Info, "temp=2"));
+        maps.push("log", log(LogLevel::Warn, "temp=3"));
+        assert_eq!(maps.values("warned"), ["1.0000", "3.0000"]);
     }
 }

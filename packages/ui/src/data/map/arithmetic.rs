@@ -199,7 +199,10 @@ impl MapRunner for Arithmetic {
 
 #[cfg(test)]
 mod tests {
-    use super::Operation;
+    use dioxus::prelude::*;
+
+    use super::{Arithmetic, ArithmeticSettings, Operation};
+    use crate::data::map::testing::{Maps, number};
 
     #[test]
     fn operations_apply_in_order() {
@@ -212,5 +215,58 @@ mod tests {
     #[test]
     fn division_by_zero_is_an_error() {
         assert!(Operation::Divide.apply(1.0, 0.0).is_err());
+    }
+
+    fn arithmetic(
+        maps: &mut Maps,
+        operation: Operation,
+        [first, second, to]: [&str; 3],
+    ) -> ArithmeticSettings {
+        maps.add(
+            || Arithmetic::new(operation),
+            |mut settings: ArithmeticSettings| {
+                settings.first.set(first.to_string());
+                settings.second.set(second.to_string());
+                settings.to_label.set(to.to_string());
+            },
+        )
+    }
+
+    #[test]
+    fn a_constant_gives_a_result_for_each_number() {
+        let mut maps = Maps::new();
+        arithmetic(&mut maps, Operation::Multiply, ["temp", "2", "doubled"]);
+        maps.push("temp", number(1.5));
+        maps.push("temp", number(-3.0));
+        assert_eq!(maps.values("doubled"), ["3.0000", "-6.0000"]);
+    }
+
+    #[test]
+    fn a_label_wins_over_a_number() {
+        let mut maps = Maps::new();
+        maps.push("10", number(3.0));
+        arithmetic(&mut maps, Operation::Add, ["temp", "10", "sum"]);
+        maps.push("temp", number(2.0));
+        assert_eq!(maps.values("sum"), ["5.0000"]);
+    }
+
+    #[test]
+    fn what_cannot_be_computed_is_an_error() {
+        let mut maps = Maps::new();
+        let divided = arithmetic(&mut maps, Operation::Divide, ["1", "0", "quotient"]);
+        let unknown = arithmetic(
+            &mut maps,
+            Operation::Subtract,
+            ["nothing", "1", "difference"],
+        );
+        assert_eq!(
+            maps.read(divided.error).as_deref(),
+            Some("Division by zero")
+        );
+        assert_eq!(
+            maps.read(unknown.error).as_deref(),
+            Some("No Number label or number 'nothing'")
+        );
+        assert!(maps.values("quotient").is_empty());
     }
 }

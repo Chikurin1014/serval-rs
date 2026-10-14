@@ -136,10 +136,14 @@ fn replaced_segments(regex: &Regex, input: &str, replacement: &str) -> Vec<Segme
 
 #[cfg(test)]
 mod tests {
+    use dioxus::prelude::*;
     use fancy_regex::Regex;
 
-    use super::replaced_segments;
-    use crate::data::Segment;
+    use super::{Replace, ReplaceSettings, replaced_segments};
+    use crate::data::{
+        LogLevel, Segment,
+        map::testing::{Maps, log},
+    };
 
     #[test]
     fn replaced_segments_make_what_replace_all_makes() {
@@ -174,5 +178,18 @@ mod tests {
             replaced_segments(&regex, "abc", "y"),
             vec![Segment::from_input("abc")]
         );
+    }
+
+    #[test]
+    fn the_level_is_kept() {
+        let mut maps = Maps::new();
+        maps.add(Replace::new, |mut settings: ReplaceSettings| {
+            settings.from_label.set("log".to_string());
+            settings.pattern.set("disk".to_string());
+            settings.to_label.set("replaced".to_string());
+            settings.replacement.set("drive".to_string());
+        });
+        maps.push("log", log(LogLevel::Info, "disk full, disk lost"));
+        assert_eq!(maps.values("replaced"), ["[INFO] drive full, drive lost"]);
     }
 }

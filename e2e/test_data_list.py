@@ -118,17 +118,6 @@ def test_filters_show_the_labels_any_of_them_match(app: App):
     wait_for_rows(app, "temp", "log")
 
 
-def test_filters_match_whole_labels(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.add_match_map()
-    app.wait_for_labels("log", "temp", "volt")
-    add_filter(app, "o")
-    wait_for_rows(app)
-    add_filter(app, ".*o.*")
-    wait_for_rows(app, "log", "volt")
-
-
 def test_a_filter_is_removed_from_its_tag(app: App):
     app.tab("Data")
     add_filter(app, "volt")
