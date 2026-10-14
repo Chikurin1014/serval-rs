@@ -53,6 +53,15 @@ impl ReceivedHistory {
         }
     }
 
+    /// Forgets all the bytes kept. Its end moves on by a position no byte took,
+    /// so each reader finds what it read before gone: it starts over, from
+    /// nothing.
+    pub(crate) fn clear(&mut self) {
+        self.bytes.clear();
+        self.chunks.clear();
+        self.end += 1;
+    }
+
     fn start(&self) -> u64 {
         self.end - self.bytes.len() as u64
     }
@@ -91,6 +100,24 @@ impl ReceivedHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn readers_start_over_from_nothing_after_a_clear() {
+        let mut history = ReceivedHistory::default();
+        history.extend(&[chunk(1, b"ok\n")]);
+        let read = history.since(None);
+        history.clear();
+        let unread = history.since(Some(read.end));
+        assert!(unread.restarted);
+        assert!(unread.bytes.is_empty() && unread.times.is_empty());
+
+        // Then as before
+        history.extend(&[chunk(2, b"new")]);
+        let unread = history.since(Some(unread.end));
+        assert!(!unread.restarted);
+        assert_eq!(unread.bytes, b"new");
+        assert_eq!(unread.times, vec![(0, 2)]);
+    }
 
     fn chunk(time: i64, bytes: &[u8]) -> ByteData {
         ByteData::new(time, bytes.to_vec())

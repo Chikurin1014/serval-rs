@@ -323,3 +323,33 @@ def test_alt_enter_maximizes_the_console_and_back(app: App):
     app.page.keyboard.press("Alt+Enter")
     expect(console).to_have_attribute("data-maximized", "false")
     assert console.bounding_box() == before
+
+
+def test_clear_empties_the_console_but_not_the_data(app: App):
+    app.open_port()
+    app.wait_for_console_text()
+    app.mock("mute()")
+    clear = app.page.get_by_role("button", name="Clear the console")
+    # Right beside the view tabs
+    hex_tab = app.page.get_by_role("tab", name="HEX")
+    tab, button = hex_tab.bounding_box(), clear.bounding_box()
+    assert tab["x"] + tab["width"] <= button["x"] <= tab["x"] + tab["width"] + 16
+    clear.click()
+    app.page.wait_for_function(
+        """() => {
+            const buffer = document.querySelector('.console-output').xterm.buffer.active;
+            // As anew: its cursor back at the start, nothing above it
+            return buffer.baseY === 0 && buffer.cursorY === 0
+                && !buffer.getLine(0).translateToString(true);
+        }"""
+    )
+    assert all(not time for _, _, time in view_rows(app))
+    app.tab("Data")
+    assert "log" in app.data_rows()
+    app.tab("Console")
+
+    app.mock("receive('after\\n')")
+    app.page.wait_for_function(
+        "() => document.querySelector('.console-output').xterm.buffer.active.getLine(0)"
+        ".translateToString(true) === 'after'"
+    )

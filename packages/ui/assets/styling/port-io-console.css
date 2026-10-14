@@ -45,13 +45,18 @@
   pointer-events: none;
 }
 
-/* Text or hex: on the screen's top right, clear of the scrollbar, in its
-   colors */
-.console-views {
+/* Text or hex, and clearing it: on the screen's top right, clear of the
+   scrollbar, in its colors */
+.console-tools {
   position: absolute;
   z-index: 2;
   top: 0.5rem;
   right: 1.5rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.console-views {
   display: flex;
   padding: 2px;
   border-radius: 0.25rem;
@@ -81,6 +86,30 @@
   color: var(--dc-screen-text);
 }
 
+.console-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--dc-screen-text) 8%, var(--dc-screen));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--dc-screen-text) 20%, transparent);
+  color: color-mix(in oklab, var(--dc-screen-text) 60%, transparent);
+  cursor: pointer;
+}
+
+.console-clear:hover {
+  color: var(--dc-screen-text);
+}
+
+.console-clear svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.console-clear:focus-visible,
 .console-view:focus-visible {
   outline: 2px solid var(--focused-border-color);
   outline-offset: 1px;
