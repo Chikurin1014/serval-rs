@@ -27,7 +27,14 @@ def pytest_configure(config: pytest.Config):
     subprocess.run(
         ["dx", "build", "--platform", "web"],
         cwd=ROOT / "packages" / "web",
-        env={**os.environ, "CARGO_TARGET_DIR": str(target)},
+        env={
+            **os.environ,
+            "CARGO_TARGET_DIR": str(target),
+            # A tenth of the wasm with no debug info, and faster to run; still
+            # with its debug assertions (as `dx serve` builds)
+            "CARGO_PROFILE_WASM_DEV_OPT_LEVEL": "1",
+            "CARGO_PROFILE_WASM_DEV_DEBUG": "false",
+        },
         check=True,
     )
     os.environ["SERVAL_E2E_APP"] = str(target / "dx" / "web" / "debug" / "web" / "public")
