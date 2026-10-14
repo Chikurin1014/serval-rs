@@ -1,6 +1,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
+use dioxus_icons::lucide;
 
 use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
@@ -153,18 +154,30 @@ pub fn PortIoConsole() -> Element {
             div {
                 class: "console-screen",
                 div {
-                    class: "console-views",
-                    role: "tablist",
-                    aria_label: "Console view",
-                    for choice in ConsoleView::ALL {
-                        button {
-                            class: "console-view",
-                            r#type: "button",
-                            role: "tab",
-                            aria_selected: view() == choice,
-                            onclick: move |_| view.set(choice),
-                            "{choice.name()}"
+                    class: "console-tools",
+                    div {
+                        class: "console-views",
+                        role: "tablist",
+                        aria_label: "Console view",
+                        for choice in ConsoleView::ALL {
+                            button {
+                                class: "console-view",
+                                r#type: "button",
+                                role: "tab",
+                                aria_selected: view() == choice,
+                                onclick: move |_| view.set(choice),
+                                "{choice.name()}"
+                            }
                         }
+                    }
+                    // What was received, gone from the console (not from the data)
+                    button {
+                        class: "console-clear",
+                        r#type: "button",
+                        aria_label: "Clear the console",
+                        title: "Clear the console",
+                        onclick: move |_| serial.clear_history(),
+                        lucide::BrushCleaning {}
                     }
                 }
                 // When each line came, beside it: drawn by the terminal's script

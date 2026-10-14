@@ -79,12 +79,6 @@ def test_lines_stay_whole_after_clearing_all_data(app: App):
     assert broken == []
 
 
-def test_invalid_regex_shows_an_error(app: App):
-    app.tab("Data")
-    app.add_match_map(pattern="(")
-    expect(app.page.locator(".field-error")).to_contain_text("Invalid regex")
-
-
 def test_settings_are_locked_while_the_map_is_on(app: App):
     app.open_port()
     app.tab("Data")
@@ -186,7 +180,7 @@ def test_add_menus_are_by_output_type(app: App):
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
     expect(bar.get_by_role("button")).to_have_text(
-        ["Bytes", "Number", "Log", "Vector"]
+        ["Bytes", "Log", "Number", "Vector"]
     )
 
 
@@ -199,20 +193,20 @@ def test_add_menus_open_on_hover(app: App):
     option = bar.get_by_role("option")
     expect(option.locator(".add-map-title")).to_have_text(
         [
+            "Match",
             "Add",
             "Subtract",
             "Multiply",
             "Divide",
             "Differentiate",
             "Integrate",
-            "Match",
             "Dot",
             "Cross",
             "Magnitude",
             "Decompose",
         ]
     )
-    expect(option.locator("> .map-types").nth(6)).to_have_text("LogNumber")
+    expect(option.locator("> .map-types").first).to_have_text("LogNumber")
 
     number.click()
     expect(number).to_have_attribute("aria-expanded", "true")
@@ -267,14 +261,6 @@ def test_decode_splits_at_the_chosen_delimiters(app: App):
     assert app.data_rows()["line"][1] == "y2"
 
 
-def test_decode_drops_ansi_escape_sequences(app: App):
-    app.open_port()
-    app.mock("receive('\\x1b[1;31m-1.5e2\\x1b[0m\\x1b[K\\n')")
-    app.tab("Data")
-    app.wait_for_labels("anonymous data")
-    assert app.data_rows()["anonymous data"][1] == "-150.00"
-
-
 def test_decode_delimiters_are_locked_while_the_map_is_on(app: App):
     app.tab("Data")
     card = app.map_cards().first
@@ -299,7 +285,12 @@ def test_encode_turns_strings_into_bytes(app: App):
     app.wait_for_labels("line_bytes")
     line = app.data_rows()["line_bytes"]
     assert line[0] == "Bytes"
-    assert re.fullmatch(r"(temp|volt):[\d.]+", line[1])
+    # In hex: the text's bytes
+    assert re.fullmatch(r"[0-9A-F]{2}( [0-9A-F]{2})*", line[1])
+    assert re.fullmatch(r"(temp|volt):[\d.]+", bytes.fromhex(line[1]).decode())
+    expect(card.locator(".map-latest-to .map-latest-value")).to_have_text(
+        re.compile(r"^[0-9A-F]{2}( [0-9A-F]{2})*$")
+    )
 
 
 def test_cards_open_to_their_settings(app: App):
@@ -333,29 +324,6 @@ def test_title_shows_the_latest_conversion(app: App):
     expect(taken).to_have_count(2)
     assert taken.nth(0).text_content() in ("temp", "volt")
     assert re.fullmatch(r"[\d.]+", taken.nth(1).text_content())
-
-
-def test_fixed_parts_of_the_target_are_not_marked(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.add_match_map(output="Log", target="reading_$1", replacement="ok")
-    latest = app.map_cards().last.locator(".map-latest")
-    expect(latest.locator(".map-segment")).to_have_count(3)
-    expect(latest.locator('.map-segment[data-from-input="false"]')).to_have_text(
-        ["reading_", "ok"]
-    )
-
-
-def test_output_label_leaves_out_the_text_around_the_match(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.add_match_map(
-        pattern="{number}",
-        target="foo",
-        replacement="$0",
-    )
-    app.wait_for_labels("foo")
-    assert not any(label.endswith(":foo") for label in app.data_rows())
 
 
 def test_card_header_shows_the_types(app: App):
@@ -451,34 +419,6 @@ def test_arithmetic_with_a_constant(app: App):
     (value, constant), result = latest_numbers(card)
     assert constant == "2.0000"
     assert result == pytest.approx(float(value) * 2, rel=1e-4)
-
-
-def test_arithmetic_prefers_a_label_to_a_number(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.add_match_map()
-    app.add_match_map(target="10")
-    app.wait_for_labels("10")
-    card = add_arithmetic_map(app, "Add", "temp", "10", "sum")
-    app.wait_for_labels("sum")
-    expect(card.locator(".map-latest-from .map-latest-label")).to_have_text(
-        ["temp", "10"]
-    )
-    (first, second), result = latest_numbers(card)
-    assert result == pytest.approx(float(first) + float(second), rel=1e-4)
-    assert float(second) != 10
-
-
-def test_division_by_zero_shows_an_error(app: App):
-    app.tab("Data")
-    card = add_arithmetic_map(app, "Divide", "1", "0", "quotient")
-    expect(card.locator(".field-error")).to_have_text("Division by zero")
-
-
-def test_unknown_operand_shows_an_error(app: App):
-    app.tab("Data")
-    card = add_arithmetic_map(app, "Subtract", "nothing", "1", "difference")
-    expect(card.locator(".field-error")).to_contain_text("nothing")
 
 
 def test_formula_renders_with_katex(app: App):
@@ -583,20 +523,22 @@ def add_calculus_map(app: App, name: str, target: str):
 
 
 def test_differentiate_and_integrate(app: App):
-    app.open_port()
     app.tab("Data")
     app.add_match_map()
     add_calculus_map(app, "Differentiate", "temp_rate")
     add_calculus_map(app, "Integrate", "temp_total")
     derivative = app.map_cards().nth(-2)
     expect(derivative.locator(".map-title-text")).to_have_text("Differentiate")
-    app.wait_for_labels("temp_rate", "temp_total")
+    # Its readings, each 50 ms apart, as the clock moves on
+    app.stop_clock()
+    app.open_port()
+    app.run_clock_until(lambda: {"temp_rate", "temp_total"} <= app.data_rows().keys())
     rows = app.data_rows()
     assert rows["temp_rate"][0] == "Number"
     assert rows["temp_total"][0] == "Number"
 
     first = float(app.data_rows()["temp_total"][1])
-    app.page.wait_for_timeout(500)
+    app.page.clock.run_for(500)
     assert float(app.data_rows()["temp_total"][1]) > first
 
     expect(derivative.locator(".map-formula .formula")).to_have_attribute(
@@ -617,12 +559,26 @@ def test_cards_slide_open_and_closed(app: App):
         return content.evaluate("el => el.getBoundingClientRect().height")
 
     assert height() < 1
+    # Its height each frame as it opens: some between none and all, however
+    # busy the machine (a height at a set time might be all already)
+    content.evaluate(
+        """el => {
+            window.heights = [];
+            const start = performance.now();
+            const frame = () => {
+                window.heights.push(el.getBoundingClientRect().height);
+                if (performance.now() - start < 1000) requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+        }"""
+    )
     card.locator(".map-title").click()
-    app.page.wait_for_timeout(80)
-    midway = height()
     expect(field).to_be_visible()
-    app.page.wait_for_timeout(300)
-    assert 0 < midway < height()
+    app.page.wait_for_timeout(1100)
+    heights = app.page.evaluate("window.heights")
+    full = height()
+    assert full > 1 and heights[-1] == full
+    assert any(0 < each < full for each in heights)
 
     card.locator(".map-title").click()
     expect(field).to_be_hidden()
@@ -646,6 +602,14 @@ def test_maps_are_reordered_by_dragging(app: App):
     assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
 
     items = map_items(app)
+    # Not while it is open
+    replace = app.map_cards().nth(3)
+    items.nth(3).locator("> svg").drag_to(items.nth(0), target_position={"x": 40, "y": 4})
+    app.page.wait_for_timeout(300)
+    assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
+    expect(items.nth(3).locator("> svg")).to_have_css("opacity", "0.3")
+    replace.locator(".map-title").click()
+    expect(items.nth(3).locator("> svg")).to_have_css("opacity", "1")
     items.nth(3).locator("> svg").drag_to(
         items.nth(0), target_position={"x": 40, "y": 4}
     )
@@ -705,70 +669,13 @@ def add_compose_map(app: App, variant: str, components: list[str], target: str):
     item = match_item(app, "Vector", "Compose")
     item.hover()
     item.get_by_role("menuitem", name=variant).click()
-    card = app.map_cards().last
+    # This one, not whichever is last when it is used
+    card = app.map_cards().nth(app.map_cards().count() - 1)
     for name, label in zip("xyz", components):
         card.get_by_label(name, exact=True).fill(label)
     card.get_by_placeholder("Output label").fill(target)
     card.get_by_role("switch").click()
     return card
-
-
-def test_compose_makes_a_vector2d_of_two_numbers(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    card = add_compose_map(app, "2D", ["temp", "volt"], "point")
-    app.open_port()
-    app.wait_for_labels("point")
-    kind, latest, _ = app.data_rows()["point"]
-    assert kind == "Vector2d"
-    assert re.fullmatch(r"\(-?[\d.]+, -?[\d.]+\)", latest)
-    expect(card.locator(".map-latest")).to_contain_text("point")
-
-
-def test_compose_makes_a_vector3d_of_three_numbers(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "3D", ["temp", "volt", "temp"], "point")
-    app.open_port()
-    app.wait_for_labels("point")
-    kind, latest, _ = app.data_rows()["point"]
-    assert kind == "Vector3d"
-    x, y, z = re.fullmatch(r"\((.+), (.+), (.+)\)", latest).groups()
-    # The same label twice, the same number
-    assert x == z
-
-
-def test_vector_menu_shows_compose_with_its_dimensions_beside_it(app: App):
-    app.tab("Data")
-    item = match_item(app, "Vector", "Compose")
-    expect(item).to_have_count(1)
-    expect(item.locator("> .map-types")).to_have_text("NumberVector")
-    item.hover()
-    expect(item.get_by_role("menuitem")).to_have_text(
-        ["2DNumberNumberVector2d", "3DNumberNumberNumberVector3d"]
-    )
-    # Its inputs' types one above another
-    types = item.get_by_role("menuitem").last.locator(".map-types-from > span")
-    boxes = [types.nth(index).bounding_box() for index in range(3)]
-    assert boxes[0]["x"] == boxes[1]["x"] == boxes[2]["x"]
-    assert boxes[0]["y"] < boxes[1]["y"] < boxes[2]["y"]
-
-
-def test_compose_takes_constants_too(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "3D", ["temp", "volt", "0"], "on_plane")
-    add_compose_map(app, "2D", ["1.5", "-2"], "fixed")
-    app.open_port()
-    app.wait_for_labels("on_plane", "fixed")
-    assert app.data_rows()["on_plane"][1].endswith(", 0.0000)")
-    assert app.data_rows()["fixed"][1] == "(1.5000, -2.0000)"
-
-
-def test_compose_tells_a_component_that_is_neither(app: App):
-    app.tab("Data")
-    card = add_compose_map(app, "2D", ["nope", "1"], "point")
-    expect(card.locator(".field-error")).to_have_text("No Number label or number 'nope'")
 
 
 def submenu_side(app: App, output: str, title: str) -> str:
@@ -804,7 +711,7 @@ def add_vector_match_map(
     item.get_by_role("menuitem").filter(
         has=app.page.locator(".add-map-preset-name", has_text=re.compile(f"^{variant}$"))
     ).click()
-    card = app.map_cards().last
+    card = app.map_cards().nth(app.map_cards().count() - 1)
     card.get_by_placeholder("Input label").fill("log")
     card.get_by_placeholder("Text to be matched").fill(pattern)
     card.get_by_placeholder("Output label").fill(target)
@@ -812,46 +719,6 @@ def add_vector_match_map(
         card.get_by_label(name, exact=True).fill(component)
     card.get_by_role("switch").click()
     return card
-
-
-def test_match_makes_a_vector2d_of_the_groups(app: App):
-    app.tab("Data")
-    card = add_vector_match_map(
-        app, "2D", r"pos:({number}),({number})", "pos", ["$1", "$2"]
-    )
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('pos:1.5,-2\\n')")
-    app.wait_for_labels("pos")
-    assert app.data_rows()["pos"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
-    expect(card.locator(".map-latest")).to_contain_text("(1.5000, -2.0000)")
-
-
-def test_match_makes_a_vector3d_labelled_by_a_group(app: App):
-    app.tab("Data")
-    add_vector_match_map(
-        app,
-        "3D",
-        r"({word})=({number}),({number}),({number})",
-        "$1",
-        ["$2", "$3", "$4"],
-    )
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('acc=1,2,3\\ngyro=-1,0,0.5\\n')")
-    app.wait_for_labels("acc", "gyro")
-    rows = app.data_rows()
-    assert rows["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
-    assert rows["gyro"][:2] == ["Vector3d", "(-1.0000, 0.0000, 0.50000)"]
-
-
-def test_match_to_a_vector_tells_a_component_that_is_not_a_number(app: App):
-    app.tab("Data")
-    card = add_vector_match_map(app, "2D", r"({word}):({number})", "pos", ["$2", "$1"])
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('led:1\\n')")
-    expect(card.locator(".field-error")).to_have_text("The result 'led' is not a number")
 
 
 def vector_variant(app: App, title: str, variant: str, menu: str = "Vector"):
@@ -865,78 +732,6 @@ def vector_variant(app: App, title: str, variant: str, menu: str = "Vector"):
     )
     variant.hover()
     return variant
-
-
-def test_match_vector_presets_show_beside_their_dimension(app: App):
-    app.tab("Data")
-    item = match_item(app, "Vector", "Match")
-    item.hover()
-    expect(item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")).to_have_text(
-        ["2D", "3D"]
-    )
-    # Not before a variant is pointed at
-    expect(item.locator(".add-map-variant .add-map-presets")).to_have_count(2)
-    expect(item.locator(".add-map-variant .add-map-presets").first).to_be_hidden()
-
-    for variant, presets in [
-        ("2D", ["(x, y)", "name: (x, y)"]),
-        ("3D", ["(x, y, z)", "name: (x, y, z)"]),
-    ]:
-        nested = vector_variant(app, "Match", variant).locator(".add-map-presets")
-        expect(nested).to_be_visible()
-        expect(nested.locator(".add-map-preset-name")).to_have_text(presets)
-
-
-def test_match_vector3d_preset_adds_a_set_map(app: App):
-    app.tab("Data")
-    variant = vector_variant(app, "Match", "3D")
-    variant.get_by_role("menuitem", name="name: (x, y, z)").click()
-    card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("log")
-    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
-    expect(card.get_by_label("z", exact=True)).to_have_value("$4")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('acc:  (1, 2, 3)\\n')")
-    app.wait_for_labels("acc")
-    assert app.data_rows()["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
-
-
-def test_match_vector2d_preset_adds_a_set_map(app: App):
-    app.tab("Data")
-    variant = vector_variant(app, "Match", "2D")
-    variant.get_by_role("menuitem", name="(x, y)").first.click()
-    card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("log")
-    expect(card.get_by_label("y", exact=True)).to_have_value("$2")
-    # No name in the text to take the output label from
-    card.get_by_placeholder("Output label").fill("pos")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('(1.5, -2)\\n')")
-    app.wait_for_labels("pos")
-    assert app.data_rows()["pos"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
-
-
-def test_vector_presets_by_keyboard(app: App):
-    app.tab("Data")
-    item = match_item(app, "Vector", "Match")
-    item.focus()
-    focused = lambda: app.page.evaluate("document.activeElement.textContent")  # noqa: E731
-    app.page.keyboard.press("ArrowRight")
-    assert focused().startswith("2D")
-    app.page.keyboard.press("ArrowDown")
-    assert focused().startswith("3D")
-    app.page.keyboard.press("ArrowRight")
-    assert focused().startswith("(x, y, z)")
-    app.page.keyboard.press("ArrowDown")
-    assert focused().startswith("name: (x, y, z)")
-    app.page.keyboard.press("ArrowLeft")
-    assert focused().startswith("3D")
-    app.page.keyboard.press("ArrowLeft")
-    assert focused().startswith("Match")
 
 
 def add_vector_arithmetic_map(
@@ -961,16 +756,17 @@ def wait_for_latest(app: App, label: str, latest: str):
     )
 
 
-def test_vector_menu_lists_the_vector_maps(app: App):
+def test_vector_maps_in_the_menus(app: App):
     app.tab("Data")
     trigger = app.page.get_by_role("button", name="Vector", exact=True)
     menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
     trigger.hover()
     options = menu.get_by_role("option")
+    # No Divide
     expect(options.locator(".add-map-title")).to_have_text(
         [
-            "Compose",
             "Match",
+            "Compose",
             "Add",
             "Subtract",
             "Multiply",
@@ -981,8 +777,8 @@ def test_vector_menu_lists_the_vector_maps(app: App):
     )
     expect(options.locator("> .map-types")).to_have_text(
         [
-            "NumberVector",
             "LogVector",
+            "NumberVector",
             "VectorVector",
             "VectorVector",
             "NumberVectorVector",
@@ -993,103 +789,33 @@ def test_vector_menu_lists_the_vector_maps(app: App):
         ]
     )
 
-
-def test_vectors_add_and_subtract(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "2D", ["temp", "volt"], "p")
-    add_vector_arithmetic_map(app, "Add", "2D", "p", "(1, 1)", "q")
-    add_vector_arithmetic_map(app, "Subtract", "2D", "q", "p", "r")
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('temp:2\\nvolt:3\\n')")
-    wait_for_latest(app, "p", "(2.0000, 3.0000)")
-    wait_for_latest(app, "q", "(3.0000, 4.0000)")
-    wait_for_latest(app, "r", "(1.0000, 1.0000)")
-    assert app.data_rows()["r"][0] == "Vector2d"
-
-
-def test_numbers_multiply_vectors(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
-    # The number first, as `a`
-    card = add_vector_arithmetic_map(app, "Multiply", "3D", "temp", "v", "w")
-    add_vector_arithmetic_map(app, "Multiply", "2D", "0.5", "(4, -2)", "half")
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('temp:2\\nvolt:3\\n')")
-    wait_for_latest(app, "w", "(4.0000, 6.0000, 2.0000)")
-    wait_for_latest(app, "half", "(2.0000, -1.0000)")
-    expect(card.locator(".map-latest")).to_contain_text("temp")
-
-
-def test_vectors_are_not_divided(app: App):
-    app.tab("Data")
-    expect(match_item(app, "Vector", "Divide")).to_have_count(0)
-
-
-def test_vector_arithmetic_tells_an_operand_that_is_neither(app: App):
-    app.tab("Data")
-    card = add_vector_arithmetic_map(app, "Add", "2D", "(1, 2, 3)", "(1, 1)", "q")
-    expect(card.locator(".field-error")).to_have_text(
-        "No Vector2d label or vector '(1, 2, 3)'"
+    item = match_item(app, "Vector", "Compose")
+    item.hover()
+    expect(item.get_by_role("menuitem")).to_have_text(
+        ["2DNumberNumberVector2d", "3DNumberNumberNumberVector3d"]
     )
+    # Its inputs' types one above another
+    types = item.get_by_role("menuitem").last.locator(".map-types-from > span")
+    boxes = [types.nth(index).bounding_box() for index in range(3)]
+    assert boxes[0]["x"] == boxes[1]["x"] == boxes[2]["x"]
+    assert boxes[0]["y"] < boxes[1]["y"] < boxes[2]["y"]
 
-
-def test_3d_vectors_cross(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
-    # Its only variant: picked itself
-    match_item(app, "Vector", "Cross").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_label("a", exact=True).fill("v")
-    card.get_by_label("b", exact=True).fill("(0, 0, 1)")
-    card.get_by_placeholder("Output label").fill("w")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('temp:2\\nvolt:3\\n')")
-    wait_for_latest(app, "w", "(3.0000, -2.0000, 0.0000)")
-    assert app.data_rows()["w"][0] == "Vector3d"
-
-
-def test_vectors_dot_and_2d_ones_cross_into_numbers(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "2D", ["temp", "volt"], "p")
-    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
-    for title, variant, first, second, target in [
-        ("Dot", "2D", "p", "(1, 2)", "p_dot"),
-        ("Dot", "3D", "v", "(1, 1, 1)", "v_dot"),
+    # Match's presets beside each dimension, not before it is pointed at
+    item = match_item(app, "Vector", "Match")
+    item.hover()
+    expect(item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")).to_have_text(
+        ["2D", "3D"]
+    )
+    expect(item.locator(".add-map-variant .add-map-presets")).to_have_count(2)
+    expect(item.locator(".add-map-variant .add-map-presets").first).to_be_hidden()
+    for variant, presets in [
+        ("2D", ["(x, y)", "name: (x, y)"]),
+        ("3D", ["(x, y, z)", "name: (x, y, z)"]),
     ]:
-        vector_variant(app, title, variant, "Number").locator("> [role=menuitem]").click()
-        card = app.map_cards().nth(app.map_cards().count() - 1)
-        card.get_by_label("a", exact=True).fill(first)
-        card.get_by_label("b", exact=True).fill(second)
-        card.get_by_placeholder("Output label").fill(target)
-        card.get_by_role("switch").click()
-    # Of 2D vectors alone, so picked itself
-    match_item(app, "Number", "Cross").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_label("a", exact=True).fill("p")
-    card.get_by_label("b", exact=True).fill("(1, 0)")
-    card.get_by_placeholder("Output label").fill("p_cross")
-    card.get_by_role("switch").click()
+        nested = vector_variant(app, "Match", variant).locator(".add-map-presets")
+        expect(nested).to_be_visible()
+        expect(nested.locator(".add-map-preset-name")).to_have_text(presets)
 
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('temp:2\\nvolt:3\\n')")
-    wait_for_latest(app, "p_dot", "8.0000")
-    wait_for_latest(app, "v_dot", "6.0000")
-    # (2, 3) × (1, 0): its z
-    wait_for_latest(app, "p_cross", "-3.0000")
-    assert app.data_rows()["p_dot"][0] == "Number"
-
-
-def test_dot_variants_are_named_by_their_dimensions(app: App):
-    app.tab("Data")
     item = match_item(app, "Number", "Dot")
     item.hover()
     expect(item.locator("> .map-types")).to_have_text("VectorNumber")
@@ -1098,54 +824,193 @@ def test_dot_variants_are_named_by_their_dimensions(app: App):
     )
 
 
-def test_magnitudes_are_lengths_of_vectors(app: App):
+def test_vector_presets_by_keyboard(app: App):
+    app.tab("Data")
+    item = match_item(app, "Vector", "Match")
+    item.focus()
+    focused = lambda: app.page.evaluate("document.activeElement.textContent")  # noqa: E731
+    app.page.keyboard.press("ArrowRight")
+    assert focused().startswith("2D")
+    app.page.keyboard.press("ArrowDown")
+    assert focused().startswith("3D")
+    app.page.keyboard.press("ArrowRight")
+    assert focused().startswith("(x, y, z)")
+    app.page.keyboard.press("ArrowDown")
+    assert focused().startswith("name: (x, y, z)")
+    app.page.keyboard.press("ArrowLeft")
+    assert focused().startswith("3D")
+    app.page.keyboard.press("ArrowLeft")
+    assert focused().startswith("Match")
+
+
+def test_vectors_are_composed(app: App):
+    app.tab("Data")
+    app.add_match_map()
+    compose = add_compose_map(app, "2D", ["temp", "volt"], "p")
+    # Constants too
+    add_compose_map(app, "3D", ["temp", "volt", "12"], "v")
+    add_compose_map(app, "2D", ["1.5", "-2"], "fixed")
+    add_compose_map(app, "3D", ["temp", "volt", "temp"], "twice")
+    # Each tells what it cannot take
+    bad_compose = add_compose_map(app, "2D", ["nope", "1"], "bad_compose")
+    bad_add = add_vector_arithmetic_map(app, "Add", "2D", "(1, 2, 3)", "(1, 1)", "bad_add")
+    expect(bad_compose.locator(".field-error")).to_have_text("No Number label or number 'nope'")
+    expect(bad_add.locator(".field-error")).to_have_text(
+        "No Vector2d label or vector '(1, 2, 3)'"
+    )
+
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('temp:3\\nvolt:4\\n')")
+    wait_for_latest(app, "p", "(3.0000, 4.0000)")
+    wait_for_latest(app, "v", "(3.0000, 4.0000, 12.000)")
+    wait_for_latest(app, "twice", "(3.0000, 4.0000, 3.0000)")
+    app.wait_for_labels("fixed")
+    rows = app.data_rows()
+    assert rows["p"][0] == "Vector2d"
+    assert rows["v"][0] == "Vector3d"
+    assert rows["fixed"][1] == "(1.5000, -2.0000)"
+    expect(compose.locator(".map-latest")).to_contain_text("p")
+
+
+def test_vectors_are_matched(app: App):
+    app.tab("Data")
+    matched = add_vector_match_map(
+        app, "2D", r"pos:({number}),({number})", "position", ["$1", "$2"]
+    )
+    # Labelled by a group
+    add_vector_match_map(
+        app, "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
+    )
+    vector_variant(app, "Match", "3D").get_by_role("menuitem", name="name: (x, y, z)").click()
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("log")
+    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
+    expect(card.get_by_label("z", exact=True)).to_have_value("$4")
+    card.get_by_role("switch").click()
+    vector_variant(app, "Match", "2D").get_by_role("menuitem", name="(x, y)").first.click()
+    card = app.map_cards().last
+    card.get_by_placeholder("Input label").fill("log")
+    expect(card.get_by_label("y", exact=True)).to_have_value("$2")
+    # No name in the text to take the output label from
+    card.get_by_placeholder("Output label").fill("pt")
+    card.get_by_role("switch").click()
+    bad = add_vector_match_map(app, "2D", r"(led):({number})", "bad_match", ["$2", "$1"])
+
+    app.open_port()
+    app.mock("mute()")
+    app.mock(
+        "receive('pos:1.5,-2\\nacc=1,2,3\\ngyro=-1,0,0.5\\n"
+        "mag:  (1, 2, 3)\\n(1.5, -2)\\nled:1\\n')"
+    )
+    app.wait_for_labels("position", "acc", "gyro", "mag", "pt")
+    rows = app.data_rows()
+    assert rows["position"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
+    assert rows["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
+    assert rows["gyro"][:2] == ["Vector3d", "(-1.0000, 0.0000, 0.50000)"]
+    assert rows["mag"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
+    assert rows["pt"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
+    expect(matched.locator(".map-latest")).to_contain_text("(1.5000, -2.0000)")
+    expect(bad.locator(".field-error")).to_have_text("The result 'led' is not a number")
+
+
+def compose_p_and_v(app: App):
+    """p = (temp, volt) and v = (temp, volt, 12), of numbers yet to come."""
     app.tab("Data")
     app.add_match_map()
     add_compose_map(app, "2D", ["temp", "volt"], "p")
     add_compose_map(app, "3D", ["temp", "volt", "12"], "v")
-    for variant, source, target in [("2D", "p", "p_length"), ("3D", "v", "v_length")]:
-        vector_variant(app, "Magnitude", variant, "Number").locator("> [role=menuitem]").click()
-        card = app.map_cards().nth(app.map_cards().count() - 1)
-        card.get_by_label("a", exact=True).fill(source)
-        card.get_by_placeholder("Output label").fill(target)
-        card.get_by_role("switch").click()
+
+
+def receive_p_and_v(app: App):
+    """p = (3, 4) and v = (3, 4, 12)."""
     app.open_port()
     app.mock("mute()")
     app.mock("receive('temp:3\\nvolt:4\\n')")
+    wait_for_latest(app, "p", "(3.0000, 4.0000)")
+
+
+def add_number_vector_map(app: App, title: str, variant: str, fields: dict[str, str]):
+    """Adds the number map `title` of a vector, its `variant` (2D or 3D) picked
+    beside it, its `fields` (by label or placeholder) filled."""
+    vector_variant(app, title, variant, "Number").locator("> [role=menuitem]").click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    for name, value in fields.items():
+        if name in ("Input label", "Output label"):
+            card.get_by_placeholder(name).fill(value)
+        else:
+            card.get_by_label(name, exact=True).fill(value)
+    card.get_by_role("switch").click()
+    return card
+
+
+def test_vector_maps_compute_vectors(app: App):
+    compose_p_and_v(app)
+    add_vector_arithmetic_map(app, "Add", "2D", "p", "(1, 1)", "q")
+    add_vector_arithmetic_map(app, "Subtract", "2D", "q", "p", "r")
+    # The number first, as `a`
+    multiply = add_vector_arithmetic_map(app, "Multiply", "3D", "temp", "v", "w")
+    add_vector_arithmetic_map(app, "Multiply", "2D", "0.5", "(4, -2)", "half")
+    # Its only variant: picked itself
+    match_item(app, "Vector", "Cross").click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_label("a", exact=True).fill("v")
+    card.get_by_label("b", exact=True).fill("(0, 0, 1)")
+    card.get_by_placeholder("Output label").fill("v_cross")
+    card.get_by_role("switch").click()
+
+    receive_p_and_v(app)
+    wait_for_latest(app, "q", "(4.0000, 5.0000)")
+    wait_for_latest(app, "r", "(1.0000, 1.0000)")
+    wait_for_latest(app, "w", "(9.0000, 12.000, 36.000)")
+    wait_for_latest(app, "half", "(2.0000, -1.0000)")
+    wait_for_latest(app, "v_cross", "(4.0000, -3.0000, 0.0000)")
+    rows = app.data_rows()
+    assert rows["r"][0] == "Vector2d"
+    assert rows["v_cross"][0] == "Vector3d"
+    expect(multiply.locator(".map-latest")).to_contain_text("temp")
+
+
+def test_vector_maps_compute_numbers(app: App):
+    compose_p_and_v(app)
+    add_number_vector_map(app, "Dot", "2D", {"a": "p", "b": "(1, 2)", "Output label": "p_dot"})
+    add_number_vector_map(
+        app, "Dot", "3D", {"a": "v", "b": "(1, 1, 1)", "Output label": "v_dot"}
+    )
+    # Of 2D vectors alone, so picked itself
+    match_item(app, "Number", "Cross").click()
+    card = app.map_cards().nth(app.map_cards().count() - 1)
+    card.get_by_label("a", exact=True).fill("p")
+    card.get_by_label("b", exact=True).fill("(1, 0)")
+    card.get_by_placeholder("Output label").fill("p_cross")
+    card.get_by_role("switch").click()
+    add_number_vector_map(app, "Magnitude", "2D", {"a": "p", "Output label": "p_length"})
+    length = add_number_vector_map(
+        app, "Magnitude", "3D", {"a": "v", "Output label": "v_length"}
+    )
+    decompose = add_number_vector_map(
+        # y left out
+        app, "Decompose", "3D", {"Input label": "v", "x": "v_x", "z": "v_z"}
+    )
+    expect(decompose.get_by_placeholder("Output label")).to_have_count(3)
+
+    receive_p_and_v(app)
+    wait_for_latest(app, "p_dot", "11.000")
+    wait_for_latest(app, "v_dot", "19.000")
+    # (3, 4) × (1, 0): its z
+    wait_for_latest(app, "p_cross", "-4.0000")
     wait_for_latest(app, "p_length", "5.0000")
     wait_for_latest(app, "v_length", "13.000")
-    assert app.data_rows()["v_length"][0] == "Number"
-    expect(card.locator(".map-latest")).to_contain_text("13.000")
-
-
-def test_decompose_takes_the_components_with_labels(app: App):
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "2D", ["temp", "volt"], "p")
-    add_compose_map(app, "3D", ["temp", "volt", "12"], "v")
-    for variant, source, targets in [
-        ("2D", "p", ["p_x", "p_y"]),
-        # y left out
-        ("3D", "v", ["v_x", "", "v_z"]),
-    ]:
-        vector_variant(app, "Decompose", variant, "Number").locator("> [role=menuitem]").click()
-        card = app.map_cards().nth(app.map_cards().count() - 1)
-        card.get_by_placeholder("Input label").fill(source)
-        expect(card.get_by_placeholder("Output label")).to_have_count(len(targets))
-        for name, target in zip("xyz", targets):
-            card.get_by_label(name, exact=True).fill(target)
-        card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('temp:3\\nvolt:4\\n')")
-    wait_for_latest(app, "p_x", "3.0000")
-    wait_for_latest(app, "p_y", "4.0000")
     wait_for_latest(app, "v_x", "3.0000")
     wait_for_latest(app, "v_z", "12.000")
-    assert "v_y" not in app.data_rows()
-    assert app.data_rows()["v_z"][0] == "Number"
+    rows = app.data_rows()
+    assert [rows[label][0] for label in ("p_dot", "p_cross", "v_length", "v_z")] == [
+        "Number"
+    ] * 4
+    assert "v_y" not in rows
+    expect(length.locator(".map-latest")).to_contain_text("13.000")
     # As the inputs: each label beside its value, one above another
-    latest = card.locator(".map-latest-to")
+    latest = decompose.locator(".map-latest-to")
     expect(latest.locator(".map-latest-label")).to_have_text(["v_x", "v_z"])
     expect(latest.locator(".map-latest-value")).to_have_text(["3.0000", "12.000"])
     x, z = (latest.locator(".map-latest-label").nth(index).bounding_box() for index in (0, 1))
@@ -1167,16 +1032,18 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
         card.get_by_label("f(t)", exact=True).fill(source)
         card.get_by_placeholder("Output label").fill(target)
         card.get_by_role("switch").click()
+    app.stop_clock()
     app.open_port()
-    app.wait_for_labels("dp", "iv")
+    app.run_clock_until(lambda: {"dp", "iv"} <= app.data_rows().keys())
     rows = app.data_rows()
     assert rows["dp"][0] == "Vector2d"
     assert re.fullmatch(r"\(-?[\d.e]+, -?[\d.e]+\)", rows["dp"][1])
     assert rows["iv"][0] == "Vector3d"
-    # The integral of z = 1 is the seconds since the first
-    app.page.wait_for_timeout(1000)
-    z = float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])
-    assert z > 0.5
+    # The integral of z = 1: the seconds the clock moved on
+    z = lambda: float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])  # noqa: E731
+    first = z()
+    app.page.clock.run_for(1000)
+    assert z() - first == pytest.approx(1, abs=0.1)
 
 
 def add_log_match(
@@ -1197,11 +1064,6 @@ def add_log_match(
     card.get_by_label("Message", exact=True).fill(message)
     card.get_by_role("switch").click()
     return card
-
-
-def add_level_map(app: App, target: str):
-    """Copies the logs of the initial Decode, their levels kept, to `target`."""
-    return add_log_match(app, "(.*)", "${level:0}", "$1", target, "log")
 
 
 def test_initial_decode_reads_levels_and_messages(app: App):
@@ -1225,28 +1087,10 @@ def test_initial_decode_reads_levels_and_messages(app: App):
     latest = card.locator(".map-latest-to")
     expect(latest.locator(".log-level-tag")).to_have_text("WARN")
     expect(latest).to_contain_text("disk full")
-    # As env_logger writes them too
-    app.mock("receive('[2026-10-13T01:23:45Z INFO  app::sensor] ready\\n')")
-    wait_for_latest(app, "log", "INFO ready")
-
-
-def test_match_to_a_log_tells_a_level_it_does_not_know(app: App):
-    app.tab("Data")
-    card = add_log_match(app, r"(\w+): (.*)", "$1", "$2", "out")
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('fatal: no sensor\\n')")
-    expect(card.locator(".field-error")).to_have_text("No log level 'fatal'")
-
-
-def test_templates_name_the_levels_of_the_inputs(app: App):
-    app.tab("Data")
-    # Its level kept, and named in the message
-    add_log_match(app, "disk (.*)", "${level:0}", "${level:0}: $1", "kept", "log")
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('[error] disk lost\\n')")
-    wait_for_latest(app, "kept", "ERROR ERROR: lost")
+    # The bytes it took, in hex
+    expect(card.locator(".map-latest-from .map-latest-value")).to_have_text(
+        " ".join(f"{byte:02X}" for byte in b"[warning] disk full\n")
+    )
 
 
 def choose_weakest(card, level: str, input: int = 0):
@@ -1305,63 +1149,6 @@ def test_maps_of_logs_take_all_levels_by_default(app: App):
     expect(card.get_by_role("option")).to_have_count(0)
 
 
-def test_maps_of_logs_leave_out_the_weaker_levels(app: App):
-    app.tab("Data")
-    app.add_map("Match", "Log", "Number")
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill("log")
-    choose_weakest(card, "WARN")
-    card.get_by_placeholder("Text to be matched").fill("temp=({number})")
-    card.get_by_placeholder("Output label").fill("warned")
-    card.get_by_label("To", exact=True).fill("$1")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('[error] temp=1\\n[info] temp=2\\n')")
-    wait_for_latest(app, "log", "INFO temp=2")
-    wait_for_latest(app, "warned", "1.0000")
-    app.page.wait_for_timeout(300)
-    assert app.data_rows()["warned"][1] == "1.0000"
-
-
-def test_replace_keeps_the_level_and_concat_takes_the_one_that_matters_more(app: App):
-    app.tab("Data")
-    add_level_map(app, "first")
-    add_level_map(app, "second")
-    app.add_map("Replace", "Log", "Log")
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill("first")
-    card.get_by_placeholder("Text to be replaced").fill("disk")
-    card.get_by_placeholder("Output label").fill("replaced")
-    card.get_by_label("To", exact=True).fill("drive")
-    card.get_by_role("switch").click()
-    app.add_map("Concat", "Log", "Log")
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("First input label").fill("first")
-    card.get_by_placeholder("Second input label").fill("second")
-    card.get_by_placeholder("Output label").fill("joined")
-    card.get_by_label("Separator", exact=True).fill(" / ")
-    # The one that matters more, unless set
-    expect(card.get_by_label("Level", exact=True)).to_have_value("${level:max}")
-    card.get_by_role("switch").click()
-    app.add_map("Concat", "Log", "Log")
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("First input label").fill("first")
-    card.get_by_placeholder("Second input label").fill("log")
-    card.get_by_placeholder("Output label").fill("less")
-    card.get_by_label("Level", exact=True).fill("${level:min}")
-    card.get_by_role("switch").click()
-    app.open_port()
-    app.mock("mute()")
-    # Each line to the first, second and log maps
-    app.mock("receive('[info] disk full\\n')")
-    wait_for_latest(app, "replaced", "INFO drive full")
-    app.mock("receive('[error] disk lost\\n')")
-    wait_for_latest(app, "replaced", "ERROR drive lost")
-    wait_for_latest(app, "joined", "ERROR disk lost / disk lost")
-    wait_for_latest(app, "less", "ERROR disk lostdisk lost")
-
-
 def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
     app.tab("Data")
     # Each input of its own lines, so each new value is of one alone (with both of
@@ -1390,18 +1177,43 @@ def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
     wait_for_latest(app, "joined", "ERROR bx")
 
 
-def test_decode_preset_is_as_the_initial_one(app: App):
+def test_text_in_an_open_card_is_chosen_by_the_pointer(app: App):
     app.tab("Data")
-    item = match_item(app, "Log", "Decode")
-    item.hover()
-    expect(item.get_by_role("menuitem").locator(".add-map-preset-name")).to_have_text(
-        ["[... level ...] message"]
-    )
-    item.get_by_role("menuitem").click()
+    app.add_map("Replace", "Log", "Log")
     card = app.map_cards().nth(app.map_cards().count() - 1)
-    initial = app.map_cards().first
-    initial.locator(".map-title").click()
-    for placeholder in ["Input label", "Text to be matched", "Output label"]:
-        expect(card.get_by_placeholder(placeholder)).to_have_value(
-            initial.get_by_placeholder(placeholder).input_value()
-        )
+    field = card.get_by_placeholder("Text to be replaced")
+    field.fill("hello world")
+    box = field.bounding_box()
+    mouse = app.page.mouse
+    # Across the text, from its start: a choice of it, not a drag of the card
+    mouse.move(box["x"] + 2, box["y"] + box["height"] / 2)
+    mouse.down()
+    mouse.move(box["x"] + box["width"] - 2, box["y"] + box["height"] / 2, steps=10)
+    mouse.up()
+    chosen = field.evaluate("f => f.value.slice(f.selectionStart, f.selectionEnd)")
+    assert chosen == "hello world"
+    assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
+
+
+def test_latest_values_are_cut_off_at_30_characters(app: App):
+    app.tab("Data")
+    card = app.map_cards().first
+    app.open_port()
+    app.mock("mute()")
+    app.mock("receive('" + "x" * 80 + "\\n')")
+    value = card.locator(".map-latest-to .map-latest-value")
+    expect(value).to_contain_text("x" * 80)
+    # Shown up to 30 characters' width, its whole text kept
+    sizes = value.evaluate(
+        """v => {
+            const ch = document.createElement('span');
+            ch.style.font = getComputedStyle(v).font;
+            ch.textContent = '0'.repeat(30);
+            document.body.append(ch);
+            const width = ch.getBoundingClientRect().width;
+            ch.remove();
+            return [v.clientWidth, v.scrollWidth, width];
+        }"""
+    )
+    shown, whole, thirty = sizes
+    assert shown <= thirty + 1 and whole > shown

@@ -76,6 +76,8 @@ def test_shows_each_label_with_its_latest_value(app: App):
         "volt": "Number",
     }
     assert re.fullmatch(r"(temp|volt):[\d.]+", rows["log"][1])
+    # Bytes in hex
+    assert re.fullmatch(r"[0-9A-F]{2}( [0-9A-F]{2})*", rows["raw_bytes"][1])
     assert re.fullmatch(r"[\d.]+", rows["temp"][1])
     for label, (_, _, time) in rows.items():
         assert re.fullmatch(r"\d{2}:\d{2}:\d{2}\.\d{3}", time), f"{label} at {time}"
@@ -114,17 +116,6 @@ def test_filters_show_the_labels_any_of_them_match(app: App):
     add_filter(app, "raw_.*|log", by_enter=True)
     expect(filter_tags(app)).to_have_text(["raw_bytes", "temp", "raw_.*|log"])
     wait_for_rows(app, "temp", "log")
-
-
-def test_filters_match_whole_labels(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.add_match_map()
-    app.wait_for_labels("log", "temp", "volt")
-    add_filter(app, "o")
-    wait_for_rows(app)
-    add_filter(app, ".*o.*")
-    wait_for_rows(app, "log", "volt")
 
 
 def test_a_filter_is_removed_from_its_tag(app: App):

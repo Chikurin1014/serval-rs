@@ -15,6 +15,9 @@ mod matching;
 mod replace;
 mod vector_arithmetic;
 
+#[cfg(test)]
+pub(crate) mod testing;
+
 use std::{
     any::Any,
     cell::{Cell, RefCell},

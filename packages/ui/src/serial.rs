@@ -299,6 +299,13 @@ impl SerialContext {
         self.notifications.read().iter().rev().cloned().collect()
     }
 
+    /// Forgets the received bytes the console shows (not the data, nor a record
+    /// being written): it starts over, empty.
+    pub fn clear_history(&self) {
+        let mut history = self.history;
+        history.write().clear();
+    }
+
     /// The received bytes after `read_to` (see [`ReceivedHistory::since`]); a
     /// reader runs again as more come.
     pub fn received_since(&self, read_to: Option<u64>) -> Unread {

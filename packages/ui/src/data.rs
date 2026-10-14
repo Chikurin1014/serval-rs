@@ -12,6 +12,8 @@ pub use data_type::{
     Vector, Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,
 };
 pub use log::{Log, LogLevel, ParseLogLevelError, expand_levels};
+#[cfg(test)]
+pub(crate) use map::testing;
 pub use map::{
     Arithmetic, ArithmeticSettings, Calculus, CalculusMap, CalculusSettings, Compose,
     ComposeSettings, Concat, ConcatSettings, Conversion, ConversionInput, ConversionOutput, Decode,

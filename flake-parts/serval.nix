@@ -51,6 +51,7 @@
 
       python = pkgs.python3.withPackages (ps: [
         ps.pytest
+        ps.pytest-xdist
         ps.playwright
       ]);
       playwrightEnv = {

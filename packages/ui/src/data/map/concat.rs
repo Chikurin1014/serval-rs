@@ -167,8 +167,13 @@ fn concat_segments(first: &str, separator: &str, second: &str) -> Vec<Segment> {
 
 #[cfg(test)]
 mod tests {
-    use super::concat_segments;
-    use crate::data::Segment;
+    use dioxus::prelude::*;
+
+    use super::{Concat, ConcatSettings, concat_segments};
+    use crate::data::{
+        LogLevel, Segment,
+        map::testing::{Maps, log},
+    };
 
     #[test]
     fn concat_segments_leave_out_an_empty_separator() {
@@ -183,6 +188,61 @@ mod tests {
         assert_eq!(
             concat_segments("a", "", "b"),
             vec![Segment::from_input("a"), Segment::from_input("b")]
+        );
+    }
+
+    fn concat(maps: &mut Maps, to: &str, set: impl FnOnce(ConcatSettings)) -> ConcatSettings {
+        maps.add(Concat::new, |mut settings: ConcatSettings| {
+            settings.first_label.set("first".to_string());
+            settings.second_label.set("second".to_string());
+            settings.to_label.set(to.to_string());
+            settings.separator.set(" / ".to_string());
+            set(settings);
+        })
+    }
+
+    #[test]
+    fn the_level_is_the_one_that_matters_more_unless_set() {
+        let mut maps = Maps::new();
+        concat(&mut maps, "more", |_| {});
+        concat(&mut maps, "less", |mut settings| {
+            settings.level.set("${level:min}".to_string());
+        });
+        concat(&mut maps, "set", |mut settings| {
+            settings.level.set("debug".to_string());
+        });
+        maps.push("first", log(LogLevel::Info, "a"));
+        maps.push("second", log(LogLevel::Error, "b"));
+        assert_eq!(maps.values("more"), ["[ERROR] a / b"]);
+        assert_eq!(maps.values("less"), ["[INFO] a / b"]);
+        assert_eq!(maps.values("set"), ["[DEBUG] a / b"]);
+    }
+
+    #[test]
+    fn weaker_levels_of_each_input_are_left_out() {
+        let mut maps = Maps::new();
+        concat(&mut maps, "joined", |mut settings| {
+            settings.first_weakest_level.set(LogLevel::Error);
+        });
+        maps.push("first", log(LogLevel::Info, "a"));
+        maps.push("second", log(LogLevel::Info, "x"));
+        assert!(maps.values("joined").is_empty());
+        // The second's taken whatever its level, with the first's
+        maps.push("first", log(LogLevel::Error, "b"));
+        assert_eq!(maps.values("joined"), ["[ERROR] b / x"]);
+    }
+
+    #[test]
+    fn a_level_it_does_not_know_is_an_error() {
+        let mut maps = Maps::new();
+        let settings = concat(&mut maps, "joined", |mut settings| {
+            settings.level.set("fatal".to_string());
+        });
+        maps.push("first", log(LogLevel::Info, "a"));
+        maps.push("second", log(LogLevel::Info, "b"));
+        assert_eq!(
+            maps.read(settings.error).as_deref(),
+            Some("No log level 'fatal'")
         );
     }
 }
