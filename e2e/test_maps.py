@@ -622,12 +622,26 @@ def test_cards_slide_open_and_closed(app: App):
         return content.evaluate("el => el.getBoundingClientRect().height")
 
     assert height() < 1
+    # Its height each frame as it opens: some between none and all, however
+    # busy the machine (a height at a set time might be all already)
+    content.evaluate(
+        """el => {
+            window.heights = [];
+            const start = performance.now();
+            const frame = () => {
+                window.heights.push(el.getBoundingClientRect().height);
+                if (performance.now() - start < 1000) requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+        }"""
+    )
     card.locator(".map-title").click()
-    app.page.wait_for_timeout(80)
-    midway = height()
     expect(field).to_be_visible()
-    app.page.wait_for_timeout(300)
-    assert 0 < midway < height()
+    app.page.wait_for_timeout(1100)
+    heights = app.page.evaluate("window.heights")
+    full = height()
+    assert full > 1 and heights[-1] == full
+    assert any(0 < each < full for each in heights)
 
     card.locator(".map-title").click()
     expect(field).to_be_hidden()

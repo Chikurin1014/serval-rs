@@ -17,10 +17,12 @@ ROOT = Path(__file__).resolve().parent.parent
 MOCK_SERIAL = Path(__file__).resolve().parent / "mock_serial.js"
 
 
-@pytest.fixture(scope="session")
-def app_dir() -> Path:
-    if built := os.environ.get("SERVAL_E2E_APP"):
-        return Path(built)
+def pytest_configure(config: pytest.Config):
+    """Builds the app unless `SERVAL_E2E_APP` gives it: once, before the
+    workers of `pytest-xdist` start (as they take this process's environment),
+    not in each of them."""
+    if os.environ.get("SERVAL_E2E_APP") or hasattr(config, "workerinput"):
+        return
     target = ROOT / "target" / "e2e"
     subprocess.run(
         ["dx", "build", "--platform", "web"],
@@ -28,7 +30,12 @@ def app_dir() -> Path:
         env={**os.environ, "CARGO_TARGET_DIR": str(target)},
         check=True,
     )
-    return target / "dx" / "web" / "debug" / "web" / "public"
+    os.environ["SERVAL_E2E_APP"] = str(target / "dx" / "web" / "debug" / "web" / "public")
+
+
+@pytest.fixture(scope="session")
+def app_dir() -> Path:
+    return Path(os.environ["SERVAL_E2E_APP"])
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
