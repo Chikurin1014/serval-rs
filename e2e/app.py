@@ -61,6 +61,22 @@ class App:
     def wait_for_mock(self, condition: str):
         self.page.wait_for_function(f"() => window.mockSerialPort.{condition}")
 
+    def stop_clock(self):
+        """Puts the page's timers (from now on) on a clock of the test's own,
+        stopped until `page.clock.run_for` moves it on."""
+        self.page.clock.install()
+        # Else it goes on as the real one
+        self.page.clock.pause_at(self.page.evaluate("Date.now()") + 1)
+
+    def run_clock_until(self, done, step_ms: int = 50):
+        """Moves the stopped clock on, `step_ms` at a time, until `done()`: as
+        what the page does a while after (e.g. on its next frame) waits on it."""
+        for _ in range(100):
+            if done():
+                return
+            self.page.clock.run_for(step_ms)
+        assert done()
+
     def send_text(self, text: str):
         """Types `text` in the console, which sends each key as it is."""
         self.page.locator(".console-output").click()

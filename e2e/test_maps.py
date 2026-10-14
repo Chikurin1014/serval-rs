@@ -523,20 +523,22 @@ def add_calculus_map(app: App, name: str, target: str):
 
 
 def test_differentiate_and_integrate(app: App):
-    app.open_port()
     app.tab("Data")
     app.add_match_map()
     add_calculus_map(app, "Differentiate", "temp_rate")
     add_calculus_map(app, "Integrate", "temp_total")
     derivative = app.map_cards().nth(-2)
     expect(derivative.locator(".map-title-text")).to_have_text("Differentiate")
-    app.wait_for_labels("temp_rate", "temp_total")
+    # Its readings, each 50 ms apart, as the clock moves on
+    app.stop_clock()
+    app.open_port()
+    app.run_clock_until(lambda: {"temp_rate", "temp_total"} <= app.data_rows().keys())
     rows = app.data_rows()
     assert rows["temp_rate"][0] == "Number"
     assert rows["temp_total"][0] == "Number"
 
     first = float(app.data_rows()["temp_total"][1])
-    app.page.wait_for_timeout(500)
+    app.page.clock.run_for(500)
     assert float(app.data_rows()["temp_total"][1]) > first
 
     expect(derivative.locator(".map-formula .formula")).to_have_attribute(
@@ -1030,16 +1032,18 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
         card.get_by_label("f(t)", exact=True).fill(source)
         card.get_by_placeholder("Output label").fill(target)
         card.get_by_role("switch").click()
+    app.stop_clock()
     app.open_port()
-    app.wait_for_labels("dp", "iv")
+    app.run_clock_until(lambda: {"dp", "iv"} <= app.data_rows().keys())
     rows = app.data_rows()
     assert rows["dp"][0] == "Vector2d"
     assert re.fullmatch(r"\(-?[\d.e]+, -?[\d.e]+\)", rows["dp"][1])
     assert rows["iv"][0] == "Vector3d"
-    # The integral of z = 1 is the seconds since the first
-    app.page.wait_for_timeout(1000)
-    z = float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])
-    assert z > 0.5
+    # The integral of z = 1: the seconds the clock moved on
+    z = lambda: float(re.fullmatch(r"\(.+, .+, (.+)\)", app.data_rows()["iv"][1])[1])  # noqa: E731
+    first = z()
+    app.page.clock.run_for(1000)
+    assert z() - first == pytest.approx(1, abs=0.1)
 
 
 def add_log_match(

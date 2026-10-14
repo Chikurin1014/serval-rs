@@ -28,7 +28,7 @@ def test_shows_the_received_text_as_it_arrives(app: App):
     app.open_port()
     app.wait_for_console_text()
     first = app.console_text()
-    app.page.wait_for_timeout(500)
+    app.wait_for_console_text(longer_than=len(first))
     later = app.console_text()
 
     assert later.startswith(first)
@@ -39,7 +39,7 @@ def test_shows_the_received_text_as_it_arrives(app: App):
 def test_keeps_its_text_after_clearing_all_data(app: App):
     """It shows the port's history, not the data."""
     app.open_port()
-    app.page.wait_for_timeout(1000)
+    app.wait_for_console_text()
     before = app.console_text()
 
     app.tab("Data")
@@ -162,12 +162,20 @@ def test_times_show_beside_the_lines_with_text(app: App):
 def test_a_line_shows_when_its_first_character_came(app: App):
     app.open_port()
     app.mock("mute()")
+    app.stop_clock()
     app.mock("receive('\\nfirst')")
-    app.page.wait_for_timeout(1200)
+    # Taken in, its time with it
+    app.run_clock_until(lambda: "first" in app.console_text())
+    app.page.clock.run_for(1200)
     app.mock("receive(' half\\nnext\\n')")
-    times = {
-        text: time for text, _, time in view_rows(app) if text in ("first half", "next")
-    }
+    times = {}
+
+    def drawn():
+        rows = app.page.evaluate(VIEW_ROWS)
+        times.update((text, time) for text, _, time in rows if time)
+        return {"first half", "next"} <= times.keys()
+
+    app.run_clock_until(drawn)
     assert seconds(times["next"]) - seconds(times["first half"]) >= 1
 
 
