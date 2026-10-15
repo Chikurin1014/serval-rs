@@ -707,16 +707,23 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     plot = graph.locator(".graph-plot")
     bar = app.page.locator(".graph-bar")
     span = lambda: float(plot.get_attribute("data-time-span"))  # noqa: E731
+    values = lambda: float(plot.get_attribute("data-value-span"))  # noqa: E731
     app.page.wait_for_timeout(1000)
+    all_values = values()
 
-    # Dragged across: zoomed into, and paused
+    # A rectangle dragged over it: zoomed into, times and values, and paused
     area = plot.locator(".u-over").bounding_box()
     y = area["y"] + area["height"] / 2
-    app.page.mouse.move(area["x"] + area["width"] * 0.3, y)
+    app.page.mouse.move(area["x"] + area["width"] * 0.3, area["y"] + area["height"] * 0.3)
     app.page.mouse.down()
-    app.page.mouse.move(area["x"] + area["width"] * 0.6, y, steps=5)
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.6, area["y"] + area["height"] * 0.6, steps=5
+    )
     app.page.mouse.up()
     expect(plot).to_have_attribute("data-zoomed", "true")
+    zoomed_values = values()
+    # About 0.3 of them, the range moving with the data until then
+    assert zoomed_values < all_values * 0.6
     expect(bar.get_by_role("button", name="Play graphs")).to_have_attribute(
         "aria-pressed", "true"
     )
@@ -725,10 +732,12 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     # As zoomed, as data comes and its settings change
     app.page.wait_for_timeout(500)
     assert span() == pytest.approx(zoomed)
+    assert values() == pytest.approx(zoomed_values)
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
     expect(plot).to_have_attribute("data-value-scale", "log")
     app.page.wait_for_timeout(300)
+    # The times as zoomed to; the values, not of another scale
     assert span() == pytest.approx(zoomed)
 
     # Unzoomed by a double click, paused still; then played

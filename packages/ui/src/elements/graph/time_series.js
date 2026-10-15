@@ -74,22 +74,36 @@ function seriesStyle(color) {
   };
 }
 
-// The times zoomed to by dragging across the plot, if it is: kept until a
-// double click, or played again
+// The times and values zoomed to by dragging a rectangle over the plot, if it
+// is: kept until a double click, or played again (the values, until another
+// scale)
 let zoomed = null;
 
 function onSelect(u) {
-  const { left, width } = u.select;
-  if (width < 2) {
+  const { left, top, width, height } = u.select;
+  if (width < 2 || height < 2) {
     return;
   }
-  zoomed = [u.posToVal(left, "x"), u.posToVal(left + width, "x")];
+  zoomed = {
+    x: [u.posToVal(left, "x"), u.posToVal(left + width, "x")],
+    y: [u.posToVal(top + height, "y"), u.posToVal(top, "y")],
+  };
   u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
-  u.setScale("x", { min: zoomed[0], max: zoomed[1] });
+  zoomIn(u);
   // For tests
   container.dataset.zoomed = "true";
   // Paused, so the data stays as zoomed into
   dioxus.send(["zoomed", []]);
+}
+
+/** Sets the plot to what it is zoomed to. */
+function zoomIn(u) {
+  u.batch(() => {
+    u.setScale("x", { min: zoomed.x[0], max: zoomed.x[1] });
+    if (zoomed.y) {
+      u.setScale("y", { min: zoomed.y[0], max: zoomed.y[1] });
+    }
+  });
 }
 
 function unzoom() {
@@ -177,14 +191,18 @@ function create() {
         x: {
           time: true,
           range: (u, min, max) =>
-            zoomed ?? timeRange(min, max, windowSeconds, fitData),
+            zoomed?.x ?? timeRange(min, max, windowSeconds, fitData),
         },
-        y: logScale ? { distr: 3, log: 10 } : {},
+        y: {
+          ...(logScale && { distr: 3, log: 10 }),
+          // Kept as zoomed to, as the data is set
+          auto: () => !zoomed?.y,
+        },
       },
       cursor: {
         sync: { key: CURSOR_SYNC_KEY, setSeries: false },
         // Zoomed by `onSelect`, so it is told
-        drag: { x: true, y: false, setScale: false },
+        drag: { x: true, y: true, setScale: false },
       },
       hooks: {
         setSeries: [onSeriesToggle],
@@ -195,6 +213,11 @@ function create() {
             if (key === "x" && u.scales.x.min != null) {
               container.dataset.timeSpan = String(
                 u.scales.x.max - u.scales.x.min,
+              );
+            }
+            if (key === "y" && u.scales.y.min != null) {
+              container.dataset.valueSpan = String(
+                u.scales.y.max - u.scales.y.min,
               );
             }
           },
@@ -223,6 +246,9 @@ function create() {
   );
   // Unzoomed by a double click, before uPlot takes it
   plot.root.addEventListener("dblclick", unzoom, true);
+  if (zoomed) {
+    zoomIn(plot);
+  }
   fit();
   // The legend only gets its height after layout
   requestAnimationFrame(fit);
@@ -284,6 +310,10 @@ while (true) {
   colors = lineColors;
   applyHidden(hidden);
   if (log !== logScale || style !== drawStyle) {
+    // The values zoomed to, not of another scale
+    if (log !== logScale && zoomed) {
+      zoomed.y = null;
+    }
     logScale = log;
     drawStyle = style;
     // Set at creation
