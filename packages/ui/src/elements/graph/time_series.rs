@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    TimeWindow,
+    TimeWindow, context::use_graph_setting,
 };
 use crate::components::{slider::Slider, toggle::Toggle};
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
@@ -30,12 +30,13 @@ const SERIES_COLORS: [&str; 5] = [
     "--secondary-color-5",
 ];
 
-fn series_color(index: usize) -> &'static str {
+pub(super) fn series_color(index: usize) -> &'static str {
     SERIES_COLORS[index % SERIES_COLORS.len()]
 }
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
+    menu: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
     presets: &[
         GraphPreset {
@@ -107,20 +108,6 @@ impl PlotFeed {
 
         (labels, updates)
     }
-}
-
-/// One setting of a graph, as a memo of its own.
-fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
-    graph_context: GraphContext,
-    id: usize,
-    setting: fn(&GraphProperty) -> T,
-) -> Memo<T> {
-    use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| setting(&graph.property))
-            .unwrap_or_default()
-    })
 }
 
 /// Plots the number labels the data list shows against time.

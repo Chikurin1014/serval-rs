@@ -2,20 +2,24 @@
 //! [`GraphProvider`]; views wrap their plot in [`GraphFrame`].
 
 mod board;
+mod box_plot;
 mod context;
 mod frame;
+mod scatter;
 mod time_series;
 
 pub use board::GraphBoard;
+pub use box_plot::{BOX_PLOT, BoxPlotGraph};
 pub use context::{
     AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty,
     GraphProvider, TimeWindow,
 };
 pub use frame::GraphFrame;
+pub use scatter::{SCATTER, ScatterGraph};
 pub use time_series::{TIME_SERIES, TimeSeriesGraph};
 
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {
-    vec![TIME_SERIES]
+    vec![TIME_SERIES, BOX_PLOT, SCATTER]
 }
 
 pub fn initial_graphs() -> Vec<(GraphKind, GraphProperty)> {

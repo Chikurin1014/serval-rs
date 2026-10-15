@@ -1,0 +1,639 @@
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
+
+use dioxus::prelude::*;
+
+use super::{
+    AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
+    context::use_graph_setting,
+};
+use crate::components::{input::Input, toggle::Toggle};
+use crate::data::{
+    DataContext, DataEntry, DataType, MAX_ENTRIES_PER_LABEL, NumberData, Queue, SourceCursor,
+};
+use crate::elements::Formula;
+use crate::helper::set_if_changed;
+
+const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
+const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
+const UPLOT_JS: Asset = asset!(
+    "/assets/vendor/uplot/uPlot.iife.min.js",
+    AssetOptions::js().with_minify(false)
+);
+const SCATTER_JS: &str = include_str!("scatter.js");
+
+/// Its points' color, as the first line of a time series.
+const POINT_COLOR: &str = "--dc-accent";
+/// Its regression line's, as the third.
+const LINE_COLOR: &str = "--secondary-warning-color";
+
+pub const SCATTER: GraphKind = GraphKind {
+    name: "Scatter",
+    menu: "Statistics",
+    view: |id| rsx! { ScatterGraph { id } },
+    // Itself, its regression line on from the start
+    presets: &[GraphPreset {
+        name: "Scatter",
+        property: || GraphProperty {
+            regression: true,
+            ..GraphProperty::default()
+        },
+    }],
+};
+
+/// The points of two Number labels a plot does not have yet: each the newest X
+/// with the newest Y, once both have a new one (as a map of two inputs takes
+/// them). Those of one time (as of one chunk received) go in turn: its first X
+/// and Y, then its second ones.
+#[derive(Default)]
+struct ScatterFeed {
+    labels: (String, String),
+    x: SourceCursor,
+    y: SourceCursor,
+    newest: (Option<f64>, Option<f64>),
+    /// Whether the plot has any point.
+    sent: bool,
+    /// The points the plot has, as many as it keeps.
+    kept: VecDeque<(f64, f64)>,
+}
+
+impl ScatterFeed {
+    /// The new points, and whether they replace those sent before (else they
+    /// follow them).
+    fn next(
+        &mut self,
+        labels: (&str, &str),
+        x: Option<&Queue<NumberData>>,
+        y: Option<&Queue<NumberData>>,
+    ) -> (bool, Vec<(f64, f64)>) {
+        let mut reset = false;
+        if (self.labels.0.as_str(), self.labels.1.as_str()) != labels {
+            let sent = self.sent;
+            *self = Self {
+                labels: (labels.0.to_string(), labels.1.to_string()),
+                ..Self::default()
+            };
+            reset = sent;
+        }
+        let (Some(x), Some(y)) = (x, y) else {
+            // As a label is cleared: none left to show
+            let reset = reset || self.sent;
+            self.x.reset();
+            self.y.reset();
+            self.newest = (None, None);
+            self.sent = false;
+            self.kept.clear();
+            return (reset, Vec::new());
+        };
+
+        let mut new_x = self.x.read(x);
+        let mut new_y = self.y.read(y);
+        // What each pairs with is read again from the start
+        if new_x.restarted != new_y.restarted {
+            if new_x.restarted {
+                self.y.reset();
+                new_y = self.y.read(y);
+            } else {
+                self.x.reset();
+                new_x = self.x.read(x);
+            }
+        }
+        if new_x.restarted {
+            reset = reset || self.sent;
+            self.newest = (None, None);
+            self.kept.clear();
+        }
+
+        let mut entries: Vec<_> = in_turn(&new_x.entries, true)
+            .chain(in_turn(&new_y.entries, false))
+            .collect();
+        entries.sort_by_key(|&(timestamp, turn, is_x, _)| (timestamp, turn, !is_x));
+        let mut points = Vec::new();
+        for (_, _, is_x, value) in entries {
+            if is_x {
+                self.newest.0 = Some(value);
+            } else {
+                self.newest.1 = Some(value);
+            }
+            if let (Some(x), Some(y)) = self.newest {
+                points.push((x, y));
+                self.newest = (None, None);
+            }
+        }
+        if reset {
+            self.sent = false;
+        }
+        self.sent |= !points.is_empty();
+        self.kept.extend(&points);
+        let excess = self.kept.len().saturating_sub(MAX_ENTRIES_PER_LABEL);
+        self.kept.drain(..excess);
+        (reset, points)
+    }
+
+    /// The line fit to the points the plot has, by least squares; none for
+    /// fewer than two, or all of one X.
+    fn line(&self) -> Option<Line> {
+        let sums = self.sums()?;
+        let slope = sums.xy / sums.xx;
+        let line = Line {
+            slope,
+            intercept: sums.mean_y - slope * sums.mean_x,
+        };
+        (sums.xx > 0.0 && line.slope.is_finite() && line.intercept.is_finite()).then_some(line)
+    }
+
+    /// Of the points the plot has, their sample covariance (over n − 1), and
+    /// correlation coefficient (Pearson's), if neither X nor Y is all of one
+    /// value; none for fewer than two.
+    fn statistics(&self) -> Option<(f64, Option<f64>)> {
+        let sums = self.sums()?;
+        let covariance = sums.xy / (self.kept.len() - 1) as f64;
+        let correlation = sums.xy / (sums.xx * sums.yy).sqrt();
+        let correlation =
+            (sums.xx > 0.0 && sums.yy > 0.0 && correlation.is_finite()).then_some(correlation);
+        covariance.is_finite().then_some((covariance, correlation))
+    }
+
+    /// Of the points the plot has, if two or more.
+    fn sums(&self) -> Option<Sums> {
+        if self.kept.len() < 2 {
+            return None;
+        }
+        let count = self.kept.len() as f64;
+        let mean_x = self.kept.iter().map(|&(x, _)| x).sum::<f64>() / count;
+        let mean_y = self.kept.iter().map(|&(_, y)| y).sum::<f64>() / count;
+        let mut sums = Sums {
+            mean_x,
+            mean_y,
+            xx: 0.0,
+            yy: 0.0,
+            xy: 0.0,
+        };
+        for &(x, y) in &self.kept {
+            let (dx, dy) = (x - mean_x, y - mean_y);
+            sums.xx += dx * dx;
+            sums.yy += dy * dy;
+            sums.xy += dx * dy;
+        }
+        Some(sums)
+    }
+}
+
+/// The means of points, and the sums of the products of their deviations
+/// from them.
+struct Sums {
+    mean_x: f64,
+    mean_y: f64,
+    xx: f64,
+    yy: f64,
+    xy: f64,
+}
+
+/// As the statistics box shows them: `[covariance, correlation]`, to two
+/// decimal places; `—` for a correlation of none.
+fn statistics_texts((covariance, correlation): (f64, Option<f64>)) -> [String; 2] {
+    let correlation = correlation.map_or_else(|| "—".to_string(), signed);
+    [signed(covariance), correlation]
+}
+
+/// To two decimal places, with `−` before it if it is below 0.
+fn signed(value: f64) -> String {
+    let value = rounded(value);
+    let sign = if value < 0.0 { "−" } else { "" };
+    format!("{sign}{:.2}", value.abs())
+}
+
+/// `Y = slope X + intercept`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Line {
+    slope: f64,
+    intercept: f64,
+}
+
+impl Line {
+    /// Its slope (with its sign), whether its intercept is below 0, and the
+    /// intercept's size, to two decimal places: as `Y = −1.52X − 0.20`.
+    fn terms(self) -> (String, bool, String) {
+        let intercept = rounded(self.intercept);
+        (
+            signed(self.slope),
+            intercept < 0.0,
+            format!("{:.2}", intercept.abs()),
+        )
+    }
+
+    /// As `Y = 1.52X − 0.20`.
+    fn equation(self) -> String {
+        let (slope, below, intercept) = self.terms();
+        let sign = if below { "−" } else { "+" };
+        format!("Y = {slope}X {sign} {intercept}")
+    }
+}
+
+/// To two decimal places, with no −0.00.
+fn rounded(value: f64) -> f64 {
+    let rounded = (value * 100.0).round() / 100.0;
+    if rounded == 0.0 { 0.0 } else { rounded }
+}
+
+/// Each of `entries` as `(timestamp, turn, is_x, value)`: its turn, how many
+/// of its time come before it.
+fn in_turn(
+    entries: &[NumberData],
+    is_x: bool,
+) -> impl Iterator<Item = (i64, usize, bool, f64)> + '_ {
+    let mut last = None;
+    let mut turn = 0;
+    entries.iter().map(move |entry| {
+        let timestamp = entry.timestamp();
+        turn = if last == Some(timestamp) { turn + 1 } else { 0 };
+        last = Some(timestamp);
+        (timestamp, turn, is_x, *entry.value())
+    })
+}
+
+/// Plots the values of one Number label against those of another.
+#[component]
+pub fn ScatterGraph(id: usize) -> Element {
+    let data_context = use_context::<DataContext>();
+    let mut graph_context = use_context::<GraphContext>();
+    // As typed, for the fields
+    let x_text = use_graph_setting(graph_context, id, |property| property.x_label.clone());
+    let y_text = use_graph_setting(graph_context, id, |property| property.y_label.clone());
+    let x_label = use_memo(move || x_text.read().trim().to_string());
+    let y_label = use_memo(move || y_text.read().trim().to_string());
+    let x_scale = use_graph_setting(graph_context, id, |property| property.x_scale);
+    let y_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
+    let regression = use_graph_setting(graph_context, id, |property| property.regression);
+    let mut line = use_signal(|| None::<Line>);
+    let container_id = format!("graph-plot-{id}");
+    let labels_list_id = format!("graph-number-labels-{id}");
+    let plot = use_hook(|| document::eval(SCATTER_JS));
+    let feed = use_hook(|| Rc::new(RefCell::new(ScatterFeed::default())));
+
+    let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
+
+    use_effect(move || {
+        let (x, y) = (x_label(), y_label());
+        let labels = (x.as_str(), y.as_str());
+        let mut feed = feed.borrow_mut();
+        let update = data_context
+            .with_label(&x, |x_data| {
+                data_context.with_label(&y, |y_data| {
+                    feed.next(labels, NumberData::queue(x_data), NumberData::queue(y_data))
+                })
+            })
+            .flatten();
+        let (reset, points) = update.unwrap_or_else(|| feed.next(labels, None, None));
+        let fitted = feed.line();
+        set_if_changed(&mut line, fitted);
+        let statistics = feed.statistics().map(statistics_texts);
+        let shown = fitted
+            .filter(|_| regression())
+            .map(|line| (line.slope, line.intercept));
+        let logs = (x_scale() == AxisScale::Log, y_scale() == AxisScale::Log);
+        let colors = (POINT_COLOR, LINE_COLOR);
+        let _ = plot.send((reset, points, (&x, &y), logs, colors, shown, statistics));
+    });
+
+    use_drop(move || {
+        let _ = plot.send(());
+    });
+
+    let empty = if number_labels.read().is_empty() {
+        Some("No number data yet. Add a map to a number to plot it.")
+    } else if x_label.read().is_empty() || y_label.read().is_empty() {
+        Some("Choose the Number labels for X and Y in its settings.")
+    } else if [x_label, y_label]
+        .iter()
+        .any(|label| !number_labels.read().contains(&label.read()))
+    {
+        Some("No number data of these labels yet.")
+    } else {
+        None
+    };
+
+    rsx! {
+        document::Link { rel: "stylesheet", href: UPLOT_CSS }
+        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
+        document::Script { src: UPLOT_JS }
+
+        GraphFrame {
+            id,
+            settings: rsx! {
+                for (axis, chosen) in [("X", x_text), ("Y", y_text)] {
+                    label {
+                        span { class: "graph-setting-label", "{axis}" }
+                        Input {
+                            placeholder: "Number label",
+                            aria_label: "{axis} label",
+                            list: "{labels_list_id}",
+                            value: "{chosen}",
+                            oninput: move |event: FormEvent| {
+                                let value = event.value();
+                                graph_context.update(id, |property| {
+                                    if axis == "X" {
+                                        property.x_label = value;
+                                    } else {
+                                        property.y_label = value;
+                                    }
+                                });
+                            },
+                        }
+                    }
+                }
+                for (axis, scale) in [("X", x_scale), ("Y", y_scale)] {
+                    div {
+                        class: "graph-setting",
+                        span { class: "graph-setting-label", "{axis} axis" }
+                        div {
+                            class: "graph-scale",
+                            role: "group",
+                            aria_label: "{axis} axis",
+                            for choice in AxisScale::ALL {
+                                Toggle {
+                                    pressed: Some(scale() == choice),
+                                    on_pressed_change: move |_| {
+                                        graph_context.update(id, |property| {
+                                            if axis == "X" {
+                                                property.x_scale = choice;
+                                            } else {
+                                                property.value_scale = choice;
+                                            }
+                                        });
+                                    },
+                                    "{choice.name()}"
+                                }
+                            }
+                        }
+                    }
+                }
+                div {
+                    class: "graph-setting",
+                    span { class: "graph-setting-label", "Regression" }
+                    div {
+                        class: "graph-regression",
+                        div {
+                            class: "graph-scale",
+                            role: "group",
+                            aria_label: "Regression",
+                            Toggle {
+                                pressed: Some(regression()),
+                                on_pressed_change: move |pressed: bool| {
+                                    graph_context.update(id, |property| property.regression = pressed);
+                                },
+                                "Line"
+                            }
+                        }
+                        if regression() {
+                            if let Some(fitted) = line() {
+                                Equation { line: fitted }
+                            } else {
+                                span { class: "graph-equation", "Not enough points" }
+                            }
+                        }
+                    }
+                }
+                datalist {
+                    id: "{labels_list_id}",
+                    for label in number_labels() {
+                        option { value: "{label}" }
+                    }
+                }
+            },
+            div {
+                class: "graph-plot",
+                id: "{container_id}",
+                onmounted: {
+                    let container_id = container_id.clone();
+                    move |_| {
+                        let _ = plot.send(container_id.clone());
+                    }
+                },
+            }
+            if let Some(empty) = empty {
+                p { class: "graph-empty", "{empty}" }
+            }
+        }
+    }
+}
+
+/// `line`'s equation: what stays as it is by KaTeX, its numbers as text (so
+/// they change without it).
+#[component]
+fn Equation(line: Line) -> Element {
+    let (slope, below, intercept) = line.terms();
+    // KaTeX's for the operator, and the term before it: with `{}` after, so
+    // as a binary one (or relation), spaced on both sides
+    let (latex, fallback) = if below {
+        ("X -{}", "X −")
+    } else {
+        ("X +{}", "X +")
+    };
+
+    rsx! {
+        span {
+            class: "graph-equation",
+            role: "math",
+            aria_label: "{line.equation()}",
+            Formula {
+                aria_hidden: "true",
+                latex: "Y ={}".to_string(),
+                fallback: "Y =".to_string(),
+            }
+            span { aria_hidden: "true", "{slope}" }
+            Formula {
+                aria_hidden: "true",
+                latex: latex.to_string(),
+                fallback: fallback.to_string(),
+            }
+            span { aria_hidden: "true", "{intercept}" }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Line, ScatterFeed, statistics_texts};
+    use crate::data::{NumberData, Queue};
+
+    fn numbers(points: &[(i64, f64)]) -> Queue<NumberData> {
+        points
+            .iter()
+            .map(|&(timestamp, value)| NumberData::new(timestamp, value))
+            .collect()
+    }
+
+    const LABELS: (&str, &str) = ("temp", "volt");
+
+    #[test]
+    fn pairs_the_newest_of_each_once_both_have_one() {
+        let mut feed = ScatterFeed::default();
+        // Two of X before a Y: the newer one is taken
+        let x = numbers(&[(1, 1.0), (2, 2.0), (4, 4.0)]);
+        let y = numbers(&[(3, 30.0), (4, 40.0)]);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y)),
+            (false, vec![(2.0, 30.0), (4.0, 40.0)])
+        );
+    }
+
+    #[test]
+    fn pairs_those_of_one_time_in_turn() {
+        let mut feed = ScatterFeed::default();
+        // As `a:1 b:10 a:2 b:20` in one chunk
+        let x = numbers(&[(1, 1.0), (1, 2.0)]);
+        let y = numbers(&[(1, 10.0), (1, 20.0)]);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y)),
+            (false, vec![(1.0, 10.0), (2.0, 20.0)])
+        );
+    }
+
+    #[test]
+    fn sends_only_new_points_after_the_first() {
+        let mut feed = ScatterFeed::default();
+        let mut x = numbers(&[(1, 1.0)]);
+        let mut y = numbers(&[(1, 10.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+
+        // One waits for the other, across reads
+        x.push(NumberData::new(2, 2.0));
+        assert_eq!(feed.next(LABELS, Some(&x), Some(&y)), (false, vec![]));
+        y.push(NumberData::new(3, 20.0));
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y)),
+            (false, vec![(2.0, 20.0)])
+        );
+    }
+
+    #[test]
+    fn starts_again_as_a_label_is_cleared_or_another_chosen() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0)]);
+        let y = numbers(&[(1, 10.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+
+        // Cleared: no points left, then those of the new queue
+        assert_eq!(feed.next(LABELS, None, Some(&y)), (true, vec![]));
+        assert_eq!(feed.next(LABELS, None, Some(&y)), (false, vec![]));
+        let x = numbers(&[(5, 5.0)]);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y)),
+            (false, vec![(5.0, 10.0)])
+        );
+
+        // Another X: all of its points in place of those
+        let other = numbers(&[(6, 6.0)]);
+        assert_eq!(
+            feed.next(("other", "volt"), Some(&other), Some(&y)),
+            (true, vec![(6.0, 10.0)])
+        );
+    }
+
+    #[test]
+    fn reads_both_again_as_one_queue_is_made_anew() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0)]);
+        let y = numbers(&[(1, 10.0), (2, 20.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+
+        let x = numbers(&[(2, 2.0)]);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y)),
+            (true, vec![(2.0, 10.0)])
+        );
+    }
+
+    #[test]
+    fn the_line_is_fit_by_least_squares() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
+        let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        assert_eq!(
+            feed.line(),
+            Some(Line {
+                slope: 0.5,
+                intercept: 3.0
+            })
+        );
+    }
+
+    #[test]
+    fn no_line_fits_one_point_or_all_of_one_x() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0)]);
+        let y = numbers(&[(1, 3.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        assert_eq!(feed.line(), None);
+
+        let x = numbers(&[(1, 2.0), (2, 2.0)]);
+        let y = numbers(&[(1, 3.0), (2, 5.0)]);
+        feed.next(("other", "volt"), Some(&x), Some(&y));
+        assert_eq!(feed.line(), None);
+    }
+
+    #[test]
+    fn the_line_is_of_the_points_the_plot_has() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0), (2, 2.0)]);
+        let y = numbers(&[(1, 1.0), (2, 2.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        // Cleared and made anew: those before left out
+        let x = numbers(&[(3, 1.0), (4, 2.0)]);
+        let y = numbers(&[(3, 5.0), (4, 3.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        assert_eq!(
+            feed.line(),
+            Some(Line {
+                slope: -2.0,
+                intercept: 7.0
+            })
+        );
+    }
+
+    #[test]
+    fn equations_are_to_two_decimal_places() {
+        let line = |slope, intercept| Line { slope, intercept }.equation();
+        assert_eq!(line(2.0, 1.0), "Y = 2.00X + 1.00");
+        assert_eq!(line(-0.256, -3.044), "Y = −0.26X − 3.04");
+        // Rounded to nothing: no sign
+        assert_eq!(line(-0.004, -0.001), "Y = 0.00X + 0.00");
+    }
+
+    #[test]
+    fn statistics_are_of_the_points_the_plot_has() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
+        let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        // Over n − 1: 1 / 2; and 1 / √(2 × 2)
+        assert_eq!(feed.statistics(), Some((0.5, Some(0.5))));
+        assert_eq!(statistics_texts((0.5, Some(0.5))), ["0.50", "0.50"]);
+        // Covariance first
+        assert_eq!(statistics_texts((2.0, Some(0.25))), ["2.00", "0.25"]);
+
+        // Falling: below 0
+        let x = numbers(&[(1, 1.0), (2, 2.0)]);
+        let y = numbers(&[(1, 4.0), (2, 2.0)]);
+        feed.next(("other", "volt"), Some(&x), Some(&y));
+        assert_eq!(feed.statistics(), Some((-1.0, Some(-1.0))));
+        assert_eq!(statistics_texts((-1.0, Some(-1.0))), ["−1.00", "−1.00"]);
+    }
+
+    #[test]
+    fn no_correlation_is_of_one_value_and_no_statistics_of_one_point() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0)]);
+        let y = numbers(&[(1, 3.0)]);
+        feed.next(LABELS, Some(&x), Some(&y));
+        assert_eq!(feed.statistics(), None);
+
+        // Y all of one value: covarying with nothing
+        let x = numbers(&[(1, 1.0), (2, 2.0)]);
+        let y = numbers(&[(1, 3.0), (2, 3.0)]);
+        feed.next(("other", "volt"), Some(&x), Some(&y));
+        assert_eq!(feed.statistics(), Some((0.0, None)));
+        assert_eq!(statistics_texts((0.0, None)), ["0.00", "—"]);
+    }
+}

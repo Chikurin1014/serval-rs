@@ -1,3 +1,5 @@
+import json
+
 from playwright.sync_api import expect
 
 from app import App
@@ -259,3 +261,219 @@ def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
     app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     time = app.graphs().first.locator(".u-legend .u-series").first.locator(".u-value")
     expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))
+
+
+def add_scatter(app: App):
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Scatter", exact=True).click()
+    return app.graphs().last
+
+
+def test_statistics_menu_adds_a_scatter_plot(app: App):
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics"])
+    bar.get_by_role("button", name="Statistics").hover()
+    expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
+    graph = add_scatter(app)
+    expect(app.graphs()).to_have_count(2)
+    expect(graph.locator(".graph-title-text")).to_have_text("Graph 2")
+    expect(graph.locator(".graph-empty")).to_have_text(
+        "No number data yet. Add a map to a number to plot it."
+    )
+
+
+def test_scatter_plots_one_label_against_another(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\na:0\\nb:30\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
+    graph.get_by_label("X label").fill("a")
+    expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
+    graph.get_by_label("Y label").fill("nothing")
+    expect(graph.locator(".graph-empty")).to_have_text("No number data of these labels yet.")
+    graph.get_by_label("Y label").fill("b")
+    expect(graph.locator(".graph-empty")).to_have_count(0)
+    plot = graph.locator(".graph-plot")
+    # Each a with the b after it
+    expect(plot).to_have_attribute("data-points", "3")
+    app.mock("receive('a:4\\nb:40\\n')")
+    expect(plot).to_have_attribute("data-points", "4")
+
+    # Each axis on its own: those of 0 or less left out of a log one
+    for axis, attribute in [("X", "data-x-scale"), ("Y", "data-y-scale")]:
+        scale = graph.get_by_role("group", name=f"{axis} axis")
+        expect(scale.get_by_role("button", name="Linear")).to_have_attribute(
+            "aria-pressed", "true"
+        )
+        scale.get_by_role("button", name="Log").click()
+        expect(plot).to_have_attribute(attribute, "log")
+    expect(plot).to_have_attribute("data-points", "3")
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Linear").click()
+    expect(plot).to_have_attribute("data-x-scale", "linear")
+    expect(plot).to_have_attribute("data-y-scale", "log")
+
+    # As they were, after the board is made anew
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    expect(graph.locator(".graph-plot")).to_have_attribute("data-points", "4")
+    expect(graph.locator(".graph-plot")).to_have_attribute("data-y-scale", "log")
+
+
+def test_scatter_shows_its_regression_line_and_equation(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\nb:3\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("a")
+    graph.get_by_label("Y label").fill("b")
+    plot = graph.locator(".graph-plot")
+    statistics = plot.locator(".scatter-statistics")
+    equation = graph.locator(".graph-equation")
+    expect(plot).to_have_attribute("data-points", "1")
+    expect(statistics).to_be_hidden()
+
+    # On from the start
+    toggle = graph.get_by_role("group", name="Regression").get_by_role("button")
+    expect(toggle).to_have_attribute("aria-pressed", "true")
+    expect(equation).to_have_text("Not enough points")
+    expect(plot).to_have_attribute("data-line", "")
+
+    app.mock("receive('a:2\\nb:5\\n')")
+    expect(equation).to_have_attribute("aria-label", "Y = 2.00X + 1.00")
+    expect(plot).to_have_attribute("data-line", "2 1")
+    app.mock("receive('a:3\\nb:4\\n')")
+    expect(equation).to_have_attribute("aria-label", "Y = 0.50X + 3.00")
+    # As a tooltip, by the pointer over the plot
+    area = plot.locator(".u-over").bounding_box()
+    at = (area["x"] + area["width"] / 3, area["y"] + area["height"] / 3)
+    app.page.mouse.move(*at)
+    expect(statistics).to_be_visible()
+    # Covariance (over n − 1) above correlation
+    expect(statistics.locator("dt")).to_have_text(["Covariance", "Correlation"])
+    expect(statistics.locator("dd")).to_have_text(["0.50", "0.50"])
+    box = statistics.bounding_box()
+    assert 0 < box["x"] - at[0] < 20 and 0 < box["y"] - at[1] < 20
+    app.page.mouse.move(0, 0)
+    expect(statistics).to_be_hidden()
+    # What stays as it is by KaTeX, the numbers as text
+    formulas = equation.locator(".formula")
+    expect(formulas).to_have_count(2)
+    for formula in formulas.all():
+        expect(formula).to_have_attribute("data-rendered", "true")
+    expect(formulas.locator(".katex-mathml annotation")).to_have_text(["Y ={}", "X +{}"])
+    expect(equation.locator(":scope > span:not(:has(.formula))")).to_have_text(
+        ["0.50", "3.00"]
+    )
+    expect(equation).to_have_css("box-shadow", "none")
+    # Beside the toggle, as tall as it
+    button, box = toggle.bounding_box(), equation.bounding_box()
+    assert box["x"] > button["x"] + button["width"]
+    assert abs(box["height"] - button["height"]) < 1
+    assert abs(box["y"] - button["y"]) < 1
+    # Of a linear equation, on log axes too
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-x-scale", "log")
+    expect(equation).to_have_attribute("aria-label", "Y = 0.50X + 3.00")
+
+    toggle.click()
+    expect(equation).to_have_count(0)
+    expect(plot).to_have_attribute("data-line", "")
+    # Not of the line: shown still
+    app.page.mouse.move(*at)
+    expect(statistics).to_be_visible()
+
+
+def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\na:100\\nb:5\\nb:6\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Box plot", exact=True).click()
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    boxes = lambda: [  # noqa: E731
+        label for label, *_ in json.loads(plot.get_attribute("data-boxes") or "[]")
+    ]
+    expect(graph.locator(".graph-empty")).to_have_text(
+        "Add the Number labels to plot in its settings."
+    )
+
+    # Each label chosen by name, as the data list's filters are added
+    graph.locator(".graph-title").click()  # opens the settings
+    field = graph.get_by_label("Label to plot")
+    tags = graph.locator(".graph-labels-tags [role=row]")
+    field.fill("a")
+    field.press("Enter")
+    expect(field).to_have_value("")
+    field.fill("b")
+    graph.get_by_role("button", name="Add label").click()
+    # Not twice
+    field.fill("a")
+    field.press("Enter")
+    expect(tags).to_have_text(["a", "b"])
+    expect(graph.locator(".graph-empty")).to_have_count(0)
+    app.page.wait_for_function(
+        "plot => plot.dataset.boxes?.includes('\"b\"')", arg=plot.element_handle()
+    )
+    assert boxes() == ["a", "b"]
+    # Beside the field
+    beside, box = field.bounding_box(), tags.first.bounding_box()
+    assert box["x"] > beside["x"] + beside["width"]
+    assert abs((box["y"] + box["height"] / 2) - (beside["y"] + beside["height"] / 2)) < 2
+
+    graph.get_by_role("button", name="Remove label b").click()
+    expect(tags).to_have_text(["a"])
+    # A box of a alone, its one outlier (100) apart
+    app.page.wait_for_function(
+        """plot => JSON.stringify(JSON.parse(plot.dataset.boxes ?? "[]")
+            .map(([label, outliers]) => [label, outliers])) === '[["a",1]]'""",
+        arg=plot.element_handle(),
+    )
+    hover = plot.locator(".box-plot-hover")
+    expect(hover).to_be_hidden()
+    label = hover.locator(".plot-tooltip-label")
+    # Over a's box: again, should the plot have been resized as the graph came
+    for _ in range(20):
+        boxes = json.loads(plot.get_attribute("data-boxes"))
+        x = next(place for each, _, place in boxes if each == "a")
+        area = plot.locator(".u-over").bounding_box()
+        app.page.mouse.move(area["x"] + x, area["y"] + area["height"] / 2)
+        if hover.is_visible() and label.text_content() == "a":
+            break
+        app.page.wait_for_timeout(100)
+    expect(label).to_have_text("a")
+    expect(hover.locator("dt")).to_have_text(
+        ["Mean", "Variance", "Median", "Max", "Min", "Q3", "Q1"]
+    )
+    # Its variance over n − 1
+    expect(hover.locator("dd")).to_have_text(
+        ["22.000", "1902.5", "3.0000", "100.00", "1.0000", "4.0000", "2.0000"]
+    )
+    # Beside the box
+    beside = hover.bounding_box()
+    assert beside["x"] > area["x"] + x or beside["x"] + beside["width"] < area["x"] + x
+
+    app.page.mouse.move(0, 0)
+    expect(hover).to_be_hidden()
+
+    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-value-scale", "log")

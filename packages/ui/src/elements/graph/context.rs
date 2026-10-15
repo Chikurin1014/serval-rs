@@ -5,6 +5,8 @@ use dioxus::prelude::*;
 #[derive(Clone, Copy, Debug)]
 pub struct GraphKind {
     pub name: &'static str,
+    /// The add menu it is in: with its presets, or itself if it has none.
+    pub menu: &'static str,
     pub view: fn(usize) -> Element,
     pub presets: &'static [GraphPreset],
 }
@@ -25,7 +27,17 @@ impl PartialEq for GraphKind {
 pub struct GraphProperty {
     /// `None` for a numbered default.
     pub title: Option<String>,
+    /// The value axis's: a scatter plot's Y axis.
     pub value_scale: AxisScale,
+    /// A scatter plot's X axis.
+    pub x_scale: AxisScale,
+    /// The Number labels a scatter plot pairs, as X and Y.
+    pub x_label: String,
+    pub y_label: String,
+    /// Whether a scatter plot shows the line fit to its points.
+    pub regression: bool,
+    /// The Number labels a box plot shows, in the order they were added.
+    pub labels: Vec<String>,
     pub draw_style: DrawStyle,
     pub time_window: TimeWindow,
     /// The labels turned off in the legend.
@@ -176,6 +188,20 @@ impl GraphContext {
             graphs.insert(to, graph);
         }
     }
+}
+
+/// One setting of a graph, as a memo of its own.
+pub(super) fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
+    graph_context: GraphContext,
+    id: usize,
+    setting: fn(&GraphProperty) -> T,
+) -> Memo<T> {
+    use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| setting(&graph.property))
+            .unwrap_or_default()
+    })
 }
 
 #[component]

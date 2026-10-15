@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use super::{GraphContext, GraphKind};
+use super::{GraphContext, GraphKind, GraphProperty};
 use crate::{
     components::{
         dropdown_menu::DropdownMenuItem,
@@ -82,12 +82,34 @@ fn columns(graphs: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::columns;
+    use super::{columns, menu_items};
+    use crate::elements::graph::{BOX_PLOT, SCATTER, TIME_SERIES};
 
     #[test]
     fn columns_follow_the_number_of_graphs() {
         let by_count: Vec<_> = (0..=7).map(columns).collect();
         assert_eq!(by_count, [1, 1, 2, 2, 2, 3, 3, 3]);
+    }
+
+    #[test]
+    fn menus_take_the_presets_or_the_kinds_with_none() {
+        let menus = menu_items(&[TIME_SERIES, BOX_PLOT, SCATTER]);
+        let names: Vec<_> = menus
+            .iter()
+            .map(|(menu, items)| {
+                (
+                    *menu,
+                    items.iter().map(|item| item.name).collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("Time series", vec!["Points", "Linear", "Stepped"]),
+                ("Statistics", vec!["Box plot", "Scatter"]),
+            ]
+        );
     }
 }
 
@@ -99,24 +121,65 @@ fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
     rsx! {
         div {
             class: "add-graph-bar",
-            for (menu, kind) in kinds.into_iter().enumerate() {
+            for (menu, (name, items)) in menu_items(&kinds).into_iter().enumerate() {
                 HoverMenu {
                     menus,
                     menu,
-                    trigger: rsx! { "{kind.name}" },
-                    for (index, preset) in kind.presets.iter().enumerate() {
+                    trigger: rsx! { "{name}" },
+                    for (index, item) in items.iter().enumerate() {
                         DropdownMenuItem {
                             value: index,
                             index,
-                            on_select: move |index: usize| {
-                                context.add(kind, (kind.presets[index].property)());
-                                menus.close(menu);
+                            on_select: {
+                                let items = items.clone();
+                                move |index: usize| {
+                                    let item: &MenuItem = &items[index];
+                                    context.add(item.kind, (item.property)());
+                                    menus.close(menu);
+                                }
                             },
-                            "{preset.name}"
+                            "{item.name}"
                         }
                     }
                 }
             }
         }
     }
+}
+
+/// What a menu item adds.
+#[derive(Clone, Copy)]
+struct MenuItem {
+    name: &'static str,
+    kind: GraphKind,
+    property: fn() -> GraphProperty,
+}
+
+/// Each menu, in the order its first kind comes, with the items of its kinds:
+/// their presets, or a kind itself if it has none.
+fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
+    let mut menus: Vec<(&'static str, Vec<MenuItem>)> = Vec::new();
+    for &kind in kinds {
+        let items = if kind.presets.is_empty() {
+            vec![MenuItem {
+                name: kind.name,
+                kind,
+                property: GraphProperty::default,
+            }]
+        } else {
+            kind.presets
+                .iter()
+                .map(|preset| MenuItem {
+                    name: preset.name,
+                    kind,
+                    property: preset.property,
+                })
+                .collect()
+        };
+        match menus.iter_mut().find(|(menu, _)| *menu == kind.menu) {
+            Some((_, menu_items)) => menu_items.extend(items),
+            None => menus.push((kind.menu, items)),
+        }
+    }
+    menus
 }
