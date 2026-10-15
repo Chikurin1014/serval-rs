@@ -477,3 +477,45 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
 
     graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
     expect(plot).to_have_attribute("data-value-scale", "log")
+
+
+def test_graphs_pause_and_play_as_the_port_is_read(app: App):
+    open_graphs_with_numbers(app)
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("temp")
+    graph.get_by_label("Y label").fill("volt")
+    plot = graph.locator(".graph-plot")
+    points = lambda: int(plot.get_attribute("data-points") or 0)  # noqa: E731
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()
+    )
+
+    # At the bar's right end, a square a little rounded
+    bar = app.page.locator(".graph-bar")
+    pause = bar.get_by_role("button", name="Pause graphs")
+    expect(pause).to_have_attribute("aria-pressed", "false")
+    # lucide's Pause, its two bars
+    expect(pause.locator("svg rect")).to_have_count(2)
+    button, row = pause.bounding_box(), bar.bounding_box()
+    assert abs((row["x"] + row["width"]) - (button["x"] + button["width"])) < 1
+    expect(pause).to_have_css("border-radius", "4px")
+
+    pause.click()
+    play = bar.get_by_role("button", name="Play graphs")
+    expect(play).to_have_attribute("aria-pressed", "true")
+    # lucide's Play, a triangle
+    expect(play.locator("svg rect")).to_have_count(0)
+    expect(play.locator("svg path, svg polygon")).to_have_count(1)
+    held = points()
+    # A reading each 50 ms meanwhile, the graphs as they were
+    app.page.wait_for_timeout(600)
+    assert points() == held
+
+    # All that came meanwhile, at once
+    play.click()
+    expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
+    app.page.wait_for_function(
+        "([plot, held]) => Number(plot.dataset.points) >= held + 8",
+        arg=[plot.element_handle(), held],
+    )

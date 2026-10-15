@@ -1,8 +1,10 @@
 use dioxus::prelude::*;
+use dioxus_icons::lucide;
 
 use super::{GraphContext, GraphKind, GraphProperty};
 use crate::{
     components::{
+        button::{Button, ButtonSize, ButtonVariant},
         dropdown_menu::DropdownMenuItem,
         sidebar::{
             Sidebar, SidebarCollapsible, SidebarContent, SidebarInset, SidebarProvider,
@@ -55,6 +57,7 @@ pub fn GraphBoard() -> Element {
                         title: "Toggle data list",
                     }
                     AddGraphBar { kinds }
+                    PauseButton {}
                 }
                 div {
                     class: "graph-grid",
@@ -182,4 +185,34 @@ fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
         }
     }
     menus
+}
+
+/// Pauses the graphs, the port read on all the same; or plays them again,
+/// with all that came meanwhile.
+#[component]
+fn PauseButton() -> Element {
+    let mut context = use_context::<GraphContext>();
+    let paused = context.is_paused();
+    let action = if paused {
+        "Play graphs"
+    } else {
+        "Pause graphs"
+    };
+
+    rsx! {
+        Button {
+            class: "graph-pause",
+            variant: ButtonVariant::Outline,
+            size: ButtonSize::IconSm,
+            aria_label: action,
+            aria_pressed: paused,
+            title: action,
+            onclick: move |_| context.set_paused(!paused),
+            if paused {
+                lucide::Play {}
+            } else {
+                lucide::Pause {}
+            }
+        }
+    }
 }

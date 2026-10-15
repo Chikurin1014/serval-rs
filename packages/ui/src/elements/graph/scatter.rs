@@ -273,6 +273,10 @@ pub fn ScatterGraph(id: usize) -> Element {
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
 
     use_effect(move || {
+        // Paused: nothing new read (nor waited for), so it shows what it had
+        if graph_context.is_paused() {
+            return;
+        }
         let (x, y) = (x_label(), y_label());
         let labels = (x.as_str(), y.as_str());
         let mut feed = feed.borrow_mut();

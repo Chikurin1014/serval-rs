@@ -167,6 +167,10 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     };
 
     use_effect(move || {
+        // Paused: nothing new read (nor waited for), so it shows what it had
+        if graph_context.is_paused() {
+            return;
+        }
         // Colored by their place among the number labels, as the lines of a time series
         let colors = number_labels.read().clone();
         let boxes: Vec<PlotBox> = labels

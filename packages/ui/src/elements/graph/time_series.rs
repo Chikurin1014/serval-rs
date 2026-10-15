@@ -134,6 +134,10 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     });
 
     use_effect(move || {
+        // Paused: nothing new read (nor waited for), so it shows what it had
+        if graph_context.is_paused() {
+            return;
+        }
         let (labels, updates) = data_context.with_each(Some(DataType::Number), |data| {
             feed.borrow_mut()
                 .next(data, |label| filter_context.shows(label))

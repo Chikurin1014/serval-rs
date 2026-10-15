@@ -144,6 +144,8 @@ pub struct GraphContext {
     kinds: Signal<Vec<GraphKind>>,
     graphs: Signal<Vec<Graph>>,
     next_id: Signal<usize>,
+    /// The graphs kept as they are, the port read on all the same.
+    paused: Signal<bool>,
 }
 
 impl GraphContext {
@@ -178,6 +180,16 @@ impl GraphContext {
 
     pub fn remove(&mut self, id: usize) {
         self.graphs.write().retain(|g| g.id != id);
+    }
+
+    /// Whether the graphs are kept as they are: they read nothing new until
+    /// played again, and then all that came meanwhile.
+    pub fn is_paused(&self) -> bool {
+        (self.paused)()
+    }
+
+    pub fn set_paused(&mut self, paused: bool) {
+        self.paused.set(paused);
     }
 
     pub fn move_to(&mut self, id: usize, position: usize) {
@@ -215,6 +227,7 @@ pub fn GraphProvider(
             kinds: Signal::new(kinds),
             graphs: Signal::new(Vec::new()),
             next_id: Signal::new(0),
+            paused: Signal::new(false),
         };
         for (kind, property) in initial {
             context.add(kind, property);
