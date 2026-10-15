@@ -5,7 +5,7 @@ use super::{
     time_series::series_color,
 };
 use crate::components::toggle::Toggle;
-use crate::data::{DataContext, DataType, Queue, TypedData, Vector2dData, format_number};
+use crate::data::{Data, DataContext, DataType, Queue, TypedData, Vector, format_number};
 use crate::elements::FilterContext;
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
@@ -14,77 +14,129 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
+const ZDOG_JS: Asset = asset!(
+    "/assets/vendor/zdog/zdog.dist.min.js",
+    AssetOptions::js().with_minify(false)
+);
 const ARROWS_JS: &str = include_str!("arrows.js");
+const ARROWS_3D_JS: &str = include_str!("arrows_3d.js");
+
+/// Itself, its trails on from the start.
+fn with_trails() -> GraphProperty {
+    GraphProperty {
+        trails: true,
+        ..GraphProperty::default()
+    }
+}
 
 pub const ARROWS: GraphKind = GraphKind {
     name: "Arrows (2D)",
     menu: "Vector",
-    view: |id| rsx! { ArrowsGraph { id } },
-    // Itself, its trails on from the start
+    view: |id| rsx! { ArrowsGraph { id, dimension: Dimension::Two } },
     presets: &[GraphPreset {
         name: "Arrows (2D)",
-        property: || GraphProperty {
-            trails: true,
-            ..GraphProperty::default()
-        },
+        property: with_trails,
     }],
 };
+
+pub const ARROWS_3D: GraphKind = GraphKind {
+    name: "Arrows (3D)",
+    menu: "Vector",
+    view: |id| rsx! { ArrowsGraph { id, dimension: Dimension::Three } },
+    presets: &[GraphPreset {
+        name: "Arrows (3D)",
+        property: with_trails,
+    }],
+};
+
+/// Of which vectors arrows are drawn: on a plane with uPlot, or in space with
+/// Zdog.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Dimension {
+    Two,
+    Three,
+}
+
+impl Dimension {
+    fn data_type(self) -> DataType {
+        match self {
+            Dimension::Two => DataType::Vector2d,
+            Dimension::Three => DataType::Vector3d,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Dimension::Two => "2D",
+            Dimension::Three => "3D",
+        }
+    }
+
+    fn script(self) -> &'static str {
+        match self {
+            Dimension::Two => ARROWS_JS,
+            Dimension::Three => ARROWS_3D_JS,
+        }
+    }
+
+    /// A vector as its hover tells it: its components and its length; on a
+    /// plane, its angle from X towards Y too.
+    fn rows(self, components: &[f64]) -> Vec<(&'static str, String)> {
+        let mut rows: Vec<_> = ["X", "Y", "Z"]
+            .into_iter()
+            .zip(components)
+            .map(|(name, &value)| (name, format_number(value)))
+            .collect();
+        let length = components.iter().map(|value| value * value).sum::<f64>();
+        rows.push(("Magnitude", format_number(length.sqrt())));
+        if let (Dimension::Two, &[x, y]) = (self, components) {
+            let angle = format_number(y.atan2(x).to_degrees());
+            rows.push(("Angle", format!("{angle}°")));
+        }
+        rows
+    }
+}
 
 /// How many values of a label before its newest the trail of its tip shows.
 const TRAIL: usize = 50;
 
-/// A 2D vector as `[x, y]`.
-type Point = (f64, f64);
-
-/// `(label, color, newest [x, y], trail [[x, y]] oldest first and up to the
-/// newest, hover rows)`, as `arrows.js` takes each arrow.
+/// `(label, color, newest, trail oldest first and up to the newest, hover
+/// rows)`, each vector as its components, as the scripts take each arrow.
 type PlotArrow = (
     String,
     &'static str,
-    Point,
-    Vec<Point>,
-    [(&'static str, String); 4],
+    Vec<f64>,
+    Vec<Vec<f64>>,
+    Vec<(&'static str, String)>,
 );
 
-/// The newest of `queue` (finite), and the [`TRAIL`] before it with it.
-fn newest_with_trail(queue: &Queue<Vector2dData>) -> Option<(Point, Vec<Point>)> {
-    let values: Vec<Point> = queue
+/// The newest of `queue` (finite), and the [`TRAIL`] before it with it, each
+/// as its components.
+fn newest_with_trail<V: Vector>(queue: &Queue<Data<V>>) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
+    let values: Vec<Vec<f64>> = queue
         .iter()
         .skip(queue.len().saturating_sub(TRAIL + 1))
-        .map(|entry| (entry.value().x(), entry.value().y()))
-        .filter(|(x, y)| x.is_finite() && y.is_finite())
+        .map(|entry| entry.value().components().to_vec())
+        .filter(|components| components.iter().all(|value| value.is_finite()))
         .collect();
-    Some((*values.last()?, values))
+    Some((values.last()?.clone(), values))
 }
 
-/// A vector as its hover tells it: its components, its length, and its angle
-/// from X towards Y.
-fn rows((x, y): Point) -> [(&'static str, String); 4] {
-    [
-        ("X", format_number(x)),
-        ("Y", format_number(y)),
-        ("Magnitude", format_number(x.hypot(y))),
-        (
-            "Angle",
-            format!("{}°", format_number(y.atan2(x).to_degrees())),
-        ),
-    ]
-}
-
-/// An arrow from the origin for the newest value of each Vector2d label the
-/// data list shows, the trail of its tip behind it; each turned on or off in
-/// the legend.
+/// An arrow from the origin for the newest value of each vector label (of
+/// `dimension`) the data list shows, the trail of its tip behind it; each
+/// turned on or off in the legend.
 #[component]
-pub fn ArrowsGraph(id: usize) -> Element {
+pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let trails = use_graph_setting(graph_context, id, |property| property.trails);
     let container_id = format!("graph-plot-{id}");
-    let plot = use_hook(|| document::eval(ARROWS_JS));
+    let plot = use_hook(|| document::eval(dimension.script()));
+    let data_type = dimension.data_type();
 
-    let vector_labels = use_memo(move || data_context.labels_of(DataType::Vector2d));
+    let vector_labels = use_memo(move || data_context.labels_of(data_type));
     let plotted = use_memo(move || {
         vector_labels
             .read()
@@ -94,24 +146,20 @@ pub fn ArrowsGraph(id: usize) -> Element {
     });
 
     use_effect(move || {
-        // Colored by their place among the 2D vector labels
+        // Colored by their place among the vector labels
         let colors = vector_labels.read().clone();
-        let arrows: Vec<PlotArrow> = data_context.with_each(Some(DataType::Vector2d), |data| {
+        let arrows: Vec<PlotArrow> = data_context.with_each(Some(data_type), |data| {
             data.iter()
                 .filter(|(label, _)| filter_context.shows(label))
                 .filter_map(|&(label, data)| {
-                    let TypedData::Vector2d(queue) = data else {
-                        return None;
-                    };
-                    let (newest, trail) = newest_with_trail(queue)?;
+                    let (newest, trail) = match data {
+                        TypedData::Vector2d(queue) => newest_with_trail(queue),
+                        TypedData::Vector3d(queue) => newest_with_trail(queue),
+                        _ => None,
+                    }?;
                     let index = colors.iter().position(|each| each == label).unwrap_or(0);
-                    Some((
-                        label.to_string(),
-                        series_color(index),
-                        newest,
-                        trail,
-                        rows(newest),
-                    ))
+                    let rows = dimension.rows(&newest);
+                    Some((label.to_string(), series_color(index), newest, trail, rows))
                 })
                 .collect()
         });
@@ -135,10 +183,17 @@ pub fn ArrowsGraph(id: usize) -> Element {
         let _ = plot.send(());
     });
 
+    let name = dimension.name();
+
     rsx! {
+        // uPlot's styles for the legend of the 3D arrows too, as the others'
         document::Link { rel: "stylesheet", href: UPLOT_CSS }
         document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
-        document::Script { src: UPLOT_JS }
+        if dimension == Dimension::Two {
+            document::Script { src: UPLOT_JS }
+        } else {
+            document::Script { src: ZDOG_JS }
+        }
 
         GraphFrame {
             id,
@@ -173,12 +228,12 @@ pub fn ArrowsGraph(id: usize) -> Element {
             if vector_labels.read().is_empty() {
                 p {
                     class: "graph-empty",
-                    "No 2D vector data yet. Add a map to a Vector2d to plot it."
+                    "No {name} vector data yet. Add a map to a {data_type.name()} to plot it."
                 }
             } else if plotted() == 0 {
                 p {
                     class: "graph-empty",
-                    "No 2D vector data shown. Change the Data list's filters to show some."
+                    "No {name} vector data shown. Change the Data list's filters to show some."
                 }
             }
         }
@@ -187,8 +242,8 @@ pub fn ArrowsGraph(id: usize) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::{TRAIL, newest_with_trail, rows};
-    use crate::data::{Queue, Vector2d, Vector2dData};
+    use super::{Dimension, TRAIL, newest_with_trail};
+    use crate::data::{Queue, Vector2d, Vector2dData, Vector3d, Vector3dData};
 
     fn vectors(values: impl IntoIterator<Item = (f64, f64)>) -> Queue<Vector2dData> {
         values
@@ -201,26 +256,48 @@ mod tests {
     #[test]
     fn the_newest_comes_with_the_trail_before_it() {
         let (newest, trail) = newest_with_trail(&vectors([(1.0, 2.0), (3.0, 4.0)])).unwrap();
-        assert_eq!(newest, (3.0, 4.0));
-        assert_eq!(trail, [(1.0, 2.0), (3.0, 4.0)]);
+        assert_eq!(newest, [3.0, 4.0]);
+        assert_eq!(trail, [[1.0, 2.0], [3.0, 4.0]]);
 
         // As many as it keeps, and the newest
         let many = vectors((0..100).map(|index| (f64::from(index), 0.0)));
         let (newest, trail) = newest_with_trail(&many).unwrap();
-        assert_eq!(newest, (99.0, 0.0));
+        assert_eq!(newest, [99.0, 0.0]);
         assert_eq!(trail.len(), TRAIL + 1);
-        assert_eq!(trail[0], (f64::from(99 - TRAIL as i32), 0.0));
+        assert_eq!(trail[0], [f64::from(99 - TRAIL as i32), 0.0]);
 
         assert_eq!(newest_with_trail(&vectors([])), None);
+
+        // Of three components too
+        let space: Queue<Vector3dData> = [Vector3dData::new(1, Vector3d::new(1.0, 2.0, 3.0))]
+            .into_iter()
+            .collect();
+        assert_eq!(newest_with_trail(&space).unwrap().0, [1.0, 2.0, 3.0]);
     }
 
     #[test]
-    fn rows_tell_the_components_length_and_angle() {
+    fn rows_tell_the_components_length_and_on_a_plane_angle() {
+        let texts = |dimension: Dimension, components: &[f64]| {
+            dimension
+                .rows(components)
+                .into_iter()
+                .map(|(_, text)| text)
+                .collect::<Vec<_>>()
+        };
         assert_eq!(
-            rows((3.0, 4.0)).map(|(_, text)| text),
+            texts(Dimension::Two, &[3.0, 4.0]),
             ["3.0000", "4.0000", "5.0000", "53.130°"]
         );
-        assert_eq!(rows((-1.0, 0.0))[3].1, "180.00°");
-        assert_eq!(rows((0.0, -2.0))[3].1, "-90.000°");
+        assert_eq!(texts(Dimension::Two, &[-1.0, 0.0])[3], "180.00°");
+        assert_eq!(texts(Dimension::Two, &[0.0, -2.0])[3], "-90.000°");
+        assert_eq!(
+            Dimension::Three.rows(&[2.0, 3.0, 6.0]),
+            [
+                ("X", "2.0000".to_string()),
+                ("Y", "3.0000".to_string()),
+                ("Z", "6.0000".to_string()),
+                ("Magnitude", "7.0000".to_string()),
+            ]
+        );
     }
 }
