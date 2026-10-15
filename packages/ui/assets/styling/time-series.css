@@ -119,40 +119,6 @@
   margin: 0;
   text-align: right;
 }
-
-/* The field to add a label by, the labels beside it */
-.graph-labels {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem 0.75rem;
-  min-width: 0;
-}
-
-.graph-labels-input {
-  display: flex;
-  flex: 0 1 14rem;
-  align-items: center;
-  gap: 0.375rem;
-  min-width: 10rem;
-}
-
-.graph-labels-tags {
-  flex: 1;
-  min-width: 0;
-}
-
-/* The tag takes no class, so it is matched by its role */
-.graph-labels-tags [role="row"] {
-  font-family: ui-monospace, monospace;
-}
-
-.graph-labels-tags [role="row"] .graph-labels-remove {
-  width: 1rem;
-  height: 1rem;
-  margin-right: -0.5rem;
-}
-
 /* Arrows in space: the canvas turned by dragging, the axes' labels over it,
  * set as uPlot sets its axes and legend */
 .arrows-3d-area,

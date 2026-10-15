@@ -4,11 +4,13 @@ use dioxus::prelude::*;
 
 use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    TimeWindow, context::use_graph_setting,
+    TimeWindow,
+    context::{until_paused, use_graph_setting},
 };
 use crate::components::{slider::Slider, toggle::Toggle};
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
+use crate::time::TimeContext;
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -17,6 +19,7 @@ const UPLOT_JS: Asset = asset!(
     AssetOptions::js().with_minify(false)
 );
 const TIME_SERIES_JS: &str = concat!(
+    include_str!("paced_draws.js"),
     include_str!("time_series_data.js"),
     include_str!("time_series.js"),
 );
@@ -67,15 +70,26 @@ type Update = (String, bool, Vec<(i64, f64)>);
 #[derive(Default)]
 struct PlotFeed {
     cursors: HashMap<String, SourceCursor>,
+    /// When the graphs were paused, if they are: the entries after are left
+    /// out, and all sent anew as it changes.
+    paused_at: Option<i64>,
 }
 
 impl PlotFeed {
-    /// The shown number labels, and their points the plot does not have yet.
+    /// The shown number labels, and their points the plot does not have yet
+    /// (up to `paused_at`, if paused).
     fn next(
         &mut self,
         data: &[(&str, &TypedData)],
         shows: impl Fn(&str) -> bool,
+        paused_at: Option<i64>,
     ) -> (Vec<String>, Vec<Update>) {
+        if self.paused_at != paused_at {
+            *self = Self {
+                paused_at,
+                ..Self::default()
+            };
+        }
         let mut labels = Vec::new();
         let mut updates = Vec::new();
 
@@ -93,14 +107,16 @@ impl PlotFeed {
                 .entry(label.to_string())
                 .or_default()
                 .read(queue);
-            if !read.restarted && read.entries.is_empty() {
-                continue;
-            }
-            let points = read
+            let points: Vec<_> = read
                 .entries
                 .iter()
+                .filter(|data| until_paused(paused_at, data.timestamp()))
                 .map(|data| (data.timestamp(), *data.value()))
                 .collect();
+            // Nothing new (as what came after the time paused at)
+            if !read.restarted && points.is_empty() {
+                continue;
+            }
             updates.push((label.to_string(), read.restarted, points));
         }
         // So a label shown again is sent in full
@@ -116,6 +132,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
+    let time_context = use_context::<TimeContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
     let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
@@ -134,9 +151,10 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     });
 
     use_effect(move || {
+        let paused_at = graph_context.paused_at();
         let (labels, updates) = data_context.with_each(Some(DataType::Number), |data| {
             feed.borrow_mut()
-                .next(data, |label| filter_context.shows(label))
+                .next(data, |label| filter_context.shows(label), paused_at)
         });
         let colors = number_labels
             .read()
@@ -154,17 +172,28 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             draw_style().name(),
             hidden(),
             window,
+            paused_at.is_some(),
         ));
     });
 
-    use_future(move || async move {
-        let mut plot = plot;
-        while let Ok(labels) = plot.recv::<Vec<String>>().await {
-            if graph_context
-                .get(id)
-                .is_some_and(|graph| graph.property.hidden != labels)
-            {
-                graph_context.update(id, |property| property.hidden = labels);
+    // The labels turned off in the legend; or zoomed into, so paused
+    use_future(move || {
+        let time_context = time_context.clone();
+        async move {
+            let mut plot = plot;
+            while let Ok((kind, labels)) = plot.recv::<(String, Vec<String>)>().await {
+                match kind.as_str() {
+                    "hidden" => {
+                        if graph_context
+                            .get(id)
+                            .is_some_and(|graph| graph.property.hidden != labels)
+                        {
+                            graph_context.update(id, |property| property.hidden = labels);
+                        }
+                    }
+                    "zoomed" => graph_context.pause(time_context.current()),
+                    _ => {}
+                }
             }
         }
     });
@@ -298,7 +327,7 @@ mod tests {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
 
-        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]));
+        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]), None);
         assert_eq!(labels, ["temp"]);
         assert_eq!(
             updates,
@@ -310,10 +339,10 @@ mod tests {
             .and_then(NumberData::queue_mut)
             .unwrap();
         temp.push(NumberData::new(3, 3.0));
-        let (_, updates) = feed.next(&each(&data), shown(&["temp"]));
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]), None);
         assert_eq!(updates, [("temp".to_string(), false, vec![(3, 3.0)])]);
 
-        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]));
+        let (labels, updates) = feed.next(&each(&data), shown(&["temp"]), None);
         assert_eq!(labels, ["temp"]);
         assert!(updates.is_empty());
     }
@@ -322,10 +351,10 @@ mod tests {
     fn resends_a_cleared_queue_as_a_reset() {
         let mut feed = PlotFeed::default();
         let mut data = HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0)]))]);
-        feed.next(&each(&data), shown(&["temp"]));
+        feed.next(&each(&data), shown(&["temp"]), None);
 
         data.insert("temp".to_string(), numbers(&[(5, 5.0), (6, 6.0), (7, 7.0)]));
-        let (_, updates) = feed.next(&each(&data), shown(&["temp"]));
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]), None);
         assert_eq!(
             updates,
             [("temp".to_string(), true, vec![(5, 5.0), (6, 6.0), (7, 7.0)])]
@@ -341,11 +370,45 @@ mod tests {
             ("message".to_string(), TypedData::Log(Queue::new())),
         ]);
 
-        let (labels, _) = feed.next(&each(&data), shown(&["volt", "message"]));
+        let (labels, _) = feed.next(&each(&data), shown(&["volt", "message"]), None);
         assert_eq!(labels, ["volt"]);
 
-        feed.next(&each(&data), shown(&[]));
-        let (_, updates) = feed.next(&each(&data), shown(&["volt"]));
+        feed.next(&each(&data), shown(&[]), None);
+        let (_, updates) = feed.next(&each(&data), shown(&["volt"]), None);
         assert_eq!(updates, [("volt".to_string(), true, vec![(1, 3.3)])]);
+    }
+
+    #[test]
+    fn paused_it_sends_what_came_until_then_and_played_all_anew() {
+        let mut feed = PlotFeed::default();
+        let mut data =
+            HashMap::from([("temp".to_string(), numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]))]);
+        feed.next(&each(&data), shown(&["temp"]), None);
+
+        // In place of what it had: up to the time paused at
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]), Some(2));
+        assert_eq!(
+            updates,
+            [("temp".to_string(), true, vec![(1, 1.0), (2, 2.0)])]
+        );
+        // What comes meanwhile, left out
+        let temp = data
+            .get_mut("temp")
+            .and_then(NumberData::queue_mut)
+            .unwrap();
+        temp.push(NumberData::new(4, 4.0));
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]), Some(2));
+        assert!(updates.is_empty());
+
+        // Played: all of it
+        let (_, updates) = feed.next(&each(&data), shown(&["temp"]), None);
+        assert_eq!(
+            updates,
+            [(
+                "temp".to_string(),
+                true,
+                vec![(1, 1.0), (2, 2.0), (3, 3.0), (4, 4.0)]
+            )]
+        );
     }
 }

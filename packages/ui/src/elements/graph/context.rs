@@ -36,8 +36,6 @@ pub struct GraphProperty {
     pub y_label: String,
     /// Whether a scatter plot shows the line fit to its points.
     pub regression: bool,
-    /// The Number labels a box plot shows, in the order they were added.
-    pub labels: Vec<String>,
     /// Whether the arrows of 2D vectors trail the tips they had.
     pub trails: bool,
     pub draw_style: DrawStyle,
@@ -146,6 +144,9 @@ pub struct GraphContext {
     kinds: Signal<Vec<GraphKind>>,
     graphs: Signal<Vec<Graph>>,
     next_id: Signal<usize>,
+    /// When the graphs were paused: they show the data up to then (in their
+    /// settings as they are changed), the port read on all the same.
+    paused_at: Signal<Option<i64>>,
 }
 
 impl GraphContext {
@@ -182,6 +183,25 @@ impl GraphContext {
         self.graphs.write().retain(|g| g.id != id);
     }
 
+    /// When the graphs were paused, if they are: they show the data up to
+    /// then until played again, and then all that came meanwhile.
+    pub fn paused_at(&self) -> Option<i64> {
+        (self.paused_at)()
+    }
+
+    /// Pauses the graphs at `at` (as `TimeContext` has it), or plays them with
+    /// none.
+    pub fn set_paused_at(&mut self, at: Option<i64>) {
+        self.paused_at.set(at);
+    }
+
+    /// Pauses the graphs at `at`, unless they are already.
+    pub fn pause(&mut self, at: i64) {
+        if self.paused_at.peek().is_none() {
+            self.paused_at.set(Some(at));
+        }
+    }
+
     pub fn move_to(&mut self, id: usize, position: usize) {
         let mut graphs = self.graphs.write();
         if let Some(from) = graphs.iter().position(|g| g.id == id) {
@@ -190,6 +210,12 @@ impl GraphContext {
             graphs.insert(to, graph);
         }
     }
+}
+
+/// Whether an entry of `timestamp` is shown, with the graphs paused at
+/// `paused_at` (if they are).
+pub(super) fn until_paused(paused_at: Option<i64>, timestamp: i64) -> bool {
+    paused_at.is_none_or(|paused_at| timestamp <= paused_at)
 }
 
 /// One setting of a graph, as a memo of its own.
@@ -217,6 +243,7 @@ pub fn GraphProvider(
             kinds: Signal::new(kinds),
             graphs: Signal::new(Vec::new()),
             next_id: Signal::new(0),
+            paused_at: Signal::new(None),
         };
         for (kind, property) in initial {
             context.add(kind, property);

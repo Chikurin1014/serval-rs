@@ -2,7 +2,8 @@
 //
 // From Rust: the container id, then `[labels, updates, colors, log, style,
 // hidden, window]` on each change (updates: `[label, reset, [[ms, value]]]`),
-// then `null` on unmount. To Rust: the labels turned off in the legend.
+// then `null` on unmount. To Rust: `["hidden", labels]`, those turned off in
+// the legend; `["zoomed", []]` as it is zoomed into.
 
 // As `MAX_ENTRIES_PER_LABEL`
 const MAX_POINTS = 10000;
@@ -32,14 +33,19 @@ let fitData = true;
 let hiddenLabels = new Set();
 // Sent to Rust and not yet echoed back
 let hiddenSent = null;
-let frame = 0;
 
 const probe = document.createElement("span");
 probe.style.display = "none";
 container.appendChild(probe);
+// Each color as the theme has it, kept until the theme changes: each taken
+// makes the page work its styles out
+const cssColors = new Map();
 function cssColor(name) {
-  probe.style.color = `var(${name})`;
-  return getComputedStyle(probe).color;
+  if (!cssColors.has(name)) {
+    probe.style.color = `var(${name})`;
+    cssColors.set(name, getComputedStyle(probe).color);
+  }
+  return cssColors.get(name);
 }
 
 function areaFill(color) {
@@ -73,6 +79,47 @@ function seriesStyle(color) {
   };
 }
 
+// The times and values zoomed to by dragging a rectangle over the plot, if it
+// is: kept until a double click, or played again (the values, until another
+// scale)
+let zoomed = null;
+
+function onSelect(u) {
+  const { left, top, width, height } = u.select;
+  if (width < 2 || height < 2) {
+    return;
+  }
+  zoomed = {
+    x: [u.posToVal(left, "x"), u.posToVal(left + width, "x")],
+    y: [u.posToVal(top + height, "y"), u.posToVal(top, "y")],
+  };
+  u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+  zoomIn(u);
+  // For tests
+  container.dataset.zoomed = "true";
+  // Paused, so the data stays as zoomed into
+  dioxus.send(["zoomed", []]);
+}
+
+/** Sets the plot to what it is zoomed to. */
+function zoomIn(u) {
+  u.batch(() => {
+    u.setScale("x", { min: zoomed.x[0], max: zoomed.x[1] });
+    if (zoomed.y) {
+      u.setScale("y", { min: zoomed.y[0], max: zoomed.y[1] });
+    }
+  });
+}
+
+function unzoom() {
+  if (!zoomed) {
+    return;
+  }
+  zoomed = null;
+  container.dataset.zoomed = "false";
+  plot?.setData(plot.data);
+}
+
 function onSeriesToggle(u, index, options) {
   if (index === null || options.show === undefined) {
     return;
@@ -85,7 +132,7 @@ function onSeriesToggle(u, index, options) {
   }
   const hidden = [...hiddenLabels].sort();
   hiddenSent = JSON.stringify(hidden);
-  dioxus.send(hidden);
+  dioxus.send(["hidden", hidden]);
 }
 
 function applyHidden(hidden) {
@@ -148,19 +195,34 @@ function create() {
       scales: {
         x: {
           time: true,
-          range: (u, min, max) => timeRange(min, max, windowSeconds, fitData),
+          range: (u, min, max) =>
+            zoomed?.x ?? timeRange(min, max, windowSeconds, fitData),
         },
-        y: logScale ? { distr: 3, log: 10 } : {},
+        y: {
+          ...(logScale && { distr: 3, log: 10 }),
+          // Kept as zoomed to, as the data is set
+          auto: () => !zoomed?.y,
+        },
       },
-      cursor: { sync: { key: CURSOR_SYNC_KEY, setSeries: false } },
+      cursor: {
+        sync: { key: CURSOR_SYNC_KEY, setSeries: false },
+        // Zoomed by `onSelect`, so it is told
+        drag: { x: true, y: true, setScale: false },
+      },
       hooks: {
         setSeries: [onSeriesToggle],
+        setSelect: [onSelect],
         // For tests
         setScale: [
           (u, key) => {
             if (key === "x" && u.scales.x.min != null) {
               container.dataset.timeSpan = String(
                 u.scales.x.max - u.scales.x.min,
+              );
+            }
+            if (key === "y" && u.scales.y.min != null) {
+              container.dataset.valueSpan = String(
+                u.scales.y.max - u.scales.y.min,
               );
             }
           },
@@ -187,13 +249,17 @@ function create() {
     plotData(labels),
     container,
   );
+  // Unzoomed by a double click, before uPlot takes it
+  plot.root.addEventListener("dblclick", unzoom, true);
+  if (zoomed) {
+    zoomIn(plot);
+  }
   fit();
   // The legend only gets its height after layout
   requestAnimationFrame(fit);
 }
 
 function draw() {
-  frame = 0;
   const labels = sortedLabels();
   if (!plot || lines(labels) !== plotLines) {
     create();
@@ -202,24 +268,27 @@ function draw() {
   }
 }
 
-// One redraw per frame
+// One redraw per frame, fewer as the page is busy
+const draws = pacedDraws(draw);
 function schedule() {
-  if (!frame) {
-    frame = requestAnimationFrame(draw);
-  }
+  draws.schedule();
 }
 
 const resize = new ResizeObserver(fit);
 resize.observe(container);
 
-// Colors are baked in at creation
-const themeObserver = new MutationObserver(create);
+// Colors are baked in at creation, as taken anew
+function onTheme() {
+  cssColors.clear();
+  create();
+}
+const themeObserver = new MutationObserver(onTheme);
 themeObserver.observe(document.documentElement, {
   attributes: true,
   attributeFilter: ["data-theme"],
 });
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", create);
+systemTheme.addEventListener("change", onTheme);
 
 create();
 
@@ -229,13 +298,29 @@ while (true) {
     break;
   }
 
-  const [labels, updates, lineColors, log, style, hidden, [seconds, fit]] =
-    message;
+  const [
+    labels,
+    updates,
+    lineColors,
+    log,
+    style,
+    hidden,
+    [seconds, fit],
+    paused,
+  ] = message;
+  // Played again: the newest as it comes
+  if (!paused) {
+    unzoom();
+  }
   windowSeconds = seconds;
   fitData = fit;
   colors = lineColors;
   applyHidden(hidden);
   if (log !== logScale || style !== drawStyle) {
+    // The values zoomed to, not of another scale
+    if (log !== logScale && zoomed) {
+      zoomed.y = null;
+    }
     logScale = log;
     drawStyle = style;
     // Set at creation
@@ -245,8 +330,8 @@ while (true) {
   schedule();
 }
 
-cancelAnimationFrame(frame);
+draws.cancel();
 resize.disconnect();
 themeObserver.disconnect();
-systemTheme.removeEventListener("change", create);
+systemTheme.removeEventListener("change", onTheme);
 plot?.destroy();

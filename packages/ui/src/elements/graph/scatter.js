@@ -4,7 +4,8 @@
 // [xLog, yLog], [pointColor, lineColor], line, statistics]` on each change
 // (points: `[[x, y]]`, after those before unless `reset`; line: `[slope,
 // intercept]` or `null`; statistics: `[covariance, correlation]` as text or
-// `null`), then `null` on unmount.
+// `null`), then `null` on unmount. To Rust: `["zoomed", []]` as it is zoomed
+// into.
 
 // As `MAX_ENTRIES_PER_LABEL`
 const MAX_POINTS = 10000;
@@ -32,14 +33,22 @@ let statistics = null;
 let plot = null;
 // What the plot was made with
 let made = "";
-let frame = 0;
+// Redrawn at most this often, not as each pair comes: each redraw is of all
+// its points, as many as 10000
+const DRAW_EVERY_MS = 100;
 
 const probe = document.createElement("span");
 probe.style.display = "none";
 container.appendChild(probe);
+// Each color as the theme has it, kept until the theme changes: each taken
+// makes the page work its styles out
+const cssColors = new Map();
 function cssColor(name) {
-  probe.style.color = `var(${name})`;
-  return getComputedStyle(probe).color;
+  if (!cssColors.has(name)) {
+    probe.style.color = `var(${name})`;
+    cssColors.set(name, getComputedStyle(probe).color);
+  }
+  return cssColors.get(name);
 }
 
 // The statistics, as a tooltip by the pointer over the plot
@@ -101,13 +110,49 @@ function plotData() {
   return [null, [x, y]];
 }
 
+// The ranges zoomed to by dragging across the plot, if it is: kept until a
+// double click, played again, or another scale
+let zoomed = null;
+
+function onSelect(u) {
+  const { left, top, width, height } = u.select;
+  if (width < 2 || height < 2) {
+    return;
+  }
+  zoomed = {
+    x: [u.posToVal(left, "x"), u.posToVal(left + width, "x")],
+    y: [u.posToVal(top + height, "y"), u.posToVal(top, "y")],
+  };
+  u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+  u.batch(() => {
+    u.setScale("x", { min: zoomed.x[0], max: zoomed.x[1] });
+    u.setScale("y", { min: zoomed.y[0], max: zoomed.y[1] });
+  });
+  // For tests
+  container.dataset.zoomed = "true";
+  // Paused, so the data stays as zoomed into
+  dioxus.send(["zoomed", []]);
+}
+
+function unzoom() {
+  if (!zoomed) {
+    return;
+  }
+  zoomed = null;
+  container.dataset.zoomed = "false";
+  plot?.setData(plotData());
+}
+
 // Padded, so one point (or all of one value) has room around it: as no
-// points do
-function scale(log) {
+// points do; as zoomed to, if it is
+function scale(log, key) {
   return {
     time: false,
     ...(log && { distr: 3, log: 10 }),
     range: (u, min, max) => {
+      if (zoomed) {
+        return zoomed[key];
+      }
       if (min == null || max == null) {
         return log ? [1, 10] : [0, 1];
       }
@@ -243,8 +288,14 @@ function create() {
       width: container.clientWidth,
       height: Math.max(container.clientHeight, 50),
       legend: { show: false },
-      hooks: { draw: [drawLine], setCursor: [showStatistics] },
-      scales: { x: scale(logs[0]), y: scale(logs[1]) },
+      // Zoomed by `onSelect`, so it is told
+      cursor: { drag: { x: true, y: true, setScale: false } },
+      hooks: {
+        draw: [drawLine],
+        setCursor: [showStatistics],
+        setSelect: [onSelect],
+      },
+      scales: { x: scale(logs[0], "x"), y: scale(logs[1], "y") },
       axes: [axis(labels[0]), axis(labels[1])],
       series: [
         {},
@@ -262,13 +313,14 @@ function create() {
     plotData(),
     container,
   );
+  // Unzoomed by a double click, before uPlot takes it
+  plot.root.addEventListener("dblclick", unzoom, true);
   // Over the points, in the plot's own area
   plot.over.appendChild(statisticsBox);
   statisticsBox.hidden = true;
 }
 
 function draw() {
-  frame = 0;
   if (!plot || JSON.stringify([labels, logs, colors]) !== made) {
     create();
   } else {
@@ -276,28 +328,33 @@ function draw() {
   }
   // For tests
   container.dataset.points = String(plotData()[1][0].length);
+  container.dataset.draws = String(Number(container.dataset.draws ?? 0) + 1);
   container.dataset.line = line ? line.join(" ") : "";
   showStatistics(plot);
 }
 
-// One redraw per frame
+// One redraw per frame, and at most each `DRAW_EVERY_MS`: fewer as the page is
+// busy
+const draws = pacedDraws(draw, DRAW_EVERY_MS);
 function schedule() {
-  if (!frame) {
-    frame = requestAnimationFrame(draw);
-  }
+  draws.schedule();
 }
 
 const resize = new ResizeObserver(fit);
 resize.observe(container);
 
-// Colors are baked in at creation
-const themeObserver = new MutationObserver(create);
+// Colors are baked in at creation, as taken anew
+function onTheme() {
+  cssColors.clear();
+  create();
+}
+const themeObserver = new MutationObserver(onTheme);
 themeObserver.observe(document.documentElement, {
   attributes: true,
   attributeFilter: ["data-theme"],
 });
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", create);
+systemTheme.addEventListener("change", onTheme);
 
 create();
 
@@ -315,7 +372,13 @@ while (true) {
     pointColors,
     pointLine,
     pointStatistics,
+    paused,
   ] = message;
+  // Played again, or another scale: as the data has it
+  if (!paused || JSON.stringify(pointLogs) !== JSON.stringify(logs)) {
+    zoomed = null;
+    container.dataset.zoomed = "false";
+  }
   labels = pointLabels;
   logs = pointLogs;
   colors = pointColors;
@@ -337,8 +400,8 @@ while (true) {
   schedule();
 }
 
-cancelAnimationFrame(frame);
+draws.cancel();
 resize.disconnect();
 themeObserver.disconnect();
-systemTheme.removeEventListener("change", create);
+systemTheme.removeEventListener("change", onTheme);
 plot?.destroy();

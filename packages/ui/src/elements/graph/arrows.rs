@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty, context::use_graph_setting,
+    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
+    context::{until_paused, use_graph_setting},
     time_series::series_color,
 };
 use crate::components::toggle::Toggle;
@@ -18,8 +19,8 @@ const ZDOG_JS: Asset = asset!(
     "/assets/vendor/zdog/zdog.dist.min.js",
     AssetOptions::js().with_minify(false)
 );
-const ARROWS_JS: &str = include_str!("arrows.js");
-const ARROWS_3D_JS: &str = include_str!("arrows_3d.js");
+const ARROWS_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows.js"));
+const ARROWS_3D_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows_3d.js"));
 
 /// Itself, its trails on from the start.
 fn with_trails() -> GraphProperty {
@@ -110,15 +111,19 @@ type PlotArrow = (
     Vec<(&'static str, String)>,
 );
 
-/// The newest of `queue` (finite), and the [`TRAIL`] before it with it, each
-/// as its components.
-fn newest_with_trail<V: Vector>(queue: &Queue<Data<V>>) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
-    let values: Vec<Vec<f64>> = queue
+/// The newest of `queue` (finite, and up to `paused_at` if paused), and the
+/// [`TRAIL`] before it with it, each as its components.
+fn newest_with_trail<V: Vector>(
+    queue: &Queue<Data<V>>,
+    paused_at: Option<i64>,
+) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
+    let mut values: Vec<Vec<f64>> = queue
         .iter()
-        .skip(queue.len().saturating_sub(TRAIL + 1))
+        .filter(|entry| until_paused(paused_at, entry.timestamp()))
         .map(|entry| entry.value().components().to_vec())
         .filter(|components| components.iter().all(|value| value.is_finite()))
         .collect();
+    values.drain(..values.len().saturating_sub(TRAIL + 1));
     Some((values.last()?.clone(), values))
 }
 
@@ -146,6 +151,7 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
     });
 
     use_effect(move || {
+        let paused_at = graph_context.paused_at();
         // Colored by their place among the vector labels
         let colors = vector_labels.read().clone();
         let arrows: Vec<PlotArrow> = data_context.with_each(Some(data_type), |data| {
@@ -153,8 +159,8 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
                 .filter(|(label, _)| filter_context.shows(label))
                 .filter_map(|&(label, data)| {
                     let (newest, trail) = match data {
-                        TypedData::Vector2d(queue) => newest_with_trail(queue),
-                        TypedData::Vector3d(queue) => newest_with_trail(queue),
+                        TypedData::Vector2d(queue) => newest_with_trail(queue, paused_at),
+                        TypedData::Vector3d(queue) => newest_with_trail(queue, paused_at),
                         _ => None,
                     }?;
                     let index = colors.iter().position(|each| each == label).unwrap_or(0);
@@ -255,24 +261,24 @@ mod tests {
 
     #[test]
     fn the_newest_comes_with_the_trail_before_it() {
-        let (newest, trail) = newest_with_trail(&vectors([(1.0, 2.0), (3.0, 4.0)])).unwrap();
+        let (newest, trail) = newest_with_trail(&vectors([(1.0, 2.0), (3.0, 4.0)]), None).unwrap();
         assert_eq!(newest, [3.0, 4.0]);
         assert_eq!(trail, [[1.0, 2.0], [3.0, 4.0]]);
 
         // As many as it keeps, and the newest
         let many = vectors((0..100).map(|index| (f64::from(index), 0.0)));
-        let (newest, trail) = newest_with_trail(&many).unwrap();
+        let (newest, trail) = newest_with_trail(&many, None).unwrap();
         assert_eq!(newest, [99.0, 0.0]);
         assert_eq!(trail.len(), TRAIL + 1);
         assert_eq!(trail[0], [f64::from(99 - TRAIL as i32), 0.0]);
 
-        assert_eq!(newest_with_trail(&vectors([])), None);
+        assert_eq!(newest_with_trail(&vectors([]), None), None);
 
         // Of three components too
         let space: Queue<Vector3dData> = [Vector3dData::new(1, Vector3d::new(1.0, 2.0, 3.0))]
             .into_iter()
             .collect();
-        assert_eq!(newest_with_trail(&space).unwrap().0, [1.0, 2.0, 3.0]);
+        assert_eq!(newest_with_trail(&space, None).unwrap().0, [1.0, 2.0, 3.0]);
     }
 
     #[test]
@@ -299,5 +305,14 @@ mod tests {
                 ("Magnitude", "7.0000".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn paused_the_newest_is_that_until_then() {
+        let queue = vectors([(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]);
+        let (newest, trail) = newest_with_trail(&queue, Some(1)).unwrap();
+        assert_eq!(newest, [2.0, 2.0]);
+        assert_eq!(trail, [[1.0, 1.0], [2.0, 2.0]]);
+        assert_eq!(newest_with_trail(&queue, Some(-1)), None);
     }
 }

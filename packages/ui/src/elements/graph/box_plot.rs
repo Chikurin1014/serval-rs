@@ -1,17 +1,13 @@
 use dioxus::prelude::*;
-use dioxus_icons::lucide;
 
 use super::{
-    AxisScale, GraphContext, GraphFrame, GraphKind, context::use_graph_setting,
+    AxisScale, GraphContext, GraphFrame, GraphKind,
+    context::{until_paused, use_graph_setting},
     time_series::series_color,
 };
-use crate::components::{
-    button::{Button, ButtonSize, ButtonVariant},
-    input::Input,
-    tag_group::{Tag, TagGroup, TagList},
-    toggle::Toggle,
-};
+use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
+use crate::elements::FilterContext;
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -19,7 +15,7 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-const BOX_PLOT_JS: &str = include_str!("box_plot.js");
+const BOX_PLOT_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("box_plot.js"));
 
 pub const BOX_PLOT: GraphKind = GraphKind {
     name: "Box plot",
@@ -135,91 +131,83 @@ type PlotBox = (
     [(&'static str, String); 7],
 );
 
-/// `labels` with `text` (trimmed) after them, unless it is empty or one of them.
-fn with_label(labels: &[String], text: &str) -> Option<Vec<String>> {
-    let label = text.trim();
-    if label.is_empty() || labels.iter().any(|each| each == label) {
-        return None;
-    }
-    let mut labels = labels.to_vec();
-    labels.push(label.to_string());
-    Some(labels)
-}
-
-/// A box for each Number label chosen in its settings, of all its values.
+/// A box for each Number label the data list shows, of all its values; each
+/// turned on or off in the legend.
 #[component]
 pub fn BoxPlotGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
+    let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
-    let labels = use_graph_setting(graph_context, id, |property| property.labels.clone());
-    let mut typed = use_signal(String::new);
+    let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
-    let labels_list_id = format!("graph-number-labels-{id}");
     let plot = use_hook(|| document::eval(BOX_PLOT_JS));
 
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
-    let mut add = move || {
-        if let Some(next) = with_label(&labels.read(), &typed.read()) {
-            graph_context.update(id, |property| property.labels = next);
-        }
-        typed.set(String::new());
-    };
-
-    use_effect(move || {
-        // Colored by their place among the number labels, as the lines of a time series
-        let colors = number_labels.read().clone();
-        let boxes: Vec<PlotBox> = labels
+    let plotted = use_memo(move || {
+        number_labels
             .read()
             .iter()
-            .filter_map(|label| {
-                let summary = data_context
-                    .with_label(label, |data| match data {
-                        TypedData::Number(queue) => {
-                            Summary::of(queue.iter().map(|entry| *entry.value()))
-                        }
-                        _ => None,
-                    })
-                    .flatten()?;
-                let index = colors.iter().position(|each| each == label).unwrap_or(0);
-                let (low, high) = summary.whiskers;
-                Some((
-                    label.clone(),
-                    series_color(index),
-                    [
-                        summary.min,
-                        low,
-                        summary.q1,
-                        summary.median,
-                        summary.q3,
-                        high,
-                        summary.max,
-                    ],
-                    summary.outliers.clone(),
-                    summary.rows(),
-                ))
-            })
-            .collect();
-        let _ = plot.send((boxes, value_scale() == AxisScale::Log));
+            .filter(|label| filter_context.shows(label))
+            .count()
+    });
+
+    use_effect(move || {
+        let paused_at = graph_context.paused_at();
+        // Colored by their place among the number labels, as the lines of a time series
+        let colors = number_labels.read().clone();
+        let boxes: Vec<PlotBox> = data_context.with_each(Some(DataType::Number), |data| {
+            data.iter()
+                .filter(|(label, _)| filter_context.shows(label))
+                .filter_map(|&(label, data)| {
+                    let TypedData::Number(queue) = data else {
+                        return None;
+                    };
+                    let summary = Summary::of(
+                        queue
+                            .iter()
+                            .filter(|entry| until_paused(paused_at, entry.timestamp()))
+                            .map(|entry| *entry.value()),
+                    )?;
+                    let index = colors.iter().position(|each| each == label).unwrap_or(0);
+                    let (low, high) = summary.whiskers;
+                    Some((
+                        label.to_string(),
+                        series_color(index),
+                        [
+                            summary.min,
+                            low,
+                            summary.q1,
+                            summary.median,
+                            summary.q3,
+                            high,
+                            summary.max,
+                        ],
+                        summary.outliers.clone(),
+                        summary.rows(),
+                    ))
+                })
+                .collect()
+        });
+        let _ = plot.send((boxes, value_scale() == AxisScale::Log, hidden()));
+    });
+
+    // The labels turned off in the legend
+    use_future(move || async move {
+        let mut plot = plot;
+        while let Ok(labels) = plot.recv::<Vec<String>>().await {
+            if graph_context
+                .get(id)
+                .is_some_and(|graph| graph.property.hidden != labels)
+            {
+                graph_context.update(id, |property| property.hidden = labels);
+            }
+        }
     });
 
     use_drop(move || {
         let _ = plot.send(());
     });
-
-    let empty = if number_labels.read().is_empty() {
-        Some("No number data yet. Add a map to a number to plot it.")
-    } else if labels.read().is_empty() {
-        Some("Add the Number labels to plot in its settings.")
-    } else if !labels
-        .read()
-        .iter()
-        .any(|label| number_labels.read().contains(label))
-    {
-        Some("No number data of these labels yet.")
-    } else {
-        None
-    };
 
     rsx! {
         document::Link { rel: "stylesheet", href: UPLOT_CSS }
@@ -229,68 +217,6 @@ pub fn BoxPlotGraph(id: usize) -> Element {
         GraphFrame {
             id,
             settings: rsx! {
-                div {
-                    class: "graph-setting",
-                    span { class: "graph-setting-label", "Labels" }
-                    div {
-                        class: "graph-labels",
-                        div {
-                            class: "graph-labels-input",
-                            Input {
-                                placeholder: "Number label",
-                                aria_label: "Label to plot",
-                                list: "{labels_list_id}",
-                                value: "{typed}",
-                                oninput: move |event: FormEvent| typed.set(event.value()),
-                                onkeydown: move |event: KeyboardEvent| {
-                                    if event.key() == Key::Enter {
-                                        add();
-                                    }
-                                },
-                            }
-                            Button {
-                                variant: ButtonVariant::Outline,
-                                size: ButtonSize::IconSm,
-                                aria_label: "Add label",
-                                title: "Add label",
-                                onclick: move |_| add(),
-                                lucide::Plus {}
-                            }
-                        }
-                        // The tag group takes no class
-                        div {
-                            class: "graph-labels-tags",
-                            TagGroup {
-                                selectable: false,
-                                aria_label: "Labels plotted",
-                                TagList {
-                                    for (index, label) in labels().into_iter().enumerate() {
-                                        Tag {
-                                            key: "{label}",
-                                            index,
-                                            value: label.clone(),
-                                            span { "{label}" }
-                                            Button {
-                                                class: "graph-labels-remove",
-                                                variant: ButtonVariant::Ghost,
-                                                size: ButtonSize::IconXs,
-                                                aria_label: "Remove label {label}",
-                                                title: "Remove label",
-                                                onclick: move |event: MouseEvent| {
-                                                    event.stop_propagation();
-                                                    graph_context.update(id, |property| {
-                                                        property.labels.retain(|each| *each != label);
-                                                    });
-                                                },
-                                                lucide::X {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
                 div {
                     class: "graph-setting",
                     span { class: "graph-setting-label", "Value axis" }
@@ -309,12 +235,6 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                         }
                     }
                 }
-                datalist {
-                    id: "{labels_list_id}",
-                    for label in number_labels() {
-                        option { value: "{label}" }
-                    }
-                }
             },
             div {
                 class: "graph-plot",
@@ -326,8 +246,16 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                     }
                 },
             }
-            if let Some(empty) = empty {
-                p { class: "graph-empty", "{empty}" }
+            if number_labels.read().is_empty() {
+                p {
+                    class: "graph-empty",
+                    "No number data yet. Add a map to a number to plot it."
+                }
+            } else if plotted() == 0 {
+                p {
+                    class: "graph-empty",
+                    "No number data shown. Change the Data list's filters to show some."
+                }
             }
         }
     }
@@ -335,7 +263,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::{Summary, quantile, with_label};
+    use super::{Summary, quantile};
 
     #[test]
     fn quantiles_go_between_values_linearly() {
@@ -384,15 +312,5 @@ mod tests {
         assert_eq!((summary.whiskers, summary.outliers.len()), ((7.0, 7.0), 0));
         assert_eq!(Summary::of([f64::NAN]), None);
         assert_eq!(Summary::of([]), None);
-    }
-
-    #[test]
-    fn labels_are_added_once_each_in_order() {
-        let labels = with_label(&[], " temp ").unwrap();
-        assert_eq!(labels, ["temp"]);
-        let labels = with_label(&labels, "volt").unwrap();
-        assert_eq!(labels, ["temp", "volt"]);
-        assert_eq!(with_label(&labels, "temp"), None);
-        assert_eq!(with_label(&labels, "  "), None);
     }
 }

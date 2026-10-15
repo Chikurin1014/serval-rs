@@ -82,3 +82,9 @@
   gap: 0.25rem;
   height: 2.25rem;
 }
+
+/* At the bar's right end; a square a little rounded */
+.graph-bar .graph-pause {
+  margin-left: auto;
+  border-radius: 0.25rem;
+}

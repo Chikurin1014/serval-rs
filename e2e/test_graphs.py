@@ -399,7 +399,7 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     expect(statistics).to_be_visible()
 
 
-def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App):
+def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
@@ -415,41 +415,38 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
     boxes = lambda: [  # noqa: E731
         label for label, *_ in json.loads(plot.get_attribute("data-boxes") or "[]")
     ]
-    expect(graph.locator(".graph-empty")).to_have_text(
-        "Add the Number labels to plot in its settings."
-    )
 
-    # Each label chosen by name, as the data list's filters are added
-    graph.locator(".graph-title").click()  # opens the settings
-    field = graph.get_by_label("Label to plot")
-    tags = graph.locator(".graph-labels-tags [role=row]")
-    field.fill("a")
-    field.press("Enter")
-    expect(field).to_have_value("")
-    field.fill("b")
-    graph.get_by_role("button", name="Add label").click()
-    # Not twice
-    field.fill("a")
-    field.press("Enter")
-    expect(tags).to_have_text(["a", "b"])
-    expect(graph.locator(".graph-empty")).to_have_count(0)
+    # Each Number label the data list shows, in a legend as the others'
+    legend = graph.locator(".u-legend .u-series")
+    expect(legend.locator("th", has_text="a")).to_have_count(1)
+    expect(legend.locator("th", has_text="b")).to_have_count(1)
     app.page.wait_for_function(
-        "plot => plot.dataset.boxes?.includes('\"b\"')", arg=plot.element_handle()
-    )
-    assert boxes() == ["a", "b"]
-    # Beside the field
-    beside, box = field.bounding_box(), tags.first.bounding_box()
-    assert box["x"] > beside["x"] + beside["width"]
-    assert abs((box["y"] + box["height"] / 2) - (beside["y"] + beside["height"] / 2)) < 2
-
-    graph.get_by_role("button", name="Remove label b").click()
-    expect(tags).to_have_text(["a"])
-    # A box of a alone, its one outlier (100) apart
-    app.page.wait_for_function(
-        """plot => JSON.stringify(JSON.parse(plot.dataset.boxes ?? "[]")
-            .map(([label, outliers]) => [label, outliers])) === '[["a",1]]'""",
+        "plot => ['\"a\"', '\"b\"'].every(label => plot.dataset.boxes?.includes(label))",
         arg=plot.element_handle(),
     )
+    assert {"a", "b"} <= set(boxes())
+    # Below the plot
+    area = plot.locator(".u-over").bounding_box()
+    assert legend.first.bounding_box()["y"] > area["y"] + area["height"]
+
+    # Each turned off in it, and on, as it stays so
+    legend.locator("th", has_text="b").click()
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["b"])
+    app.page.wait_for_function(
+        "plot => !plot.dataset.boxes.includes('\"b\"')", arg=plot.element_handle()
+    )
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["b"])
+    # A box of a, its one outlier (100) apart
+    app.page.wait_for_function(
+        """plot => JSON.parse(plot.dataset.boxes ?? "[]")
+            .some(([label, outliers]) => label === "a" && outliers === 1)""",
+        arg=plot.element_handle(),
+    )
+    assert "b" not in boxes()
     hover = plot.locator(".box-plot-hover")
     expect(hover).to_be_hidden()
     label = hover.locator(".plot-tooltip-label")
@@ -477,8 +474,64 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
     app.page.mouse.move(0, 0)
     expect(hover).to_be_hidden()
 
+    graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
     expect(plot).to_have_attribute("data-value-scale", "log")
+
+
+def test_graphs_pause_and_play_as_the_port_is_read(app: App):
+    open_graphs_with_numbers(app)
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("temp")
+    graph.get_by_label("Y label").fill("volt")
+    plot = graph.locator(".graph-plot")
+    points = lambda: int(plot.get_attribute("data-points") or 0)  # noqa: E731
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()
+    )
+
+    # At the bar's right end, a square a little rounded
+    bar = app.page.locator(".graph-bar")
+    pause = bar.get_by_role("button", name="Pause graphs")
+    expect(pause).to_have_attribute("aria-pressed", "false")
+    # lucide's Pause, its two bars
+    expect(pause.locator("svg rect")).to_have_count(2)
+    button, row = pause.bounding_box(), bar.bounding_box()
+    assert abs((row["x"] + row["width"]) - (button["x"] + button["width"])) < 1
+    expect(pause).to_have_css("border-radius", "4px")
+
+    pause.click()
+    play = bar.get_by_role("button", name="Play graphs")
+    expect(play).to_have_attribute("aria-pressed", "true")
+    # lucide's Play, a triangle
+    expect(play.locator("svg rect")).to_have_count(0)
+    expect(play.locator("svg path, svg polygon")).to_have_count(1)
+    # Up to the time paused at, sent anew
+    app.page.wait_for_timeout(200)
+    held = points()
+    # A reading each 50 ms meanwhile, the graphs as they were
+    app.page.wait_for_timeout(600)
+    assert points() == held
+
+    # Their settings changed meanwhile, as they are: of the data until then
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-x-scale", "log")
+    assert points() == held
+    first = app.graphs().first
+    first.locator(".graph-title").click()  # opens its settings
+    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(first.locator(".graph-plot")).to_have_attribute("data-value-scale", "log")
+    app.page.wait_for_timeout(300)
+    assert points() == held
+
+    # All that came meanwhile, at once
+    play.click()
+    expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
+    app.page.wait_for_function(
+        "([plot, held]) => Number(plot.dataset.points) >= held + 8",
+        arg=[plot.element_handle(), held],
+    )
 
 
 def test_arrows_point_from_the_origin_to_the_newest_vectors(app: App):
@@ -643,3 +696,117 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     graph = app.graphs().last
     expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["side"])
     expect(graph.locator(".graph-plot")).to_have_attribute("data-trails", "false")
+
+
+def test_zooming_into_a_graph_pauses_them(app: App):
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    graph = app.graphs().first
+    plot = graph.locator(".graph-plot")
+    bar = app.page.locator(".graph-bar")
+    span = lambda: float(plot.get_attribute("data-time-span"))  # noqa: E731
+    values = lambda: float(plot.get_attribute("data-value-span"))  # noqa: E731
+    app.page.wait_for_timeout(1000)
+    all_values = values()
+
+    # A rectangle dragged over it: zoomed into, times and values, and paused
+    area = plot.locator(".u-over").bounding_box()
+    y = area["y"] + area["height"] / 2
+    app.page.mouse.move(area["x"] + area["width"] * 0.3, area["y"] + area["height"] * 0.3)
+    app.page.mouse.down()
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.6, area["y"] + area["height"] * 0.6, steps=5
+    )
+    app.page.mouse.up()
+    expect(plot).to_have_attribute("data-zoomed", "true")
+    zoomed_values = values()
+    # About 0.3 of them, the range moving with the data until then
+    assert zoomed_values < all_values * 0.6
+    expect(bar.get_by_role("button", name="Play graphs")).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    zoomed = span()
+
+    # As zoomed, as data comes and its settings change
+    app.page.wait_for_timeout(500)
+    assert span() == pytest.approx(zoomed)
+    assert values() == pytest.approx(zoomed_values)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-value-scale", "log")
+    app.page.wait_for_timeout(300)
+    # The times as zoomed to; the values, not of another scale
+    assert span() == pytest.approx(zoomed)
+
+    # Unzoomed by a double click, paused still; then played
+    app.page.mouse.dblclick(area["x"] + area["width"] / 2, y)
+    expect(plot).to_have_attribute("data-zoomed", "false")
+    app.page.wait_for_function(
+        "([plot, zoomed]) => Number(plot.dataset.timeSpan) > zoomed * 1.2",
+        arg=[plot.element_handle(), zoomed],
+    )
+    play = bar.get_by_role("button", name="Play graphs")
+    expect(play).to_be_visible()
+    play.click()
+    expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
+
+    # A scatter plot too
+    scatter = add_scatter(app)
+    scatter.locator(".graph-title").click()  # opens the settings
+    scatter.get_by_label("X label").fill("temp")
+    scatter.get_by_label("Y label").fill("volt")
+    points = scatter.locator(".graph-plot")
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=points.element_handle()
+    )
+    area = points.locator(".u-over").bounding_box()
+    app.page.mouse.move(area["x"] + area["width"] * 0.2, area["y"] + area["height"] * 0.2)
+    app.page.mouse.down()
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.7, area["y"] + area["height"] * 0.7, steps=5
+    )
+    app.page.mouse.up()
+    expect(points).to_have_attribute("data-zoomed", "true")
+    expect(bar.get_by_role("button", name="Play graphs")).to_be_visible()
+
+
+def test_scatter_redraws_ten_times_a_second_at_most(app: App):
+    open_graphs_with_numbers(app)
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("temp")
+    graph.get_by_label("Y label").fill("volt")
+    plot = graph.locator(".graph-plot")
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()
+    )
+    draws = lambda: int(plot.get_attribute("data-draws"))  # noqa: E731
+    # Pairs coming 20 times a second, and more at once
+    app.mock("burst(50)")
+    first, first_points = draws(), int(plot.get_attribute("data-points"))
+    app.page.wait_for_timeout(1000)
+    assert draws() - first <= 12
+    # Each drawn all the same
+    app.page.wait_for_function(
+        "([plot, points]) => Number(plot.dataset.points) >= points",
+        arg=[plot.element_handle(), first_points + 50],
+    )
+
+
+
+def test_graphs_redraw_less_as_the_page_is_busy(app: App):
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    interval = "() => window.servalDrawPacer?.interval()"
+    app.page.wait_for_function(f"({interval})() !== undefined")
+
+    # Frames late, as the page is busy: fewer redraws (more again as they come
+    # on time, as the unit tests tell: the page of a busy machine may not)
+    app.page.evaluate("""() => {
+        window.busy = setInterval(() => {
+            const start = performance.now();
+            while (performance.now() - start < 100) {}
+        }, 10);
+    }""")
+    app.page.wait_for_function(f"({interval})() >= 50", timeout=20000)
+    app.page.evaluate("() => clearInterval(window.busy)")
