@@ -38,6 +38,8 @@ pub struct GraphProperty {
     pub regression: bool,
     /// The Number labels a box plot shows, in the order they were added.
     pub labels: Vec<String>,
+    /// Whether the arrows of 2D vectors trail the tips they had.
+    pub trails: bool,
     pub draw_style: DrawStyle,
     pub time_window: TimeWindow,
     /// The labels turned off in the legend.

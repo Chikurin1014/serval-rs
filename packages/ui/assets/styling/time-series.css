@@ -152,3 +152,62 @@
   height: 1rem;
   margin-right: -0.5rem;
 }
+
+/* Arrows in space: the canvas turned by dragging, the axes' labels over it,
+ * set as uPlot sets its axes and legend */
+.arrows-3d-area,
+.graph-plot > .u-legend {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    sans-serif;
+  line-height: 1.5;
+}
+
+.arrows-3d-area {
+  position: relative;
+}
+
+.arrows-3d-area canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.arrows-3d-area canvas:active {
+  cursor: grabbing;
+}
+
+.arrows-3d-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Centered on where it is, as an axis's name at its end */
+.arrows-3d-labels > span {
+  position: absolute;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.arrows-3d-axis {
+  font-weight: 600;
+}
+
+/* Beside its tick, below right */
+.arrows-3d-tick {
+  font-size: 11px;
+  transform: translate(4px, 1px) !important;
+}
+
+.graph-plot > .u-legend {
+  margin-top: 0.25rem;
+}
