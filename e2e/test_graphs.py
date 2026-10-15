@@ -399,7 +399,7 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     expect(statistics).to_be_visible()
 
 
-def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App):
+def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
@@ -415,41 +415,38 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
     boxes = lambda: [  # noqa: E731
         label for label, *_ in json.loads(plot.get_attribute("data-boxes") or "[]")
     ]
-    expect(graph.locator(".graph-empty")).to_have_text(
-        "Add the Number labels to plot in its settings."
-    )
 
-    # Each label chosen by name, as the data list's filters are added
-    graph.locator(".graph-title").click()  # opens the settings
-    field = graph.get_by_label("Label to plot")
-    tags = graph.locator(".graph-labels-tags [role=row]")
-    field.fill("a")
-    field.press("Enter")
-    expect(field).to_have_value("")
-    field.fill("b")
-    graph.get_by_role("button", name="Add label").click()
-    # Not twice
-    field.fill("a")
-    field.press("Enter")
-    expect(tags).to_have_text(["a", "b"])
-    expect(graph.locator(".graph-empty")).to_have_count(0)
+    # Each Number label the data list shows, in a legend as the others'
+    legend = graph.locator(".u-legend .u-series")
+    expect(legend.locator("th", has_text="a")).to_have_count(1)
+    expect(legend.locator("th", has_text="b")).to_have_count(1)
     app.page.wait_for_function(
-        "plot => plot.dataset.boxes?.includes('\"b\"')", arg=plot.element_handle()
-    )
-    assert boxes() == ["a", "b"]
-    # Beside the field
-    beside, box = field.bounding_box(), tags.first.bounding_box()
-    assert box["x"] > beside["x"] + beside["width"]
-    assert abs((box["y"] + box["height"] / 2) - (beside["y"] + beside["height"] / 2)) < 2
-
-    graph.get_by_role("button", name="Remove label b").click()
-    expect(tags).to_have_text(["a"])
-    # A box of a alone, its one outlier (100) apart
-    app.page.wait_for_function(
-        """plot => JSON.stringify(JSON.parse(plot.dataset.boxes ?? "[]")
-            .map(([label, outliers]) => [label, outliers])) === '[["a",1]]'""",
+        "plot => ['\"a\"', '\"b\"'].every(label => plot.dataset.boxes?.includes(label))",
         arg=plot.element_handle(),
     )
+    assert {"a", "b"} <= set(boxes())
+    # Below the plot
+    area = plot.locator(".u-over").bounding_box()
+    assert legend.first.bounding_box()["y"] > area["y"] + area["height"]
+
+    # Each turned off in it, and on, as it stays so
+    legend.locator("th", has_text="b").click()
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["b"])
+    app.page.wait_for_function(
+        "plot => !plot.dataset.boxes.includes('\"b\"')", arg=plot.element_handle()
+    )
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["b"])
+    # A box of a, its one outlier (100) apart
+    app.page.wait_for_function(
+        """plot => JSON.parse(plot.dataset.boxes ?? "[]")
+            .some(([label, outliers]) => label === "a" && outliers === 1)""",
+        arg=plot.element_handle(),
+    )
+    assert "b" not in boxes()
     hover = plot.locator(".box-plot-hover")
     expect(hover).to_be_hidden()
     label = hover.locator(".plot-tooltip-label")
@@ -477,6 +474,7 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
     app.page.mouse.move(0, 0)
     expect(hover).to_be_hidden()
 
+    graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
     expect(plot).to_have_attribute("data-value-scale", "log")
 

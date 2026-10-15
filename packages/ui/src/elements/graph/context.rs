@@ -36,8 +36,6 @@ pub struct GraphProperty {
     pub y_label: String,
     /// Whether a scatter plot shows the line fit to its points.
     pub regression: bool,
-    /// The Number labels a box plot shows, in the order they were added.
-    pub labels: Vec<String>,
     /// Whether the arrows of 2D vectors trail the tips they had.
     pub trails: bool,
     pub draw_style: DrawStyle,
