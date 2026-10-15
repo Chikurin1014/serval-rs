@@ -1,8 +1,10 @@
 import json
 
+import pytest
 from playwright.sync_api import expect
 
 from app import App
+from test_maps import add_vector_match_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -273,7 +275,7 @@ def add_scatter(app: App):
 def test_statistics_menu_adds_a_scatter_plot(app: App):
     app.tab("Graph")
     bar = app.page.locator(".add-graph-bar")
-    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics"])
+    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics", "Vector"])
     bar.get_by_role("button", name="Statistics").hover()
     expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
     graph = add_scatter(app)
@@ -477,3 +479,88 @@ def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App
 
     graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
     expect(plot).to_have_attribute("data-value-scale", "log")
+
+
+def test_arrows_point_from_the_origin_to_the_newest_vectors(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    add_vector_match_map(app, "2D", r"({word})=({number}),({number})", "$1", ["$2", "$3"])
+    app.mock("receive('v=1,1\\nv=3,4\\nw=-2,0\\n')")
+    app.wait_for_labels("v", "w")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Vector").hover()
+    expect(bar.get_by_role("option")).to_have_text(["Arrows (2D)"])
+    bar.get_by_role("option", name="Arrows (2D)", exact=True).click()
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    arrows = lambda: json.loads(plot.get_attribute("data-arrows") or "[]")  # noqa: E731
+    shown = lambda: [label for label, *_ in arrows()]  # noqa: E731
+
+    # Each 2D vector label the data list shows, in the legend
+    legend = graph.locator(".u-legend .u-series th")
+    expect(legend).to_have_text(["v", "w"])
+    app.page.wait_for_function(
+        "plot => JSON.parse(plot.dataset.arrows ?? '[]').length === 2"
+        " && plot.dataset.settled === 'true'",
+        arg=plot.element_handle(),
+    )
+
+    # As many units a pixel across as up, so the arrows point as they are
+    across, up = json.loads(plot.get_attribute("data-units-per-pixel"))
+    assert across == pytest.approx(up, rel=0.01)
+    # The origin in the middle, the furthest arrow within
+    area = plot.locator(".u-over").bounding_box()
+    origin = json.loads(plot.get_attribute("data-origin"))
+    assert origin == pytest.approx([area["width"] / 2, area["height"] / 2], abs=1)
+    assert 4 / up < area["height"] / 2
+    tips = {label: (x, y) for label, x, y in arrows()}
+    # From w (−2, 0) to v (3, 4), its newest: 5 right, 4 up
+    assert tips["v"][0] - tips["w"][0] == pytest.approx(5 / across, abs=2)
+    assert tips["w"][1] - tips["v"][1] == pytest.approx(4 / up, abs=2)
+
+    hover = plot.locator(".arrows-hover")
+    expect(hover).to_be_hidden()
+    area = plot.locator(".u-over").bounding_box()
+    app.page.mouse.move(area["x"] + tips["v"][0] + 3, area["y"] + tips["v"][1] + 3)
+    expect(hover).to_be_visible()
+    expect(hover.locator(".plot-tooltip-label")).to_have_text("v")
+    expect(hover.locator("dt")).to_have_text(["X", "Y", "Magnitude", "Angle"])
+    expect(hover.locator("dd")).to_have_text(["3.0000", "4.0000", "5.0000", "53.130°"])
+    app.page.mouse.move(0, 0)
+    expect(hover).to_be_hidden()
+
+    # Trails on from the start, and off
+    expect(plot).to_have_attribute("data-trails", "true")
+    graph.locator(".graph-title").click()  # opens the settings
+    trails = graph.get_by_role("group", name="Trails").get_by_role("button")
+    expect(trails).to_have_attribute("aria-pressed", "true")
+    trails.click()
+    expect(trails).to_have_attribute("aria-pressed", "false")
+    expect(plot).to_have_attribute("data-trails", "false")
+    graph.locator(".graph-title").click()  # closes them
+
+    # Each turned off in the legend, and on, as it stays so
+    graph.locator(".u-legend .u-series th", has_text="w").click()
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["w"])
+    app.page.wait_for_function(
+        "plot => JSON.parse(plot.dataset.arrows ?? '[]').map(([label]) => label).join() === 'v'",
+        arg=plot.element_handle(),
+    )
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["w"])
+    expect(plot).to_have_attribute("data-trails", "false")
+    app.page.wait_for_function(
+        "plot => JSON.parse(plot.dataset.arrows ?? '[]').map(([label]) => label).join() === 'v'",
+        arg=plot.element_handle(),
+    )
+    graph.locator(".u-legend .u-series th", has_text="w").click()
+    app.page.wait_for_function(
+        "plot => JSON.parse(plot.dataset.arrows ?? '[]').length === 2",
+        arg=plot.element_handle(),
+    )
+    assert sorted(shown()) == ["v", "w"]

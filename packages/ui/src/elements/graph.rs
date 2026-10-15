@@ -1,6 +1,7 @@
 //! Graphs of the received data. To add a kind, pass a [`GraphKind`] to
 //! [`GraphProvider`]; views wrap their plot in [`GraphFrame`].
 
+mod arrows;
 mod board;
 mod box_plot;
 mod context;
@@ -8,6 +9,7 @@ mod frame;
 mod scatter;
 mod time_series;
 
+pub use arrows::{ARROWS, ArrowsGraph};
 pub use board::GraphBoard;
 pub use box_plot::{BOX_PLOT, BoxPlotGraph};
 pub use context::{
@@ -19,7 +21,7 @@ pub use scatter::{SCATTER, ScatterGraph};
 pub use time_series::{TIME_SERIES, TimeSeriesGraph};
 
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {
-    vec![TIME_SERIES, BOX_PLOT, SCATTER]
+    vec![TIME_SERIES, BOX_PLOT, SCATTER, ARROWS]
 }
 
 pub fn initial_graphs() -> Vec<(GraphKind, GraphProperty)> {
