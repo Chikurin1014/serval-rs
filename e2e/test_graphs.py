@@ -259,3 +259,138 @@ def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
     app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     time = app.graphs().first.locator(".u-legend .u-series").first.locator(".u-value")
     expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))
+
+
+def add_scatter(app: App):
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Scatter", exact=True).click()
+    return app.graphs().last
+
+
+def test_statistics_menu_adds_a_scatter_plot(app: App):
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics"])
+    bar.get_by_role("button", name="Statistics").hover()
+    expect(bar.get_by_role("option")).to_have_text(["Scatter"])
+    graph = add_scatter(app)
+    expect(app.graphs()).to_have_count(2)
+    expect(graph.locator(".graph-title-text")).to_have_text("Graph 2")
+    expect(graph.locator(".graph-empty")).to_have_text(
+        "No number data yet. Add a map to a number to plot it."
+    )
+
+
+def test_scatter_plots_one_label_against_another(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\na:0\\nb:30\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
+    graph.get_by_label("X label").fill("a")
+    expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
+    graph.get_by_label("Y label").fill("nothing")
+    expect(graph.locator(".graph-empty")).to_have_text("No number data of these labels yet.")
+    graph.get_by_label("Y label").fill("b")
+    expect(graph.locator(".graph-empty")).to_have_count(0)
+    plot = graph.locator(".graph-plot")
+    # Each a with the b after it
+    expect(plot).to_have_attribute("data-points", "3")
+    app.mock("receive('a:4\\nb:40\\n')")
+    expect(plot).to_have_attribute("data-points", "4")
+
+    # Each axis on its own: those of 0 or less left out of a log one
+    for axis, attribute in [("X", "data-x-scale"), ("Y", "data-y-scale")]:
+        scale = graph.get_by_role("group", name=f"{axis} axis")
+        expect(scale.get_by_role("button", name="Linear")).to_have_attribute(
+            "aria-pressed", "true"
+        )
+        scale.get_by_role("button", name="Log").click()
+        expect(plot).to_have_attribute(attribute, "log")
+    expect(plot).to_have_attribute("data-points", "3")
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Linear").click()
+    expect(plot).to_have_attribute("data-x-scale", "linear")
+    expect(plot).to_have_attribute("data-y-scale", "log")
+
+    # As they were, after the board is made anew
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    expect(graph.locator(".graph-plot")).to_have_attribute("data-points", "4")
+    expect(graph.locator(".graph-plot")).to_have_attribute("data-y-scale", "log")
+
+
+def test_scatter_shows_its_regression_line_and_equation(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\nb:3\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("a")
+    graph.get_by_label("Y label").fill("b")
+    plot = graph.locator(".graph-plot")
+    statistics = plot.locator(".scatter-statistics")
+    equation = graph.locator(".graph-equation")
+    expect(plot).to_have_attribute("data-points", "1")
+    expect(statistics).to_be_hidden()
+
+    # On from the start
+    toggle = graph.get_by_role("group", name="Regression").get_by_role("button")
+    expect(toggle).to_have_attribute("aria-pressed", "true")
+    expect(equation).to_have_text("Not enough points")
+    expect(plot).to_have_attribute("data-line", "")
+
+    app.mock("receive('a:2\\nb:5\\n')")
+    expect(equation).to_have_attribute("aria-label", "Y = 2.00X + 1.00")
+    expect(plot).to_have_attribute("data-line", "2 1")
+    app.mock("receive('a:3\\nb:4\\n')")
+    expect(equation).to_have_attribute("aria-label", "Y = 0.50X + 3.00")
+    # As a tooltip, by the pointer over the plot
+    area = plot.locator(".u-over").bounding_box()
+    at = (area["x"] + area["width"] / 3, area["y"] + area["height"] / 3)
+    app.page.mouse.move(*at)
+    expect(statistics).to_be_visible()
+    # Covariance (over n − 1) above correlation
+    expect(statistics.locator("dt")).to_have_text(["Covariance", "Correlation"])
+    expect(statistics.locator("dd")).to_have_text(["0.50", "0.50"])
+    box = statistics.bounding_box()
+    assert 0 < box["x"] - at[0] < 20 and 0 < box["y"] - at[1] < 20
+    app.page.mouse.move(0, 0)
+    expect(statistics).to_be_hidden()
+    # What stays as it is by KaTeX, the numbers as text
+    formulas = equation.locator(".formula")
+    expect(formulas).to_have_count(2)
+    for formula in formulas.all():
+        expect(formula).to_have_attribute("data-rendered", "true")
+    expect(formulas.locator(".katex-mathml annotation")).to_have_text(["Y ={}", "X +{}"])
+    expect(equation.locator(":scope > span:not(:has(.formula))")).to_have_text(
+        ["0.50", "3.00"]
+    )
+    expect(equation).to_have_css("box-shadow", "none")
+    # Beside the toggle, as tall as it
+    button, box = toggle.bounding_box(), equation.bounding_box()
+    assert box["x"] > button["x"] + button["width"]
+    assert abs(box["height"] - button["height"]) < 1
+    assert abs(box["y"] - button["y"]) < 1
+    # Of a linear equation, on log axes too
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-x-scale", "log")
+    expect(equation).to_have_attribute("aria-label", "Y = 0.50X + 3.00")
+
+    toggle.click()
+    expect(equation).to_have_count(0)
+    expect(plot).to_have_attribute("data-line", "")
+    # Not of the line: shown still
+    app.page.mouse.move(*at)
+    expect(statistics).to_be_visible()
+

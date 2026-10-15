@@ -5,6 +5,8 @@ use dioxus::prelude::*;
 #[derive(Clone, Copy, Debug)]
 pub struct GraphKind {
     pub name: &'static str,
+    /// The add menu it is in: with its presets, or itself if it has none.
+    pub menu: &'static str,
     pub view: fn(usize) -> Element,
     pub presets: &'static [GraphPreset],
 }
@@ -25,7 +27,15 @@ impl PartialEq for GraphKind {
 pub struct GraphProperty {
     /// `None` for a numbered default.
     pub title: Option<String>,
+    /// The value axis's: a scatter plot's Y axis.
     pub value_scale: AxisScale,
+    /// A scatter plot's X axis.
+    pub x_scale: AxisScale,
+    /// The Number labels a scatter plot pairs, as X and Y.
+    pub x_label: String,
+    pub y_label: String,
+    /// Whether a scatter plot shows the line fit to its points.
+    pub regression: bool,
     pub draw_style: DrawStyle,
     pub time_window: TimeWindow,
     /// The labels turned off in the legend.

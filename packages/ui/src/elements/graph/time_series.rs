@@ -36,6 +36,7 @@ fn series_color(index: usize) -> &'static str {
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
+    menu: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
     presets: &[
         GraphPreset {

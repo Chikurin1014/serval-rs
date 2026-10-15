@@ -54,3 +54,63 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+.graph-regression {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* As tall as the toggle beside it */
+.graph-equation {
+  display: flex;
+  align-items: center;
+  height: 1.75rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dc-text);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Its numbers as large as what KaTeX draws */
+.graph-equation .formula .katex {
+  font-size: 1em;
+}
+
+/* A plot's tooltip, by the pointer: its statistics */
+.plot-tooltip {
+  position: absolute;
+  z-index: 1;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--dc-border);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--dc-panel) 92%, transparent);
+  color: var(--dc-text);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.plot-tooltip[hidden] {
+  display: none;
+}
+
+.plot-tooltip dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.125rem 0.75rem;
+  margin: 0;
+}
+
+.plot-tooltip dt {
+  color: var(--dc-text-muted);
+}
+
+.plot-tooltip dd {
+  margin: 0;
+  text-align: right;
+}
