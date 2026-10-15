@@ -509,9 +509,22 @@ def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     # lucide's Play, a triangle
     expect(play.locator("svg rect")).to_have_count(0)
     expect(play.locator("svg path, svg polygon")).to_have_count(1)
+    # Up to the time paused at, sent anew
+    app.page.wait_for_timeout(200)
     held = points()
     # A reading each 50 ms meanwhile, the graphs as they were
     app.page.wait_for_timeout(600)
+    assert points() == held
+
+    # Their settings changed meanwhile, as they are: of the data until then
+    graph.get_by_role("group", name="X axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-x-scale", "log")
+    assert points() == held
+    first = app.graphs().first
+    first.locator(".graph-title").click()  # opens its settings
+    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(first.locator(".graph-plot")).to_have_attribute("data-value-scale", "log")
+    app.page.wait_for_timeout(300)
     assert points() == held
 
     # All that came meanwhile, at once
@@ -685,3 +698,66 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     graph = app.graphs().last
     expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["side"])
     expect(graph.locator(".graph-plot")).to_have_attribute("data-trails", "false")
+
+
+def test_zooming_into_a_graph_pauses_them(app: App):
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    graph = app.graphs().first
+    plot = graph.locator(".graph-plot")
+    bar = app.page.locator(".graph-bar")
+    span = lambda: float(plot.get_attribute("data-time-span"))  # noqa: E731
+    app.page.wait_for_timeout(1000)
+
+    # Dragged across: zoomed into, and paused
+    area = plot.locator(".u-over").bounding_box()
+    y = area["y"] + area["height"] / 2
+    app.page.mouse.move(area["x"] + area["width"] * 0.3, y)
+    app.page.mouse.down()
+    app.page.mouse.move(area["x"] + area["width"] * 0.6, y, steps=5)
+    app.page.mouse.up()
+    expect(plot).to_have_attribute("data-zoomed", "true")
+    expect(bar.get_by_role("button", name="Play graphs")).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    zoomed = span()
+
+    # As zoomed, as data comes and its settings change
+    app.page.wait_for_timeout(500)
+    assert span() == pytest.approx(zoomed)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-value-scale", "log")
+    app.page.wait_for_timeout(300)
+    assert span() == pytest.approx(zoomed)
+
+    # Unzoomed by a double click, paused still; then played
+    app.page.mouse.dblclick(area["x"] + area["width"] / 2, y)
+    expect(plot).to_have_attribute("data-zoomed", "false")
+    app.page.wait_for_function(
+        "([plot, zoomed]) => Number(plot.dataset.timeSpan) > zoomed * 1.2",
+        arg=[plot.element_handle(), zoomed],
+    )
+    play = bar.get_by_role("button", name="Play graphs")
+    expect(play).to_be_visible()
+    play.click()
+    expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
+
+    # A scatter plot too
+    scatter = add_scatter(app)
+    scatter.locator(".graph-title").click()  # opens the settings
+    scatter.get_by_label("X label").fill("temp")
+    scatter.get_by_label("Y label").fill("volt")
+    points = scatter.locator(".graph-plot")
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=points.element_handle()
+    )
+    area = points.locator(".u-over").bounding_box()
+    app.page.mouse.move(area["x"] + area["width"] * 0.2, area["y"] + area["height"] * 0.2)
+    app.page.mouse.down()
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.7, area["y"] + area["height"] * 0.7, steps=5
+    )
+    app.page.mouse.up()
+    expect(points).to_have_attribute("data-zoomed", "true")
+    expect(bar.get_by_role("button", name="Play graphs")).to_be_visible()

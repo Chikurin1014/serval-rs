@@ -12,6 +12,7 @@ use crate::{
         },
     },
     elements::{DataList, HoverMenu, HoverMenus},
+    time::TimeContext,
 };
 
 const GRAPH_BOARD_CSS: Asset = asset!("/assets/styling/graph-board.css");
@@ -188,12 +189,14 @@ fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
     menus
 }
 
-/// Pauses the graphs, the port read on all the same; or plays them again,
-/// with all that came meanwhile.
+/// Pauses the graphs, the port read on all the same: they show the data up to
+/// then, in their settings as these are changed; or plays them again, with all
+/// that came meanwhile.
 #[component]
 fn PauseButton() -> Element {
     let mut context = use_context::<GraphContext>();
-    let paused = context.is_paused();
+    let time_context = use_context::<TimeContext>();
+    let paused = context.paused_at().is_some();
     let action = if paused {
         "Play graphs"
     } else {
@@ -208,7 +211,10 @@ fn PauseButton() -> Element {
             aria_label: action,
             aria_pressed: paused,
             title: action,
-            onclick: move |_| context.set_paused(!paused),
+            onclick: move |_| {
+                // As the time the data came is told, so it is up to now
+                context.set_paused_at((!paused).then(|| time_context.current()));
+            },
             if paused {
                 lucide::Play {}
             } else {

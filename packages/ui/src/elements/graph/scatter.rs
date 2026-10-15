@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    context::use_graph_setting,
+    context::{until_paused, use_graph_setting},
 };
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{
@@ -12,6 +12,7 @@ use crate::data::{
 };
 use crate::elements::Formula;
 use crate::helper::set_if_changed;
+use crate::time::TimeContext;
 
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -54,6 +55,9 @@ struct ScatterFeed {
     sent: bool,
     /// The points the plot has, as many as it keeps.
     kept: VecDeque<(f64, f64)>,
+    /// When the graphs were paused, if they are: the entries after are left
+    /// out, and all sent anew as it changes.
+    paused_at: Option<i64>,
 }
 
 impl ScatterFeed {
@@ -64,12 +68,15 @@ impl ScatterFeed {
         labels: (&str, &str),
         x: Option<&Queue<NumberData>>,
         y: Option<&Queue<NumberData>>,
+        paused_at: Option<i64>,
     ) -> (bool, Vec<(f64, f64)>) {
         let mut reset = false;
-        if (self.labels.0.as_str(), self.labels.1.as_str()) != labels {
+        if (self.labels.0.as_str(), self.labels.1.as_str()) != labels || self.paused_at != paused_at
+        {
             let sent = self.sent;
             *self = Self {
                 labels: (labels.0.to_string(), labels.1.to_string()),
+                paused_at,
                 ..Self::default()
             };
             reset = sent;
@@ -103,8 +110,10 @@ impl ScatterFeed {
             self.kept.clear();
         }
 
+        let paused_at = self.paused_at;
         let mut entries: Vec<_> = in_turn(&new_x.entries, true)
             .chain(in_turn(&new_y.entries, false))
+            .filter(|&(timestamp, ..)| until_paused(paused_at, timestamp))
             .collect();
         entries.sort_by_key(|&(timestamp, turn, is_x, _)| (timestamp, turn, !is_x));
         let mut points = Vec::new();
@@ -256,6 +265,7 @@ fn in_turn(
 pub fn ScatterGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let mut graph_context = use_context::<GraphContext>();
+    let time_context = use_context::<TimeContext>();
     // As typed, for the fields
     let x_text = use_graph_setting(graph_context, id, |property| property.x_label.clone());
     let y_text = use_graph_setting(graph_context, id, |property| property.y_label.clone());
@@ -273,21 +283,19 @@ pub fn ScatterGraph(id: usize) -> Element {
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
 
     use_effect(move || {
-        // Paused: nothing new read (nor waited for), so it shows what it had
-        if graph_context.is_paused() {
-            return;
-        }
+        let paused_at = graph_context.paused_at();
         let (x, y) = (x_label(), y_label());
         let labels = (x.as_str(), y.as_str());
         let mut feed = feed.borrow_mut();
         let update = data_context
             .with_label(&x, |x_data| {
                 data_context.with_label(&y, |y_data| {
-                    feed.next(labels, NumberData::queue(x_data), NumberData::queue(y_data))
+                    let (x, y) = (NumberData::queue(x_data), NumberData::queue(y_data));
+                    feed.next(labels, x, y, paused_at)
                 })
             })
             .flatten();
-        let (reset, points) = update.unwrap_or_else(|| feed.next(labels, None, None));
+        let (reset, points) = update.unwrap_or_else(|| feed.next(labels, None, None, paused_at));
         let fitted = feed.line();
         set_if_changed(&mut line, fitted);
         let statistics = feed.statistics().map(statistics_texts);
@@ -296,7 +304,30 @@ pub fn ScatterGraph(id: usize) -> Element {
             .map(|line| (line.slope, line.intercept));
         let logs = (x_scale() == AxisScale::Log, y_scale() == AxisScale::Log);
         let colors = (POINT_COLOR, LINE_COLOR);
-        let _ = plot.send((reset, points, (&x, &y), logs, colors, shown, statistics));
+        let paused = paused_at.is_some();
+        let _ = plot.send((
+            reset,
+            points,
+            (&x, &y),
+            logs,
+            colors,
+            shown,
+            statistics,
+            paused,
+        ));
+    });
+
+    // Zoomed into: paused, so the data stays as it is
+    use_future(move || {
+        let time_context = time_context.clone();
+        async move {
+            let mut plot = plot;
+            while let Ok((kind, _)) = plot.recv::<(String, Vec<String>)>().await {
+                if kind == "zoomed" {
+                    graph_context.pause(time_context.current());
+                }
+            }
+        }
     });
 
     use_drop(move || {
@@ -476,7 +507,7 @@ mod tests {
         let x = numbers(&[(1, 1.0), (2, 2.0), (4, 4.0)]);
         let y = numbers(&[(3, 30.0), (4, 40.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y)),
+            feed.next(LABELS, Some(&x), Some(&y), None),
             (false, vec![(2.0, 30.0), (4.0, 40.0)])
         );
     }
@@ -488,7 +519,7 @@ mod tests {
         let x = numbers(&[(1, 1.0), (1, 2.0)]);
         let y = numbers(&[(1, 10.0), (1, 20.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y)),
+            feed.next(LABELS, Some(&x), Some(&y), None),
             (false, vec![(1.0, 10.0), (2.0, 20.0)])
         );
     }
@@ -498,14 +529,14 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let mut x = numbers(&[(1, 1.0)]);
         let mut y = numbers(&[(1, 10.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
 
         // One waits for the other, across reads
         x.push(NumberData::new(2, 2.0));
-        assert_eq!(feed.next(LABELS, Some(&x), Some(&y)), (false, vec![]));
+        assert_eq!(feed.next(LABELS, Some(&x), Some(&y), None), (false, vec![]));
         y.push(NumberData::new(3, 20.0));
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y)),
+            feed.next(LABELS, Some(&x), Some(&y), None),
             (false, vec![(2.0, 20.0)])
         );
     }
@@ -515,21 +546,21 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 10.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
 
         // Cleared: no points left, then those of the new queue
-        assert_eq!(feed.next(LABELS, None, Some(&y)), (true, vec![]));
-        assert_eq!(feed.next(LABELS, None, Some(&y)), (false, vec![]));
+        assert_eq!(feed.next(LABELS, None, Some(&y), None), (true, vec![]));
+        assert_eq!(feed.next(LABELS, None, Some(&y), None), (false, vec![]));
         let x = numbers(&[(5, 5.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y)),
+            feed.next(LABELS, Some(&x), Some(&y), None),
             (false, vec![(5.0, 10.0)])
         );
 
         // Another X: all of its points in place of those
         let other = numbers(&[(6, 6.0)]);
         assert_eq!(
-            feed.next(("other", "volt"), Some(&other), Some(&y)),
+            feed.next(("other", "volt"), Some(&other), Some(&y), None),
             (true, vec![(6.0, 10.0)])
         );
     }
@@ -539,11 +570,11 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 10.0), (2, 20.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
 
         let x = numbers(&[(2, 2.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y)),
+            feed.next(LABELS, Some(&x), Some(&y), None),
             (true, vec![(2.0, 10.0)])
         );
     }
@@ -553,7 +584,7 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         assert_eq!(
             feed.line(),
             Some(Line {
@@ -568,12 +599,12 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         assert_eq!(feed.line(), None);
 
         let x = numbers(&[(1, 2.0), (2, 2.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y));
+        feed.next(("other", "volt"), Some(&x), Some(&y), None);
         assert_eq!(feed.line(), None);
     }
 
@@ -582,11 +613,11 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 1.0), (2, 2.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         // Cleared and made anew: those before left out
         let x = numbers(&[(3, 1.0), (4, 2.0)]);
         let y = numbers(&[(3, 5.0), (4, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         assert_eq!(
             feed.line(),
             Some(Line {
@@ -610,7 +641,7 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         // Over n − 1: 1 / 2; and 1 / √(2 × 2)
         assert_eq!(feed.statistics(), Some((0.5, Some(0.5))));
         assert_eq!(statistics_texts((0.5, Some(0.5))), ["0.50", "0.50"]);
@@ -620,7 +651,7 @@ mod tests {
         // Falling: below 0
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 4.0), (2, 2.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y));
+        feed.next(("other", "volt"), Some(&x), Some(&y), None);
         assert_eq!(feed.statistics(), Some((-1.0, Some(-1.0))));
         assert_eq!(statistics_texts((-1.0, Some(-1.0))), ["−1.00", "−1.00"]);
     }
@@ -630,14 +661,33 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y));
+        feed.next(LABELS, Some(&x), Some(&y), None);
         assert_eq!(feed.statistics(), None);
 
         // Y all of one value: covarying with nothing
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 3.0), (2, 3.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y));
+        feed.next(("other", "volt"), Some(&x), Some(&y), None);
         assert_eq!(feed.statistics(), Some((0.0, None)));
         assert_eq!(statistics_texts((0.0, None)), ["0.00", "—"]);
+    }
+
+    #[test]
+    fn paused_it_pairs_what_came_until_then_and_played_all_anew() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0), (3, 3.0)]);
+        let y = numbers(&[(1, 10.0), (3, 30.0)]);
+        feed.next(LABELS, Some(&x), Some(&y), None);
+
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), Some(2)),
+            (true, vec![(1.0, 10.0)])
+        );
+        // Its line and statistics of those alone
+        assert_eq!(feed.statistics(), None);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None),
+            (true, vec![(1.0, 10.0), (3.0, 30.0)])
+        );
     }
 }

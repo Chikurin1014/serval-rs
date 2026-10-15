@@ -2,7 +2,8 @@
 //
 // From Rust: the container id, then `[labels, updates, colors, log, style,
 // hidden, window]` on each change (updates: `[label, reset, [[ms, value]]]`),
-// then `null` on unmount. To Rust: the labels turned off in the legend.
+// then `null` on unmount. To Rust: `["hidden", labels]`, those turned off in
+// the legend; `["zoomed", []]` as it is zoomed into.
 
 // As `MAX_ENTRIES_PER_LABEL`
 const MAX_POINTS = 10000;
@@ -73,6 +74,33 @@ function seriesStyle(color) {
   };
 }
 
+// The times zoomed to by dragging across the plot, if it is: kept until a
+// double click, or played again
+let zoomed = null;
+
+function onSelect(u) {
+  const { left, width } = u.select;
+  if (width < 2) {
+    return;
+  }
+  zoomed = [u.posToVal(left, "x"), u.posToVal(left + width, "x")];
+  u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+  u.setScale("x", { min: zoomed[0], max: zoomed[1] });
+  // For tests
+  container.dataset.zoomed = "true";
+  // Paused, so the data stays as zoomed into
+  dioxus.send(["zoomed", []]);
+}
+
+function unzoom() {
+  if (!zoomed) {
+    return;
+  }
+  zoomed = null;
+  container.dataset.zoomed = "false";
+  plot?.setData(plot.data);
+}
+
 function onSeriesToggle(u, index, options) {
   if (index === null || options.show === undefined) {
     return;
@@ -85,7 +113,7 @@ function onSeriesToggle(u, index, options) {
   }
   const hidden = [...hiddenLabels].sort();
   hiddenSent = JSON.stringify(hidden);
-  dioxus.send(hidden);
+  dioxus.send(["hidden", hidden]);
 }
 
 function applyHidden(hidden) {
@@ -148,13 +176,19 @@ function create() {
       scales: {
         x: {
           time: true,
-          range: (u, min, max) => timeRange(min, max, windowSeconds, fitData),
+          range: (u, min, max) =>
+            zoomed ?? timeRange(min, max, windowSeconds, fitData),
         },
         y: logScale ? { distr: 3, log: 10 } : {},
       },
-      cursor: { sync: { key: CURSOR_SYNC_KEY, setSeries: false } },
+      cursor: {
+        sync: { key: CURSOR_SYNC_KEY, setSeries: false },
+        // Zoomed by `onSelect`, so it is told
+        drag: { x: true, y: false, setScale: false },
+      },
       hooks: {
         setSeries: [onSeriesToggle],
+        setSelect: [onSelect],
         // For tests
         setScale: [
           (u, key) => {
@@ -187,6 +221,8 @@ function create() {
     plotData(labels),
     container,
   );
+  // Unzoomed by a double click, before uPlot takes it
+  plot.root.addEventListener("dblclick", unzoom, true);
   fit();
   // The legend only gets its height after layout
   requestAnimationFrame(fit);
@@ -229,8 +265,20 @@ while (true) {
     break;
   }
 
-  const [labels, updates, lineColors, log, style, hidden, [seconds, fit]] =
-    message;
+  const [
+    labels,
+    updates,
+    lineColors,
+    log,
+    style,
+    hidden,
+    [seconds, fit],
+    paused,
+  ] = message;
+  // Played again: the newest as it comes
+  if (!paused) {
+    unzoom();
+  }
   windowSeconds = seconds;
   fitData = fit;
   colors = lineColors;

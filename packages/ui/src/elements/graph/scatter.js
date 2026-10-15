@@ -4,7 +4,8 @@
 // [xLog, yLog], [pointColor, lineColor], line, statistics]` on each change
 // (points: `[[x, y]]`, after those before unless `reset`; line: `[slope,
 // intercept]` or `null`; statistics: `[covariance, correlation]` as text or
-// `null`), then `null` on unmount.
+// `null`), then `null` on unmount. To Rust: `["zoomed", []]` as it is zoomed
+// into.
 
 // As `MAX_ENTRIES_PER_LABEL`
 const MAX_POINTS = 10000;
@@ -101,13 +102,49 @@ function plotData() {
   return [null, [x, y]];
 }
 
+// The ranges zoomed to by dragging across the plot, if it is: kept until a
+// double click, played again, or another scale
+let zoomed = null;
+
+function onSelect(u) {
+  const { left, top, width, height } = u.select;
+  if (width < 2 || height < 2) {
+    return;
+  }
+  zoomed = {
+    x: [u.posToVal(left, "x"), u.posToVal(left + width, "x")],
+    y: [u.posToVal(top + height, "y"), u.posToVal(top, "y")],
+  };
+  u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+  u.batch(() => {
+    u.setScale("x", { min: zoomed.x[0], max: zoomed.x[1] });
+    u.setScale("y", { min: zoomed.y[0], max: zoomed.y[1] });
+  });
+  // For tests
+  container.dataset.zoomed = "true";
+  // Paused, so the data stays as zoomed into
+  dioxus.send(["zoomed", []]);
+}
+
+function unzoom() {
+  if (!zoomed) {
+    return;
+  }
+  zoomed = null;
+  container.dataset.zoomed = "false";
+  plot?.setData(plotData());
+}
+
 // Padded, so one point (or all of one value) has room around it: as no
-// points do
-function scale(log) {
+// points do; as zoomed to, if it is
+function scale(log, key) {
   return {
     time: false,
     ...(log && { distr: 3, log: 10 }),
     range: (u, min, max) => {
+      if (zoomed) {
+        return zoomed[key];
+      }
       if (min == null || max == null) {
         return log ? [1, 10] : [0, 1];
       }
@@ -243,8 +280,14 @@ function create() {
       width: container.clientWidth,
       height: Math.max(container.clientHeight, 50),
       legend: { show: false },
-      hooks: { draw: [drawLine], setCursor: [showStatistics] },
-      scales: { x: scale(logs[0]), y: scale(logs[1]) },
+      // Zoomed by `onSelect`, so it is told
+      cursor: { drag: { x: true, y: true, setScale: false } },
+      hooks: {
+        draw: [drawLine],
+        setCursor: [showStatistics],
+        setSelect: [onSelect],
+      },
+      scales: { x: scale(logs[0], "x"), y: scale(logs[1], "y") },
       axes: [axis(labels[0]), axis(labels[1])],
       series: [
         {},
@@ -262,6 +305,8 @@ function create() {
     plotData(),
     container,
   );
+  // Unzoomed by a double click, before uPlot takes it
+  plot.root.addEventListener("dblclick", unzoom, true);
   // Over the points, in the plot's own area
   plot.over.appendChild(statisticsBox);
   statisticsBox.hidden = true;
@@ -315,7 +360,13 @@ while (true) {
     pointColors,
     pointLine,
     pointStatistics,
+    paused,
   ] = message;
+  // Played again, or another scale: as the data has it
+  if (!paused || JSON.stringify(pointLogs) !== JSON.stringify(logs)) {
+    zoomed = null;
+    container.dataset.zoomed = "false";
+  }
   labels = pointLabels;
   logs = pointLogs;
   colors = pointColors;

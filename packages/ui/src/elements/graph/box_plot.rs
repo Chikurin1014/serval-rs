@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use super::{
-    AxisScale, GraphContext, GraphFrame, GraphKind, context::use_graph_setting,
+    AxisScale, GraphContext, GraphFrame, GraphKind,
+    context::{until_paused, use_graph_setting},
     time_series::series_color,
 };
 use crate::components::{
@@ -167,10 +168,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     };
 
     use_effect(move || {
-        // Paused: nothing new read (nor waited for), so it shows what it had
-        if graph_context.is_paused() {
-            return;
-        }
+        let paused_at = graph_context.paused_at();
         // Colored by their place among the number labels, as the lines of a time series
         let colors = number_labels.read().clone();
         let boxes: Vec<PlotBox> = labels
@@ -179,9 +177,12 @@ pub fn BoxPlotGraph(id: usize) -> Element {
             .filter_map(|label| {
                 let summary = data_context
                     .with_label(label, |data| match data {
-                        TypedData::Number(queue) => {
-                            Summary::of(queue.iter().map(|entry| *entry.value()))
-                        }
+                        TypedData::Number(queue) => Summary::of(
+                            queue
+                                .iter()
+                                .filter(|entry| until_paused(paused_at, entry.timestamp()))
+                                .map(|entry| *entry.value()),
+                        ),
                         _ => None,
                     })
                     .flatten()?;
