@@ -1,3 +1,5 @@
+import json
+
 from playwright.sync_api import expect
 
 from app import App
@@ -273,7 +275,7 @@ def test_statistics_menu_adds_a_scatter_plot(app: App):
     bar = app.page.locator(".add-graph-bar")
     expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics"])
     bar.get_by_role("button", name="Statistics").hover()
-    expect(bar.get_by_role("option")).to_have_text(["Scatter"])
+    expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
     graph = add_scatter(app)
     expect(app.graphs()).to_have_count(2)
     expect(graph.locator(".graph-title-text")).to_have_text("Graph 2")
@@ -394,3 +396,84 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     app.page.mouse.move(*at)
     expect(statistics).to_be_visible()
 
+
+def test_box_plot_shows_the_labels_chosen_and_their_statistics_on_hover(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\na:100\\nb:5\\nb:6\\n')")
+    app.wait_for_labels("a", "b")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Box plot", exact=True).click()
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+    boxes = lambda: [  # noqa: E731
+        label for label, *_ in json.loads(plot.get_attribute("data-boxes") or "[]")
+    ]
+    expect(graph.locator(".graph-empty")).to_have_text(
+        "Add the Number labels to plot in its settings."
+    )
+
+    # Each label chosen by name, as the data list's filters are added
+    graph.locator(".graph-title").click()  # opens the settings
+    field = graph.get_by_label("Label to plot")
+    tags = graph.locator(".graph-labels-tags [role=row]")
+    field.fill("a")
+    field.press("Enter")
+    expect(field).to_have_value("")
+    field.fill("b")
+    graph.get_by_role("button", name="Add label").click()
+    # Not twice
+    field.fill("a")
+    field.press("Enter")
+    expect(tags).to_have_text(["a", "b"])
+    expect(graph.locator(".graph-empty")).to_have_count(0)
+    app.page.wait_for_function(
+        "plot => plot.dataset.boxes?.includes('\"b\"')", arg=plot.element_handle()
+    )
+    assert boxes() == ["a", "b"]
+    # Beside the field
+    beside, box = field.bounding_box(), tags.first.bounding_box()
+    assert box["x"] > beside["x"] + beside["width"]
+    assert abs((box["y"] + box["height"] / 2) - (beside["y"] + beside["height"] / 2)) < 2
+
+    graph.get_by_role("button", name="Remove label b").click()
+    expect(tags).to_have_text(["a"])
+    # A box of a alone, its one outlier (100) apart
+    app.page.wait_for_function(
+        """plot => JSON.stringify(JSON.parse(plot.dataset.boxes ?? "[]")
+            .map(([label, outliers]) => [label, outliers])) === '[["a",1]]'""",
+        arg=plot.element_handle(),
+    )
+    hover = plot.locator(".box-plot-hover")
+    expect(hover).to_be_hidden()
+    label = hover.locator(".plot-tooltip-label")
+    # Over a's box: again, should the plot have been resized as the graph came
+    for _ in range(20):
+        boxes = json.loads(plot.get_attribute("data-boxes"))
+        x = next(place for each, _, place in boxes if each == "a")
+        area = plot.locator(".u-over").bounding_box()
+        app.page.mouse.move(area["x"] + x, area["y"] + area["height"] / 2)
+        if hover.is_visible() and label.text_content() == "a":
+            break
+        app.page.wait_for_timeout(100)
+    expect(label).to_have_text("a")
+    expect(hover.locator("dt")).to_have_text(
+        ["Mean", "Variance", "Median", "Max", "Min", "Q3", "Q1"]
+    )
+    # Its variance over n − 1
+    expect(hover.locator("dd")).to_have_text(
+        ["22.000", "1902.5", "3.0000", "100.00", "1.0000", "4.0000", "2.0000"]
+    )
+    # Beside the box
+    beside = hover.bounding_box()
+    assert beside["x"] > area["x"] + x or beside["x"] + beside["width"] < area["x"] + x
+
+    app.page.mouse.move(0, 0)
+    expect(hover).to_be_hidden()
+
+    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    expect(plot).to_have_attribute("data-value-scale", "log")

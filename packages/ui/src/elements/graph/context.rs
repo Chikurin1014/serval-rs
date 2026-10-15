@@ -36,6 +36,8 @@ pub struct GraphProperty {
     pub y_label: String,
     /// Whether a scatter plot shows the line fit to its points.
     pub regression: bool,
+    /// The Number labels a box plot shows, in the order they were added.
+    pub labels: Vec<String>,
     pub draw_style: DrawStyle,
     pub time_window: TimeWindow,
     /// The labels turned off in the legend.
@@ -186,6 +188,20 @@ impl GraphContext {
             graphs.insert(to, graph);
         }
     }
+}
+
+/// One setting of a graph, as a memo of its own.
+pub(super) fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
+    graph_context: GraphContext,
+    id: usize,
+    setting: fn(&GraphProperty) -> T,
+) -> Memo<T> {
+    use_memo(move || {
+        graph_context
+            .get(id)
+            .map(|graph| setting(&graph.property))
+            .unwrap_or_default()
+    })
 }
 
 #[component]

@@ -2,7 +2,10 @@ use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty};
+use super::{
+    AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
+    context::use_graph_setting,
+};
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{
     DataContext, DataEntry, DataType, MAX_ENTRIES_PER_LABEL, NumberData, Queue, SourceCursor,
@@ -245,20 +248,6 @@ fn in_turn(
         turn = if last == Some(timestamp) { turn + 1 } else { 0 };
         last = Some(timestamp);
         (timestamp, turn, is_x, *entry.value())
-    })
-}
-
-/// One setting of a graph, as a memo of its own.
-fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
-    graph_context: GraphContext,
-    id: usize,
-    setting: fn(&GraphProperty) -> T,
-) -> Memo<T> {
-    use_memo(move || {
-        graph_context
-            .get(id)
-            .map(|graph| setting(&graph.property))
-            .unwrap_or_default()
     })
 }
 
