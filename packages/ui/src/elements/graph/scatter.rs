@@ -20,7 +20,7 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-const SCATTER_JS: &str = include_str!("scatter.js");
+const SCATTER_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("scatter.js"));
 
 /// Its points' color, as the first line of a time series.
 const POINT_COLOR: &str = "--dc-accent";

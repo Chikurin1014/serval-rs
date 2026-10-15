@@ -49,16 +49,21 @@ let extent = null;
 let goal = null;
 let easing = 0;
 let easedAt = 0;
-let frame = 0;
 // Where the tips are on the canvas, in CSS pixels, as last drawn
 let tips = [];
 
 const probe = document.createElement("span");
 probe.style.display = "none";
 container.appendChild(probe);
+// Each color as the theme has it, kept until the theme changes: each taken
+// makes the page work its styles out
+const cssColors = new Map();
 function cssColor(name) {
-  probe.style.color = `var(${name})`;
-  return getComputedStyle(probe).color;
+  if (!cssColors.has(name)) {
+    probe.style.color = `var(${name})`;
+    cssColors.set(name, getComputedStyle(probe).color);
+  }
+  return cssColors.get(name);
 }
 
 function withAlpha(color, alpha) {
@@ -178,15 +183,19 @@ const illo = new Zdog.Illustration({
 });
 let scene = new Zdog.Anchor({ addTo: illo });
 
-/** The plot's size in CSS pixels, the legend apart. */
+// The plot's size in CSS pixels, the legend apart: measured as it is fitted,
+// not as it is drawn (each measuring makes the page lay itself out)
+let size = [0, 0];
 function area() {
-  const width = container.clientWidth;
-  const height = Math.max(container.clientHeight - legend.offsetHeight, 50);
-  return [width, height];
+  return size;
 }
 
 function fit() {
-  const [width, height] = area();
+  size = [
+    container.clientWidth,
+    Math.max(container.clientHeight - legend.offsetHeight, 50),
+  ];
+  const [width, height] = size;
   plotArea.style.width = `${width}px`;
   plotArea.style.height = `${height}px`;
   illo.setSize(width, height);
@@ -470,7 +479,6 @@ function legendMakings() {
 }
 
 function draw() {
-  frame = 0;
   if (legendMakings() !== legendMade) {
     legendMade = legendMakings();
     buildLegend();
@@ -481,11 +489,10 @@ function draw() {
   render();
 }
 
-// One redraw per frame
+// One redraw per frame, fewer as the page is busy
+const draws = pacedDraws(draw);
 function schedule() {
-  if (!frame) {
-    frame = requestAnimationFrame(draw);
-  }
+  draws.schedule();
 }
 
 const resize = new ResizeObserver(fit);
@@ -493,6 +500,7 @@ resize.observe(container);
 
 // Colors are taken at each drawing; and the legend's anew
 function onTheme() {
+  cssColors.clear();
   legendMade = "";
   schedule();
 }
@@ -519,7 +527,7 @@ while (true) {
   schedule();
 }
 
-cancelAnimationFrame(frame);
+draws.cancel();
 cancelAnimationFrame(easing);
 resize.disconnect();
 themeObserver.disconnect();

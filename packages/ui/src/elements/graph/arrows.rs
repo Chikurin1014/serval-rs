@@ -19,8 +19,8 @@ const ZDOG_JS: Asset = asset!(
     "/assets/vendor/zdog/zdog.dist.min.js",
     AssetOptions::js().with_minify(false)
 );
-const ARROWS_JS: &str = include_str!("arrows.js");
-const ARROWS_3D_JS: &str = include_str!("arrows_3d.js");
+const ARROWS_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows.js"));
+const ARROWS_3D_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows_3d.js"));
 
 /// Itself, its trails on from the start.
 fn with_trails() -> GraphProperty {

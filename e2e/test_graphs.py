@@ -768,3 +768,45 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     app.page.mouse.up()
     expect(points).to_have_attribute("data-zoomed", "true")
     expect(bar.get_by_role("button", name="Play graphs")).to_be_visible()
+
+
+def test_scatter_redraws_ten_times_a_second_at_most(app: App):
+    open_graphs_with_numbers(app)
+    graph = add_scatter(app)
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("temp")
+    graph.get_by_label("Y label").fill("volt")
+    plot = graph.locator(".graph-plot")
+    app.page.wait_for_function(
+        "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()
+    )
+    draws = lambda: int(plot.get_attribute("data-draws"))  # noqa: E731
+    # Pairs coming 20 times a second, and more at once
+    app.mock("burst(50)")
+    first, first_points = draws(), int(plot.get_attribute("data-points"))
+    app.page.wait_for_timeout(1000)
+    assert draws() - first <= 12
+    # Each drawn all the same
+    app.page.wait_for_function(
+        "([plot, points]) => Number(plot.dataset.points) >= points",
+        arg=[plot.element_handle(), first_points + 50],
+    )
+
+
+
+def test_graphs_redraw_less_as_the_page_is_busy(app: App):
+    open_graphs_with_numbers(app)
+    app.wait_for_graph_legends([["temp", "volt"]])
+    interval = "() => window.servalDrawPacer?.interval()"
+    app.page.wait_for_function(f"({interval})() !== undefined")
+
+    # Frames late, as the page is busy: fewer redraws (more again as they come
+    # on time, as the unit tests tell: the page of a busy machine may not)
+    app.page.evaluate("""() => {
+        window.busy = setInterval(() => {
+            const start = performance.now();
+            while (performance.now() - start < 100) {}
+        }, 10);
+    }""")
+    app.page.wait_for_function(f"({interval})() >= 50", timeout=20000)
+    app.page.evaluate("() => clearInterval(window.busy)")

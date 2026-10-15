@@ -33,14 +33,19 @@ let fitData = true;
 let hiddenLabels = new Set();
 // Sent to Rust and not yet echoed back
 let hiddenSent = null;
-let frame = 0;
 
 const probe = document.createElement("span");
 probe.style.display = "none";
 container.appendChild(probe);
+// Each color as the theme has it, kept until the theme changes: each taken
+// makes the page work its styles out
+const cssColors = new Map();
 function cssColor(name) {
-  probe.style.color = `var(${name})`;
-  return getComputedStyle(probe).color;
+  if (!cssColors.has(name)) {
+    probe.style.color = `var(${name})`;
+    cssColors.set(name, getComputedStyle(probe).color);
+  }
+  return cssColors.get(name);
 }
 
 function areaFill(color) {
@@ -255,7 +260,6 @@ function create() {
 }
 
 function draw() {
-  frame = 0;
   const labels = sortedLabels();
   if (!plot || lines(labels) !== plotLines) {
     create();
@@ -264,24 +268,27 @@ function draw() {
   }
 }
 
-// One redraw per frame
+// One redraw per frame, fewer as the page is busy
+const draws = pacedDraws(draw);
 function schedule() {
-  if (!frame) {
-    frame = requestAnimationFrame(draw);
-  }
+  draws.schedule();
 }
 
 const resize = new ResizeObserver(fit);
 resize.observe(container);
 
-// Colors are baked in at creation
-const themeObserver = new MutationObserver(create);
+// Colors are baked in at creation, as taken anew
+function onTheme() {
+  cssColors.clear();
+  create();
+}
+const themeObserver = new MutationObserver(onTheme);
 themeObserver.observe(document.documentElement, {
   attributes: true,
   attributeFilter: ["data-theme"],
 });
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", create);
+systemTheme.addEventListener("change", onTheme);
 
 create();
 
@@ -323,8 +330,8 @@ while (true) {
   schedule();
 }
 
-cancelAnimationFrame(frame);
+draws.cancel();
 resize.disconnect();
 themeObserver.disconnect();
-systemTheme.removeEventListener("change", create);
+systemTheme.removeEventListener("change", onTheme);
 plot?.destroy();

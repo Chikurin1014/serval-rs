@@ -19,6 +19,7 @@ const UPLOT_JS: Asset = asset!(
     AssetOptions::js().with_minify(false)
 );
 const TIME_SERIES_JS: &str = concat!(
+    include_str!("paced_draws.js"),
     include_str!("time_series_data.js"),
     include_str!("time_series.js"),
 );

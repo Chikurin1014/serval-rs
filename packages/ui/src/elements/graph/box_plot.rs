@@ -15,7 +15,7 @@ const UPLOT_JS: Asset = asset!(
     "/assets/vendor/uplot/uPlot.iife.min.js",
     AssetOptions::js().with_minify(false)
 );
-const BOX_PLOT_JS: &str = include_str!("box_plot.js");
+const BOX_PLOT_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("box_plot.js"));
 
 pub const BOX_PLOT: GraphKind = GraphKind {
     name: "Box plot",
