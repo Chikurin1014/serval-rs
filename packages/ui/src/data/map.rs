@@ -13,6 +13,7 @@ mod input;
 mod magnitude;
 mod matching;
 mod replace;
+mod saved;
 mod vector_arithmetic;
 
 #[cfg(test)]
@@ -45,6 +46,8 @@ pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, ta
 pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
+pub(crate) use saved::saved_settings;
+pub use saved::{SavedField, SavedSettings};
 pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOperation};
 
 /// The processing of one map. Its settings are signals made in its
@@ -52,6 +55,9 @@ pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOp
 pub trait MapRunner {
     /// What [`MapKind::form`] edits.
     fn settings(&self) -> &dyn Any;
+
+    /// Its settings as a layout file keeps them.
+    fn saved(&self) -> &dyn SavedSettings;
 
     /// Takes in and checks the settings as the map is turned on (they are locked
     /// while it is on). If they changed since, the input is read from the start.
@@ -88,18 +94,13 @@ impl PartialEq for MapKind {
     }
 }
 
-/// A map present from the start, e.g. one with preset settings.
-#[derive(Clone, Copy, Debug)]
+/// A map present from the start, or taken from a layout file.
+#[derive(Clone, Debug, PartialEq)]
 pub struct InitialMap {
     pub kind: MapKind,
     pub enabled: bool,
-    pub create: fn() -> Box<dyn MapRunner>,
-}
-
-impl PartialEq for InitialMap {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.enabled == other.enabled
-    }
+    /// As [`SavedSettings::save`] gives them.
+    pub settings: serde_json::Value,
 }
 
 #[derive(Clone)]
@@ -149,40 +150,43 @@ impl MapContext {
     }
 
     pub fn add(&mut self, kind: MapKind) -> usize {
-        self.insert(kind, false, true, kind.create)
+        self.insert(kind, kind.create)
     }
 
     pub fn add_preset(&mut self, kind: MapKind, preset: MapPreset) -> usize {
-        self.insert(kind, false, true, preset.create)
+        self.insert(kind, preset.create)
     }
 
-    pub fn push(
-        &mut self,
-        kind: MapKind,
-        enabled: bool,
-        create: impl FnOnce() -> Box<dyn MapRunner>,
-    ) -> usize {
-        self.insert(kind, enabled, false, create)
+    /// Adds a map, off, its card open.
+    fn insert(&mut self, kind: MapKind, create: impl FnOnce() -> Box<dyn MapRunner>) -> usize {
+        let Ok(map) = self.make(kind, false, true, || {
+            Ok::<_, std::convert::Infallible>(create())
+        });
+        let id = map.id;
+        self.list.write().push(map);
+        id
     }
 
-    fn insert(
+    fn make<E>(
         &mut self,
         kind: MapKind,
         enabled: bool,
         open: bool,
-        create: impl FnOnce() -> Box<dyn MapRunner>,
-    ) -> usize {
-        let id = *self.next_id.peek();
-        self.next_id.set(id + 1);
-        let ((runner, enabled, open, latest), owner) = make_owned(self.scope, || {
-            (
-                create(),
+        create: impl FnOnce() -> Result<Box<dyn MapRunner>, E>,
+    ) -> Result<Map, E> {
+        let (made, owner) = make_owned(self.scope, || {
+            Ok((
+                create()?,
                 Signal::new(enabled),
                 Signal::new(open),
                 Signal::new(None),
-            )
+            ))
         });
-        self.list.write().push(Map {
+        // Its signals dropped with the owner if not made
+        let (runner, enabled, open, latest) = made?;
+        let id = *self.next_id.peek();
+        self.next_id.set(id + 1);
+        Ok(Map {
             id,
             kind,
             enabled,
@@ -190,8 +194,40 @@ impl MapContext {
             latest,
             runner: Rc::new(RefCell::new(runner)),
             _owner: owner,
-        });
-        id
+        })
+    }
+
+    /// Its settings as a layout file keeps them.
+    pub fn saved_settings(&self, id: usize) -> Option<serde_json::Value> {
+        let map = self.list.peek().iter().find(|map| map.id == id).cloned()?;
+        let saved = map.runner.borrow().saved().save();
+        Some(saved)
+    }
+
+    /// Puts `maps` in place of all there are; else what is wrong with one, with
+    /// none changed.
+    pub fn replace_all(&mut self, maps: Vec<InitialMap>) -> Result<(), String> {
+        let made = maps
+            .into_iter()
+            .map(
+                |InitialMap {
+                     kind,
+                     enabled,
+                     settings,
+                 }| {
+                    self.make(kind, enabled, false, || {
+                        let runner = (kind.create)();
+                        runner
+                            .saved()
+                            .load(&settings)
+                            .map_err(|error| format!("{}: {error}", kind.name))?;
+                        Ok(runner)
+                    })
+                },
+            )
+            .collect::<Result<Vec<_>, String>>()?;
+        self.list.set(made);
+        Ok(())
     }
 
     pub fn remove(&mut self, id: usize) {
@@ -236,8 +272,8 @@ pub fn MapProvider(
             next_id: Signal::new(0),
             scope: current_scope_id(),
         };
-        for map in initial {
-            context.push(map.kind, map.enabled, map.create);
+        if let Err(error) = context.replace_all(initial) {
+            panic!("the initial maps are wrong: {error}");
         }
         context
     });

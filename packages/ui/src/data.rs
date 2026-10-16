@@ -19,8 +19,9 @@ pub use map::{
     ComposeSettings, Concat, ConcatSettings, Conversion, ConversionInput, ConversionOutput, Decode,
     DecodeSettings, Decompose, DecomposeSettings, Encode, EncodeSettings, InitialMap, MORE_LEVEL,
     Magnitude, MagnitudeSettings, Map, MapContext, MapKind, MapPreset, MapProvider, MapRunner,
-    Match, MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, Segment,
-    VectorArithmetic, VectorArithmeticSettings, VectorCalculus, VectorOperation,
+    Match, MatchOutput, MatchSettings, Operation, Replace, ReplaceSettings, SavedField,
+    SavedSettings, Segment, VectorArithmetic, VectorArithmeticSettings, VectorCalculus,
+    VectorOperation,
 };
 pub(crate) use map::{
     Endpoints, Input, Operand, endpoints, keep_taken, take_newest_all, take_newest_pair,

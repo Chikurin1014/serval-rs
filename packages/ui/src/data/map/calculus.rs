@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use dioxus::prelude::*;
 
 use super::vector_arithmetic::vector_text;
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Endpoints,
     MapRunner, NumberData, Segment, SourceCursor, Vector, format_number, keep_taken,
@@ -48,6 +49,11 @@ pub struct CalculusSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
 }
+
+super::saved_settings!(CalculusSettings {
+    from_label,
+    to_label
+});
 
 /// Differentiates or integrates a Number label over time, in seconds.
 pub struct CalculusMap {
@@ -103,6 +109,10 @@ impl CalculusMap {
 
 impl MapRunner for CalculusMap {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 
@@ -200,6 +210,10 @@ where
     Data<V>: DataEntry,
 {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

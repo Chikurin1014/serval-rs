@@ -2,6 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Input, MapRunner,
     NumberData, Operand, Segment, Vector, format_number, keep_taken, take_newest_pair,
@@ -113,6 +114,12 @@ pub struct VectorArithmeticSettings {
     pub to_label: Signal<String>,
     pub error: Signal<Option<String>>,
 }
+
+super::saved_settings!(VectorArithmeticSettings {
+    first,
+    second,
+    to_label
+});
 
 /// Adds, subtracts, dots or crosses two vectors, or multiplies one by a number:
 /// each from a label or a constant. With two labels, a result comes once both have
@@ -316,6 +323,10 @@ where
     Data<V>: DataEntry,
 {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

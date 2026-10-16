@@ -8,8 +8,10 @@ use ui::{
     },
     data::{DataProvider, MapProvider},
     elements::{
-        graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
-        map::{builtin_map_kinds, initial_maps},
+        LayoutMenu,
+        graph::{GraphProvider, builtin_graph_kinds},
+        initial_layout,
+        map::builtin_map_kinds,
         serial::RecordUnloadGuard,
     },
     theme::ThemeSwitch,
@@ -44,6 +46,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let layout = use_hook(|| initial_layout(&builtin_map_kinds(), &builtin_graph_kinds()));
+
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }
         document::Link { rel: "icon", href: FAVICON_PNG, r#type: "image/png", sizes: "256x256" }
@@ -55,10 +59,10 @@ fn App() -> Element {
                         SerialProvider {
                             MapProvider {
                                 kinds: builtin_map_kinds(),
-                                initial: initial_maps(),
+                                initial: layout.maps,
                                 GraphProvider {
                                     kinds: builtin_graph_kinds(),
-                                    initial: initial_graphs(),
+                                    initial: layout.graphs,
                                     Router::<Route> {}
                                     UnsupportedBrowserDialog {}
                                     RecordUnloadGuard {}
@@ -98,7 +102,11 @@ fn WebNavbar() -> Element {
                         "Licenses"
                     }
                 }
-                ThemeSwitch {}
+                div {
+                    class: "navbar-tools",
+                    LayoutMenu {}
+                    ThemeSwitch {}
+                }
             }
             div {
                 class: "route-shell",

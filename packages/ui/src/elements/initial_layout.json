@@ -1,0 +1,50 @@
+{
+  "version": "0.3.1",
+  "maps": [
+    {
+      "kind": "Decode",
+      "from": ["Bytes"],
+      "to": "Log",
+      "enabled": true,
+      "settings": {
+        "delimiters": ["CR", "LF", "CRLF"],
+        "from_label": "raw_bytes",
+        "level": "$1",
+        "message": "$2",
+        "pattern": "^(?:\\[(?:.*? )??({level})(?: .*?)?\\] )?(.*)$",
+        "to_label": "log"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Number",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "^{number}",
+        "replacement": "$0",
+        "to_label": "anonymous data",
+        "weakest_level": "NONE"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Number",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "({word}): ({number})",
+        "replacement": "$2",
+        "to_label": "$1",
+        "weakest_level": "NONE"
+      }
+    }
+  ],
+  "graphs": [
+    {
+      "kind": "Time series"
+    }
+  ]
+}

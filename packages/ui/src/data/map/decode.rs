@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use fancy_regex::Regex;
 
 use super::matching::{expand, label_segments, log_of, log_segments, text};
+use crate::data::SavedSettings;
 use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
     MapRunner, SourceCursor, compile_for_map, keep_taken,
@@ -28,6 +29,15 @@ pub struct DecodeSettings {
     pub pattern_error: Signal<Option<String>>,
     pub replacement_error: Signal<Option<String>>,
 }
+
+super::saved_settings!(DecodeSettings {
+    from_label,
+    delimiters,
+    pattern,
+    to_label,
+    level,
+    message
+});
 
 /// Turns a byte stream into UTF-8 lines, without ANSI escape sequences: each
 /// that matches a pattern into a log, as a Match map does.
@@ -93,6 +103,10 @@ impl Decode {
 
 impl MapRunner for Decode {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

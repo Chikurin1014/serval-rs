@@ -2,6 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionOutput, DataContext, Input, MapRunner, Operand, Segment, Vector2d,
     Vector2dData, Vector3d, Vector3dData, format_number, keep_taken, take_newest_all,
@@ -18,6 +19,8 @@ pub struct ComposeSettings {
     pub to_label: Signal<String>,
     pub error: Signal<Option<String>>,
 }
+
+super::saved_settings!(ComposeSettings { x, y, z, to_label });
 
 /// Makes a vector of two or three components, each the newest number of a
 /// label or a constant: once each label has a new one (or, with constants
@@ -104,6 +107,10 @@ impl Compose {
 
 impl MapRunner for Compose {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

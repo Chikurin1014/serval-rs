@@ -2,6 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Input, Log, LogData, LogLevel,
     MapRunner, Segment, endpoints, expand_levels, keep_taken, take_newest_pair,
@@ -27,6 +28,16 @@ pub struct ConcatSettings {
     pub level: Signal<String>,
     pub error: Signal<Option<String>>,
 }
+
+super::saved_settings!(ConcatSettings {
+    first_label,
+    second_label,
+    first_weakest_level,
+    second_weakest_level,
+    to_label,
+    separator,
+    level
+});
 
 /// Joins the newest log messages of two inputs, once both have a new one.
 pub struct Concat {
@@ -75,6 +86,10 @@ impl Default for Concat {
 
 impl MapRunner for Concat {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use dioxus::prelude::*;
 
 use super::vector_arithmetic::vector_text;
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, MapRunner,
     NumberData, Segment, SourceCursor, Vector, format_number, keep_taken,
@@ -18,6 +19,13 @@ pub struct DecomposeSettings {
     pub y_label: Signal<String>,
     pub z_label: Option<Signal<String>>,
 }
+
+super::saved_settings!(DecomposeSettings {
+    from_label,
+    x_label,
+    y_label,
+    z_label
+});
 
 /// The components of each vector of a label, at its time: each under its own
 /// label, if it has one.
@@ -64,6 +72,10 @@ where
     Data<V>: DataEntry,
 {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

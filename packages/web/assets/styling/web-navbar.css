@@ -16,7 +16,10 @@
   background: var(--dc-panel);
 }
 
-.navbar-shell .theme-switch {
+.navbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   margin-left: auto;
 }
 

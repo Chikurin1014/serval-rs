@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into characters.
 pub(crate) fn unescape(value: &str) -> String {
     value
@@ -69,7 +71,8 @@ pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
 }
 
 /// A line end: CR, LF or CRLF.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum Delimiter {
     Cr,
     Lf,

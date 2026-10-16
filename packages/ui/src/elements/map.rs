@@ -15,7 +15,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
-use crate::data::{Decode, InitialMap, MapKind, Match, MatchOutput, RAW_BYTES_LABEL};
+use crate::data::MapKind;
 
 pub use arithmetic::{
     ADD, ADD_2D, ADD_3D, ArithmeticForm, CROSS_2D, CROSS_3D, DIVIDE, DOT_2D, DOT_3D, MULTIPLY,
@@ -84,51 +84,5 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         DECOMPOSE_3D,
         DIFFERENTIATE,
         INTEGRATE,
-    ]
-}
-
-/// Decodes the raw bytes into lines, as logs with their levels if they have them,
-/// and reads numbers from them.
-pub fn initial_maps() -> Vec<InitialMap> {
-    vec![
-        InitialMap {
-            kind: DECODE,
-            enabled: true,
-            create: || {
-                Box::new(Decode::with(
-                    RAW_BYTES_LABEL,
-                    LOG_LINE,
-                    LOG_LABEL,
-                    "$1",
-                    "$2",
-                ))
-            },
-        },
-        InitialMap {
-            kind: MATCH_TO_NUMBER,
-            enabled: true,
-            create: || {
-                Box::new(Match::with(
-                    MatchOutput::Number,
-                    LOG_LABEL,
-                    NUMBER_ONLY,
-                    ANONYMOUS_LABEL,
-                    "$0",
-                ))
-            },
-        },
-        InitialMap {
-            kind: MATCH_TO_NUMBER,
-            enabled: true,
-            create: || {
-                Box::new(Match::with(
-                    MatchOutput::Number,
-                    LOG_LABEL,
-                    NAME_COLON_NUMBER,
-                    "$1",
-                    "$2",
-                ))
-            },
-        },
     ]
 }
