@@ -5,6 +5,7 @@ use dioxus::{document::Eval, prelude::*};
 
 use super::GraphContext;
 use crate::elements::FilterContext;
+use crate::helper::use_script;
 use crate::time::TimeContext;
 
 const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
@@ -56,15 +57,6 @@ pub(super) fn PlotAssets(uplot: bool) -> Element {
             document::Script { src: UPLOT_JS }
         }
     }
-}
-
-/// Runs `script`, told `()` as the component is dropped, so it ends.
-pub(super) fn use_script(script: &'static str) -> Eval {
-    let eval = use_hook(|| document::eval(script));
-    use_drop(move || {
-        let _ = eval.send(());
-    });
-    eval
 }
 
 /// Runs the plot `script` of graph `id`, taking what it tells: the labels

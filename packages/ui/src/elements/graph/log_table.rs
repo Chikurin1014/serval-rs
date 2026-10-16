@@ -5,11 +5,12 @@ use dioxus::prelude::*;
 use super::{
     GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
-    plot::{PlotAssets, series_color, use_script},
+    plot::{PlotAssets, series_color},
 };
 use crate::components::{toggle::Toggle, virtual_list::VirtualList};
 use crate::data::{DataContext, DataType, LogData, LogLevel, Queue, TypedData};
 use crate::elements::{FilterContext, LogLevelTag};
+use crate::helper::use_script;
 use crate::time::TimeContext;
 
 const LOG_TABLE_CSS: Asset = asset!("/assets/styling/log-table.css");
