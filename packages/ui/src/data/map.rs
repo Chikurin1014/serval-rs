@@ -94,18 +94,13 @@ impl PartialEq for MapKind {
     }
 }
 
-/// A map present from the start, e.g. one with preset settings.
-#[derive(Clone, Copy, Debug)]
+/// A map present from the start, or taken from a layout file.
+#[derive(Clone, Debug, PartialEq)]
 pub struct InitialMap {
     pub kind: MapKind,
     pub enabled: bool,
-    pub create: fn() -> Box<dyn MapRunner>,
-}
-
-impl PartialEq for InitialMap {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.enabled == other.enabled
-    }
+    /// As [`SavedSettings::save`] gives them.
+    pub settings: serde_json::Value,
 }
 
 #[derive(Clone)]
@@ -155,30 +150,16 @@ impl MapContext {
     }
 
     pub fn add(&mut self, kind: MapKind) -> usize {
-        self.insert(kind, false, true, kind.create)
+        self.insert(kind, kind.create)
     }
 
     pub fn add_preset(&mut self, kind: MapKind, preset: MapPreset) -> usize {
-        self.insert(kind, false, true, preset.create)
+        self.insert(kind, preset.create)
     }
 
-    pub fn push(
-        &mut self,
-        kind: MapKind,
-        enabled: bool,
-        create: impl FnOnce() -> Box<dyn MapRunner>,
-    ) -> usize {
-        self.insert(kind, enabled, false, create)
-    }
-
-    fn insert(
-        &mut self,
-        kind: MapKind,
-        enabled: bool,
-        open: bool,
-        create: impl FnOnce() -> Box<dyn MapRunner>,
-    ) -> usize {
-        let Ok(map) = self.make(kind, enabled, open, || {
+    /// Adds a map, off, its card open.
+    fn insert(&mut self, kind: MapKind, create: impl FnOnce() -> Box<dyn MapRunner>) -> usize {
+        let Ok(map) = self.make(kind, false, true, || {
             Ok::<_, std::convert::Infallible>(create())
         });
         let id = map.id;
@@ -223,24 +204,27 @@ impl MapContext {
         Some(saved)
     }
 
-    /// Puts maps of `kind`, on or not, with the settings saved, in place of all
-    /// there are; else what is wrong with one, with none changed.
-    pub fn replace_all(
-        &mut self,
-        maps: Vec<(MapKind, bool, serde_json::Value)>,
-    ) -> Result<(), String> {
+    /// Puts `maps` in place of all there are; else what is wrong with one, with
+    /// none changed.
+    pub fn replace_all(&mut self, maps: Vec<InitialMap>) -> Result<(), String> {
         let made = maps
             .into_iter()
-            .map(|(kind, enabled, settings)| {
-                self.make(kind, enabled, false, || {
-                    let runner = (kind.create)();
-                    runner
-                        .saved()
-                        .load(&settings)
-                        .map_err(|error| format!("{}: {error}", kind.name))?;
-                    Ok(runner)
-                })
-            })
+            .map(
+                |InitialMap {
+                     kind,
+                     enabled,
+                     settings,
+                 }| {
+                    self.make(kind, enabled, false, || {
+                        let runner = (kind.create)();
+                        runner
+                            .saved()
+                            .load(&settings)
+                            .map_err(|error| format!("{}: {error}", kind.name))?;
+                        Ok(runner)
+                    })
+                },
+            )
             .collect::<Result<Vec<_>, String>>()?;
         self.list.set(made);
         Ok(())
@@ -288,8 +272,8 @@ pub fn MapProvider(
             next_id: Signal::new(0),
             scope: current_scope_id(),
         };
-        for map in initial {
-            context.push(map.kind, map.enabled, map.create);
+        if let Err(error) = context.replace_all(initial) {
+            panic!("the initial maps are wrong: {error}");
         }
         context
     });

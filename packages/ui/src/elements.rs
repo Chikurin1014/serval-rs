@@ -12,5 +12,8 @@ pub mod serial;
 pub use data_list::{DataList, FilterContext, FilterKind};
 pub use formula::Formula;
 pub use hover_menu::{HoverMenu, HoverMenus};
-pub use layout::{LAYOUT_FILE_NAME, LAYOUT_VERSION, LayoutMenu, export_layout, import_layout};
+pub use layout::{
+    LAYOUT_FILE_NAME, LAYOUT_VERSION, Layout, LayoutMenu, export_layout, import_layout,
+    initial_layout, parse_layout,
+};
 pub use log_level_tag::LogLevelTag;

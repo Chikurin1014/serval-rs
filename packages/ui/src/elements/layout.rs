@@ -10,13 +10,14 @@ use crate::{
     components::dropdown_menu::{
         DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
     },
-    data::{DataType, MapContext},
-    elements::graph::{GraphContext, GraphProperty},
+    data::{DataType, InitialMap, MapContext, MapKind},
+    elements::graph::{GraphContext, GraphKind, GraphProperty},
     toast::use_toaster,
 };
 
 const LAYOUT_MENU_CSS: Asset = asset!("/assets/styling/layout-menu.css");
 const LAYOUT_JS: &str = include_str!("layout.js");
+const INITIAL_LAYOUT: &str = include_str!("initial_layout.json");
 
 /// The version of Serval a layout file is of.
 pub const LAYOUT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -80,17 +81,24 @@ pub fn export_layout(maps: MapContext, graphs: GraphContext) -> String {
     serde_json::to_string_pretty(&file).expect("a layout is JSON")
 }
 
-/// Puts the layout of the file `text` in place of all there is; else what is
-/// wrong with it, with nothing changed.
-pub fn import_layout(
-    maps: &mut MapContext,
-    graphs: &mut GraphContext,
+/// A layout of known kinds, as a layout file has it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Layout {
+    /// Their settings are checked only as they are made.
+    pub maps: Vec<InitialMap>,
+    pub graphs: Vec<(GraphKind, GraphProperty)>,
+}
+
+/// The layout of the file `text`, of `map_kinds` and `graph_kinds`; else what is
+/// wrong with it.
+pub fn parse_layout(
     text: &str,
-) -> Result<(), String> {
+    map_kinds: &[MapKind],
+    graph_kinds: &[GraphKind],
+) -> Result<Layout, String> {
     let file: LayoutFile =
         serde_json::from_str(text).map_err(|error| format!("Not a layout file: {error}"))?;
-    let map_kinds = maps.kinds();
-    let new_maps = file
+    let maps = file
         .maps
         .into_iter()
         .map(|map| {
@@ -106,11 +114,14 @@ pub fn import_layout(
                         map.to.name()
                     )
                 })?;
-            Ok((*kind, map.enabled, map.settings))
+            Ok(InitialMap {
+                kind: *kind,
+                enabled: map.enabled,
+                settings: map.settings,
+            })
         })
         .collect::<Result<Vec<_>, String>>()?;
-    let graph_kinds = graphs.kinds();
-    let new_graphs = file
+    let graphs = file
         .graphs
         .into_iter()
         .map(|graph| {
@@ -121,9 +132,26 @@ pub fn import_layout(
             Ok((*kind, graph.settings))
         })
         .collect::<Result<Vec<_>, String>>()?;
+    Ok(Layout { maps, graphs })
+}
+
+/// The layout the app starts with, of `initial_layout.json`.
+pub fn initial_layout(map_kinds: &[MapKind], graph_kinds: &[GraphKind]) -> Layout {
+    parse_layout(INITIAL_LAYOUT, map_kinds, graph_kinds)
+        .unwrap_or_else(|error| panic!("initial_layout.json is wrong: {error}"))
+}
+
+/// Puts the layout of the file `text` in place of all there is; else what is
+/// wrong with it, with nothing changed.
+pub fn import_layout(
+    maps: &mut MapContext,
+    graphs: &mut GraphContext,
+    text: &str,
+) -> Result<(), String> {
+    let layout = parse_layout(text, &maps.kinds(), &graphs.kinds())?;
     // The graphs after the maps, as only those may fail now
-    maps.replace_all(new_maps)?;
-    graphs.replace_all(new_graphs);
+    maps.replace_all(layout.maps)?;
+    graphs.replace_all(layout.graphs);
     Ok(())
 }
 
@@ -214,13 +242,13 @@ mod tests {
     };
     use serde_json::{Value, json};
 
-    use super::{LAYOUT_VERSION, export_layout, import_layout};
+    use super::{INITIAL_LAYOUT, LAYOUT_VERSION, export_layout, import_layout, initial_layout};
     use crate::{
         TimeContext,
         data::{DataProvider, MapContext, MapProvider},
         elements::{
-            graph::{GraphContext, GraphProvider, builtin_graph_kinds, initial_graphs},
-            map::{builtin_map_kinds, initial_maps},
+            graph::{GraphContext, GraphProvider, builtin_graph_kinds},
+            map::builtin_map_kinds,
         },
     };
 
@@ -239,14 +267,15 @@ mod tests {
     #[component]
     fn Root() -> Element {
         use_context_provider(|| TimeContext::new(|| 0));
+        let layout = initial_layout(&builtin_map_kinds(), &builtin_graph_kinds());
         rsx! {
             DataProvider {
                 MapProvider {
                     kinds: builtin_map_kinds(),
-                    initial: initial_maps(),
+                    initial: layout.maps,
                     GraphProvider {
                         kinds: builtin_graph_kinds(),
-                        initial: initial_graphs(),
+                        initial: layout.graphs,
                         Grab {}
                     }
                 }
@@ -264,6 +293,25 @@ mod tests {
 
     fn parsed(text: &str) -> Value {
         serde_json::from_str(text).expect("JSON")
+    }
+
+    #[test]
+    fn the_app_starts_with_the_initial_layout() {
+        with_layout(|maps, graphs| {
+            let initial = parsed(INITIAL_LAYOUT);
+            // Kept as Serval's by release-please
+            assert_eq!(initial["version"], LAYOUT_VERSION);
+            let layout = parsed(&export_layout(maps, graphs));
+            assert_eq!(layout["maps"], initial["maps"]);
+            assert_eq!(
+                graphs
+                    .list()
+                    .iter()
+                    .map(|graph| graph.kind.name)
+                    .collect::<Vec<_>>(),
+                ["Time series"]
+            );
+        });
     }
 
     #[test]

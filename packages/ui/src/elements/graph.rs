@@ -25,7 +25,3 @@ pub use time_series::{TIME_SERIES, TimeSeriesGraph};
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {
     vec![TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D, LOG_TABLE]
 }
-
-pub fn initial_graphs() -> Vec<(GraphKind, GraphProperty)> {
-    vec![(TIME_SERIES, GraphProperty::default())]
-}
