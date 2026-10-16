@@ -88,10 +88,10 @@ pub fn GraphFrame(
                 }
             },
             ondragleave: move |_| {
-                if let Some(GraphDrag { mut target, .. }) = drag {
-                    if *target.peek() == Some(id) {
-                        target.set(None);
-                    }
+                if let Some(GraphDrag { mut target, .. }) = drag
+                    && *target.peek() == Some(id)
+                {
+                    target.set(None);
                 }
             },
             ondrop: move |event: DragEvent| {

@@ -3,7 +3,7 @@ name = "web"
 version.workspace = true
 license.workspace = true
 publish = false
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }

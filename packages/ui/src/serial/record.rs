@@ -280,10 +280,8 @@ impl RecordSerializer {
         if let Some((start, line)) = self.received.finish() {
             record.push_str(&self.text_line(Direction::Received, start, &line));
         }
-        if sent {
-            if let Some((start, line)) = self.sent.finish() {
-                record.push_str(&self.text_line(Direction::Sent, start, &line));
-            }
+        if sent && let Some((start, line)) = self.sent.finish() {
+            record.push_str(&self.text_line(Direction::Sent, start, &line));
         }
         record.into_bytes()
     }
