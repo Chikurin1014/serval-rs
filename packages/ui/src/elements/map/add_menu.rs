@@ -6,7 +6,10 @@ use dioxus_icons::lucide;
 
 use crate::components::dropdown_menu::DropdownMenuItem;
 use crate::data::{DataType, MapContext, MapKind};
-use crate::elements::{HoverMenu, HoverMenus, submenu};
+use crate::elements::{
+    HoverMenu, HoverMenus,
+    submenu::{Submenu, open_submenu},
+};
 
 use super::map_card::{MapTypes, type_names};
 
@@ -123,12 +126,7 @@ fn AddMapMenu(
             disabled: items.is_empty(),
             content_class: "add-map-content",
             keep_open: in_presets,
-            onkeydown: move |event: KeyboardEvent| {
-                if event.key() == Key::ArrowRight {
-                    event.prevent_default();
-                    document::eval(submenu::FOCUS_FIRST);
-                }
-            },
+            onkeydown: open_submenu,
             trigger: rsx! { "{name}" },
             for (index, variants) in items.into_iter().enumerate() {
                 // The first, as its item is picked itself
@@ -239,63 +237,17 @@ fn AddMapMenu(
     }
 }
 
-/// In a submenu: the item `step` from the focused one, of its own (not those of
-/// a submenu in it).
-fn focus_sibling(step: i32) -> String {
-    format!(
-        r#"const current = document.activeElement;
-const menu = current?.closest("[role=menu]");
-if (menu) {{
-  const items = [...menu.querySelectorAll("[role=menuitem]")]
-    .filter((item) => item.closest("[role=menu]") === menu);
-  items[items.indexOf(current) + ({step})]?.focus();
-}}"#
-    )
-}
-
-/// From a submenu's item into the submenu beside it, if it has one.
-const FOCUS_NESTED: &str = r#"document.activeElement?.parentElement
-  ?.querySelector(":scope > .add-map-presets [role=menuitem]")?.focus();"#;
-
-/// Back to what the focused submenu is beside: the menu's item, or another
-/// submenu's.
-const FOCUS_OWNER: &str = r#"const owner = document.activeElement?.closest(".add-map-presets")?.parentElement;
-(owner?.matches("[role=option]") ? owner : owner?.querySelector(":scope > [role=menuitem]"))?.focus();"#;
-
 /// Beside an add menu's item: its presets or variants, the menu kept `open`
 /// while one is focused.
 #[component]
 fn AddMapSubmenu(label: String, open: Signal<bool>, children: Element) -> Element {
-    let mut open = open;
-
     rsx! {
-        div {
+        Submenu {
             class: "add-map-presets",
-            onfocusin: move |_| open.set(true),
-            onfocusout: move |_| open.set(false),
-            onkeydown: move |event: KeyboardEvent| {
-                let script = match event.key() {
-                    Key::ArrowDown => focus_sibling(1),
-                    Key::ArrowUp => focus_sibling(-1),
-                    Key::ArrowRight => FOCUS_NESTED.to_string(),
-                    Key::ArrowLeft | Key::Escape => FOCUS_OWNER.to_string(),
-                    Key::Enter => {
-                        event.stop_propagation();
-                        return;
-                    }
-                    _ => return,
-                };
-                event.prevent_default();
-                // Not for the submenu (or menu) it is in
-                event.stop_propagation();
-                document::eval(&script);
-            },
-            div {
-                class: "add-map-presets-list",
-                role: "menu",
-                aria_label: label,
-                {children}
-            }
+            list_class: "add-map-presets-list",
+            label,
+            focused: open,
+            {children}
         }
     }
 }
