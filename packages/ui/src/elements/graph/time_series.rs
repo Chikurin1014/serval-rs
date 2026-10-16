@@ -6,17 +6,13 @@ use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     TimeWindow,
     context::{until_paused, use_graph_setting},
-    plot::{PlotAssets, series_color, use_plot, use_shown_count},
+    plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
 };
 use crate::components::{slider::Slider, toggle::Toggle};
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
 
-const TIME_SERIES_JS: &str = concat!(
-    include_str!("paced_draws.js"),
-    include_str!("time_series_data.js"),
-    include_str!("time_series.js"),
-);
+const TIME_SERIES_JS: &str = plot_script!("time_series_data.js", "time_series.js");
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",

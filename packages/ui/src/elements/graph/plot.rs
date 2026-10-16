@@ -14,6 +14,19 @@ const UPLOT_JS: Asset = asset!(
 );
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 
+/// A plot's script, of `$files` in this folder after the scripts the plots
+/// share.
+macro_rules! plot_script {
+    ($($file:literal),+ $(,)?) => {
+        concat!(
+            include_str!("paced_draws.js"),
+            include_str!("plot_common.js"),
+            $(include_str!($file)),+
+        )
+    };
+}
+pub(super) use plot_script;
+
 /// Series colors, by a label's place among those of its type.
 const SERIES_COLORS: [&str; 5] = [
     "--dc-accent",

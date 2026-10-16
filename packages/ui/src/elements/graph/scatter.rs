@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
-    plot::{PlotAssets, use_plot},
+    plot::{PlotAssets, plot_script, use_plot},
 };
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{
@@ -14,7 +14,7 @@ use crate::data::{
 use crate::elements::Formula;
 use crate::helper::set_if_changed;
 
-const SCATTER_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("scatter.js"));
+const SCATTER_JS: &str = plot_script!("scatter.js");
 
 /// Its points' color, as the first line of a time series.
 const POINT_COLOR: &str = "--dc-accent";

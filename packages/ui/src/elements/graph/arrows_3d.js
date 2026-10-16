@@ -52,23 +52,8 @@ let easedAt = 0;
 // Where the tips are on the canvas, in CSS pixels, as last drawn
 let tips = [];
 
-const probe = document.createElement("span");
-probe.style.display = "none";
-container.appendChild(probe);
-// Each color as the theme has it, kept until the theme changes: each taken
-// makes the page work its styles out
-const cssColors = new Map();
-function cssColor(name) {
-  if (!cssColors.has(name)) {
-    probe.style.color = `var(${name})`;
-    cssColors.set(name, getComputedStyle(probe).color);
-  }
-  return cssColors.get(name);
-}
-
-function withAlpha(color, alpha) {
-  return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);
-}
+const themed = themeColors(container);
+const cssColor = themed.color;
 
 // The plot: the canvas, the axes' labels over it, the hover; the legend below
 const plotArea = document.createElement("div");
@@ -500,26 +485,15 @@ resize.observe(container);
 
 // Colors are taken at each drawing; and the legend's anew
 function onTheme() {
-  cssColors.clear();
+  themed.clear();
   legendMade = "";
   schedule();
 }
-const themeObserver = new MutationObserver(onTheme);
-themeObserver.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-theme"],
-});
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", onTheme);
+const stopWatchingTheme = watchTheme(onTheme);
 
 fit();
 
-while (true) {
-  const message = await dioxus.recv();
-  if (message === null) {
-    break;
-  }
-
+for await (const message of messages()) {
   const [nextArrows, hidden, trails] = message;
   arrows = nextArrows;
   showTrails = trails;
@@ -530,7 +504,6 @@ while (true) {
 draws.cancel();
 cancelAnimationFrame(easing);
 resize.disconnect();
-themeObserver.disconnect();
-systemTheme.removeEventListener("change", onTheme);
+stopWatchingTheme();
 canvas.removeEventListener("pointermove", onPointerMove);
 canvas.removeEventListener("pointerleave", onPointerLeave);

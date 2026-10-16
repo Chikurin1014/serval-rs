@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use super::{
     GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
-    plot::{PlotAssets, label_color, use_plot, use_shown_count},
+    plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
 };
 use crate::components::toggle::Toggle;
 use crate::data::{Data, DataContext, DataType, Queue, TypedData, Vector, format_number};
@@ -13,8 +13,8 @@ const ZDOG_JS: Asset = asset!(
     "/assets/vendor/zdog/zdog.dist.min.js",
     AssetOptions::js().with_minify(false)
 );
-const ARROWS_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows.js"));
-const ARROWS_3D_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("arrows_3d.js"));
+const ARROWS_JS: &str = plot_script!("arrows.js");
+const ARROWS_3D_JS: &str = plot_script!("arrows_3d.js");
 
 /// Itself, its trails on from the start.
 fn with_trails() -> GraphProperty {

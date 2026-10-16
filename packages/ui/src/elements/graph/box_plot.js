@@ -28,23 +28,8 @@ let plot = null;
 // The box the pointer is over, if any
 let hovered = null;
 
-const probe = document.createElement("span");
-probe.style.display = "none";
-container.appendChild(probe);
-// Each color as the theme has it, kept until the theme changes: each taken
-// makes the page work its styles out
-const cssColors = new Map();
-function cssColor(name) {
-  if (!cssColors.has(name)) {
-    probe.style.color = `var(${name})`;
-    cssColors.set(name, getComputedStyle(probe).color);
-  }
-  return cssColors.get(name);
-}
-
-function withAlpha(color, alpha) {
-  return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);
-}
+const themed = themeColors(container);
+const cssColor = themed.color;
 
 // The statistics of the box the pointer is over, beside it
 const hover = document.createElement("div");
@@ -349,25 +334,14 @@ resize.observe(container);
 
 // Colors are baked in at creation, as taken anew
 function onTheme() {
-  cssColors.clear();
+  themed.clear();
   create();
 }
-const themeObserver = new MutationObserver(onTheme);
-themeObserver.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-theme"],
-});
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", onTheme);
+const stopWatchingTheme = watchTheme(onTheme);
 
 create();
 
-while (true) {
-  const message = await dioxus.recv();
-  if (message === null) {
-    break;
-  }
-
+for await (const message of messages()) {
   const [nextBoxes, log, hidden] = message;
   allBoxes = nextBoxes;
   applyHidden(hidden);
@@ -381,6 +355,5 @@ while (true) {
 
 draws.cancel();
 resize.disconnect();
-themeObserver.disconnect();
-systemTheme.removeEventListener("change", onTheme);
+stopWatchingTheme();
 plot?.destroy();

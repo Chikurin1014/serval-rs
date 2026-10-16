@@ -3,13 +3,13 @@ use dioxus::prelude::*;
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind,
     context::{until_paused, use_graph_setting},
-    plot::{PlotAssets, label_color, use_plot, use_shown_count},
+    plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
 };
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
 use crate::elements::FilterContext;
 
-const BOX_PLOT_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("box_plot.js"));
+const BOX_PLOT_JS: &str = plot_script!("box_plot.js");
 
 pub const BOX_PLOT: GraphKind = GraphKind {
     name: "Box plot",
