@@ -2,6 +2,8 @@
 
 use dioxus::prelude::*;
 
+use crate::data::LogLevel;
+
 #[derive(Clone, Copy, Debug)]
 pub struct GraphKind {
     pub name: &'static str,
@@ -38,6 +40,8 @@ pub struct GraphProperty {
     pub regression: bool,
     /// Whether the arrows of 2D vectors trail the tips they had.
     pub trails: bool,
+    /// The weakest level a log table shows: those weaker left out.
+    pub weakest_level: LogLevel,
     pub draw_style: DrawStyle,
     pub time_window: TimeWindow,
     /// The labels turned off in the legend.

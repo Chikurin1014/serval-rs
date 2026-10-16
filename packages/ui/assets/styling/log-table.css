@@ -1,0 +1,112 @@
+/* A log table: its head, its rows (only those in view made) scrolled under it,
+ * its legend below, as the data list's table; under the graph's handle and
+ * remove button */
+.graph-plot.log-table {
+  display: flex;
+  flex-direction: column;
+  inset: 2.25rem 1rem 0.5rem;
+}
+
+.log-table-row {
+  display: grid;
+  grid-template-columns: 7.5rem 7rem 7rem minmax(0, 1fr);
+  align-items: center;
+  box-sizing: border-box;
+  /* As `ROW_HEIGHT`, its border within: as estimated, none moves as measured */
+  height: 24px;
+  border-bottom: 1px solid var(--dc-border);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-table-row > * {
+  padding: 0 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-table-head {
+  flex: none;
+  background: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
+  color: var(--dc-text);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* How many logs of each level, above the table: those left out of it fainter */
+.log-table-counts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.375rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-table-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.log-table-count[data-shown="false"] {
+  opacity: 0.45;
+}
+
+.log-table-count .log-level-tag {
+  margin-right: 0;
+}
+
+/* As a tag, of no color: no level */
+.log-table-count-none {
+  padding: 0 0.35em;
+  border-radius: 0.25rem;
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+  color: var(--dc-text-muted);
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
+.log-table-count-value {
+  color: var(--dc-text);
+}
+
+.log-table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  color: var(--dc-text);
+  outline: none;
+}
+
+.log-table-body .log-table-row {
+  background: var(--dc-panel);
+}
+
+.log-table-time {
+  color: var(--dc-text-muted);
+}
+
+.log-table .u-legend {
+  flex: none;
+  margin-top: 0.25rem;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    sans-serif;
+  line-height: 1.5;
+}

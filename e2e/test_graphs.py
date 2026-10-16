@@ -1,10 +1,11 @@
 import json
+import re
 
 import pytest
 from playwright.sync_api import expect
 
 from app import App
-from test_maps import add_vector_match_map
+from test_maps import add_log_match, add_vector_match_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -275,7 +276,7 @@ def add_scatter(app: App):
 def test_statistics_menu_adds_a_scatter_plot(app: App):
     app.tab("Graph")
     bar = app.page.locator(".add-graph-bar")
-    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics", "Vector"])
+    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics", "Vector", "Text"])
     bar.get_by_role("button", name="Statistics").hover()
     expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
     graph = add_scatter(app)
@@ -810,3 +811,117 @@ def test_graphs_redraw_less_as_the_page_is_busy(app: App):
     }""")
     app.page.wait_for_function(f"({interval})() >= 50", timeout=20000)
     app.page.evaluate("() => clearInterval(window.busy)")
+
+
+def test_log_table_shows_the_logs_as_they_come(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    add_log_match(app, r"^sensor (\w+) (.*)", "$1", "$2", "sensor", "log")
+    levels = ["info", "warn", "error", "debug", "info", "trace"] * 10
+    lines = "".join(
+        f"[{level}] disk {i}\\nsensor {level} reading {i}\\n"
+        for i, level in enumerate(levels)
+    )
+    app.mock(f"receive('{lines}')")
+    app.wait_for_labels("log", "sensor")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Text").hover()
+    expect(bar.get_by_role("option")).to_have_text(["Log"])
+    bar.get_by_role("option", name="Log", exact=True).click()
+    graph = app.graphs().last
+    table = graph.locator(".log-table")
+    body = table.locator(".log-table-body")
+    rows = body.locator("[data-virtual-index]")
+    count = lambda: int(rows.first.get_attribute("aria-setsize"))  # noqa: E731
+    first = lambda: rows.first.locator("[role=cell]").all_text_contents()  # noqa: E731
+    # The message of the row at the top of the view
+    in_view = (  # noqa: E731
+        "list => list.querySelector(`[data-virtual-index=\"${Math.round(list.scrollTop / 24)}\"]"
+        " .log-table-message`).textContent"
+    )
+    counts = table.get_by_role("group", name="Logs of each level")
+    values = counts.locator(".log-table-count-value")
+    # Of each level: ERROR, WARN, INFO, DEBUG, TRACE, then of none (the sensor's
+    # lines in the log, and any read before it was muted)
+    numbers = lambda: [int(value) for value in values.all_text_contents()]  # noqa: E731
+
+    expect(table.locator(".log-table-head").get_by_role("columnheader")).to_have_text(
+        ["Time", "Label", "Level", "Message"]
+    )
+    # The weakest level shown a setting: INFO and those that matter more, from
+    # the start (4 of each 6, of each label)
+    graph.locator(".graph-title").click()  # opens the settings
+    level = graph.get_by_role("group", name="Weakest level")
+    expect(level.get_by_role("button")).to_have_text(
+        ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"]
+    )
+    expect(level.get_by_role("button", name="INFO")).to_have_attribute("aria-pressed", "true")
+    expect(rows.first).to_have_attribute("aria-setsize", "80")
+    # Above the table, how many of each level: those left out too, fainter
+    expect(values.nth(4)).to_have_text("20")
+    assert numbers()[:5] == [20, 20, 40, 20, 20] and numbers()[5] >= 60
+    shown = [
+        each.get_attribute("data-shown") for each in counts.locator(".log-table-count").all()
+    ]
+    assert shown == ["true"] * 3 + ["false"] * 3
+    counted, table_box = counts.bounding_box(), body.bounding_box()
+    assert counted["y"] + counted["height"] <= table_box["y"]
+    levels_shown = set(body.locator(".log-level-tag").all_text_contents())
+    assert levels_shown <= {"ERROR", "WARN", "INFO"}
+    # Only the rows in view made
+    assert rows.count() < 60
+    # Newest first: of one time, the last label's first
+    expect(rows.first.locator(".log-table-message")).to_have_text("reading 58")
+    assert first()[1] == "sensor"
+    assert re.fullmatch(r"\d{2}:\d{2}:\d{2}\.\d{3}", first()[0])
+    assert body.evaluate("list => list.scrollTop") == 0
+
+    # Followed as they come, on top
+    app.mock("receive('[warn] newest one\\n')")
+    expect(rows.first.locator(".log-table-message")).to_have_text("newest one")
+    assert first()[1:] == ["log", "WARN", "newest one"]
+    assert body.evaluate("list => list.scrollTop") == 0
+    # Not once scrolled down to older ones: those in view kept where they are
+    body.evaluate("list => list.scrollTop = 240")
+    app.page.wait_for_timeout(300)
+    reading = body.evaluate(in_view)
+    app.mock("receive('[error] newer still\\n')")
+    expect(rows.first).to_have_attribute("aria-setsize", "82")
+    app.page.wait_for_function(
+        "list => list.scrollTop === 264", arg=body.element_handle()
+    )
+    assert body.evaluate(in_view) == reading
+    expect(values.first).to_have_text("21")
+    assert numbers()[:3] == [21, 21, 40]
+
+    # All levels, as chosen: the lines of no level too (those of the sensor in
+    # the log as well; and any read before it was muted)
+    level.get_by_role("button", name="ALL").click()
+    app.page.wait_for_function(
+        "row => Number(row.getAttribute('aria-setsize')) >= 182",
+        arg=rows.first.element_handle(),
+    )
+    all_count = count()
+    # A label turned off in the legend: its logs left out
+    graph.locator(".u-legend .u-series th", has_text="sensor").click()
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["sensor"])
+    expect(rows.first).to_have_attribute("aria-setsize", str(all_count - 60))
+    assert "sensor" not in body.locator(".log-table-label").all_text_contents()
+    # Counted of the labels shown
+    expect(values.first).to_have_text("11")
+    assert numbers()[:5] == [11, 11, 20, 10, 10]
+
+    # As they were, after the board is made anew
+    app.tab("Console")
+    app.tab("Graph")
+    graph = app.graphs().last
+    expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["sensor"])
+    graph.locator(".graph-title").click()  # opens the settings
+    expect(
+        graph.get_by_role("group", name="Weakest level").get_by_role("button", name="ALL")
+    ).to_have_attribute("aria-pressed", "true")
+    expect(graph.locator("[data-virtual-index]").first).to_have_attribute(
+        "aria-setsize", str(all_count - 60)
+    )
