@@ -1,13 +1,19 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "maps": [
     {
       "kind": "Decode",
-      "from": ["Bytes"],
+      "from": [
+        "Bytes"
+      ],
       "to": "Log",
       "enabled": true,
       "settings": {
-        "delimiters": ["CR", "LF", "CRLF"],
+        "delimiters": [
+          "CR",
+          "LF",
+          "CRLF"
+        ],
         "from_label": "raw_bytes",
         "level": "$1",
         "message": "$2",
@@ -17,7 +23,9 @@
     },
     {
       "kind": "Match",
-      "from": ["Log"],
+      "from": [
+        "Log"
+      ],
       "to": "Number",
       "enabled": true,
       "settings": {
@@ -30,7 +38,9 @@
     },
     {
       "kind": "Match",
-      "from": ["Log"],
+      "from": [
+        "Log"
+      ],
       "to": "Number",
       "enabled": true,
       "settings": {
