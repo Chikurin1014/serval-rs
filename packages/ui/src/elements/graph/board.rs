@@ -87,7 +87,7 @@ fn columns(graphs: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{columns, menu_items};
-    use crate::elements::graph::{ARROWS, ARROWS_3D, BOX_PLOT, SCATTER, TIME_SERIES};
+    use crate::elements::graph::{ARROWS, ARROWS_3D, BOX_PLOT, LOG_TABLE, SCATTER, TIME_SERIES};
 
     #[test]
     fn columns_follow_the_number_of_graphs() {
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn menus_take_the_presets_or_the_kinds_with_none() {
-        let menus = menu_items(&[TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D]);
+        let menus = menu_items(&[TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D, LOG_TABLE]);
         let names: Vec<_> = menus
             .iter()
             .map(|(menu, items)| {
@@ -113,6 +113,7 @@ mod tests {
                 ("Time series", vec!["Points", "Linear", "Stepped"]),
                 ("Statistics", vec!["Box plot", "Scatter"]),
                 ("Vector", vec!["Arrows (2D)", "Arrows (3D)"]),
+                ("Text", vec!["Log"]),
             ]
         );
     }

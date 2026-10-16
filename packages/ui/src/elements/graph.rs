@@ -6,6 +6,7 @@ mod board;
 mod box_plot;
 mod context;
 mod frame;
+mod log_table;
 mod scatter;
 mod time_series;
 
@@ -17,11 +18,12 @@ pub use context::{
     GraphProvider, TimeWindow,
 };
 pub use frame::GraphFrame;
+pub use log_table::{LOG_TABLE, LogTable};
 pub use scatter::{SCATTER, ScatterGraph};
 pub use time_series::{TIME_SERIES, TimeSeriesGraph};
 
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {
-    vec![TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D]
+    vec![TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D, LOG_TABLE]
 }
 
 pub fn initial_graphs() -> Vec<(GraphKind, GraphProperty)> {

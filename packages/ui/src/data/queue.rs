@@ -49,6 +49,11 @@ impl<T> Queue<T> {
         self.entries.back()
     }
 
+    /// The entry `index` from the oldest kept.
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.entries.get(index)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.entries.iter()
     }
