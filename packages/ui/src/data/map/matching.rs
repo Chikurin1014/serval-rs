@@ -3,6 +3,7 @@ use std::any::Any;
 use dioxus::prelude::*;
 use fancy_regex::{Captures, Regex};
 
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
     MapRunner, NumberData, Segment, SourceCursor, Vector2d, Vector2dData, Vector3d, Vector3dData,
@@ -80,6 +81,16 @@ pub struct MatchSettings {
     /// The weakest level of the input taken: those weaker left out.
     pub weakest_level: Signal<LogLevel>,
 }
+
+super::saved_settings!(MatchSettings {
+    from_label,
+    to_label,
+    pattern,
+    replacement,
+    y_replacement,
+    z_replacement,
+    weakest_level
+});
 
 /// Converts each log message matching a regex; the output label may use its
 /// groups.
@@ -175,6 +186,10 @@ impl Match {
 
 impl MapRunner for Match {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

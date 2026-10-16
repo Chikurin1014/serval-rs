@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use fancy_regex::Regex;
 
 use super::matching::{Matching, replacement_segments};
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
     MapRunner, Segment, SourceCursor, expand_levels, keep_taken,
@@ -20,6 +21,14 @@ pub struct ReplaceSettings {
     /// The weakest level of the input taken: those weaker left out.
     pub weakest_level: Signal<LogLevel>,
 }
+
+super::saved_settings!(ReplaceSettings {
+    from_label,
+    to_label,
+    pattern,
+    replacement,
+    weakest_level
+});
 
 /// Replaces every match of a regex in each log message, its level kept.
 pub struct Replace {
@@ -55,6 +64,10 @@ impl Default for Replace {
 
 impl MapRunner for Replace {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

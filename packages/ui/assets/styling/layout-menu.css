@@ -1,0 +1,40 @@
+/* The layout menu, in the navbar beside the theme switch: as its links */
+button.layout-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+  background: none;
+  box-shadow: none;
+  color: var(--dc-text);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+button.layout-menu-trigger:hover,
+button.layout-menu-trigger[data-state="open"] {
+  background-color: var(--primary-color-4);
+  color: var(--secondary-color-1);
+}
+
+button.layout-menu-trigger > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* At the navbar's right end: opens to the left */
+.layout-menu-content {
+  right: 0;
+  left: auto;
+  min-width: 10rem;
+}
+
+.layout-menu-content svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.layout-file-input {
+  display: none;
+}

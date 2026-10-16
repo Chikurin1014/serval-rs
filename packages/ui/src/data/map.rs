@@ -13,6 +13,7 @@ mod input;
 mod magnitude;
 mod matching;
 mod replace;
+mod saved;
 mod vector_arithmetic;
 
 #[cfg(test)]
@@ -45,6 +46,8 @@ pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, ta
 pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
+pub(crate) use saved::saved_settings;
+pub use saved::{SavedField, SavedSettings};
 pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOperation};
 
 /// The processing of one map. Its settings are signals made in its
@@ -52,6 +55,9 @@ pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOp
 pub trait MapRunner {
     /// What [`MapKind::form`] edits.
     fn settings(&self) -> &dyn Any;
+
+    /// Its settings as a layout file keeps them.
+    fn saved(&self) -> &dyn SavedSettings;
 
     /// Takes in and checks the settings as the map is turned on (they are locked
     /// while it is on). If they changed since, the input is read from the start.
@@ -172,17 +178,34 @@ impl MapContext {
         open: bool,
         create: impl FnOnce() -> Box<dyn MapRunner>,
     ) -> usize {
-        let id = *self.next_id.peek();
-        self.next_id.set(id + 1);
-        let ((runner, enabled, open, latest), owner) = make_owned(self.scope, || {
-            (
-                create(),
+        let Ok(map) = self.make(kind, enabled, open, || {
+            Ok::<_, std::convert::Infallible>(create())
+        });
+        let id = map.id;
+        self.list.write().push(map);
+        id
+    }
+
+    fn make<E>(
+        &mut self,
+        kind: MapKind,
+        enabled: bool,
+        open: bool,
+        create: impl FnOnce() -> Result<Box<dyn MapRunner>, E>,
+    ) -> Result<Map, E> {
+        let (made, owner) = make_owned(self.scope, || {
+            Ok((
+                create()?,
                 Signal::new(enabled),
                 Signal::new(open),
                 Signal::new(None),
-            )
+            ))
         });
-        self.list.write().push(Map {
+        // Its signals dropped with the owner if not made
+        let (runner, enabled, open, latest) = made?;
+        let id = *self.next_id.peek();
+        self.next_id.set(id + 1);
+        Ok(Map {
             id,
             kind,
             enabled,
@@ -190,8 +213,37 @@ impl MapContext {
             latest,
             runner: Rc::new(RefCell::new(runner)),
             _owner: owner,
-        });
-        id
+        })
+    }
+
+    /// Its settings as a layout file keeps them.
+    pub fn saved_settings(&self, id: usize) -> Option<serde_json::Value> {
+        let map = self.list.peek().iter().find(|map| map.id == id).cloned()?;
+        let saved = map.runner.borrow().saved().save();
+        Some(saved)
+    }
+
+    /// Puts maps of `kind`, on or not, with the settings saved, in place of all
+    /// there are; else what is wrong with one, with none changed.
+    pub fn replace_all(
+        &mut self,
+        maps: Vec<(MapKind, bool, serde_json::Value)>,
+    ) -> Result<(), String> {
+        let made = maps
+            .into_iter()
+            .map(|(kind, enabled, settings)| {
+                self.make(kind, enabled, false, || {
+                    let runner = (kind.create)();
+                    runner
+                        .saved()
+                        .load(&settings)
+                        .map_err(|error| format!("{}: {error}", kind.name))?;
+                    Ok(runner)
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        self.list.set(made);
+        Ok(())
     }
 
     pub fn remove(&mut self, id: usize) {

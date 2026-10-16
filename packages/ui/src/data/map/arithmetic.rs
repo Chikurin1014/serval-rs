@@ -2,6 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionOutput, DataContext, Input, MapRunner, NumberData, Operand, Segment,
     format_number, keep_taken, take_newest_pair,
@@ -56,6 +57,12 @@ pub struct ArithmeticSettings {
     pub to_label: Signal<String>,
     pub error: Signal<Option<String>>,
 }
+
+super::saved_settings!(ArithmeticSettings {
+    first,
+    second,
+    to_label
+});
 
 /// Adds, subtracts, multiplies or divides two numbers, each from a label or a
 /// constant. With two labels, a result comes once both have a new number.
@@ -132,6 +139,10 @@ impl Operands {
 
 impl MapRunner for Arithmetic {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

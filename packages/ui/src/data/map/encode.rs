@@ -2,6 +2,7 @@ use std::any::Any;
 
 use dioxus::prelude::*;
 
+use crate::data::SavedSettings;
 use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
     LogLevel, MapRunner, Segment, SourceCursor, keep_taken,
@@ -15,6 +16,12 @@ pub struct EncodeSettings {
     /// The weakest level of the input taken: those weaker left out.
     pub weakest_level: Signal<LogLevel>,
 }
+
+super::saved_settings!(EncodeSettings {
+    from_label,
+    to_label,
+    weakest_level
+});
 
 /// Turns each log message into its UTF-8 bytes.
 pub struct Encode {
@@ -39,6 +46,10 @@ impl Encode {
 
 impl MapRunner for Encode {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

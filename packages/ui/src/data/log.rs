@@ -4,9 +4,14 @@
 use std::fmt;
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+
 /// How much a log message matters, as `log::Level`: the more it does, the
 /// less it is (`Error < Trace < None`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum LogLevel {
     /// Something went wrong.
     Error = 1,

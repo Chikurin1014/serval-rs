@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use dioxus::prelude::*;
 
 use super::vector_arithmetic::vector_text;
+use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Endpoints,
     MapRunner, NumberData, Segment, SourceCursor, Vector, format_number, keep_taken,
@@ -14,6 +15,11 @@ pub struct MagnitudeSettings {
     pub from_label: Signal<String>,
     pub to_label: Signal<String>,
 }
+
+super::saved_settings!(MagnitudeSettings {
+    from_label,
+    to_label
+});
 
 /// The length of each vector of a label, at its time.
 pub struct Magnitude<V> {
@@ -48,6 +54,10 @@ where
     Data<V>: DataEntry,
 {
     fn settings(&self) -> &dyn Any {
+        &self.settings
+    }
+
+    fn saved(&self) -> &dyn SavedSettings {
         &self.settings
     }
 

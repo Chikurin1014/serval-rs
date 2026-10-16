@@ -1,6 +1,7 @@
 //! The graphs, kept in a context so they survive the board being unmounted.
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::data::LogLevel;
 
@@ -25,7 +26,9 @@ impl PartialEq for GraphKind {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+/// As a layout file keeps it, each setting missing there as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GraphProperty {
     /// `None` for a numbered default.
     pub title: Option<String>,
@@ -50,7 +53,8 @@ pub struct GraphProperty {
 
 /// How many seconds of the newest data the time axis shows. At the smallest, it
 /// fits the data instead, up to that long.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "u32", into = "u32")]
 pub struct TimeWindow(u32);
 
 impl TimeWindow {
@@ -72,13 +76,25 @@ impl TimeWindow {
     }
 }
 
+impl From<u32> for TimeWindow {
+    fn from(seconds: u32) -> Self {
+        Self::new(seconds)
+    }
+}
+
+impl From<TimeWindow> for u32 {
+    fn from(window: TimeWindow) -> Self {
+        window.seconds()
+    }
+}
+
 impl Default for TimeWindow {
     fn default() -> Self {
         Self(Self::MIN)
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DrawStyle {
     Points,
     #[default]
@@ -107,7 +123,7 @@ impl DrawStyle {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AxisScale {
     #[default]
     Linear,
@@ -185,6 +201,18 @@ impl GraphContext {
 
     pub fn remove(&mut self, id: usize) {
         self.graphs.write().retain(|g| g.id != id);
+    }
+
+    /// Puts `graphs` in place of all there are.
+    pub fn replace_all(&mut self, graphs: Vec<(GraphKind, GraphProperty)>) {
+        let first = *self.next_id.peek();
+        self.next_id.set(first + graphs.len());
+        let graphs = graphs
+            .into_iter()
+            .zip(first..)
+            .map(|((kind, property), id)| Graph { id, kind, property })
+            .collect();
+        self.graphs.set(graphs);
     }
 
     /// When the graphs were paused, if they are: they show the data up to

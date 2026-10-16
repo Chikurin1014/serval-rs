@@ -8,6 +8,7 @@ use ui::{
     },
     data::{DataProvider, MapProvider},
     elements::{
+        LayoutMenu,
         graph::{GraphProvider, builtin_graph_kinds, initial_graphs},
         map::{builtin_map_kinds, initial_maps},
         serial::RecordUnloadGuard,
@@ -98,7 +99,11 @@ fn WebNavbar() -> Element {
                         "Licenses"
                     }
                 }
-                ThemeSwitch {}
+                div {
+                    class: "navbar-tools",
+                    LayoutMenu {}
+                    ThemeSwitch {}
+                }
             }
             div {
                 class: "route-shell",

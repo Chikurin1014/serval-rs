@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::data::{Log, LogLevel, Queue};
 use crate::helper::hex;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataType {
     Bytes,
     Log,
