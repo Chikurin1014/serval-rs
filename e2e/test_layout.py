@@ -1,5 +1,5 @@
 import json
-import tomllib
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect
@@ -7,9 +7,9 @@ from playwright.sync_api import expect
 from app import App
 from test_graphs import add_scatter
 
-VERSION = tomllib.loads(
-    (Path(__file__).resolve().parent.parent / "Cargo.toml").read_text()
-)["workspace"]["package"]["version"]
+# Serval's, as `CARGO_PKG_VERSION` (its unit tests check that; the e2e tests
+# run with no Cargo.toml)
+VERSION = re.compile(r"^\d+\.\d+\.\d+")
 
 
 def layout_menu(app: App, item: str):
@@ -53,7 +53,7 @@ def test_an_exported_layout_is_imported_in_place_of_the_one_there_is(
     expect(card.get_by_role("switch")).not_to_be_checked()
 
     layout = export_layout(app, tmp_path / "layout.json")
-    assert layout["version"] == VERSION
+    assert VERSION.match(layout["version"])
     assert [map["kind"] for map in layout["maps"]] == ["Decode", "Match", "Match"]
     assert [map["enabled"] for map in layout["maps"]] == [True, False, True]
     assert layout["maps"][1]["settings"]["pattern"] == "^{number}"
