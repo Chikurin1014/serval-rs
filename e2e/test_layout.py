@@ -5,7 +5,6 @@ from pathlib import Path
 from playwright.sync_api import expect
 
 from app import App
-from test_graphs import add_scatter
 
 # Serval's, as `CARGO_PKG_VERSION` (its unit tests check that; the e2e tests
 # run with no Cargo.toml)
@@ -46,7 +45,7 @@ def test_an_exported_layout_is_imported_in_place_of_the_one_there_is(
 ):
     app.tab("Graph")
     app.set_up_graph(0, "Readings")
-    add_scatter(app)
+    app.add_scatter()
     app.tab("Data")
     card = app.map_cards().nth(1)
     card.get_by_role("switch").click()  # off

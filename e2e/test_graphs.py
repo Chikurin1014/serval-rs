@@ -5,7 +5,6 @@ import pytest
 from playwright.sync_api import expect
 
 from app import App
-from test_maps import add_log_match, add_vector_match_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -266,20 +265,13 @@ def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
     expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))
 
 
-def add_scatter(app: App):
-    bar = app.page.locator(".add-graph-bar")
-    bar.get_by_role("button", name="Statistics").hover()
-    bar.get_by_role("option", name="Scatter", exact=True).click()
-    return app.graphs().last
-
-
 def test_statistics_menu_adds_a_scatter_plot(app: App):
     app.tab("Graph")
     bar = app.page.locator(".add-graph-bar")
     expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics", "Vector", "Text"])
     bar.get_by_role("button", name="Statistics").hover()
     expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     expect(app.graphs()).to_have_count(2)
     expect(graph.locator(".graph-title-text")).to_have_text("Graph 2")
     expect(graph.locator(".graph-empty")).to_have_text(
@@ -295,7 +287,7 @@ def test_scatter_plots_one_label_against_another(app: App):
     app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\na:0\\nb:30\\n')")
     app.wait_for_labels("a", "b")
     app.tab("Graph")
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
     graph.get_by_label("X label").fill("a")
@@ -339,7 +331,7 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     app.mock("receive('a:1\\nb:3\\n')")
     app.wait_for_labels("a", "b")
     app.tab("Graph")
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("a")
     graph.get_by_label("Y label").fill("b")
@@ -482,7 +474,7 @@ def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
 
 def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     open_graphs_with_numbers(app)
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
@@ -539,7 +531,7 @@ def test_arrows_point_from_the_origin_to_the_newest_vectors(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_vector_match_map(app, "2D", r"({word})=({number}),({number})", "$1", ["$2", "$3"])
+    app.add_vector_match_map("2D", r"({word})=({number}),({number})", "$1", ["$2", "$3"])
     app.mock("receive('v=1,1\\nv=3,4\\nw=-2,0\\n')")
     app.wait_for_labels("v", "w")
     app.tab("Graph")
@@ -624,8 +616,8 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_vector_match_map(
-        app, "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
+    app.add_vector_match_map(
+        "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
     )
     app.mock("receive('up=0,0,1\\nup=0,0,2\\nside=3,0,0\\n')")
     app.wait_for_labels("up", "side")
@@ -752,7 +744,7 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
 
     # A scatter plot too
-    scatter = add_scatter(app)
+    scatter = app.add_scatter()
     scatter.locator(".graph-title").click()  # opens the settings
     scatter.get_by_label("X label").fill("temp")
     scatter.get_by_label("Y label").fill("volt")
@@ -773,7 +765,7 @@ def test_zooming_into_a_graph_pauses_them(app: App):
 
 def test_scatter_redraws_ten_times_a_second_at_most(app: App):
     open_graphs_with_numbers(app)
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
@@ -817,7 +809,7 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_log_match(app, r"^sensor (\w+) (.*)", "$1", "$2", "sensor", "log")
+    app.add_log_match(r"^sensor (\w+) (.*)", "$1", "$2", "sensor", "log")
     levels = ["info", "warn", "error", "debug", "info", "trace"] * 10
     lines = "".join(
         f"[{level}] disk {i}\\nsensor {level} reading {i}\\n"
