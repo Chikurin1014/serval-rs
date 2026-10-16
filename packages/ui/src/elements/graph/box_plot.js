@@ -98,7 +98,7 @@ function toggle(label) {
   }
   const hidden = [...hiddenLabels].sort();
   hiddenSent = JSON.stringify(hidden);
-  dioxus.send(hidden);
+  dioxus.send(["hidden", hidden]);
   schedule();
 }
 

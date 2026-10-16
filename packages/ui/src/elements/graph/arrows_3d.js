@@ -452,7 +452,7 @@ function toggle(label) {
   }
   const hidden = [...hiddenLabels].sort();
   hiddenSent = JSON.stringify(hidden);
-  dioxus.send(hidden);
+  dioxus.send(["hidden", hidden]);
   buildLegend();
   // Its arrow gone or back, the axes with it
   follow();

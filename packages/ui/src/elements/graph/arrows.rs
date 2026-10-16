@@ -3,18 +3,12 @@ use dioxus::prelude::*;
 use super::{
     GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
-    time_series::series_color,
+    plot::{PlotAssets, label_color, use_plot, use_shown_count},
 };
 use crate::components::toggle::Toggle;
 use crate::data::{Data, DataContext, DataType, Queue, TypedData, Vector, format_number};
 use crate::elements::FilterContext;
 
-const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
-const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
-const UPLOT_JS: Asset = asset!(
-    "/assets/vendor/uplot/uPlot.iife.min.js",
-    AssetOptions::js().with_minify(false)
-);
 const ZDOG_JS: Asset = asset!(
     "/assets/vendor/zdog/zdog.dist.min.js",
     AssetOptions::js().with_minify(false)
@@ -138,17 +132,11 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let trails = use_graph_setting(graph_context, id, |property| property.trails);
     let container_id = format!("graph-plot-{id}");
-    let plot = use_hook(|| document::eval(dimension.script()));
+    let plot = use_plot(id, dimension.script());
     let data_type = dimension.data_type();
 
     let vector_labels = use_memo(move || data_context.labels_of(data_type));
-    let plotted = use_memo(move || {
-        vector_labels
-            .read()
-            .iter()
-            .filter(|label| filter_context.shows(label))
-            .count()
-    });
+    let plotted = use_shown_count(vector_labels);
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
@@ -163,41 +151,26 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
                         TypedData::Vector3d(queue) => newest_with_trail(queue, paused_at),
                         _ => None,
                     }?;
-                    let index = colors.iter().position(|each| each == label).unwrap_or(0);
                     let rows = dimension.rows(&newest);
-                    Some((label.to_string(), series_color(index), newest, trail, rows))
+                    Some((
+                        label.to_string(),
+                        label_color(&colors, label),
+                        newest,
+                        trail,
+                        rows,
+                    ))
                 })
                 .collect()
         });
         let _ = plot.send((arrows, hidden(), trails()));
     });
 
-    // The labels turned off in the legend
-    use_future(move || async move {
-        let mut plot = plot;
-        while let Ok(labels) = plot.recv::<Vec<String>>().await {
-            if graph_context
-                .get(id)
-                .is_some_and(|graph| graph.property.hidden != labels)
-            {
-                graph_context.update(id, |property| property.hidden = labels);
-            }
-        }
-    });
-
-    use_drop(move || {
-        let _ = plot.send(());
-    });
-
     let name = dimension.name();
 
     rsx! {
         // uPlot's styles for the legend of the 3D arrows too, as the others'
-        document::Link { rel: "stylesheet", href: UPLOT_CSS }
-        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
-        if dimension == Dimension::Two {
-            document::Script { src: UPLOT_JS }
-        } else {
+        PlotAssets { uplot: dimension == Dimension::Two }
+        if dimension == Dimension::Three {
             document::Script { src: ZDOG_JS }
         }
 

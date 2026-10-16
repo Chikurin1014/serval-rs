@@ -343,7 +343,7 @@ function onSeriesToggle(u, index, options) {
   }
   const hidden = [...hiddenLabels].sort();
   hiddenSent = JSON.stringify(hidden);
-  dioxus.send(hidden);
+  dioxus.send(["hidden", hidden]);
   // Its arrow gone or back, the ranges with it
   follow(u);
   u.setData(plotData());
