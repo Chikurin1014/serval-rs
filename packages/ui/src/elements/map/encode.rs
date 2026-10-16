@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{BYTES_LABELS_LIST_ID, LOG_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::data::{DataType, Encode, EncodeSettings, MapKind};
 
 pub const ENCODE: MapKind = MapKind {
@@ -33,14 +33,14 @@ pub fn EncodeForm(settings: EncodeSettings) -> Element {
             class: "map-row",
             LabelField {
                 value: from_label,
-                list: LOG_LABELS_LIST_ID,
+                list: labels_list(DataType::Log),
                 placeholder: "Input label",
                 weakest_level,
             }
             lucide::MoveRight { size: 20 }
             LabelField {
                 value: to_label,
-                list: BYTES_LABELS_LIST_ID,
+                list: labels_list(DataType::Bytes),
                 placeholder: "Output label",
             }
         }

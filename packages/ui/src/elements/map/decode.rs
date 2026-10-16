@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use super::field::{ChoicesField, LabelField, TextField};
-use super::map_list::{BYTES_LABELS_LIST_ID, LOG_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use super::{LOG_LABEL, form_of};
 use crate::{
     data::{DataType, Decode, DecodeSettings, MapKind, MapPreset, MapRunner, RAW_BYTES_LABEL},
@@ -80,7 +80,7 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: from_label,
-                    list: BYTES_LABELS_LIST_ID,
+                    list: labels_list(DataType::Bytes),
                     placeholder: "Input label",
                 }
                 ChoicesField {
@@ -107,7 +107,7 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
                 class: "field-stack",
                 LabelField {
                     value: to_label,
-                    list: LOG_LABELS_LIST_ID,
+                    list: labels_list(DataType::Log),
                     placeholder: "Output label",
                 }
                 TextField {

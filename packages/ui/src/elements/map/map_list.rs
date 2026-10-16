@@ -20,11 +20,16 @@ const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 // Loaded here so it is ready before a card first opens
 const MAP_FORM_CSS: Asset = asset!("/assets/styling/map-form.css");
 
-pub(crate) const BYTES_LABELS_LIST_ID: &str = "map-bytes-labels";
-pub(crate) const NUMBERS_LABELS_LIST_ID: &str = "map-numbers-labels";
-pub(crate) const VECTOR2D_LABELS_LIST_ID: &str = "map-vector2d-labels";
-pub(crate) const VECTOR3D_LABELS_LIST_ID: &str = "map-vector3d-labels";
-pub(crate) const LOG_LABELS_LIST_ID: &str = "map-log-labels";
+/// The `datalist` of the labels of `data_type`, for the forms' label fields.
+pub(crate) const fn labels_list(data_type: DataType) -> &'static str {
+    match data_type {
+        DataType::Bytes => "map-bytes-labels",
+        DataType::Log => "map-log-labels",
+        DataType::Number => "map-numbers-labels",
+        DataType::Vector2d => "map-vector2d-labels",
+        DataType::Vector3d => "map-vector3d-labels",
+    }
+}
 
 /// The add menus, each of the maps to the types it names.
 const ADD_MENUS: [(&str, &[DataType]); 4] = [
@@ -61,7 +66,6 @@ if (!window.servalOpenCardUndraggable) {
 /// Lists the maps for editing; they run in `MapProvider` regardless.
 #[component]
 pub fn MapList() -> Element {
-    let data_context = use_context::<DataContext>();
     let context = use_context::<MapContext>();
     use_effect(|| {
         document::eval(OPEN_CARD_UNDRAGGABLE_JS);
@@ -75,11 +79,6 @@ pub fn MapList() -> Element {
     });
     // Bumped to make the list anew with all the maps, as it left one out
     let generation = use_signal(|| 0_u32);
-    let bytes_labels = use_memo(move || data_context.labels_of(DataType::Bytes));
-    let numbers_labels = use_memo(move || data_context.labels_of(DataType::Number));
-    let vector2d_labels = use_memo(move || data_context.labels_of(DataType::Vector2d));
-    let vector3d_labels = use_memo(move || data_context.labels_of(DataType::Vector3d));
-    let log_labels = use_memo(move || data_context.labels_of(DataType::Log));
     // So the latest conversions and the add menus' arrows line up
     let columns = use_memo(move || {
         let kinds = context.kinds();
@@ -122,35 +121,24 @@ pub fn MapList() -> Element {
                     }
                 }
             }
-            datalist {
-                id: BYTES_LABELS_LIST_ID,
-                for label in bytes_labels() {
-                    option { value: "{label}" }
-                }
+            for data_type in DataType::ALL {
+                LabelsList { data_type }
             }
-            datalist {
-                id: NUMBERS_LABELS_LIST_ID,
-                for label in numbers_labels() {
-                    option { value: "{label}" }
-                }
-            }
-            datalist {
-                id: VECTOR2D_LABELS_LIST_ID,
-                for label in vector2d_labels() {
-                    option { value: "{label}" }
-                }
-            }
-            datalist {
-                id: VECTOR3D_LABELS_LIST_ID,
-                for label in vector3d_labels() {
-                    option { value: "{label}" }
-                }
-            }
-            datalist {
-                id: LOG_LABELS_LIST_ID,
-                for label in log_labels() {
-                    option { value: "{label}" }
-                }
+        }
+    }
+}
+
+/// The labels of `data_type` there are, as `labels_list` names them.
+#[component]
+fn LabelsList(data_type: DataType) -> Element {
+    let data_context = use_context::<DataContext>();
+    let labels = use_memo(move || data_context.labels_of(data_type));
+
+    rsx! {
+        datalist {
+            id: labels_list(data_type),
+            for label in labels() {
+                option { value: "{label}" }
             }
         }
     }

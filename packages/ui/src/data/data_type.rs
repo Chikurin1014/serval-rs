@@ -13,6 +13,14 @@ pub enum DataType {
 }
 
 impl DataType {
+    pub const ALL: [DataType; 5] = [
+        DataType::Bytes,
+        DataType::Log,
+        DataType::Number,
+        DataType::Vector2d,
+        DataType::Vector3d,
+    ];
+
     pub fn name(&self) -> &'static str {
         match self {
             DataType::Bytes => "Bytes",

@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::data::{Compose, ComposeSettings, DataType, MapKind};
 
 pub const COMPOSE_2D: MapKind = MapKind {
@@ -11,7 +11,7 @@ pub const COMPOSE_2D: MapKind = MapKind {
     from: &[DataType::Number, DataType::Number],
     to: DataType::Vector2d,
     create: || Box::new(Compose::vector2d()),
-    form: |settings| compose_form(settings, VECTOR2D_LABELS_LIST_ID),
+    form: |settings| compose_form(settings, labels_list(DataType::Vector2d)),
     presets: &[],
 };
 
@@ -20,7 +20,7 @@ pub const COMPOSE_3D: MapKind = MapKind {
     from: &[DataType::Number, DataType::Number, DataType::Number],
     to: DataType::Vector3d,
     create: || Box::new(Compose::vector3d()),
-    form: |settings| compose_form(settings, VECTOR3D_LABELS_LIST_ID),
+    form: |settings| compose_form(settings, labels_list(DataType::Vector3d)),
     presets: &[],
 };
 
@@ -50,20 +50,20 @@ pub fn ComposeForm(settings: ComposeSettings, output_list: String) -> Element {
                 LabelField {
                     name: "x",
                     value: x,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Label or number",
                 }
                 LabelField {
                     name: "y",
                     value: y,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Label or number",
                 }
                 if let Some(z) = z {
                     LabelField {
                         name: "z",
                         value: z,
-                        list: NUMBERS_LABELS_LIST_ID,
+                        list: labels_list(DataType::Number),
                         placeholder: "Label or number",
                     }
                 }
