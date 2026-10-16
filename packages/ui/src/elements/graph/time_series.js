@@ -30,9 +30,7 @@ let logScale = false;
 let drawStyle = "linear";
 let windowSeconds = 10;
 let fitData = true;
-let hiddenLabels = new Set();
-// Sent to Rust and not yet echoed back
-let hiddenSent = null;
+const hiddenLabels = trackHidden();
 
 const themed = themeColors(container);
 const cssColor = themed.color;
@@ -114,29 +112,7 @@ function onSeriesToggle(u, index, options) {
     return;
   }
   const label = u.series[index].label;
-  if (options.show) {
-    hiddenLabels.delete(label);
-  } else {
-    hiddenLabels.add(label);
-  }
-  const hidden = [...hiddenLabels].sort();
-  hiddenSent = JSON.stringify(hidden);
-  dioxus.send(["hidden", hidden]);
-}
-
-function applyHidden(hidden) {
-  if (hiddenSent !== null) {
-    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
-      return;
-    }
-    hiddenSent = null;
-  }
-  hiddenLabels = new Set(hidden);
-  plot?.series.forEach((s, index) => {
-    if (index > 0 && s.show === hiddenLabels.has(s.label)) {
-      plot.setSeries(index, { show: !hiddenLabels.has(s.label) }, false);
-    }
-  });
+  hiddenLabels.set(label, !options.show);
 }
 
 function plotData(labels) {
@@ -293,7 +269,8 @@ for await (const message of messages()) {
   windowSeconds = seconds;
   fitData = fit;
   colors = lineColors;
-  applyHidden(hidden);
+  hiddenLabels.apply(hidden);
+  showSeries(plot, hiddenLabels);
   if (log !== logScale || style !== drawStyle) {
     // The values zoomed to, not of another scale
     if (log !== logScale && zoomed) {

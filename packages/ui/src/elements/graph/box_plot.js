@@ -20,9 +20,7 @@ while (!window.uPlot) {
 // All the boxes sent, and those shown: not turned off in the legend
 let allBoxes = [];
 let boxes = [];
-let hiddenLabels = new Set();
-// Sent to Rust and not yet echoed back
-let hiddenSent = null;
+const hiddenLabels = trackHidden();
 let logScale = false;
 let plot = null;
 // The box the pointer is over, if any
@@ -38,64 +36,7 @@ hover.hidden = true;
 
 // Each box's label below the plot, turned on or off by clicking it: as uPlot's
 // legend, which is of its series
-const legend = document.createElement("table");
-legend.className = "u-legend u-inline";
-const legendBody = document.createElement("tbody");
-legend.append(legendBody);
-// What the legend was made of: the boxes' labels and colors, which are off
-let legendMade = "";
-
-function buildLegend() {
-  legendMade = legendMakings();
-  legendBody.replaceChildren();
-  for (const [label, color] of allBoxes) {
-    const row = document.createElement("tr");
-    row.className = "u-series";
-    row.classList.toggle("u-off", hiddenLabels.has(label));
-    const cell = document.createElement("th");
-    const marker = document.createElement("div");
-    marker.className = "u-marker";
-    const stroke = cssColor(color);
-    marker.style.border = `2px solid ${stroke}`;
-    marker.style.background = withAlpha(stroke, 0.2);
-    const name = document.createElement("div");
-    name.className = "u-label";
-    name.textContent = label;
-    cell.append(marker, name);
-    row.append(cell);
-    row.addEventListener("click", () => toggle(label));
-    legendBody.append(row);
-  }
-}
-
-function legendMakings() {
-  return JSON.stringify([
-    allBoxes.map(([label, color]) => [label, color]),
-    [...hiddenLabels],
-  ]);
-}
-
-function toggle(label) {
-  if (hiddenLabels.has(label)) {
-    hiddenLabels.delete(label);
-  } else {
-    hiddenLabels.add(label);
-  }
-  const hidden = [...hiddenLabels].sort();
-  hiddenSent = JSON.stringify(hidden);
-  dioxus.send(["hidden", hidden]);
-  schedule();
-}
-
-function applyHidden(hidden) {
-  if (hiddenSent !== null) {
-    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
-      return;
-    }
-    hiddenSent = null;
-  }
-  hiddenLabels = new Set(hidden);
-}
+const legend = legendTable(themed, hiddenLabels, 0.2, schedule);
 
 /** uPlot's data: each box's place, lowest and highest value. */
 function plotData() {
@@ -250,7 +191,7 @@ function valueScale() {
 function fit() {
   plot?.setSize({
     width: container.clientWidth,
-    height: Math.max(container.clientHeight - legend.offsetHeight, 50),
+    height: Math.max(container.clientHeight - legend.element.offsetHeight, 50),
   });
 }
 
@@ -305,15 +246,15 @@ function create() {
   );
   plot.over.appendChild(hover);
   // Below the plot, made anew (in the colors of the theme)
-  container.append(legend);
-  buildLegend();
+  container.append(legend.element);
+  legend.invalidate();
+  legend.update(allBoxes);
   fit();
 }
 
 function draw() {
   boxes = allBoxes.filter(([label]) => !hiddenLabels.has(label));
-  if (legendMakings() !== legendMade) {
-    buildLegend();
+  if (legend.update(allBoxes)) {
     // Its height may have changed
     fit();
   }
@@ -344,7 +285,7 @@ create();
 for await (const message of messages()) {
   const [nextBoxes, log, hidden] = message;
   allBoxes = nextBoxes;
-  applyHidden(hidden);
+  hiddenLabels.apply(hidden);
   if (log !== logScale) {
     logScale = log;
     // Set at creation

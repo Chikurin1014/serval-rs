@@ -21,9 +21,7 @@ while (!window.uPlot) {
 const HOVER_DISTANCE = 16;
 
 let arrows = [];
-let hiddenLabels = new Set();
-// Sent to Rust and not yet echoed back
-let hiddenSent = null;
+const hiddenLabels = trackHidden();
 let showTrails = true;
 let plot = null;
 // The labels and colors the plot was made with
@@ -59,21 +57,9 @@ function plotData() {
   ];
 }
 
-// How quickly the range follows what the data needs, widening and narrowing:
-// time constants, so it is most of the way there in about twice each
-const WIDEN_MS = 75;
-const NARROW_MS = 300;
-// How much wider than needed the range may be before it narrows, so it does
-// not pulse with each new value
-const NARROW_PAST = 1.25;
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-
-// The units a pixel shows, across as up, so the arrows point as they are; and
-// those it is on its way to
-let perPixel = null;
-let goal = null;
-let easing = 0;
-let easedAt = 0;
+// The units a pixel shows, across as up, so the arrows point as they are:
+// eased towards what the data needs
+const perPixel = easedExtent(container, () => plot?.setData(plotData()));
 
 /** The plot's area in pixels: once laid out; the container's, before. */
 function area(u) {
@@ -100,9 +86,9 @@ function needed(u) {
     : null;
 }
 
-/** The ranges of both axes: the origin in the middle, as `perPixel` says. */
+/** The ranges of both axes: the origin in the middle, as `perPixel` is. */
 function ranges(u) {
-  const units = perPixel ?? needed(u);
+  const units = perPixel.value ?? needed(u);
   const [width, height] = area(u);
   if (units === null) {
     return { x: [-1, 1], y: [-1, 1] };
@@ -113,51 +99,14 @@ function ranges(u) {
 
 /**
  * Takes the range towards what the data needs: at once at first, as the plot
- * is resized (`now`), or for less motion; else over a few frames, and only
- * once it is much too wide to narrow.
+ * is resized (`now`), or for less motion; else over a few frames.
  */
 function follow(u, now = false) {
   const units = needed(u);
-  if (units === null) {
-    return;
+  if (units !== null) {
+    perPixel.follow(units, now);
   }
-  if (perPixel === null || now || reducedMotion.matches) {
-    cancelAnimationFrame(easing);
-    easing = 0;
-    perPixel = goal = units;
-  } else if (
-    units > perPixel ||
-    units > goal ||
-    units * NARROW_PAST < perPixel
-  ) {
-    goal = units;
-    if (!easing) {
-      easedAt = performance.now();
-      easing = requestAnimationFrame(ease);
-    }
-  }
-  // For tests: whether it is where it is going
-  container.dataset.settled = String(perPixel === goal);
 }
-
-function ease(now) {
-  easing = 0;
-  if (!plot) {
-    return;
-  }
-  const time = goal > perPixel ? WIDEN_MS : NARROW_MS;
-  perPixel += (goal - perPixel) * (1 - Math.exp(-(now - easedAt) / time));
-  easedAt = now;
-  if (Math.abs(goal - perPixel) <= goal * 0.002) {
-    perPixel = goal;
-  } else {
-    easing = requestAnimationFrame(ease);
-  }
-  container.dataset.settled = String(perPixel === goal);
-  // Its ranges anew
-  plot.setData(plotData());
-}
-
 function drawArrows(u) {
   const { left, top, width, height } = u.bbox;
   const ctx = u.ctx;
@@ -321,32 +270,10 @@ function onSeriesToggle(u, index, options) {
     return;
   }
   const label = u.series[index].label;
-  if (options.show) {
-    hiddenLabels.delete(label);
-  } else {
-    hiddenLabels.add(label);
-  }
-  const hidden = [...hiddenLabels].sort();
-  hiddenSent = JSON.stringify(hidden);
-  dioxus.send(["hidden", hidden]);
+  hiddenLabels.set(label, !options.show);
   // Its arrow gone or back, the ranges with it
   follow(u);
   u.setData(plotData());
-}
-
-function applyHidden(hidden) {
-  if (hiddenSent !== null) {
-    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
-      return;
-    }
-    hiddenSent = null;
-  }
-  hiddenLabels = new Set(hidden);
-  plot?.series.forEach((s, index) => {
-    if (index > 0 && s.show === hiddenLabels.has(s.label)) {
-      plot.setSeries(index, { show: !hiddenLabels.has(s.label) }, false);
-    }
-  });
 }
 
 /** What the plot is made with: its arrows' labels and colors. */
@@ -464,12 +391,13 @@ for await (const message of messages()) {
   const [nextArrows, hidden, trails] = message;
   arrows = nextArrows;
   showTrails = trails;
-  applyHidden(hidden);
+  hiddenLabels.apply(hidden);
+  showSeries(plot, hiddenLabels);
   schedule();
 }
 
 draws.cancel();
-cancelAnimationFrame(easing);
+perPixel.cancel();
 resize.disconnect();
 stopWatchingTheme();
 plot?.destroy();
