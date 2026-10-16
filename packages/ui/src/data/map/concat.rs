@@ -1,11 +1,8 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 
-use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Input, Log, LogData, LogLevel,
-    MapRunner, Segment, endpoints, expand_levels, keep_taken, take_newest_pair,
+    MapRunner, MapSettings, Segment, endpoints, expand_levels, keep_taken, take_newest_pair,
 };
 use crate::helper::{set_if_changed, unescape};
 
@@ -85,11 +82,7 @@ impl Default for Concat {
 }
 
 impl MapRunner for Concat {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

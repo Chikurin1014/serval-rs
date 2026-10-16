@@ -1,13 +1,10 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 use fancy_regex::{Captures, Regex};
 
-use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
-    MapRunner, NumberData, Segment, SourceCursor, Vector2d, Vector2dData, Vector3d, Vector3dData,
-    compile_for_map, expand_levels, format_number, keep_taken, trim_segments,
+    MapRunner, MapSettings, NumberData, Segment, SourceCursor, Vector2d, Vector2dData, Vector3d,
+    Vector3dData, compile_for_map, expand_levels, format_number, keep_taken, trim_segments,
 };
 use crate::helper::set_if_changed;
 
@@ -185,11 +182,7 @@ impl Match {
 }
 
 impl MapRunner for Match {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

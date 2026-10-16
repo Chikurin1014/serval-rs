@@ -1,12 +1,15 @@
-//! Map settings as a layout file keeps them: by [`saved_settings!`], each
-//! setting under its field's name.
+//! Map settings: shared with a map's form, and kept in a layout file (by
+//! [`saved_settings!`], each setting under its field's name).
+
+use std::any::Any;
 
 use dioxus::prelude::*;
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Map as JsonMap, Value};
 
-/// The settings of a map, kept in and taken from a layout file.
-pub trait SavedSettings {
+/// The settings of a map: its form's (as [`Any`], to be downcast), kept in and
+/// taken from a layout file.
+pub trait MapSettings: Any {
     /// Each setting by its name; not their errors, nor what the kind fixes.
     fn save(&self) -> Value;
 
@@ -80,10 +83,10 @@ impl<T: Serialize + DeserializeOwned + 'static> SavedField for Option<Signal<T>>
     }
 }
 
-/// Implements [`SavedSettings`] for `$settings`, of the fields listed.
+/// Implements [`MapSettings`] for `$settings`, of the fields listed.
 macro_rules! saved_settings {
     ($settings:ty { $($field:ident),* $(,)? }) => {
-        impl $crate::data::SavedSettings for $settings {
+        impl $crate::data::MapSettings for $settings {
             fn save(&self) -> serde_json::Value {
                 use $crate::data::SavedField;
                 let mut saved = serde_json::Map::new();

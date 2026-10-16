@@ -1,11 +1,8 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 
-use crate::data::SavedSettings;
 use crate::data::{
-    Conversion, ConversionOutput, DataContext, Input, MapRunner, Operand, Segment, Vector2d,
-    Vector2dData, Vector3d, Vector3dData, format_number, keep_taken, take_newest_all,
+    Conversion, ConversionOutput, DataContext, Input, MapRunner, MapSettings, Operand, Segment,
+    Vector2d, Vector2dData, Vector3d, Vector3dData, format_number, keep_taken, take_newest_all,
 };
 use crate::helper::set_if_changed;
 
@@ -106,11 +103,7 @@ impl Compose {
 }
 
 impl MapRunner for Compose {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

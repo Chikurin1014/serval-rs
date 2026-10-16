@@ -47,17 +47,14 @@ pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
 pub(crate) use saved::saved_settings;
-pub use saved::{SavedField, SavedSettings};
+pub use saved::{MapSettings, SavedField};
 pub use vector_arithmetic::{VectorArithmetic, VectorArithmeticSettings, VectorOperation};
 
 /// The processing of one map. Its settings are signals made in its
 /// constructor, shared with its form.
 pub trait MapRunner {
-    /// What [`MapKind::form`] edits.
-    fn settings(&self) -> &dyn Any;
-
-    /// Its settings as a layout file keeps them.
-    fn saved(&self) -> &dyn SavedSettings;
+    /// What [`MapKind::form`] edits, and a layout file keeps.
+    fn settings(&self) -> &dyn MapSettings;
 
     /// Takes in and checks the settings as the map is turned on (they are locked
     /// while it is on). If they changed since, the input is read from the start.
@@ -99,7 +96,7 @@ impl PartialEq for MapKind {
 pub struct InitialMap {
     pub kind: MapKind,
     pub enabled: bool,
-    /// As [`SavedSettings::save`] gives them.
+    /// As [`MapSettings::save`] gives them.
     pub settings: serde_json::Value,
 }
 
@@ -200,7 +197,7 @@ impl MapContext {
     /// Its settings as a layout file keeps them.
     pub fn saved_settings(&self, id: usize) -> Option<serde_json::Value> {
         let map = self.list.peek().iter().find(|map| map.id == id).cloned()?;
-        let saved = map.runner.borrow().saved().save();
+        let saved = map.runner.borrow().settings().save();
         Some(saved)
     }
 
@@ -218,7 +215,7 @@ impl MapContext {
                     self.make(kind, enabled, false, || {
                         let runner = (kind.create)();
                         runner
-                            .saved()
+                            .settings()
                             .load(&settings)
                             .map_err(|error| format!("{}: {error}", kind.name))?;
                         Ok(runner)
