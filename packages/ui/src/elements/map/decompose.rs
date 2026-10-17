@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::data::{DataType, Decompose, DecomposeSettings, MapKind, Vector2d, Vector3d};
 
 pub const DECOMPOSE_2D: MapKind = MapKind {
@@ -11,7 +11,7 @@ pub const DECOMPOSE_2D: MapKind = MapKind {
     from: &[DataType::Vector2d],
     to: DataType::Number,
     create: || Box::new(Decompose::<Vector2d>::vector2d()),
-    form: |settings| decompose_form(settings, VECTOR2D_LABELS_LIST_ID),
+    form: |settings| decompose_form(settings, labels_list(DataType::Vector2d)),
     presets: &[],
 };
 
@@ -20,7 +20,7 @@ pub const DECOMPOSE_3D: MapKind = MapKind {
     from: &[DataType::Vector3d],
     to: DataType::Number,
     create: || Box::new(Decompose::<Vector3d>::vector3d()),
-    form: |settings| decompose_form(settings, VECTOR3D_LABELS_LIST_ID),
+    form: |settings| decompose_form(settings, labels_list(DataType::Vector3d)),
     presets: &[],
 };
 
@@ -57,20 +57,20 @@ pub fn DecomposeForm(settings: DecomposeSettings, input_list: String) -> Element
                 LabelField {
                     name: "x",
                     value: x_label,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Output label",
                 }
                 LabelField {
                     name: "y",
                     value: y_label,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Output label",
                 }
                 if let Some(z_label) = z_label {
                     LabelField {
                         name: "z",
                         value: z_label,
-                        list: NUMBERS_LABELS_LIST_ID,
+                        list: labels_list(DataType::Number),
                         placeholder: "Output label",
                     }
                 }

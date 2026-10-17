@@ -66,7 +66,3 @@ function timeOfDay(ms) {
   const pad = (n, width = 2) => String(n).padStart(width, "0");
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 }
-
-function withAlpha(color, alpha) {
-  return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);
-}

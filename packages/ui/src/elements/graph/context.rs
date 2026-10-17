@@ -199,6 +199,16 @@ impl GraphContext {
         }
     }
 
+    /// Turns off `labels` in its legend, the others on.
+    pub fn set_hidden(&mut self, id: usize, labels: Vec<String>) {
+        if self
+            .get(id)
+            .is_some_and(|graph| graph.property.hidden != labels)
+        {
+            self.update(id, |property| property.hidden = labels);
+        }
+    }
+
     pub fn remove(&mut self, id: usize) {
         self.graphs.write().retain(|g| g.id != id);
     }

@@ -1,6 +1,6 @@
 //! Maps run on data as `MapProvider` runs them, for their tests.
 
-use std::cell::RefCell;
+use std::{any::Any, cell::RefCell};
 
 use dioxus::{
     core::{Runtime, ScopeId},
@@ -67,7 +67,9 @@ impl Maps {
         let ((map, settings), owner) = self.in_runtime(|| {
             make_owned(ScopeId::ROOT, || {
                 let mut map = make();
-                let settings = *map.settings().downcast_ref::<S>().expect("its settings");
+                let settings = *(map.settings() as &dyn Any)
+                    .downcast_ref::<S>()
+                    .expect("its settings");
                 set(settings);
                 map.start();
                 (map, settings)

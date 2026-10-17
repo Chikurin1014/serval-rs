@@ -7,6 +7,7 @@ mod box_plot;
 mod context;
 mod frame;
 mod log_table;
+mod plot;
 mod scatter;
 mod time_series;
 

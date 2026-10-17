@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::{
     data::{
         Arithmetic, ArithmeticSettings, DataType, MapKind, MapRunner, Operation, Vector2d,
@@ -66,13 +66,13 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                     LabelField {
                         name: "a",
                         value: first,
-                        list: NUMBERS_LABELS_LIST_ID,
+                        list: labels_list(DataType::Number),
                         placeholder: "Label or number",
                     }
                     LabelField {
                         name: "b",
                         value: second,
-                        list: NUMBERS_LABELS_LIST_ID,
+                        list: labels_list(DataType::Number),
                         placeholder: "Label or number",
                     }
                     if let Some(error) = error() {
@@ -82,7 +82,7 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                 lucide::MoveRight { size: 20 }
                 LabelField {
                     value: to_label,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Output label",
                 }
             }
@@ -93,16 +93,14 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
 /// A vector map of `operation` on `$from` (vectors of `$vector`, or a number
 /// and one).
 macro_rules! vector_kind {
-    ($name:literal, $operation:ident, $vector:ident, [$first:ident, $second:ident], $list:expr) => {
-        vector_kind!($name, $operation, $vector, [$first, $second] -> $vector, $list, $list)
+    ($name:literal, $operation:ident, $vector:ident, [$first:ident, $second:ident]) => {
+        vector_kind!($name, $operation, $vector, [$first, $second] -> $vector)
     };
     (
         $name:literal,
         $operation:ident,
         $vector:ident,
-        [$first:ident, $second:ident] -> $to:ident,
-        $list:expr,
-        $output_list:expr
+        [$first:ident, $second:ident] -> $to:ident
     ) => {
         MapKind {
             name: $name,
@@ -118,8 +116,8 @@ macro_rules! vector_kind {
                     rsx! {
                         VectorArithmeticForm {
                             settings,
-                            vector_list: $list.to_string(),
-                            output_list: $output_list.to_string(),
+                            vector_list: labels_list(DataType::$vector).to_string(),
+                            output_list: labels_list(DataType::$to).to_string(),
                         }
                     }
                 })
@@ -129,82 +127,34 @@ macro_rules! vector_kind {
     };
 }
 
-pub const ADD_2D: MapKind = vector_kind!(
-    "Add",
-    Add,
-    Vector2d,
-    [Vector2d, Vector2d],
-    VECTOR2D_LABELS_LIST_ID
-);
-pub const ADD_3D: MapKind = vector_kind!(
-    "Add",
-    Add,
-    Vector3d,
-    [Vector3d, Vector3d],
-    VECTOR3D_LABELS_LIST_ID
-);
-pub const SUBTRACT_2D: MapKind = vector_kind!(
-    "Subtract",
-    Subtract,
-    Vector2d,
-    [Vector2d, Vector2d],
-    VECTOR2D_LABELS_LIST_ID
-);
-pub const SUBTRACT_3D: MapKind = vector_kind!(
-    "Subtract",
-    Subtract,
-    Vector3d,
-    [Vector3d, Vector3d],
-    VECTOR3D_LABELS_LIST_ID
-);
+pub const ADD_2D: MapKind = vector_kind!("Add", Add, Vector2d, [Vector2d, Vector2d]);
+pub const ADD_3D: MapKind = vector_kind!("Add", Add, Vector3d, [Vector3d, Vector3d]);
+pub const SUBTRACT_2D: MapKind = vector_kind!("Subtract", Subtract, Vector2d, [Vector2d, Vector2d]);
+pub const SUBTRACT_3D: MapKind = vector_kind!("Subtract", Subtract, Vector3d, [Vector3d, Vector3d]);
 /// A number times a vector, the number first.
-pub const MULTIPLY_2D: MapKind = vector_kind!(
-    "Multiply",
-    Multiply,
-    Vector2d,
-    [Number, Vector2d],
-    VECTOR2D_LABELS_LIST_ID
-);
-pub const MULTIPLY_3D: MapKind = vector_kind!(
-    "Multiply",
-    Multiply,
-    Vector3d,
-    [Number, Vector3d],
-    VECTOR3D_LABELS_LIST_ID
-);
+pub const MULTIPLY_2D: MapKind = vector_kind!("Multiply", Multiply, Vector2d, [Number, Vector2d]);
+pub const MULTIPLY_3D: MapKind = vector_kind!("Multiply", Multiply, Vector3d, [Number, Vector3d]);
 /// Of 3D vectors, a 3D vector.
-pub const CROSS_3D: MapKind = vector_kind!(
-    "Cross",
-    Cross,
-    Vector3d,
-    [Vector3d, Vector3d],
-    VECTOR3D_LABELS_LIST_ID
-);
+pub const CROSS_3D: MapKind = vector_kind!("Cross", Cross, Vector3d, [Vector3d, Vector3d]);
 /// A number, of vectors of either dimensions.
 pub const DOT_2D: MapKind = vector_kind!(
     "Dot",
     Dot,
     Vector2d,
-    [Vector2d, Vector2d] -> Number,
-    VECTOR2D_LABELS_LIST_ID,
-    NUMBERS_LABELS_LIST_ID
+    [Vector2d, Vector2d] -> Number
 );
 pub const DOT_3D: MapKind = vector_kind!(
     "Dot",
     Dot,
     Vector3d,
-    [Vector3d, Vector3d] -> Number,
-    VECTOR3D_LABELS_LIST_ID,
-    NUMBERS_LABELS_LIST_ID
+    [Vector3d, Vector3d] -> Number
 );
 /// Of 2D vectors, a number: the z of theirs as 3D ones.
 pub const CROSS_2D: MapKind = vector_kind!(
     "Cross",
     Cross,
     Vector2d,
-    [Vector2d, Vector2d] -> Number,
-    VECTOR2D_LABELS_LIST_ID,
-    NUMBERS_LABELS_LIST_ID
+    [Vector2d, Vector2d] -> Number
 );
 
 /// As [`ArithmeticForm`], on vectors: `a` and `b` both, or `a` a number to
@@ -239,7 +189,7 @@ pub fn VectorArithmeticForm(
                     LabelField {
                         name: "a",
                         value: first,
-                        list: if by_number { NUMBERS_LABELS_LIST_ID.to_string() } else { vector_list.clone() },
+                        list: if by_number { labels_list(DataType::Number).to_string() } else { vector_list.clone() },
                         placeholder: if by_number { "Label or number" } else { "Label or vector" },
                     }
                     LabelField {

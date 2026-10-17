@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::{
     data::{DataType, Magnitude, MagnitudeSettings, MapKind, Vector2d, Vector3d},
     elements::Formula,
@@ -14,7 +14,7 @@ pub const MAGNITUDE_2D: MapKind = MapKind {
     from: &[DataType::Vector2d],
     to: DataType::Number,
     create: || Box::new(Magnitude::<Vector2d>::new()),
-    form: |settings| magnitude_form(settings, VECTOR2D_LABELS_LIST_ID),
+    form: |settings| magnitude_form(settings, labels_list(DataType::Vector2d)),
     presets: &[],
 };
 
@@ -23,7 +23,7 @@ pub const MAGNITUDE_3D: MapKind = MapKind {
     from: &[DataType::Vector3d],
     to: DataType::Number,
     create: || Box::new(Magnitude::<Vector3d>::new()),
-    form: |settings| magnitude_form(settings, VECTOR3D_LABELS_LIST_ID),
+    form: |settings| magnitude_form(settings, labels_list(DataType::Vector3d)),
     presets: &[],
 };
 
@@ -62,7 +62,7 @@ pub fn MagnitudeForm(settings: MagnitudeSettings, input_list: String) -> Element
                 lucide::MoveRight { size: 20 }
                 LabelField {
                     value: to_label,
-                    list: NUMBERS_LABELS_LIST_ID,
+                    list: labels_list(DataType::Number),
                     placeholder: "Output label",
                 }
             }

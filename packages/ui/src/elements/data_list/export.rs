@@ -4,20 +4,8 @@ use dioxus_icons::lucide;
 use super::FilterContext;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::data::{DataContext, NumberText};
-use crate::helper::csv_field;
+use crate::helper::{csv_field, download_text};
 use crate::time::TimeContext;
-
-const DOWNLOAD_JS: &str = r#"
-const [name, text] = await dioxus.recv();
-const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
-const link = document.createElement("a");
-link.href = url;
-link.download = name;
-document.body.append(link);
-link.click();
-link.remove();
-URL.revokeObjectURL(url);
-"#;
 
 /// Saves the labels the data list shows as a CSV file.
 #[component]
@@ -43,8 +31,7 @@ pub(super) fn ExportCsvButton() -> Element {
         });
         let csv = to_csv(&series);
         let name = format!("serval-{}.csv", time_context.current());
-        let download = document::eval(DOWNLOAD_JS);
-        let _ = download.send((name, csv));
+        download_text(&name, "text/csv", csv);
     };
 
     rsx! {

@@ -1,3 +1,4 @@
+mod add_menu;
 mod arithmetic;
 mod calculus;
 mod compose;
@@ -7,6 +8,7 @@ mod decompose;
 mod encode;
 mod field;
 mod magnitude;
+mod map_card;
 mod map_list;
 mod matching;
 mod replace;

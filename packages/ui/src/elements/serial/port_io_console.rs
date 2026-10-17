@@ -5,7 +5,7 @@ use dioxus_icons::lucide;
 
 use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
-    helper::{format_bytes, hex, visible},
+    helper::{format_bytes, hex, use_script, visible},
     serial::{OutgoingFile, SerialContext},
 };
 
@@ -64,7 +64,7 @@ impl ConsoleView {
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
-    let terminal = use_hook(|| document::eval(CONSOLE_JS));
+    let terminal = use_script(CONSOLE_JS);
     let mut view = use_signal(|| ConsoleView::Text);
     // Bumped as the script asks for all again, to draw it anew
     let mut redraws = use_signal(|| 0_u32);
@@ -117,10 +117,6 @@ pub fn PortIoConsole() -> Element {
                 }
             }
         }
-    });
-
-    use_drop(move || {
-        let _ = terminal.send(());
     });
 
     rsx! {

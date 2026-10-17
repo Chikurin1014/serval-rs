@@ -3,14 +3,8 @@ import { test } from "node:test";
 
 import { loadScript, plain } from "../../../js-test/load-script.mjs";
 
-const {
-  alignedData,
-  applyMessage,
-  forLogScale,
-  timeOfDay,
-  timeRange,
-  withAlpha,
-} = loadScript(new URL("./time_series_data.js", import.meta.url));
+const { alignedData, applyMessage, forLogScale, timeOfDay, timeRange } =
+  loadScript(new URL("./time_series_data.js", import.meta.url));
 
 function asObject(series) {
   return Object.fromEntries([...series].map(([label, s]) => [label, plain(s)]));
@@ -94,14 +88,6 @@ test("alignedData puts every label on one sorted time axis, null where missing",
     [null, 3.3, 3.4],
   ]);
   assert.deepEqual(plain(alignedData(new Map(), [])), [[]]);
-});
-
-test("withAlpha turns a computed rgb colour translucent", () => {
-  assert.equal(
-    withAlpha("rgb(176, 176, 176)", 0.35),
-    "rgba(176, 176, 176, 0.35)",
-  );
-  assert.equal(withAlpha("rgba(0, 0, 0, 0.5)", 0.35), "rgba(0, 0, 0, 0.5)");
 });
 
 test("forLogScale leaves out values a log scale cannot show", () => {

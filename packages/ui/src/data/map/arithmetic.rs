@@ -1,11 +1,8 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 
-use crate::data::SavedSettings;
 use crate::data::{
-    Conversion, ConversionOutput, DataContext, Input, MapRunner, NumberData, Operand, Segment,
-    format_number, keep_taken, take_newest_pair,
+    Conversion, ConversionOutput, DataContext, Input, MapRunner, MapSettings, NumberData, Operand,
+    Segment, format_number, keep_taken, take_newest_pair,
 };
 use crate::helper::set_if_changed;
 
@@ -138,11 +135,7 @@ impl Operands {
 }
 
 impl MapRunner for Arithmetic {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

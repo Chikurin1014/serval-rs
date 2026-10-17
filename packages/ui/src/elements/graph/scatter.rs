@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
+    plot::{PlotAssets, plot_script, use_plot},
 };
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{
@@ -12,15 +13,8 @@ use crate::data::{
 };
 use crate::elements::Formula;
 use crate::helper::set_if_changed;
-use crate::time::TimeContext;
 
-const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
-const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
-const UPLOT_JS: Asset = asset!(
-    "/assets/vendor/uplot/uPlot.iife.min.js",
-    AssetOptions::js().with_minify(false)
-);
-const SCATTER_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("scatter.js"));
+const SCATTER_JS: &str = plot_script!("scatter.js");
 
 /// Its points' color, as the first line of a time series.
 const POINT_COLOR: &str = "--dc-accent";
@@ -265,7 +259,6 @@ fn in_turn(
 pub fn ScatterGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let mut graph_context = use_context::<GraphContext>();
-    let time_context = use_context::<TimeContext>();
     // As typed, for the fields
     let x_text = use_graph_setting(graph_context, id, |property| property.x_label.clone());
     let y_text = use_graph_setting(graph_context, id, |property| property.y_label.clone());
@@ -277,7 +270,7 @@ pub fn ScatterGraph(id: usize) -> Element {
     let mut line = use_signal(|| None::<Line>);
     let container_id = format!("graph-plot-{id}");
     let labels_list_id = format!("graph-number-labels-{id}");
-    let plot = use_hook(|| document::eval(SCATTER_JS));
+    let plot = use_plot(id, SCATTER_JS);
     let feed = use_hook(|| Rc::new(RefCell::new(ScatterFeed::default())));
 
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
@@ -317,23 +310,6 @@ pub fn ScatterGraph(id: usize) -> Element {
         ));
     });
 
-    // Zoomed into: paused, so the data stays as it is
-    use_future(move || {
-        let time_context = time_context.clone();
-        async move {
-            let mut plot = plot;
-            while let Ok((kind, _)) = plot.recv::<(String, Vec<String>)>().await {
-                if kind == "zoomed" {
-                    graph_context.pause(time_context.current());
-                }
-            }
-        }
-    });
-
-    use_drop(move || {
-        let _ = plot.send(());
-    });
-
     let empty = if number_labels.read().is_empty() {
         Some("No number data yet. Add a map to a number to plot it.")
     } else if x_label.read().is_empty() || y_label.read().is_empty() {
@@ -348,9 +324,7 @@ pub fn ScatterGraph(id: usize) -> Element {
     };
 
     rsx! {
-        document::Link { rel: "stylesheet", href: UPLOT_CSS }
-        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
-        document::Script { src: UPLOT_JS }
+        PlotAssets { uplot: true }
 
         GraphFrame {
             id,

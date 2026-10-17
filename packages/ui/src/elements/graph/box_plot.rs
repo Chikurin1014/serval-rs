@@ -3,19 +3,13 @@ use dioxus::prelude::*;
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind,
     context::{until_paused, use_graph_setting},
-    time_series::series_color,
+    plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
 };
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
 use crate::elements::FilterContext;
 
-const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
-const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
-const UPLOT_JS: Asset = asset!(
-    "/assets/vendor/uplot/uPlot.iife.min.js",
-    AssetOptions::js().with_minify(false)
-);
-const BOX_PLOT_JS: &str = concat!(include_str!("paced_draws.js"), include_str!("box_plot.js"));
+const BOX_PLOT_JS: &str = plot_script!("box_plot.js");
 
 pub const BOX_PLOT: GraphKind = GraphKind {
     name: "Box plot",
@@ -141,16 +135,10 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
-    let plot = use_hook(|| document::eval(BOX_PLOT_JS));
+    let plot = use_plot(id, BOX_PLOT_JS);
 
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
-    let plotted = use_memo(move || {
-        number_labels
-            .read()
-            .iter()
-            .filter(|label| filter_context.shows(label))
-            .count()
-    });
+    let plotted = use_shown_count(number_labels);
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
@@ -169,11 +157,10 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                             .filter(|entry| until_paused(paused_at, entry.timestamp()))
                             .map(|entry| *entry.value()),
                     )?;
-                    let index = colors.iter().position(|each| each == label).unwrap_or(0);
                     let (low, high) = summary.whiskers;
                     Some((
                         label.to_string(),
-                        series_color(index),
+                        label_color(&colors, label),
                         [
                             summary.min,
                             low,
@@ -192,27 +179,8 @@ pub fn BoxPlotGraph(id: usize) -> Element {
         let _ = plot.send((boxes, value_scale() == AxisScale::Log, hidden()));
     });
 
-    // The labels turned off in the legend
-    use_future(move || async move {
-        let mut plot = plot;
-        while let Ok(labels) = plot.recv::<Vec<String>>().await {
-            if graph_context
-                .get(id)
-                .is_some_and(|graph| graph.property.hidden != labels)
-            {
-                graph_context.update(id, |property| property.hidden = labels);
-            }
-        }
-    });
-
-    use_drop(move || {
-        let _ = plot.send(());
-    });
-
     rsx! {
-        document::Link { rel: "stylesheet", href: UPLOT_CSS }
-        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
-        document::Script { src: UPLOT_JS }
+        PlotAssets { uplot: true }
 
         GraphFrame {
             id,
