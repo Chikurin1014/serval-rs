@@ -126,7 +126,10 @@ def test_items_show_their_icons_and_variants(app: App):
 
 def test_a_variant_is_picked_by_keyboard(app: App):
     app.page.evaluate(FAKE_PICKER)
-    app.page.get_by_role("button", name="Start recording").click()
+    trigger = app.page.get_by_role("button", name="Start recording")
+    trigger.click()
+    # The menu focuses its trigger as it opens: after that, not to take it back
+    expect(trigger).to_be_focused()
     record_item(app, "Hex file").focus()
     app.page.keyboard.press("ArrowRight")
     expect(
