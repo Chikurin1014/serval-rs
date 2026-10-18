@@ -16,13 +16,13 @@ const UPLOT_JS: Asset = asset!(
 const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 
 /// A plot's script, of `$files` in this folder after the scripts the plots
-/// share.
+/// share: from wherever it is used.
 macro_rules! plot_script {
     ($($file:literal),+ $(,)?) => {
         concat!(
-            include_str!("paced_draws.js"),
-            include_str!("plot_common.js"),
-            $(include_str!($file)),+
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/elements/graph/paced_draws.js")),
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/elements/graph/plot_common.js")),
+            $(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/elements/graph/", $file))),+
         )
     };
 }
