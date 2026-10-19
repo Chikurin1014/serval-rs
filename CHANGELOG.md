@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.4.0](https://github.com/Chikurin1014/serval-rs/compare/v0.3.1...v0.4.0) (2026-10-19)
+
+
+### Features
+
+* ✨ `String` -&gt; `Log` ([915128f](https://github.com/Chikurin1014/serval-rs/commit/915128fa42cafc761ab404b586b6ee42eb01e0ff))
+* ✨ Add `Compose` maps ([7fb404d](https://github.com/Chikurin1014/serval-rs/commit/7fb404df0bad0705366af0979c7269e7b05caa08))
+* ✨ Add `Decompose` maps ([3cb60c8](https://github.com/Chikurin1014/serval-rs/commit/3cb60c8b5f6eb382e7a6ec98be8ee339a3a453c2))
+* ✨ Add `Matc` maps ([f4de7dc](https://github.com/Chikurin1014/serval-rs/commit/f4de7dcfba05bdd489bda85f5a88bc4261fd2745))
+* ✨ Add `Match` map ([9d9c290](https://github.com/Chikurin1014/serval-rs/commit/9d9c2907142d6882bdcee2c003e07ba1ed65c13e))
+* ✨ Add 2D vector graph ([a98ac04](https://github.com/Chikurin1014/serval-rs/commit/a98ac04ea90f3a6f4945a59d30a82513c11426a8))
+* ✨ Add 3D vector graph ([37e80e3](https://github.com/Chikurin1014/serval-rs/commit/37e80e3c168ea2bf1791bb5c789aef64ff7c5d5c))
+* ✨ Add arithmetic maps for Vector ([2e51d04](https://github.com/Chikurin1014/serval-rs/commit/2e51d04127271593a666ef75e85199040931d55b))
+* ✨ Add box plot ([48a7038](https://github.com/Chikurin1014/serval-rs/commit/48a703889051dc7c6f3dae78a2c693e7d8490343))
+* ✨ Add console clear button ([389b76a](https://github.com/Chikurin1014/serval-rs/commit/389b76afd5abd1dd9ec928aad2913108e095f89e))
+* ✨ Add Differentiate / Integrate ([b383195](https://github.com/Chikurin1014/serval-rs/commit/b3831953c6f9c2b3816d9eb7ead185ec09af9bf7))
+* ✨ Add drag-and-drop file sending ([441c7c2](https://github.com/Chikurin1014/serval-rs/commit/441c7c2660f51d1438926d7c952046fe05079565))
+* ✨ Add drag-and-drop file sending ([0fc0854](https://github.com/Chikurin1014/serval-rs/commit/0fc08542ad752e211bf0f7a0e6d8882b852bd7e7))
+* ✨ Add DTR/RTS operation ([90cfc36](https://github.com/Chikurin1014/serval-rs/commit/90cfc36febd44db5914991c84299c3a245d58873))
+* ✨ Add HEX format mode ([ff534e1](https://github.com/Chikurin1014/serval-rs/commit/ff534e195a9b4af6679a5e891621c3bd22bf39b6))
+* ✨ Add keyboard shotcuts begin with `Alt` like Tera Term ([fa0f8f5](https://github.com/Chikurin1014/serval-rs/commit/fa0f8f541bb4c58ea573c7d960dd22f903079e0d))
+* ✨ Add logger ([74cb274](https://github.com/Chikurin1014/serval-rs/commit/74cb27402120866459da09c76c9001534795116d))
+* ✨ Add pause / play button ([7d620c0](https://github.com/Chikurin1014/serval-rs/commit/7d620c08bc9fdf5cbff151f46901711351ef255b))
+* ✨ Add port info to text log ([a4bb72a](https://github.com/Chikurin1014/serval-rs/commit/a4bb72ae2dd94a7dc6c1890f87a94107887074d4))
+* ✨ Add scatter plot ([aee939c](https://github.com/Chikurin1014/serval-rs/commit/aee939cda6e93df79c07259653de60579fe65391))
+* ✨ Add send file button ([5f2716d](https://github.com/Chikurin1014/serval-rs/commit/5f2716d0d56531b70d9dc3041816cc972776825f))
+* ✨ Add send file button ([e4d43db](https://github.com/Chikurin1014/serval-rs/commit/e4d43db27d6778115bdd4674d322878b5e086748))
+* ✨ Add send_break method to SerialContext ([f38450e](https://github.com/Chikurin1014/serval-rs/commit/f38450e0ec33b19bff0b222dfa5dde3d439b4a8b))
+* ✨ Add some operaion that have scalar result ([a1e022e](https://github.com/Chikurin1014/serval-rs/commit/a1e022e61bfdb85d5e6f5758d7c9beb0cbad23a2))
+* ✨ Add text log graph ([3552394](https://github.com/Chikurin1014/serval-rs/commit/35523949bef4451655f04b7d07917ece2c37e4ad))
+* ✨ Add timestamp to console ([ca352a7](https://github.com/Chikurin1014/serval-rs/commit/ca352a7cc11efe1b8bfc46602b2716b3d9e5809c))
+* ✨ Enable layouts to be imported from / exported to a json file ([1803ed1](https://github.com/Chikurin1014/serval-rs/commit/1803ed1f7724aaea21e8dc4e1a90ed963011f3ab))
+* ✨ Implement `LogSink` for web platform ([4be7339](https://github.com/Chikurin1014/serval-rs/commit/4be73390aff9067e0390e696231523758f522752))
+* 💄 Add a button to start / end logging ([aa0d63a](https://github.com/Chikurin1014/serval-rs/commit/aa0d63a79b74d414b342f03921fc75f917ddaa13))
+* 💄 Add alert notification ([b2f5f78](https://github.com/Chikurin1014/serval-rs/commit/b2f5f78bbc19957754c18ee7d6ec9c5fbf129ad8))
+* 💄 Chage format of byte type ([5b34fbe](https://github.com/Chikurin1014/serval-rs/commit/5b34fbe036c28d55ea63e5b957f0c17ce03c1748))
+* 💄 Enable drag and drop for maps ([c20d47e](https://github.com/Chikurin1014/serval-rs/commit/c20d47e0a6e872c5a8bf0a02457d403a9018b280))
+* 💄 Enable drag and drop for maps ([6560713](https://github.com/Chikurin1014/serval-rs/commit/656071333b2e87ca9a03dcb068c77b02d12a90f1))
+
+
+### Bug Fixes
+
+* 🐛 Fix performance drop due to timestamp line following console line ([2f2a2f5](https://github.com/Chikurin1014/serval-rs/commit/2f2a2f5bafcb37bc4fd7402be9d0282eb316fc2b))
+* 🐛 Make extracted maps undraggable ([e6173f5](https://github.com/Chikurin1014/serval-rs/commit/e6173f52c0dbfb4220ed8ab417b1b338e0efe5a4))
+* 🩹 Fix layout dropdown view ([80ffb43](https://github.com/Chikurin1014/serval-rs/commit/80ffb436ab4c3d3a301835eb945ca7ed758386a8))
+* 🩹 Small fixes ([73e1ed7](https://github.com/Chikurin1014/serval-rs/commit/73e1ed72fa7f8ff832874ccff51c05e88987404a))
+* 🩹 Small fixes ([0fc7d99](https://github.com/Chikurin1014/serval-rs/commit/0fc7d99365fd4df2d52c23add3827a2ec012dae4))
+
+
+### Performance Improvements
+
+* ⚡️ Improve performance on drawing graphs ([dbb886d](https://github.com/Chikurin1014/serval-rs/commit/dbb886d45f43a9af91808b16ae71f64e9be245f0))
+* ⚡️ Stop pacer loop while drawing no graphs ([430ecc2](https://github.com/Chikurin1014/serval-rs/commit/430ecc24da0f0f93211d590dee91cedcd7145f4a))
+
 ## [0.3.1](https://github.com/Chikurin1014/serval-rs/compare/v0.3.0...v0.3.1) (2026-10-08)
 
 
