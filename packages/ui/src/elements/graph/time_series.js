@@ -30,23 +30,10 @@ let logScale = false;
 let drawStyle = "linear";
 let windowSeconds = 10;
 let fitData = true;
-let hiddenLabels = new Set();
-// Sent to Rust and not yet echoed back
-let hiddenSent = null;
+const hiddenLabels = trackHidden();
 
-const probe = document.createElement("span");
-probe.style.display = "none";
-container.appendChild(probe);
-// Each color as the theme has it, kept until the theme changes: each taken
-// makes the page work its styles out
-const cssColors = new Map();
-function cssColor(name) {
-  if (!cssColors.has(name)) {
-    probe.style.color = `var(${name})`;
-    cssColors.set(name, getComputedStyle(probe).color);
-  }
-  return cssColors.get(name);
-}
+const themed = themeColors(container);
+const cssColor = themed.color;
 
 function areaFill(color) {
   return (u) => {
@@ -125,29 +112,7 @@ function onSeriesToggle(u, index, options) {
     return;
   }
   const label = u.series[index].label;
-  if (options.show) {
-    hiddenLabels.delete(label);
-  } else {
-    hiddenLabels.add(label);
-  }
-  const hidden = [...hiddenLabels].sort();
-  hiddenSent = JSON.stringify(hidden);
-  dioxus.send(["hidden", hidden]);
-}
-
-function applyHidden(hidden) {
-  if (hiddenSent !== null) {
-    if (JSON.stringify([...hidden].sort()) !== hiddenSent) {
-      return;
-    }
-    hiddenSent = null;
-  }
-  hiddenLabels = new Set(hidden);
-  plot?.series.forEach((s, index) => {
-    if (index > 0 && s.show === hiddenLabels.has(s.label)) {
-      plot.setSeries(index, { show: !hiddenLabels.has(s.label) }, false);
-    }
-  });
+  hiddenLabels.set(label, !options.show);
 }
 
 function plotData(labels) {
@@ -279,25 +244,14 @@ resize.observe(container);
 
 // Colors are baked in at creation, as taken anew
 function onTheme() {
-  cssColors.clear();
+  themed.clear();
   create();
 }
-const themeObserver = new MutationObserver(onTheme);
-themeObserver.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-theme"],
-});
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", onTheme);
+const stopWatchingTheme = watchTheme(onTheme);
 
 create();
 
-while (true) {
-  const message = await dioxus.recv();
-  if (message === null) {
-    break;
-  }
-
+for await (const message of messages()) {
   const [
     labels,
     updates,
@@ -315,7 +269,8 @@ while (true) {
   windowSeconds = seconds;
   fitData = fit;
   colors = lineColors;
-  applyHidden(hidden);
+  hiddenLabels.apply(hidden);
+  showSeries(plot, hiddenLabels);
   if (log !== logScale || style !== drawStyle) {
     // The values zoomed to, not of another scale
     if (log !== logScale && zoomed) {
@@ -332,6 +287,5 @@ while (true) {
 
 draws.cancel();
 resize.disconnect();
-themeObserver.disconnect();
-systemTheme.removeEventListener("change", onTheme);
+stopWatchingTheme();
 plot?.destroy();

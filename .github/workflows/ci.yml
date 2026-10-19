@@ -25,7 +25,10 @@ jobs:
 
       - uses: nix-community/cache-nix-action@v7
         with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}
+          # `**/Cargo.toml` is aloso needed because
+          # the manifests (their editions, features and version)
+          # are also used to build the project
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock', 'Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml', '.cargo/config.toml') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
           purge: true
           purge-prefixes: nix-${{ runner.os }}-

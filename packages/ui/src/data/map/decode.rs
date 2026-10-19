@@ -1,13 +1,10 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
 use super::matching::{expand, label_segments, log_of, log_segments, text};
-use crate::data::SavedSettings;
 use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
-    MapRunner, SourceCursor, compile_for_map, keep_taken,
+    MapRunner, MapSettings, SourceCursor, compile_for_map, keep_taken,
 };
 use crate::helper::{AnsiStripper, Delimiter, decode_utf8, hex, set_if_changed, split_lines};
 
@@ -102,11 +99,7 @@ impl Decode {
 }
 
 impl MapRunner for Decode {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

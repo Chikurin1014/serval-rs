@@ -179,9 +179,7 @@ def test_add_menus_are_by_output_type(app: App):
     app.tab("Data")
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
-    expect(bar.get_by_role("button")).to_have_text(
-        ["Bytes", "Log", "Number", "Vector"]
-    )
+    expect(bar.get_by_role("button")).to_have_text(["Bytes", "Log", "Number", "Vector"])
 
 
 def test_add_menus_open_on_hover(app: App):
@@ -439,18 +437,9 @@ def test_formula_renders_with_katex(app: App):
     assert failed == []
 
 
-def match_item(app: App, output: str, title: str = "Match"):
-    trigger = app.page.get_by_role("button", name=output, exact=True)
-    menu = app.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
-    trigger.hover()
-    return menu.get_by_role("option").filter(
-        has=app.page.locator(".add-map-title", has_text=re.compile(f"^{title}$"))
-    )
-
-
 def test_match_presets_show_beside_the_item(app: App):
     app.tab("Data")
-    item = match_item(app, "Number")
+    item = app.map_item("Number")
     presets = item.get_by_role("menuitem")
     expect(presets.first).to_be_hidden()
     item.hover()
@@ -459,12 +448,12 @@ def test_match_presets_show_beside_the_item(app: App):
     )
 
     # None for logs: Decode reads them
-    expect(match_item(app, "Log").get_by_role("menuitem")).to_have_count(0)
+    expect(app.map_item("Log").get_by_role("menuitem")).to_have_count(0)
 
 
 def test_match_preset_adds_a_set_map(app: App):
     app.tab("Data")
-    item = match_item(app, "Number")
+    item = app.map_item("Number")
     item.hover()
     item.get_by_role("menuitem").filter(has_text="Teleplot").click()
 
@@ -480,7 +469,7 @@ def test_match_preset_adds_a_set_map(app: App):
 
 def test_value_preset_leaves_the_output_label_to_be_set(app: App):
     app.tab("Data")
-    item = match_item(app, "Number")
+    item = app.map_item("Number")
     item.hover()
     item.get_by_role("menuitem").filter(
         has=app.page.locator(".add-map-preset-name", has_text=re.compile("^value$"))
@@ -494,7 +483,7 @@ def test_value_preset_leaves_the_output_label_to_be_set(app: App):
 
 def test_match_presets_by_keyboard(app: App):
     app.tab("Data")
-    item = match_item(app, "Number")
+    item = app.map_item("Number")
     item.focus()
     app.page.keyboard.press("ArrowRight")
     presets = item.get_by_role("menuitem")
@@ -604,7 +593,9 @@ def test_maps_are_reordered_by_dragging(app: App):
     items = map_items(app)
     # Not while it is open
     replace = app.map_cards().nth(3)
-    items.nth(3).locator("> svg").drag_to(items.nth(0), target_position={"x": 40, "y": 4})
+    items.nth(3).locator("> svg").drag_to(
+        items.nth(0), target_position={"x": 40, "y": 4}
+    )
     app.page.wait_for_timeout(300)
     assert map_titles(app) == ["Decode", "Match", "Match", "Replace"]
     expect(items.nth(3).locator("> svg")).to_have_css("opacity", "0.3")
@@ -666,7 +657,7 @@ def test_keys_typed_in_a_card_stay_in_it(app: App):
 
 def add_compose_map(app: App, variant: str, components: list[str], target: str):
     """Adds a Compose map, its `variant` (2D or 3D) picked beside it."""
-    item = match_item(app, "Vector", "Compose")
+    item = app.map_item("Vector", "Compose")
     item.hover()
     item.get_by_role("menuitem", name=variant).click()
     # This one, not whichever is last when it is used
@@ -679,7 +670,7 @@ def add_compose_map(app: App, variant: str, components: list[str], target: str):
 
 
 def submenu_side(app: App, output: str, title: str) -> str:
-    item = match_item(app, output, title)
+    item = app.map_item(output, title)
     item.hover()
     submenu = item.locator("> .add-map-presets")
     expect(submenu).to_be_visible()
@@ -702,32 +693,14 @@ def test_submenus_open_to_the_right_unless_past_the_window(app: App):
     assert submenu_side(app, "Vector", "Compose") == "left"
 
 
-def add_vector_match_map(
-    app: App, variant: str, pattern: str, target: str, components: list[str]
-):
-    """Adds a Match map to a vector, its `variant` (2D or 3D) picked beside it."""
-    item = match_item(app, "Vector", "Match")
-    item.hover()
-    item.get_by_role("menuitem").filter(
-        has=app.page.locator(".add-map-preset-name", has_text=re.compile(f"^{variant}$"))
-    ).click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill("log")
-    card.get_by_placeholder("Text to be matched").fill(pattern)
-    card.get_by_placeholder("Output label").fill(target)
-    for name, component in zip("xyz", components):
-        card.get_by_label(name, exact=True).fill(component)
-    card.get_by_role("switch").click()
-    return card
-
-
 def vector_variant(app: App, title: str, variant: str, menu: str = "Vector"):
     """`variant` (2D or 3D) beside the `title` item of `menu`, pointed at."""
-    item = match_item(app, menu, title)
+    item = app.map_item(menu, title)
     item.hover()
     variant = item.locator(".add-map-variant").filter(
         has=app.page.locator(
-            "> [role=menuitem] .add-map-preset-name", has_text=re.compile(f"^{variant}$")
+            "> [role=menuitem] .add-map-preset-name",
+            has_text=re.compile(f"^{variant}$"),
         )
     )
     variant.hover()
@@ -789,7 +762,7 @@ def test_vector_maps_in_the_menus(app: App):
         ]
     )
 
-    item = match_item(app, "Vector", "Compose")
+    item = app.map_item("Vector", "Compose")
     item.hover()
     expect(item.get_by_role("menuitem")).to_have_text(
         ["2DNumberNumberVector2d", "3DNumberNumberNumberVector3d"]
@@ -801,11 +774,11 @@ def test_vector_maps_in_the_menus(app: App):
     assert boxes[0]["y"] < boxes[1]["y"] < boxes[2]["y"]
 
     # Match's presets beside each dimension, not before it is pointed at
-    item = match_item(app, "Vector", "Match")
+    item = app.map_item("Vector", "Match")
     item.hover()
-    expect(item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")).to_have_text(
-        ["2D", "3D"]
-    )
+    expect(
+        item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")
+    ).to_have_text(["2D", "3D"])
     expect(item.locator(".add-map-variant .add-map-presets")).to_have_count(2)
     expect(item.locator(".add-map-variant .add-map-presets").first).to_be_hidden()
     for variant, presets in [
@@ -816,17 +789,17 @@ def test_vector_maps_in_the_menus(app: App):
         expect(nested).to_be_visible()
         expect(nested.locator(".add-map-preset-name")).to_have_text(presets)
 
-    item = match_item(app, "Number", "Dot")
+    item = app.map_item("Number", "Dot")
     item.hover()
     expect(item.locator("> .map-types")).to_have_text("VectorNumber")
-    expect(item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")).to_have_text(
-        ["2D", "3D"]
-    )
+    expect(
+        item.locator(".add-map-variant > [role=menuitem] .add-map-preset-name")
+    ).to_have_text(["2D", "3D"])
 
 
 def test_vector_presets_by_keyboard(app: App):
     app.tab("Data")
-    item = match_item(app, "Vector", "Match")
+    item = app.map_item("Vector", "Match")
     item.focus()
     focused = lambda: app.page.evaluate("document.activeElement.textContent")  # noqa: E731
     app.page.keyboard.press("ArrowRight")
@@ -853,8 +826,12 @@ def test_vectors_are_composed(app: App):
     add_compose_map(app, "3D", ["temp", "volt", "temp"], "twice")
     # Each tells what it cannot take
     bad_compose = add_compose_map(app, "2D", ["nope", "1"], "bad_compose")
-    bad_add = add_vector_arithmetic_map(app, "Add", "2D", "(1, 2, 3)", "(1, 1)", "bad_add")
-    expect(bad_compose.locator(".field-error")).to_have_text("No Number label or number 'nope'")
+    bad_add = add_vector_arithmetic_map(
+        app, "Add", "2D", "(1, 2, 3)", "(1, 1)", "bad_add"
+    )
+    expect(bad_compose.locator(".field-error")).to_have_text(
+        "No Number label or number 'nope'"
+    )
     expect(bad_add.locator(".field-error")).to_have_text(
         "No Vector2d label or vector '(1, 2, 3)'"
     )
@@ -875,27 +852,31 @@ def test_vectors_are_composed(app: App):
 
 def test_vectors_are_matched(app: App):
     app.tab("Data")
-    matched = add_vector_match_map(
-        app, "2D", r"pos:({number}),({number})", "position", ["$1", "$2"]
+    matched = app.add_vector_match_map(
+        "2D", r"pos:({number}),({number})", "position", ["$1", "$2"]
     )
     # Labelled by a group
-    add_vector_match_map(
-        app, "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
+    app.add_vector_match_map(
+        "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
     )
-    vector_variant(app, "Match", "3D").get_by_role("menuitem", name="name: (x, y, z)").click()
+    vector_variant(app, "Match", "3D").get_by_role(
+        "menuitem", name="name: (x, y, z)"
+    ).click()
     card = app.map_cards().last
     card.get_by_placeholder("Input label").fill("log")
     expect(card.get_by_placeholder("Output label")).to_have_value("$1")
     expect(card.get_by_label("z", exact=True)).to_have_value("$4")
     card.get_by_role("switch").click()
-    vector_variant(app, "Match", "2D").get_by_role("menuitem", name="(x, y)").first.click()
+    vector_variant(app, "Match", "2D").get_by_role(
+        "menuitem", name="(x, y)"
+    ).first.click()
     card = app.map_cards().last
     card.get_by_placeholder("Input label").fill("log")
     expect(card.get_by_label("y", exact=True)).to_have_value("$2")
     # No name in the text to take the output label from
     card.get_by_placeholder("Output label").fill("pt")
     card.get_by_role("switch").click()
-    bad = add_vector_match_map(app, "2D", r"(led):({number})", "bad_match", ["$2", "$1"])
+    bad = app.add_vector_match_map("2D", r"(led):({number})", "bad_match", ["$2", "$1"])
 
     app.open_port()
     app.mock("mute()")
@@ -952,7 +933,7 @@ def test_vector_maps_compute_vectors(app: App):
     multiply = add_vector_arithmetic_map(app, "Multiply", "3D", "temp", "v", "w")
     add_vector_arithmetic_map(app, "Multiply", "2D", "0.5", "(4, -2)", "half")
     # Its only variant: picked itself
-    match_item(app, "Vector", "Cross").click()
+    app.map_item("Vector", "Cross").click()
     card = app.map_cards().nth(app.map_cards().count() - 1)
     card.get_by_label("a", exact=True).fill("v")
     card.get_by_label("b", exact=True).fill("(0, 0, 1)")
@@ -973,24 +954,31 @@ def test_vector_maps_compute_vectors(app: App):
 
 def test_vector_maps_compute_numbers(app: App):
     compose_p_and_v(app)
-    add_number_vector_map(app, "Dot", "2D", {"a": "p", "b": "(1, 2)", "Output label": "p_dot"})
+    add_number_vector_map(
+        app, "Dot", "2D", {"a": "p", "b": "(1, 2)", "Output label": "p_dot"}
+    )
     add_number_vector_map(
         app, "Dot", "3D", {"a": "v", "b": "(1, 1, 1)", "Output label": "v_dot"}
     )
     # Of 2D vectors alone, so picked itself
-    match_item(app, "Number", "Cross").click()
+    app.map_item("Number", "Cross").click()
     card = app.map_cards().nth(app.map_cards().count() - 1)
     card.get_by_label("a", exact=True).fill("p")
     card.get_by_label("b", exact=True).fill("(1, 0)")
     card.get_by_placeholder("Output label").fill("p_cross")
     card.get_by_role("switch").click()
-    add_number_vector_map(app, "Magnitude", "2D", {"a": "p", "Output label": "p_length"})
+    add_number_vector_map(
+        app, "Magnitude", "2D", {"a": "p", "Output label": "p_length"}
+    )
     length = add_number_vector_map(
         app, "Magnitude", "3D", {"a": "v", "Output label": "v_length"}
     )
     decompose = add_number_vector_map(
         # y left out
-        app, "Decompose", "3D", {"Input label": "v", "x": "v_x", "z": "v_z"}
+        app,
+        "Decompose",
+        "3D",
+        {"Input label": "v", "x": "v_x", "z": "v_z"},
     )
     expect(decompose.get_by_placeholder("Output label")).to_have_count(3)
 
@@ -1013,7 +1001,10 @@ def test_vector_maps_compute_numbers(app: App):
     latest = decompose.locator(".map-latest-to")
     expect(latest.locator(".map-latest-label")).to_have_text(["v_x", "v_z"])
     expect(latest.locator(".map-latest-value")).to_have_text(["3.0000", "12.000"])
-    x, z = (latest.locator(".map-latest-label").nth(index).bounding_box() for index in (0, 1))
+    x, z = (
+        latest.locator(".map-latest-label").nth(index).bounding_box()
+        for index in (0, 1)
+    )
     value = latest.locator(".map-latest-value").first.bounding_box()
     assert z["y"] > x["y"] and value["x"] > x["x"] and abs(value["y"] - x["y"]) < 1
 
@@ -1046,26 +1037,6 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
     assert z() - first == pytest.approx(1, abs=0.1)
 
 
-def add_log_match(
-    app: App,
-    pattern: str,
-    level: str,
-    message: str,
-    target: str = "log",
-    source: str = "log",
-):
-    """Adds a Match map of logs to logs, turned on."""
-    match_item(app, "Log").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_placeholder("Input label").fill(source)
-    card.get_by_placeholder("Text to be matched").fill(pattern)
-    card.get_by_placeholder("Output label").fill(target)
-    card.get_by_label("Level", exact=True).fill(level)
-    card.get_by_label("Message", exact=True).fill(message)
-    card.get_by_role("switch").click()
-    return card
-
-
 def test_initial_decode_reads_levels_and_messages(app: App):
     app.tab("Data")
     card = app.map_cards().first
@@ -1075,7 +1046,9 @@ def test_initial_decode_reads_levels_and_messages(app: App):
     wait_for_latest(app, "log", "WARN disk full")
     assert app.data_rows()["log"][0] == "Log"
     # Its level as a tag in its color, in the data list too
-    row = app.page.locator(".data-row").filter(has=app.page.locator("th", has_text="log"))
+    row = app.page.locator(".data-row").filter(
+        has=app.page.locator("th", has_text="log")
+    )
     tag = row.locator(".log-level-tag")
     expect(tag).to_have_text("WARN")
     expect(tag).to_have_attribute("data-level", "WARN")
@@ -1130,7 +1103,9 @@ def test_maps_of_logs_take_all_levels_by_default(app: App):
     # The weakest of all: so all of them
     expect(weakest).to_have_text("Filter byALL")
     # At the end of the input label's field, after what it is
-    field = card.locator(".field").filter(has=app.page.get_by_placeholder("Input label"))
+    field = card.locator(".field").filter(
+        has=app.page.get_by_placeholder("Input label")
+    )
     expect(field.locator(".field-level")).to_have_text("Filter byALL")
     # Side by side, as the pointer is over it; gone as it leaves
     expect(card.get_by_role("option")).to_have_count(0)
@@ -1153,8 +1128,8 @@ def test_concat_leaves_out_weaker_levels_of_each_input(app: App):
     app.tab("Data")
     # Each input of its own lines, so each new value is of one alone (with both of
     # one line, which pairs first would be up to the order the maps run in)
-    add_log_match(app, "^first (.*)", "${level:0}", "$1", "first")
-    add_log_match(app, "^second (.*)", "${level:0}", "$1", "second")
+    app.add_log_match("^first (.*)", "${level:0}", "$1", "first")
+    app.add_log_match("^second (.*)", "${level:0}", "$1", "second")
     app.add_map("Concat", "Log", "Log")
     card = app.map_cards().nth(app.map_cards().count() - 1)
     card.get_by_placeholder("First input label").fill("first")

@@ -46,14 +46,17 @@
 
 /* Not dragged while open: its text chosen by the pointer instead (the list
    has it dragged, and its text not chosen) */
-.map-list li[aria-roledescription="sortable item"]:has(.map-card[data-open="true"]) {
+.map-list
+  li[aria-roledescription="sortable item"]:has(.map-card[data-open="true"]) {
   -webkit-user-drag: none;
   user-select: text;
   cursor: default;
 }
 
 /* Not dragged while open: its grip faded, and no grab */
-.map-list li[aria-roledescription="sortable item"]:has(.map-card[data-open="true"]) > svg {
+.map-list
+  li[aria-roledescription="sortable item"]:has(.map-card[data-open="true"])
+  > svg {
   opacity: 0.3;
   cursor: default;
 }

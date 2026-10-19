@@ -6,7 +6,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger},
     },
-    elements::submenu,
+    elements::submenu::{Submenu, open_submenu},
     serial::{SerialContext, record::RecordFormat},
 };
 
@@ -121,12 +121,7 @@ pub fn RecordButton() -> Element {
     rsx! {
         div {
             class: "record-menu",
-            onkeydown: move |event: KeyboardEvent| {
-                if event.key() == Key::ArrowRight {
-                    event.prevent_default();
-                    document::eval(submenu::FOCUS_FIRST);
-                }
-            },
+            onkeydown: open_submenu,
             DropdownMenu {
                 open: Some(open()),
                 on_open_change: move |value| {
@@ -158,40 +153,21 @@ pub fn RecordButton() -> Element {
                             span { class: "record-item-name", "{item.name()}" }
                             if !item.variants().is_empty() {
                                 lucide::ChevronRight { class: "record-item-chevron" }
-                                div {
+                                Submenu {
                                     class: "record-variants",
-                                    onfocusin: move |_| in_variants.set(true),
-                                    onfocusout: move |_| in_variants.set(false),
-                                    onkeydown: move |event: KeyboardEvent| {
-                                        let script = match event.key() {
-                                            Key::ArrowDown => submenu::FOCUS_NEXT,
-                                            Key::ArrowUp => submenu::FOCUS_PREVIOUS,
-                                            Key::ArrowLeft | Key::Escape => submenu::FOCUS_ITEM,
-                                            Key::Enter => {
+                                    list_class: "record-variants-list",
+                                    label: "{item.name()} formats",
+                                    focused: in_variants,
+                                    for &(name, format) in item.variants() {
+                                        button {
+                                            class: "record-variant",
+                                            r#type: "button",
+                                            role: "menuitem",
+                                            onclick: move |event: MouseEvent| {
                                                 event.stop_propagation();
-                                                return;
-                                            }
-                                            _ => return,
-                                        };
-                                        event.prevent_default();
-                                        event.stop_propagation();
-                                        document::eval(script);
-                                    },
-                                    div {
-                                        class: "record-variants-list",
-                                        role: "menu",
-                                        aria_label: "{item.name()} formats",
-                                        for &(name, format) in item.variants() {
-                                            button {
-                                                class: "record-variant",
-                                                r#type: "button",
-                                                role: "menuitem",
-                                                onclick: move |event: MouseEvent| {
-                                                    event.stop_propagation();
-                                                    start(Some(format));
-                                                },
-                                                "{name}"
-                                            }
+                                                start(Some(format));
+                                            },
+                                            "{name}"
                                         }
                                     }
                                 }

@@ -3,8 +3,9 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-export function loadScript(url) {
-  const context = vm.createContext({});
+/** With `globals` as the page's, e.g. a fake `requestAnimationFrame`. */
+export function loadScript(url, globals = {}) {
+  const context = vm.createContext({ ...globals });
   vm.runInContext(readFileSync(url, "utf8"), context);
   return context;
 }

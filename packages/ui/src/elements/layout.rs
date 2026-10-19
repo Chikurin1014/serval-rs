@@ -12,6 +12,7 @@ use crate::{
     },
     data::{DataType, InitialMap, MapContext, MapKind},
     elements::graph::{GraphContext, GraphKind, GraphProperty},
+    helper::download_text,
     toast::use_toaster,
 };
 
@@ -197,10 +198,10 @@ pub fn LayoutMenu() -> Element {
                     index: 1usize,
                     on_select: move |_: &str| {
                         open.set(false);
-                        let text = export_layout(maps, graphs);
-                        let text = serde_json::to_string(&text).expect("a string is JSON");
-                        document::eval(
-                            &format!("{LAYOUT_JS}\ndownload({LAYOUT_FILE_NAME:?}, {text});"),
+                        download_text(
+                            LAYOUT_FILE_NAME,
+                            "application/json",
+                            export_layout(maps, graphs),
                         );
                     },
                     lucide::FileDown {}

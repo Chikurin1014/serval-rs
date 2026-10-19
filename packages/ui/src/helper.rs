@@ -1,8 +1,10 @@
 //! Utilities independent of the app.
 
+mod script;
 mod signal;
 mod text;
 
+pub(crate) use script::{download_text, use_script};
 pub(crate) use signal::make_owned;
 pub use signal::set_if_changed;
 pub use text::Delimiter;

@@ -68,3 +68,44 @@ test("frames slow from the start are late all the same", () => {
   // As a page busy from the first, 100 ms apart: not as a display is
   assert.deepEqual(pace(0, 0, window(100)), [1, 0]);
 });
+
+/** The pacer, on frames run by `frame(ms)` and a clock at `clock.now`. */
+function fakePacer() {
+  const clock = { now: 0 };
+  let callbacks = [];
+  const { drawPacer } = loadScript(
+    new URL("./paced_draws.js", import.meta.url),
+    {
+      performance: { now: () => clock.now },
+      requestAnimationFrame: (callback) => callbacks.push(callback),
+    },
+  );
+  const frame = (ms) => {
+    clock.now += ms;
+    const due = callbacks;
+    callbacks = [];
+    due.forEach((callback) => callback(clock.now));
+  };
+  return { pacer: drawPacer(), clock, frame, waiting: () => callbacks.length };
+}
+
+test("frames are watched only while redraws are asked for", () => {
+  const { pacer, frame, waiting } = fakePacer();
+  assert.equal(waiting(), 0);
+  pacer.wake();
+  assert.equal(waiting(), 1);
+  // Once, however often asked
+  pacer.wake();
+  assert.equal(waiting(), 1);
+  for (let i = 0; i < 30; i++) {
+    frame(16.7);
+  }
+  assert.equal(waiting(), 1);
+  // Still past `IDLE_MS`: no more frames asked for
+  for (let i = 0; i < 40; i++) {
+    frame(16.7);
+  }
+  assert.equal(waiting(), 0);
+  pacer.wake();
+  assert.equal(waiting(), 1);
+});

@@ -6,36 +6,13 @@ use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     TimeWindow,
     context::{until_paused, use_graph_setting},
+    plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
 };
 use crate::components::{slider::Slider, toggle::Toggle};
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
-use crate::time::TimeContext;
 
-const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
-const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
-const UPLOT_JS: Asset = asset!(
-    "/assets/vendor/uplot/uPlot.iife.min.js",
-    AssetOptions::js().with_minify(false)
-);
-const TIME_SERIES_JS: &str = concat!(
-    include_str!("paced_draws.js"),
-    include_str!("time_series_data.js"),
-    include_str!("time_series.js"),
-);
-
-/// Line colors, by a label's place among the number labels.
-const SERIES_COLORS: [&str; 5] = [
-    "--dc-accent",
-    "--focused-border-color",
-    "--secondary-warning-color",
-    "--dc-danger",
-    "--secondary-color-5",
-];
-
-pub(super) fn series_color(index: usize) -> &'static str {
-    SERIES_COLORS[index % SERIES_COLORS.len()]
-}
+const TIME_SERIES_JS: &str = plot_script!("time_series_data.js", "time_series.js");
 
 pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
@@ -132,23 +109,16 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
-    let time_context = use_context::<TimeContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
     let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
-    let plot = use_hook(|| document::eval(TIME_SERIES_JS));
+    let plot = use_plot(id, TIME_SERIES_JS);
     let feed = use_hook(|| Rc::new(RefCell::new(PlotFeed::default())));
 
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
-    let plotted = use_memo(move || {
-        number_labels
-            .read()
-            .iter()
-            .filter(|label| filter_context.shows(label))
-            .count()
-    });
+    let plotted = use_shown_count(number_labels);
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
@@ -176,36 +146,8 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
         ));
     });
 
-    // The labels turned off in the legend; or zoomed into, so paused
-    use_future(move || {
-        let time_context = time_context.clone();
-        async move {
-            let mut plot = plot;
-            while let Ok((kind, labels)) = plot.recv::<(String, Vec<String>)>().await {
-                match kind.as_str() {
-                    "hidden" => {
-                        if graph_context
-                            .get(id)
-                            .is_some_and(|graph| graph.property.hidden != labels)
-                        {
-                            graph_context.update(id, |property| property.hidden = labels);
-                        }
-                    }
-                    "zoomed" => graph_context.pause(time_context.current()),
-                    _ => {}
-                }
-            }
-        }
-    });
-
-    use_drop(move || {
-        let _ = plot.send(());
-    });
-
     rsx! {
-        document::Link { rel: "stylesheet", href: UPLOT_CSS }
-        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
-        document::Script { src: UPLOT_JS }
+        PlotAssets { uplot: true }
 
         GraphFrame {
             id,

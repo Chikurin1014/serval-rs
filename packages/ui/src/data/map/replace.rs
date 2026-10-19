@@ -1,13 +1,10 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 use fancy_regex::Regex;
 
 use super::matching::{Matching, replacement_segments};
-use crate::data::SavedSettings;
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, Log, LogData, LogLevel,
-    MapRunner, Segment, SourceCursor, expand_levels, keep_taken,
+    MapRunner, MapSettings, Segment, SourceCursor, expand_levels, keep_taken,
 };
 use crate::helper::set_if_changed;
 
@@ -63,11 +60,7 @@ impl Default for Replace {
 }
 
 impl MapRunner for Replace {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

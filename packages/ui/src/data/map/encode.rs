@@ -1,11 +1,8 @@
-use std::any::Any;
-
 use dioxus::prelude::*;
 
-use crate::data::SavedSettings;
 use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
-    LogLevel, MapRunner, Segment, SourceCursor, keep_taken,
+    LogLevel, MapRunner, MapSettings, Segment, SourceCursor, keep_taken,
 };
 use crate::helper::hex;
 
@@ -45,11 +42,7 @@ impl Encode {
 }
 
 impl MapRunner for Encode {
-    fn settings(&self) -> &dyn Any {
-        &self.settings
-    }
-
-    fn saved(&self) -> &dyn SavedSettings {
+    fn settings(&self) -> &dyn MapSettings {
         &self.settings
     }
 

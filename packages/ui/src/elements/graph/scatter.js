@@ -37,19 +37,8 @@ let made = "";
 // its points, as many as 10000
 const DRAW_EVERY_MS = 100;
 
-const probe = document.createElement("span");
-probe.style.display = "none";
-container.appendChild(probe);
-// Each color as the theme has it, kept until the theme changes: each taken
-// makes the page work its styles out
-const cssColors = new Map();
-function cssColor(name) {
-  if (!cssColors.has(name)) {
-    probe.style.color = `var(${name})`;
-    cssColors.set(name, getComputedStyle(probe).color);
-  }
-  return cssColors.get(name);
-}
+const themed = themeColors(container);
+const cssColor = themed.color;
 
 // The statistics, as a tooltip by the pointer over the plot
 const statisticsBox = document.createElement("div");
@@ -88,10 +77,6 @@ function showStatistics(u) {
       : top - gap - statisticsBox.offsetHeight;
   statisticsBox.style.left = `${Math.max(0, x)}px`;
   statisticsBox.style.top = `${Math.max(0, y)}px`;
-}
-
-function withAlpha(color, alpha) {
-  return color.replace(/^rgb\((.*)\)$/, `rgba($1, ${alpha})`);
 }
 
 /** uPlot's data: the points, those of 0 or less left out of a log axis. */
@@ -345,25 +330,14 @@ resize.observe(container);
 
 // Colors are baked in at creation, as taken anew
 function onTheme() {
-  cssColors.clear();
+  themed.clear();
   create();
 }
-const themeObserver = new MutationObserver(onTheme);
-themeObserver.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-theme"],
-});
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", onTheme);
+const stopWatchingTheme = watchTheme(onTheme);
 
 create();
 
-while (true) {
-  const message = await dioxus.recv();
-  if (message === null) {
-    break;
-  }
-
+for await (const message of messages()) {
   const [
     reset,
     points,
@@ -402,6 +376,5 @@ while (true) {
 
 draws.cancel();
 resize.disconnect();
-themeObserver.disconnect();
-systemTheme.removeEventListener("change", onTheme);
+stopWatchingTheme();
 plot?.destroy();

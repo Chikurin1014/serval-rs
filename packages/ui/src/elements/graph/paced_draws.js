@@ -22,6 +22,9 @@ const ON_TIME_WINDOWS = 4;
 // Times apart longer than this are of a page not shown (a tab in the back),
 // not of one too busy
 const HIDDEN_GAP_MS = 1000;
+// The frames are watched until this long after a redraw was last asked for:
+// not while the graphs are still, so a page left as it is stays idle
+const IDLE_MS = 1000;
 
 /**
  * The step of `PACE_STEPS` after a window of frames `gaps` (ms apart), from
@@ -57,7 +60,18 @@ function drawPacer() {
     let shortest = Infinity;
     let gaps = [];
     let last = null;
+    // When a redraw was last asked for, and whether the frames are watched
+    let wantedAt = -Infinity;
+    let watching = false;
     const frame = (now) => {
+      if (now - wantedAt > IDLE_MS) {
+        // Still: watched again from the next redraw, the time between not
+        // taken as a frame's
+        watching = false;
+        last = null;
+        gaps = [];
+        return;
+      }
       if (last !== null) {
         gaps.push(now - last);
       }
@@ -68,10 +82,17 @@ function drawPacer() {
       }
       requestAnimationFrame(frame);
     };
-    requestAnimationFrame(frame);
     globalThis.servalDrawPacer = {
       /** The time apart for redraws now, in ms. */
       interval: () => PACE_STEPS[step],
+      /** As a redraw is asked for: the frames watched from now on. */
+      wake() {
+        wantedAt = performance.now();
+        if (!watching) {
+          watching = true;
+          requestAnimationFrame(frame);
+        }
+      },
     };
   }
   return globalThis.servalDrawPacer;
@@ -98,7 +119,9 @@ function pacedDraws(draw, atLeastMs = 0) {
       if (frame || waiting) {
         return;
       }
-      const every = Math.max(drawPacer().interval(), atLeastMs);
+      const pacer = drawPacer();
+      pacer.wake();
+      const every = Math.max(pacer.interval(), atLeastMs);
       const wait = drawnAt + every - performance.now();
       if (wait > 0) {
         waiting = setTimeout(onFrame, wait);

@@ -127,6 +127,54 @@ class App:
     def map_cards(self):
         return self.page.locator(".map-list [data-slot=card]")
 
+    def map_item(self, output: str, title: str = "Match"):
+        """The item `title` of the add menu to `output`, the menu opened."""
+        trigger = self.page.get_by_role("button", name=output, exact=True)
+        menu = self.page.locator(".add-map-bar .hover-menu").filter(has=trigger)
+        trigger.hover()
+        return menu.get_by_role("option").filter(
+            has=self.page.locator(".add-map-title", has_text=re.compile(f"^{title}$"))
+        )
+
+    def add_vector_match_map(
+        self, variant: str, pattern: str, target: str, components: list[str]
+    ):
+        """Adds a Match map to a vector, its `variant` (2D or 3D) picked beside it."""
+        item = self.map_item("Vector", "Match")
+        item.hover()
+        item.get_by_role("menuitem").filter(
+            has=self.page.locator(
+                ".add-map-preset-name", has_text=re.compile(f"^{variant}$")
+            )
+        ).click()
+        card = self.map_cards().nth(self.map_cards().count() - 1)
+        card.get_by_placeholder("Input label").fill("log")
+        card.get_by_placeholder("Text to be matched").fill(pattern)
+        card.get_by_placeholder("Output label").fill(target)
+        for name, component in zip("xyz", components):
+            card.get_by_label(name, exact=True).fill(component)
+        card.get_by_role("switch").click()
+        return card
+
+    def add_log_match(
+        self,
+        pattern: str,
+        level: str,
+        message: str,
+        target: str = "log",
+        source: str = "log",
+    ):
+        """Adds a Match map of logs to logs, turned on."""
+        self.map_item("Log").click()
+        card = self.map_cards().nth(self.map_cards().count() - 1)
+        card.get_by_placeholder("Input label").fill(source)
+        card.get_by_placeholder("Text to be matched").fill(pattern)
+        card.get_by_placeholder("Output label").fill(target)
+        card.get_by_label("Level", exact=True).fill(level)
+        card.get_by_label("Message", exact=True).fill(message)
+        card.get_by_role("switch").click()
+        return card
+
     def data_rows(self) -> dict[str, list[str]]:
         return self.page.evaluate(_DATA_ROWS)
 
@@ -152,6 +200,12 @@ class App:
         bar = self.page.locator(".add-graph-bar")
         bar.get_by_role("button", name="Time series").hover()
         bar.get_by_role("option", name=preset, exact=True).click()
+
+    def add_scatter(self):
+        bar = self.page.locator(".add-graph-bar")
+        bar.get_by_role("button", name="Statistics").hover()
+        bar.get_by_role("option", name="Scatter", exact=True).click()
+        return self.graphs().last
 
     def set_up_graph(self, index: int, title: str):
         graph = self.graphs().nth(index)

@@ -142,7 +142,8 @@
 
 .field-level-choice:hover,
 .field-level-choice:focus-visible {
-  background: var(--dark, var(--primary-color-7)) var(--light, var(--primary-color-4));
+  background: var(--dark, var(--primary-color-7))
+    var(--light, var(--primary-color-4));
   outline: none;
 }
 

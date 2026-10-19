@@ -2,10 +2,10 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import expect
 
 from app import App
-from test_graphs import add_scatter
 
 # Serval's, as `CARGO_PKG_VERSION` (its unit tests check that; the e2e tests
 # run with no Cargo.toml)
@@ -39,6 +39,15 @@ def test_layout_menu_is_beside_the_theme_switch(app: App):
     )
     theme = app.page.get_by_role("button", name="Toggle theme")
     assert trigger.bounding_box()["x"] < theme.bounding_box()["x"]
+    # Opened to the left, within the window: once it has grown to its size
+    content = app.page.locator(".layout-menu-content")
+    content.evaluate("m => Promise.all(m.getAnimations().map(a => a.finished))")
+    menu = content.bounding_box()
+    button = trigger.bounding_box()
+    assert menu["x"] + menu["width"] == pytest.approx(
+        button["x"] + button["width"], abs=1
+    )
+    assert menu["x"] + menu["width"] <= app.page.viewport_size["width"]
 
 
 def test_an_exported_layout_is_imported_in_place_of_the_one_there_is(
@@ -46,7 +55,7 @@ def test_an_exported_layout_is_imported_in_place_of_the_one_there_is(
 ):
     app.tab("Graph")
     app.set_up_graph(0, "Readings")
-    add_scatter(app)
+    app.add_scatter()
     app.tab("Data")
     card = app.map_cards().nth(1)
     card.get_by_role("switch").click()  # off

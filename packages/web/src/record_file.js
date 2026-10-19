@@ -28,7 +28,10 @@ export async function pickRecordFile(
       handle = await win.showSaveFilePicker({
         suggestedName: `serval-${localTime(new Date(now()))}.${extension}`,
         types: [
-          { description: "Record", accept: { "text/plain": [`.${extension}`] } },
+          {
+            description: "Record",
+            accept: { "text/plain": [`.${extension}`] },
+          },
         ],
       });
     }

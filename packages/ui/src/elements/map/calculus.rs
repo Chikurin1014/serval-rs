@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use super::field::LabelField;
 use super::form_of;
-use super::map_list::{NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID};
+use super::map_list::labels_list;
 use crate::{
     data::{
         Calculus, CalculusMap, CalculusSettings, DataType, MapKind, MapRunner, Vector2d, Vector3d,
@@ -39,7 +39,7 @@ const fn calculus_kind(name: &'static str, create: fn() -> Box<dyn MapRunner>) -
 #[component]
 pub fn CalculusForm(
     settings: CalculusSettings,
-    #[props(default = NUMBERS_LABELS_LIST_ID.to_string())] list: String,
+    #[props(default = labels_list(DataType::Number).to_string())] list: String,
     #[props(default)] vector: bool,
 ) -> Element {
     let CalculusSettings {
@@ -82,7 +82,7 @@ pub fn CalculusForm(
 
 /// Differentiates or integrates each component of `$vector`s.
 macro_rules! vector_calculus_kind {
-    ($name:literal, $calculus:ident, $vector:ident, $list:expr) => {
+    ($name:literal, $calculus:ident, $vector:ident) => {
         MapKind {
             name: $name,
             from: &[DataType::$vector],
@@ -93,7 +93,11 @@ macro_rules! vector_calculus_kind {
             form: |settings| {
                 form_of(settings, |settings: CalculusSettings| {
                     rsx! {
-                        CalculusForm { settings, list: $list.to_string(), vector: true }
+                        CalculusForm {
+                            settings,
+                            list: labels_list(DataType::$vector).to_string(),
+                            vector: true,
+                        }
                     }
                 })
             },
@@ -102,19 +106,9 @@ macro_rules! vector_calculus_kind {
     };
 }
 
-pub const DIFFERENTIATE_2D: MapKind = vector_calculus_kind!(
-    "Differentiate",
-    Differentiate,
-    Vector2d,
-    VECTOR2D_LABELS_LIST_ID
-);
-pub const DIFFERENTIATE_3D: MapKind = vector_calculus_kind!(
-    "Differentiate",
-    Differentiate,
-    Vector3d,
-    VECTOR3D_LABELS_LIST_ID
-);
-pub const INTEGRATE_2D: MapKind =
-    vector_calculus_kind!("Integrate", Integrate, Vector2d, VECTOR2D_LABELS_LIST_ID);
-pub const INTEGRATE_3D: MapKind =
-    vector_calculus_kind!("Integrate", Integrate, Vector3d, VECTOR3D_LABELS_LIST_ID);
+pub const DIFFERENTIATE_2D: MapKind =
+    vector_calculus_kind!("Differentiate", Differentiate, Vector2d);
+pub const DIFFERENTIATE_3D: MapKind =
+    vector_calculus_kind!("Differentiate", Differentiate, Vector3d);
+pub const INTEGRATE_2D: MapKind = vector_calculus_kind!("Integrate", Integrate, Vector2d);
+pub const INTEGRATE_3D: MapKind = vector_calculus_kind!("Integrate", Integrate, Vector3d);

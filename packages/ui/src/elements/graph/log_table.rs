@@ -5,17 +5,15 @@ use dioxus::prelude::*;
 use super::{
     GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
     context::{until_paused, use_graph_setting},
-    time_series::series_color,
+    plot::{PlotAssets, series_color},
 };
 use crate::components::{toggle::Toggle, virtual_list::VirtualList};
 use crate::data::{DataContext, DataType, LogData, LogLevel, Queue, TypedData};
 use crate::elements::{FilterContext, LogLevelTag};
+use crate::helper::use_script;
 use crate::time::TimeContext;
 
 const LOG_TABLE_CSS: Asset = asset!("/assets/styling/log-table.css");
-// For its legend, as the other graphs'
-const UPLOT_CSS: Asset = asset!("/assets/vendor/uplot/uPlot.min.css");
-const TIME_SERIES_CSS: Asset = asset!("/assets/styling/time-series.css");
 const LOG_TABLE_JS: &str = include_str!("log_table.js");
 
 /// A row's height in CSS pixels, as `log-table.css` sets it: each the same, so
@@ -184,7 +182,7 @@ pub fn LogTable(id: usize) -> Element {
     let container_id = format!("log-table-{id}");
     // At the newest as they come, while it is scrolled to them; else kept where
     // it is, as they come on top of it
-    let follow = use_hook(|| document::eval(LOG_TABLE_JS));
+    let follow = use_script(LOG_TABLE_JS);
     let newest = use_hook(|| Rc::new(Cell::new(None)));
     use_effect(move || {
         let (added, now) = added_on_top(&view.read().rows, newest.get());
@@ -192,9 +190,6 @@ pub fn LogTable(id: usize) -> Element {
         if added > 0 {
             let _ = follow.send(added);
         }
-    });
-    use_drop(move || {
-        let _ = follow.send(());
     });
 
     let empty = if log_labels.read().is_empty() {
@@ -206,8 +201,8 @@ pub fn LogTable(id: usize) -> Element {
     };
 
     rsx! {
-        document::Link { rel: "stylesheet", href: UPLOT_CSS }
-        document::Link { rel: "stylesheet", href: TIME_SERIES_CSS }
+        // For its legend, as the other graphs'
+        PlotAssets { uplot: false }
         document::Link { rel: "stylesheet", href: LOG_TABLE_CSS }
 
         GraphFrame {

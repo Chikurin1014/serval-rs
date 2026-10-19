@@ -5,9 +5,7 @@ use std::any::Any;
 
 use super::field::{LabelField, TextField};
 use super::form_of;
-use super::map_list::{
-    LOG_LABELS_LIST_ID, NUMBERS_LABELS_LIST_ID, VECTOR2D_LABELS_LIST_ID, VECTOR3D_LABELS_LIST_ID,
-};
+use super::map_list::labels_list;
 use crate::data::{DataType, MapKind, MapPreset, MapRunner, Match, MatchOutput, MatchSettings};
 
 /// A preset whose `pattern` gives the label as `$1` and the value as `$2`.
@@ -45,7 +43,7 @@ pub const MATCH_TO_NUMBER: MapKind = MapKind {
     from: &[DataType::Log],
     to: DataType::Number,
     create: || Box::new(Match::new(MatchOutput::Number)),
-    form: |settings: &dyn Any| match_form(settings, NUMBERS_LABELS_LIST_ID),
+    form: |settings: &dyn Any| match_form(settings, labels_list(DataType::Number)),
     presets: &[
         // No name to take the output label from
         preset!("value", Number, NUMBER_ONLY, "", "$0"),
@@ -93,7 +91,7 @@ pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
     from: &[DataType::Log],
     to: DataType::Vector2d,
     create: || Box::new(Match::new(MatchOutput::Vector2d)),
-    form: |settings: &dyn Any| match_form(settings, VECTOR2D_LABELS_LIST_ID),
+    form: |settings: &dyn Any| match_form(settings, labels_list(DataType::Vector2d)),
     presets: &[
         // No name to take the output label from
         components_preset!("(x, y)", Vector2d, XY_ONLY, "", ["$1", "$2"]),
@@ -106,7 +104,7 @@ pub const MATCH_TO_VECTOR3D: MapKind = MapKind {
     from: &[DataType::Log],
     to: DataType::Vector3d,
     create: || Box::new(Match::new(MatchOutput::Vector3d)),
-    form: |settings: &dyn Any| match_form(settings, VECTOR3D_LABELS_LIST_ID),
+    form: |settings: &dyn Any| match_form(settings, labels_list(DataType::Vector3d)),
     presets: &[
         // No name to take the output label from
         components_preset!("(x, y, z)", Vector3d, XYZ_ONLY, "", ["$1", "$2", "$3"]),
@@ -131,7 +129,7 @@ pub const MATCH_TO_LOG: MapKind = MapKind {
             rsx! {
                 MatchForm {
                     settings,
-                    output_list: LOG_LABELS_LIST_ID.to_string(),
+                    output_list: labels_list(DataType::Log).to_string(),
                     component_names: vec!["Level".to_string(), "Message".to_string()],
                 }
             }
@@ -184,7 +182,7 @@ pub fn MatchForm(
                 class: "field-stack",
                 LabelField {
                     value: from_label,
-                    list: LOG_LABELS_LIST_ID,
+                    list: labels_list(DataType::Log),
                     placeholder: "Input label",
                     weakest_level,
                 }

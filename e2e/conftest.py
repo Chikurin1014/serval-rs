@@ -37,7 +37,9 @@ def pytest_configure(config: pytest.Config):
         },
         check=True,
     )
-    os.environ["SERVAL_E2E_APP"] = str(target / "dx" / "web" / "debug" / "web" / "public")
+    os.environ["SERVAL_E2E_APP"] = str(
+        target / "dx" / "web" / "debug" / "web" / "public"
+    )
 
 
 @pytest.fixture(scope="session")

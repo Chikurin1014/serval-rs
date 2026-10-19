@@ -5,7 +5,6 @@ import pytest
 from playwright.sync_api import expect
 
 from app import App
-from test_maps import add_log_match, add_vector_match_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -266,20 +265,15 @@ def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
     expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))
 
 
-def add_scatter(app: App):
-    bar = app.page.locator(".add-graph-bar")
-    bar.get_by_role("button", name="Statistics").hover()
-    bar.get_by_role("option", name="Scatter", exact=True).click()
-    return app.graphs().last
-
-
 def test_statistics_menu_adds_a_scatter_plot(app: App):
     app.tab("Graph")
     bar = app.page.locator(".add-graph-bar")
-    expect(bar.get_by_role("button")).to_have_text(["Time series", "Statistics", "Vector", "Text"])
+    expect(bar.get_by_role("button")).to_have_text(
+        ["Time series", "Statistics", "Vector", "Text"]
+    )
     bar.get_by_role("button", name="Statistics").hover()
     expect(bar.get_by_role("option")).to_have_text(["Box plot", "Scatter"])
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     expect(app.graphs()).to_have_count(2)
     expect(graph.locator(".graph-title-text")).to_have_text("Graph 2")
     expect(graph.locator(".graph-empty")).to_have_text(
@@ -295,13 +289,15 @@ def test_scatter_plots_one_label_against_another(app: App):
     app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\na:0\\nb:30\\n')")
     app.wait_for_labels("a", "b")
     app.tab("Graph")
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
     graph.get_by_label("X label").fill("a")
     expect(graph.locator(".graph-empty")).to_contain_text("Choose the Number labels")
     graph.get_by_label("Y label").fill("nothing")
-    expect(graph.locator(".graph-empty")).to_have_text("No number data of these labels yet.")
+    expect(graph.locator(".graph-empty")).to_have_text(
+        "No number data of these labels yet."
+    )
     graph.get_by_label("Y label").fill("b")
     expect(graph.locator(".graph-empty")).to_have_count(0)
     plot = graph.locator(".graph-plot")
@@ -319,7 +315,9 @@ def test_scatter_plots_one_label_against_another(app: App):
         scale.get_by_role("button", name="Log").click()
         expect(plot).to_have_attribute(attribute, "log")
     expect(plot).to_have_attribute("data-points", "3")
-    graph.get_by_role("group", name="X axis").get_by_role("button", name="Linear").click()
+    graph.get_by_role("group", name="X axis").get_by_role(
+        "button", name="Linear"
+    ).click()
     expect(plot).to_have_attribute("data-x-scale", "linear")
     expect(plot).to_have_attribute("data-y-scale", "log")
 
@@ -339,7 +337,7 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     app.mock("receive('a:1\\nb:3\\n')")
     app.wait_for_labels("a", "b")
     app.tab("Graph")
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("a")
     graph.get_by_label("Y label").fill("b")
@@ -377,7 +375,9 @@ def test_scatter_shows_its_regression_line_and_equation(app: App):
     expect(formulas).to_have_count(2)
     for formula in formulas.all():
         expect(formula).to_have_attribute("data-rendered", "true")
-    expect(formulas.locator(".katex-mathml annotation")).to_have_text(["Y ={}", "X +{}"])
+    expect(formulas.locator(".katex-mathml annotation")).to_have_text(
+        ["Y ={}", "X +{}"]
+    )
     expect(equation.locator(":scope > span:not(:has(.formula))")).to_have_text(
         ["0.50", "3.00"]
     )
@@ -476,13 +476,15 @@ def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
     expect(hover).to_be_hidden()
 
     graph.locator(".graph-title").click()  # opens the settings
-    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    graph.get_by_role("group", name="Value axis").get_by_role(
+        "button", name="Log"
+    ).click()
     expect(plot).to_have_attribute("data-value-scale", "log")
 
 
 def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     open_graphs_with_numbers(app)
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
@@ -521,7 +523,9 @@ def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     assert points() == held
     first = app.graphs().first
     first.locator(".graph-title").click()  # opens its settings
-    first.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    first.get_by_role("group", name="Value axis").get_by_role(
+        "button", name="Log"
+    ).click()
     expect(first.locator(".graph-plot")).to_have_attribute("data-value-scale", "log")
     app.page.wait_for_timeout(300)
     assert points() == held
@@ -539,7 +543,9 @@ def test_arrows_point_from_the_origin_to_the_newest_vectors(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_vector_match_map(app, "2D", r"({word})=({number}),({number})", "$1", ["$2", "$3"])
+    app.add_vector_match_map(
+        "2D", r"({word})=({number}),({number})", "$1", ["$2", "$3"]
+    )
     app.mock("receive('v=1,1\\nv=3,4\\nw=-2,0\\n')")
     app.wait_for_labels("v", "w")
     app.tab("Graph")
@@ -624,8 +630,8 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_vector_match_map(
-        app, "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
+    app.add_vector_match_map(
+        "3D", r"({word})=({number}),({number}),({number})", "$1", ["$2", "$3", "$4"]
     )
     app.mock("receive('up=0,0,1\\nup=0,0,2\\nside=3,0,0\\n')")
     app.wait_for_labels("up", "side")
@@ -637,7 +643,8 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     plot = graph.locator(".graph-plot")
     canvas = plot.locator("canvas")
     arrows = lambda: {  # noqa: E731
-        label: (x, y) for label, x, y in json.loads(plot.get_attribute("data-arrows") or "[]")
+        label: (x, y)
+        for label, x, y in json.loads(plot.get_attribute("data-arrows") or "[]")
     }
 
     # Each 3D vector label the data list shows, in a legend as the others'
@@ -713,7 +720,9 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     # A rectangle dragged over it: zoomed into, times and values, and paused
     area = plot.locator(".u-over").bounding_box()
     y = area["y"] + area["height"] / 2
-    app.page.mouse.move(area["x"] + area["width"] * 0.3, area["y"] + area["height"] * 0.3)
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.3, area["y"] + area["height"] * 0.3
+    )
     app.page.mouse.down()
     app.page.mouse.move(
         area["x"] + area["width"] * 0.6, area["y"] + area["height"] * 0.6, steps=5
@@ -733,7 +742,9 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     assert span() == pytest.approx(zoomed)
     assert values() == pytest.approx(zoomed_values)
     graph.locator(".graph-title").click()  # opens the settings
-    graph.get_by_role("group", name="Value axis").get_by_role("button", name="Log").click()
+    graph.get_by_role("group", name="Value axis").get_by_role(
+        "button", name="Log"
+    ).click()
     expect(plot).to_have_attribute("data-value-scale", "log")
     app.page.wait_for_timeout(300)
     # The times as zoomed to; the values, not of another scale
@@ -752,7 +763,7 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     expect(bar.get_by_role("button", name="Pause graphs")).to_be_visible()
 
     # A scatter plot too
-    scatter = add_scatter(app)
+    scatter = app.add_scatter()
     scatter.locator(".graph-title").click()  # opens the settings
     scatter.get_by_label("X label").fill("temp")
     scatter.get_by_label("Y label").fill("volt")
@@ -761,7 +772,9 @@ def test_zooming_into_a_graph_pauses_them(app: App):
         "plot => Number(plot.dataset.points) > 2", arg=points.element_handle()
     )
     area = points.locator(".u-over").bounding_box()
-    app.page.mouse.move(area["x"] + area["width"] * 0.2, area["y"] + area["height"] * 0.2)
+    app.page.mouse.move(
+        area["x"] + area["width"] * 0.2, area["y"] + area["height"] * 0.2
+    )
     app.page.mouse.down()
     app.page.mouse.move(
         area["x"] + area["width"] * 0.7, area["y"] + area["height"] * 0.7, steps=5
@@ -773,7 +786,7 @@ def test_zooming_into_a_graph_pauses_them(app: App):
 
 def test_scatter_redraws_ten_times_a_second_at_most(app: App):
     open_graphs_with_numbers(app)
-    graph = add_scatter(app)
+    graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
@@ -792,7 +805,6 @@ def test_scatter_redraws_ten_times_a_second_at_most(app: App):
         "([plot, points]) => Number(plot.dataset.points) >= points",
         arg=[plot.element_handle(), first_points + 50],
     )
-
 
 
 def test_graphs_redraw_less_as_the_page_is_busy(app: App):
@@ -817,7 +829,7 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     app.open_port()
     app.mock("mute()")
     app.tab("Data")
-    add_log_match(app, r"^sensor (\w+) (.*)", "$1", "$2", "sensor", "log")
+    app.add_log_match(r"^sensor (\w+) (.*)", "$1", "$2", "sensor", "log")
     levels = ["info", "warn", "error", "debug", "info", "trace"] * 10
     lines = "".join(
         f"[{level}] disk {i}\\nsensor {level} reading {i}\\n"
@@ -838,7 +850,7 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     first = lambda: rows.first.locator("[role=cell]").all_text_contents()  # noqa: E731
     # The message of the row at the top of the view
     in_view = (  # noqa: E731
-        "list => list.querySelector(`[data-virtual-index=\"${Math.round(list.scrollTop / 24)}\"]"
+        'list => list.querySelector(`[data-virtual-index="${Math.round(list.scrollTop / 24)}"]'
         " .log-table-message`).textContent"
     )
     counts = table.get_by_role("group", name="Logs of each level")
@@ -857,13 +869,16 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     expect(level.get_by_role("button")).to_have_text(
         ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"]
     )
-    expect(level.get_by_role("button", name="INFO")).to_have_attribute("aria-pressed", "true")
+    expect(level.get_by_role("button", name="INFO")).to_have_attribute(
+        "aria-pressed", "true"
+    )
     expect(rows.first).to_have_attribute("aria-setsize", "80")
     # Above the table, how many of each level: those left out too, fainter
     expect(values.nth(4)).to_have_text("20")
     assert numbers()[:5] == [20, 20, 40, 20, 20] and numbers()[5] >= 60
     shown = [
-        each.get_attribute("data-shown") for each in counts.locator(".log-table-count").all()
+        each.get_attribute("data-shown")
+        for each in counts.locator(".log-table-count").all()
     ]
     assert shown == ["true"] * 3 + ["false"] * 3
     counted, table_box = counts.bounding_box(), body.bounding_box()
@@ -920,7 +935,9 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     expect(graph.locator(".u-legend .u-series.u-off th")).to_have_text(["sensor"])
     graph.locator(".graph-title").click()  # opens the settings
     expect(
-        graph.get_by_role("group", name="Weakest level").get_by_role("button", name="ALL")
+        graph.get_by_role("group", name="Weakest level").get_by_role(
+            "button", name="ALL"
+        )
     ).to_have_attribute("aria-pressed", "true")
     expect(graph.locator("[data-virtual-index]").first).to_have_attribute(
         "aria-setsize", str(all_count - 60)

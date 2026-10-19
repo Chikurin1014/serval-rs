@@ -84,7 +84,9 @@ test("a new record is named after the local time, and written in order", async (
 
 test("an appended record adds to what the file has, and tells its end", async () => {
   const file = fakeFile("first\nold\n");
-  const record = await pickRecordFile("log", true, 4, { win: fakeWindow(file) });
+  const record = await pickRecordFile("log", true, 4, {
+    win: fakeWindow(file),
+  });
   assert.equal(recordFileName(record), "old.log");
   assert.equal(new TextDecoder().decode(recordFileTail(record)), "old\n");
   writeRecordFile(record, bytes("new\n"));
@@ -118,14 +120,18 @@ test("the file gets what was written so far as often as asked", async () => {
 
 test("a failed write is told at once", async () => {
   const file = fakeFile("", { failWrite: true });
-  const record = await pickRecordFile("log", false, 0, { win: fakeWindow(file) });
+  const record = await pickRecordFile("log", false, 0, {
+    win: fakeWindow(file),
+  });
   writeRecordFile(record, bytes("a\n"));
   assert.equal(await recordFileFailure(record), "disk full");
 });
 
 test("a record closed without failing tells no failure", async () => {
   const file = fakeFile();
-  const record = await pickRecordFile("log", false, 0, { win: fakeWindow(file) });
+  const record = await pickRecordFile("log", false, 0, {
+    win: fakeWindow(file),
+  });
   writeRecordFile(record, bytes("a\n"));
   await closeRecordFile(record);
   assert.equal(await recordFileFailure(record), null);
@@ -133,7 +139,9 @@ test("a record closed without failing tells no failure", async () => {
 
 test("a failed write fails the close, and stops the writes after it", async () => {
   const file = fakeFile("", { failWrite: true });
-  const record = await pickRecordFile("log", false, 0, { win: fakeWindow(file) });
+  const record = await pickRecordFile("log", false, 0, {
+    win: fakeWindow(file),
+  });
   writeRecordFile(record, bytes("a\n"));
   writeRecordFile(record, bytes("b\n"));
   await assert.rejects(closeRecordFile(record), /disk full/);
