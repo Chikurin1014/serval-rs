@@ -60,6 +60,17 @@ and serve:
 dx serve
 ```
 
+#### Building for Release
+
+`nix build .#web` builds the web app as it is deployed, into `result/`.
+To build it with `dx` instead, turn off the debug symbols it adds by default:
+
+```bash
+dx build --platform web --release --debug-symbols false
+```
+
+`wasm-opt` aborts on them, and `dx` then goes on with the wasm unoptimized (about 7 MB instead of 5), reporting only `wasm-opt failed` among its logs.
+
 ## Testing
 
 `nix flake check` runs all of the tests below in the Nix sandbox, against a release build of the web app.
