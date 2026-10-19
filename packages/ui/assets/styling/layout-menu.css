@@ -23,8 +23,9 @@ button.layout-menu-trigger > svg {
   height: 0.875rem;
 }
 
-/* At the navbar's right end: opens to the left */
-.layout-menu-content {
+/* At the navbar's right end: opens to the left (over the dropdown's own
+ * `left: 0`, of the same specificity but loaded after) */
+.layout-menu .layout-menu-content {
   right: 0;
   left: auto;
   min-width: 10rem;

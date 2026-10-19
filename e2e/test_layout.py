@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import expect
 
 from app import App
@@ -38,6 +39,13 @@ def test_layout_menu_is_beside_the_theme_switch(app: App):
     )
     theme = app.page.get_by_role("button", name="Toggle theme")
     assert trigger.bounding_box()["x"] < theme.bounding_box()["x"]
+    # Opened to the left, within the window
+    menu = app.page.locator(".layout-menu-content").bounding_box()
+    button = trigger.bounding_box()
+    assert menu["x"] + menu["width"] == pytest.approx(
+        button["x"] + button["width"], abs=1
+    )
+    assert menu["x"] + menu["width"] <= app.page.viewport_size["width"]
 
 
 def test_an_exported_layout_is_imported_in_place_of_the_one_there_is(
