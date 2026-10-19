@@ -39,8 +39,10 @@ def test_layout_menu_is_beside_the_theme_switch(app: App):
     )
     theme = app.page.get_by_role("button", name="Toggle theme")
     assert trigger.bounding_box()["x"] < theme.bounding_box()["x"]
-    # Opened to the left, within the window
-    menu = app.page.locator(".layout-menu-content").bounding_box()
+    # Opened to the left, within the window: once it has grown to its size
+    content = app.page.locator(".layout-menu-content")
+    content.evaluate("m => Promise.all(m.getAnimations().map(a => a.finished))")
+    menu = content.bounding_box()
     button = trigger.bounding_box()
     assert menu["x"] + menu["width"] == pytest.approx(
         button["x"] + button["width"], abs=1

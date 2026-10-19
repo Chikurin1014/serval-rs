@@ -257,6 +257,10 @@ def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
     app.mock("burst(6000)")
     wait_for_full_scrollback(app)
     app.mock("receive('last\\n')")
+    # Drawn after the burst, however long that takes
+    app.page.wait_for_function(
+        f"() => ({VIEW_ROWS})().some(([text]) => text === 'last')"
+    )
 
     def all_beside():
         rows = view_rows(app)
@@ -266,7 +270,6 @@ def test_times_stay_beside_their_lines_past_the_scrollback(app: App):
         )
 
     assert all_beside()
-    assert "last" in [text for text, _, _ in view_rows(app)]
     # The oldest lines kept, after thousands trimmed off before them
     app.page.evaluate("document.querySelector('.console-output').xterm.scrollToTop()")
     assert all_beside()

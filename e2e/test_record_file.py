@@ -130,10 +130,16 @@ def test_a_variant_is_picked_by_keyboard(app: App):
     trigger.click()
     # The menu focuses its trigger as it opens: after that, not to take it back
     expect(trigger).to_be_focused()
-    record_item(app, "Hex file").focus()
+    # Down to it by the keys, as the menu moves its focus (focused otherwise,
+    # the trigger left closes the menu)
+    for item in ["Text file", "Hex file"]:
+        app.page.keyboard.press("ArrowDown")
+        expect(record_item(app, item)).to_be_focused()
     app.page.keyboard.press("ArrowRight")
     expect(
-        record_item(app, "Hex file").get_by_role("menuitem", name="with time", exact=True)
+        record_item(app, "Hex file").get_by_role(
+            "menuitem", name="with time", exact=True
+        )
     ).to_be_focused()
     app.page.keyboard.press("Enter")
     expect(app.page.get_by_role("button", name="Stop recording")).to_be_visible()
