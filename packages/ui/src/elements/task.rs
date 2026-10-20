@@ -1,5 +1,6 @@
 //! The tasks of the plugins imported, as the maps are listed: each its card,
-//! turned on or off, opened to its function's definition.
+//! turned on to run (off again as it ends), what it last returned beside its
+//! name, opened to its function's definition.
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
@@ -10,10 +11,12 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         card::{Card, CardContent, CardHeader},
         collapsible::{Collapsible, CollapsibleContent, CollapsibleTrigger},
+        dialog::{Dialog, DialogDescription, DialogTitle},
         scroll_area::ScrollArea,
         switch::Switch,
     },
-    data::{Imported, Task, TaskContext},
+    data::{ImportError, Imported, Task, TaskContext, TaskOutcome},
+    helper::single_line,
     toast::use_toaster,
 };
 
@@ -77,6 +80,8 @@ fn TaskCard(task: Task) -> Element {
                             span { class: "map-title-text", "{task.name}" }
                             span { class: "task-plugin", "{task.plugin}" }
                         }
+                        // Its own component: the card must not render again with it
+                        TaskLatest { latest: task.latest }
                     }
                     Button {
                         class: "map-remove reveal-on-hover",
@@ -105,16 +110,56 @@ fn TaskCard(task: Task) -> Element {
     }
 }
 
+/// The latest of the task's run, as the latest conversion of a map: what it
+/// printed last, then what it returned, or why it failed.
+#[component]
+fn TaskLatest(latest: ReadSignal<Option<TaskOutcome>>) -> Element {
+    rsx! {
+        match latest() {
+            Some(TaskOutcome::Returned(value)) => rsx! {
+                span {
+                    class: "map-latest task-latest",
+                    title: "{value}",
+                    span { class: "map-latest-value", {single_line(&value)} }
+                }
+            },
+            // As a console's line
+            Some(TaskOutcome::Printed(line)) => rsx! {
+                span {
+                    class: "map-latest task-latest",
+                    "data-printed": true,
+                    title: "{line}",
+                    lucide::SquareTerminal {}
+                    span { class: "map-latest-value", {single_line(&line)} }
+                }
+            },
+            Some(TaskOutcome::Failed(error)) => rsx! {
+                span {
+                    class: "map-latest task-latest",
+                    "data-failed": true,
+                    title: "{error}",
+                    lucide::CircleAlert {}
+                    span { class: "map-latest-value", {single_line(&error)} }
+                }
+            },
+            None => rsx! {},
+        }
+    }
+}
+
 /// Imports a plugin, a Rune file picked: a task for each of its public async
 /// functions.
 #[component]
 pub fn PluginButton() -> Element {
     let mut context = use_context::<TaskContext>();
     let toaster = use_toaster();
+    // The file that did not compile, and what the compiler told
+    let mut failed = use_signal(|| None::<(String, String)>);
 
     rsx! {
         document::Link { rel: "stylesheet", href: TASK_LIST_CSS }
 
+        CompileErrorDialog { failed }
         Button {
             class: "plugin-button",
             variant: ButtonVariant::Ghost,
@@ -140,7 +185,7 @@ pub fn PluginButton() -> Element {
                 let name = file.name();
                 let imported = match file.read_string().await {
                     Ok(source) => context.import_plugin(&name, &source),
-                    Err(error) => Err(error.to_string()),
+                    Err(error) => Err(ImportError::Other(error.to_string())),
                 };
                 // So the same file picked again is a change
                 document::eval(&format!(
@@ -157,9 +202,51 @@ pub fn PluginButton() -> Element {
                         }
                         toaster.success("Plugin imported", &detail);
                     }
-                    Err(error) => toaster.error("Failed to import the plugin", &error),
+                    Err(ImportError::Compile(told)) => failed.set(Some((name, told))),
+                    Err(ImportError::Other(error)) => {
+                        toaster.error("Failed to import the plugin", &error)
+                    }
                 }
             },
+        }
+    }
+}
+
+/// What the compiler told of the plugin that did not compile, there until
+/// closed.
+#[component]
+fn CompileErrorDialog(failed: Signal<Option<(String, String)>>) -> Element {
+    let mut failed = failed;
+    let (name, told) = failed().unwrap_or_default();
+
+    rsx! {
+        Dialog {
+            class: "compile-error-dialog",
+            open: failed.read().is_some(),
+            on_open_change: move |open: bool| {
+                if !open {
+                    failed.set(None);
+                }
+            },
+            Button {
+                class: "compile-error-close",
+                variant: ButtonVariant::Ghost,
+                size: ButtonSize::IconSm,
+                aria_label: "Close",
+                title: "Close",
+                onclick: move |_| failed.set(None),
+                lucide::X {}
+            }
+            DialogTitle { "Failed to compile {name}" }
+            DialogDescription { "Fix it, then import it again." }
+            ScrollArea {
+                class: "compile-error",
+                direction: ScrollDirection::Both,
+                aria_label: "Compile errors",
+                pre {
+                    code { "{told}" }
+                }
+            }
         }
     }
 }

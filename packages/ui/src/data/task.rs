@@ -1,13 +1,23 @@
-//! Tasks: the public async functions of the plugins imported, each turned on
-//! or off.
-//! What they can do, and their running, are yet to come.
+//! Tasks: the public async functions of the plugins imported, each run as it
+//! is turned on, and turned off again as it ends.
 
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
 use crate::{
-    data::{PluginFunction, public_async_functions},
+    data::{CompiledPlugin, PluginFunction, compile_plugin, public_async_functions, run_task},
     helper::make_owned,
 };
+
+/// The latest of a task's run: what it printed last as it goes, then how it
+/// ended (that kept if it returned nothing).
+#[derive(Clone, Debug, PartialEq)]
+pub enum TaskOutcome {
+    /// The last line it printed.
+    Printed(String),
+    /// What it returned, formatted.
+    Returned(String),
+    Failed(String),
+}
 
 #[derive(Clone)]
 pub struct Task {
@@ -18,7 +28,12 @@ pub struct Task {
     pub plugin: String,
     /// Its function as the plugin has it.
     pub definition: String,
+    /// The plugin it is of, compiled as it was imported.
+    compiled: CompiledPlugin,
+    /// Running while on: turned off as it ends, or to stop it.
     pub enabled: Signal<bool>,
+    /// Of its last run: none if it printed and returned nothing (yet).
+    pub latest: Signal<Option<TaskOutcome>>,
     /// Whether its card is open; kept here as the cards are made anew when
     /// tasks are added or removed.
     pub open: Signal<bool>,
@@ -29,6 +44,14 @@ impl PartialEq for Task {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
+}
+
+/// Why a plugin was not imported.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ImportError {
+    /// What the compiler told: each error, its line and the code there.
+    Compile(String),
+    Other(String),
 }
 
 /// What a plugin's import made.
@@ -55,14 +78,20 @@ impl TaskContext {
         self.list.read().is_empty()
     }
 
-    /// Adds a task, off, for each public async function of the plugin `source`
-    /// (Rune), named `plugin`: but those of a function of the same name of a
-    /// plugin of the same name, there already. How many were added and passed
-    /// over, or what is wrong with it with none added.
-    pub fn import_plugin(&mut self, plugin: &str, source: &str) -> Result<Imported, String> {
-        let functions = public_async_functions(source)?;
+    pub fn get(&self, id: usize) -> Option<Task> {
+        self.list.read().iter().find(|task| task.id == id).cloned()
+    }
+
+    /// Compiles the plugin `source` (Rune), of the file `plugin`, then adds a
+    /// task, off, for each public async function of it: but those of a
+    /// function of the same name of a plugin of the same name, there already.
+    /// How many were added and passed over, or what is wrong with it with none
+    /// added.
+    pub fn import_plugin(&mut self, plugin: &str, source: &str) -> Result<Imported, ImportError> {
+        let compiled = compile_plugin(plugin, source).map_err(ImportError::Compile)?;
+        let functions = public_async_functions(source).map_err(ImportError::Other)?;
         if functions.is_empty() {
-            return Err(format!("No `pub async fn` in {plugin}"));
+            return Err(ImportError::Other(format!("No `pub async fn` in {plugin}")));
         }
         let mut imported = Imported::default();
         for PluginFunction { name, definition } in functions {
@@ -78,14 +107,17 @@ impl TaskContext {
             imported.added += 1;
             let id = *self.next_id.peek();
             self.next_id.set(id + 1);
-            let ((enabled, open), owner) =
-                make_owned(self.scope, || (Signal::new(false), Signal::new(false)));
+            let ((enabled, latest, open), owner) = make_owned(self.scope, || {
+                (Signal::new(false), Signal::new(None), Signal::new(false))
+            });
             self.list.write().push(Task {
                 id,
                 name,
                 plugin: plugin.to_string(),
                 definition,
+                compiled: compiled.clone(),
                 enabled,
+                latest,
                 open,
                 _owner: owner,
             });
@@ -98,7 +130,8 @@ impl TaskContext {
     }
 }
 
-/// Provides [`TaskContext`], with no task until a plugin is imported.
+/// Provides [`TaskContext`], with no task until a plugin is imported, and runs
+/// the tasks turned on.
 #[component]
 pub fn TaskProvider(children: Element) -> Element {
     use_context_provider(|| TaskContext {
@@ -108,6 +141,67 @@ pub fn TaskProvider(children: Element) -> Element {
     });
 
     rsx! {
+        TaskRuns {}
         {children}
     }
+}
+
+/// Apart from `TaskProvider`, so a task added does not render its children.
+#[component]
+fn TaskRuns() -> Element {
+    let context = use_context::<TaskContext>();
+    let ids = use_memo(move || {
+        context
+            .list
+            .read()
+            .iter()
+            .map(|task| task.id)
+            .collect::<Vec<_>>()
+    });
+
+    rsx! {
+        for id in ids() {
+            TaskRun { key: "{id}", id }
+        }
+    }
+}
+
+/// Runs task `id` as it is turned on, then turns it off as it ends; stops it
+/// as it is turned off before (or removed, as this goes with it).
+#[component]
+fn TaskRun(id: usize) -> Element {
+    let context = use_context::<TaskContext>();
+    let task = use_memo(move || context.get(id));
+    let mut running = use_signal(|| None::<dioxus::core::Task>);
+
+    use_effect(move || {
+        let Some(task) = task() else {
+            return;
+        };
+        let (mut enabled, mut latest) = (task.enabled, task.latest);
+        if enabled() {
+            if running.peek().is_some() {
+                return;
+            }
+            latest.set(None);
+            let run = spawn(async move {
+                let printed = |line: &str| latest.set(Some(TaskOutcome::Printed(line.to_string())));
+                let outcome = match run_task(&task.compiled, &task.name, printed).await {
+                    Ok(returned) => returned.map(TaskOutcome::Returned),
+                    Err(error) => Some(TaskOutcome::Failed(error)),
+                };
+                running.set(None);
+                // What it printed last, if it returned nothing
+                if outcome.is_some() {
+                    latest.set(outcome);
+                }
+                enabled.set(false);
+            });
+            running.set(Some(run));
+        } else if let Some(run) = running.take() {
+            run.cancel();
+        }
+    });
+
+    rsx! {}
 }
