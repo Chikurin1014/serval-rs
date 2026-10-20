@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/Chikurin1014/serval-rs/compare/v0.4.0...v0.4.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* 🚑️ Fix vector match preset ([62fac72](https://github.com/Chikurin1014/serval-rs/commit/62fac723afef3d43ccfe9faa892779ea0d0c6a11))
+* 🚑️ Fix vector match preset ([70c09e0](https://github.com/Chikurin1014/serval-rs/commit/70c09e0a23b721cfd6f442f090997d956e31d751))
+
 ## [0.4.0](https://github.com/Chikurin1014/serval-rs/compare/v0.3.1...v0.4.0) (2026-10-19)
 
 
