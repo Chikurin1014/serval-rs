@@ -21,3 +21,4 @@ pub mod dialog;
 pub mod drag_and_drop_list;
 pub mod popover;
 pub mod virtual_list;
+pub mod scroll_area;

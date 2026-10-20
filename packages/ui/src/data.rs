@@ -3,8 +3,10 @@ mod data_type;
 mod log;
 mod map;
 mod pattern;
+mod plugin;
 mod queue;
 mod source_cursor;
+mod task;
 
 pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
@@ -29,5 +31,7 @@ pub(crate) use map::{
 };
 pub(crate) use pattern::compile_for_map;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};
+pub use plugin::{PluginFunction, public_async_functions};
 pub use queue::{MAX_ENTRIES_PER_LABEL, Queue};
 pub use source_cursor::{NewEntries, SourceCursor};
+pub use task::{Imported, Task, TaskContext, TaskProvider};

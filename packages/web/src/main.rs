@@ -6,9 +6,9 @@ use ui::{
         navbar::{Navbar, NavbarItem},
         toast::ToastProvider,
     },
-    data::{DataProvider, MapProvider},
+    data::{DataProvider, MapProvider, TaskProvider},
     elements::{
-        LayoutMenu,
+        LayoutMenu, PluginButton,
         graph::{GraphProvider, builtin_graph_kinds},
         initial_layout,
         map::builtin_map_kinds,
@@ -63,9 +63,11 @@ fn App() -> Element {
                                 GraphProvider {
                                     kinds: builtin_graph_kinds(),
                                     initial: layout.graphs,
-                                    Router::<Route> {}
-                                    UnsupportedBrowserDialog {}
-                                    RecordUnloadGuard {}
+                                    TaskProvider {
+                                        Router::<Route> {}
+                                        UnsupportedBrowserDialog {}
+                                        RecordUnloadGuard {}
+                                    }
                                 }
                             }
                         }
@@ -106,6 +108,7 @@ fn WebNavbar() -> Element {
                     class: "navbar-tools",
                     LayoutMenu {}
                     ThemeSwitch {}
+                    PluginButton {}
                 }
             }
             div {
