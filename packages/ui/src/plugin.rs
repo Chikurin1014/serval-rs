@@ -1,5 +1,11 @@
-//! Plugins: Rune files whose public async functions become tasks. Only parsed
-//! for now, not compiled nor run.
+//! Plugins: Rune files whose public async functions become tasks, compiled as
+//! they are imported and run as the tasks are turned on (`run`).
+
+mod run;
+mod task;
+
+pub use run::{CompiledPlugin, INSTRUCTIONS_PER_STEP, compile_plugin, run_task};
+pub use task::{ImportError, Imported, Task, TaskContext, TaskOutcome, TaskProvider};
 
 use rune::{
     SourceId,

@@ -3,10 +3,8 @@
 
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
-use crate::{
-    data::{CompiledPlugin, PluginFunction, compile_plugin, public_async_functions, run_task},
-    helper::make_owned,
-};
+use super::{CompiledPlugin, PluginFunction, compile_plugin, public_async_functions, run_task};
+use crate::helper::make_owned;
 
 /// The latest of a task's run: what it printed last as it goes, then how it
 /// ended (that kept if it returned nothing).

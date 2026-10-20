@@ -15,8 +15,8 @@ use crate::{
         scroll_area::ScrollArea,
         switch::Switch,
     },
-    data::{ImportError, Imported, Task, TaskContext, TaskOutcome},
     helper::single_line,
+    plugin::{ImportError, Imported, Task, TaskContext, TaskOutcome},
     toast::use_toaster,
 };
 

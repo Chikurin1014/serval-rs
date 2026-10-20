@@ -6,7 +6,7 @@ use ui::{
         navbar::{Navbar, NavbarItem},
         toast::ToastProvider,
     },
-    data::{DataProvider, MapProvider, TaskProvider},
+    data::{DataProvider, MapProvider},
     elements::{
         LayoutMenu, PluginButton,
         graph::{GraphProvider, builtin_graph_kinds},
@@ -14,6 +14,7 @@ use ui::{
         map::builtin_map_kinds,
         serial::RecordUnloadGuard,
     },
+    plugin::TaskProvider,
     theme::ThemeSwitch,
     views::Home,
 };

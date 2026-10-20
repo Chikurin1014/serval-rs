@@ -3,7 +3,7 @@ use dioxus_icons::lucide;
 
 use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
-    data::{RAW_BYTES_LABEL, TaskContext},
+    data::RAW_BYTES_LABEL,
     elements::{
         DataList, FilterContext, FilterKind, TaskList,
         graph::GraphBoard,
@@ -13,6 +13,7 @@ use crate::{
             PortSelector, PortSignalButton,
         },
     },
+    plugin::TaskContext,
 };
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
