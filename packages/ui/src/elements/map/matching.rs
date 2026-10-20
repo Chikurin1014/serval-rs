@@ -76,14 +76,16 @@ macro_rules! components_preset {
 /// A 2D vector alone, e.g. `(1.5, -2)`.
 pub const XY_ONLY: &str = r"^\(({number}), ({number})\)$";
 
-/// `name: (x, y)`, e.g. `pos:  (1.5, -2)`.
-pub const NAME_COLON_XY: &str = r"({word}):  \(({number}), ({number})\)";
+/// `name: (x, y)`, e.g. `pos: (1.5, -2)`: spaced or not after the colon and
+/// the comma.
+pub const NAME_COLON_XY: &str = r"({word}):\s*\(({number}),\s*({number})\)";
 
 /// A 3D vector alone, e.g. `(1.5, -2, 0)`.
 pub const XYZ_ONLY: &str = r"^\(({number}), ({number}), ({number})\)$";
 
-/// `name: (x, y, z)`, e.g. `acc:  (1.5, -2, 0)`.
-pub const NAME_COLON_XYZ: &str = r"({word}):  \(({number}), ({number}), ({number})\)";
+/// `name: (x, y, z)`, e.g. `acc: (1.5, -2, 0)`: spaced or not after the colon
+/// and the commas.
+pub const NAME_COLON_XYZ: &str = r"({word}):\s*\(({number}),\s*({number}),\s*({number})\)";
 
 /// A vector's components from the groups, e.g. `$2` and `$3`.
 pub const MATCH_TO_VECTOR2D: MapKind = MapKind {
@@ -305,10 +307,14 @@ mod tests {
             Some(vec!["1.5".into(), "-2".into()])
         );
         assert_eq!(groups(kind, "(x, y)", "(1, 2, 3)"), None);
-        assert_eq!(
-            groups(kind, "name: (x, y)", "pos:  (1, 2)"),
-            Some(vec!["pos".into(), "1".into(), "2".into()])
-        );
+        // However spaced after the colon and the commas
+        for text in ["pos: (1, 2)", "pos:(1,2)", "pos:  (1,  2)"] {
+            assert_eq!(
+                groups(kind, "name: (x, y)", text),
+                Some(vec!["pos".into(), "1".into(), "2".into()]),
+                "{text}"
+            );
+        }
     }
 
     #[test]
@@ -319,9 +325,12 @@ mod tests {
             Some(vec!["1.5".into(), "-2".into(), "3e2".into()])
         );
         assert_eq!(groups(kind, "(x, y, z)", "acc: (1, 2, 3)"), None);
-        assert_eq!(
-            groups(kind, "name: (x, y, z)", "acc:  (1, 2, 3)"),
-            Some(vec!["acc".into(), "1".into(), "2".into(), "3".into()])
-        );
+        for text in ["acc: (1, 2, 3)", "acc:(1,2,3)", "acc:  (1,  2,  3)"] {
+            assert_eq!(
+                groups(kind, "name: (x, y, z)", text),
+                Some(vec!["acc".into(), "1".into(), "2".into(), "3".into()]),
+                "{text}"
+            );
+        }
     }
 }
