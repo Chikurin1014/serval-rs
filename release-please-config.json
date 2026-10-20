@@ -11,11 +11,6 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.workspace.package.version"
-        },
-        {
-          "type": "json",
-          "path": "packages/ui/src/elements/initial_layout.json",
-          "jsonpath": "$.version"
         }
       ]
     }

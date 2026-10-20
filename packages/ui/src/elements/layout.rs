@@ -27,6 +27,9 @@ const FILE_INPUT_ID: &str = "layout-file-input";
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct LayoutFile {
+    /// Of this version, if missing (as in `initial_layout.json`, so a release
+    /// need not write it, as it would in a format of its own).
+    #[serde(default = "this_version")]
     version: String,
     maps: Vec<SavedMap>,
     graphs: Vec<SavedGraph>,
@@ -42,6 +45,10 @@ struct SavedMap {
     /// Each setting missing as the kind makes it.
     #[serde(default = "no_settings")]
     settings: Value,
+}
+
+fn this_version() -> String {
+    LAYOUT_VERSION.to_string()
 }
 
 fn no_settings() -> Value {
@@ -300,8 +307,8 @@ mod tests {
     fn the_app_starts_with_the_initial_layout() {
         with_layout(|maps, graphs| {
             let initial = parsed(INITIAL_LAYOUT);
-            // Kept as Serval's by release-please
-            assert_eq!(initial["version"], LAYOUT_VERSION);
+            // Of the version it is loaded with: none to go out of date
+            assert!(initial.get("version").is_none());
             let layout = parsed(&export_layout(maps, graphs));
             assert_eq!(layout["maps"], initial["maps"]);
             assert_eq!(
@@ -381,6 +388,17 @@ mod tests {
             }
             import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
             assert_eq!(parsed(&export_layout(maps, graphs)), layout);
+        });
+    }
+
+    #[test]
+    fn a_layout_of_no_version_is_of_this_one() {
+        with_layout(|mut maps, mut graphs| {
+            let mut layout = parsed(&export_layout(maps, graphs));
+            layout.as_object_mut().unwrap().remove("version");
+            layout["graphs"] = json!([{ "kind": "Scatter" }]);
+            import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
+            assert_eq!(graphs.list()[0].kind.name, "Scatter");
         });
     }
 
