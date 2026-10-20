@@ -882,14 +882,15 @@ def test_vectors_are_matched(app: App):
     app.mock("mute()")
     app.mock(
         "receive('pos:1.5,-2\\nacc=1,2,3\\ngyro=-1,0,0.5\\n"
-        "mag:  (1, 2, 3)\\n(1.5, -2)\\nled:1\\n')"
+        "mag: (1, 2, 3)\\nmag2:(4,5,6)\\n(1.5, -2)\\nled:1\\n')"
     )
-    app.wait_for_labels("position", "acc", "gyro", "mag", "pt")
+    app.wait_for_labels("position", "acc", "gyro", "mag", "mag2", "pt")
     rows = app.data_rows()
     assert rows["position"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
     assert rows["acc"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
     assert rows["gyro"][:2] == ["Vector3d", "(-1.0000, 0.0000, 0.50000)"]
     assert rows["mag"][:2] == ["Vector3d", "(1.0000, 2.0000, 3.0000)"]
+    assert rows["mag2"][:2] == ["Vector3d", "(4.0000, 5.0000, 6.0000)"]
     assert rows["pt"][:2] == ["Vector2d", "(1.5000, -2.0000)"]
     expect(matched.locator(".map-latest")).to_contain_text("(1.5000, -2.0000)")
     expect(bad.locator(".field-error")).to_have_text("The result 'led' is not a number")
