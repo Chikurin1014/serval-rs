@@ -120,28 +120,33 @@ def test_the_console_is_shown_as_the_last_task_goes(app: App, tmp_path: Path):
     expect(app.page.locator(".console-output")).to_be_visible()
 
 
-def test_a_function_of_a_plugin_is_imported_once(app: App, tmp_path: Path):
+def test_a_plugin_imported_again_replaces_its_tasks(app: App, tmp_path: Path):
     (tmp_path / "blinker.rn").write_text(PLUGIN)
     import_plugin(app, tmp_path / "blinker.rn")
     app.wait_for_toast("Plugin imported")
-    import_plugin(app, tmp_path / "blinker.rn")
-    app.wait_for_toast("Plugin already imported")
-    assert app.toasts()[0][2] == "All the tasks of blinker.rn"
-    app.tab("Task")
-    expect(task_cards(app).locator(".map-title-text")).to_have_text(["blink", "poll"])
-
-    # Its new function alone, once more in it
-    (tmp_path / "blinker.rn").write_text(PLUGIN + "pub async fn reset() {}\n")
-    import_plugin(app, tmp_path / "blinker.rn")
-    expect(task_cards(app).locator(".map-title-text")).to_have_text(
-        ["blink", "poll", "reset"]
-    )
-    # Of another plugin, of the same names all the same
     (tmp_path / "other.rn").write_text(PLUGIN)
     import_plugin(app, tmp_path / "other.rn")
-    expect(task_cards(app).locator(".task-plugin")).to_have_text(
-        ["blinker.rn"] * 3 + ["other.rn"] * 2
+    app.tab("Task")
+    expect(task_cards(app)).to_have_count(4)
+
+    # Of the same file name: all its tasks in place of all those before, where
+    # they were; another plugin's left be
+    (tmp_path / "blinker.rn").write_text(
+        "pub async fn reset() {}\npub async fn poll() { 1 }\n"
     )
+    import_plugin(app, tmp_path / "blinker.rn")
+    app.wait_for_toast("Plugin reimported")
+    assert app.toasts()[0][2] == "2 tasks of blinker.rn, in place of 2 tasks"
+    expect(task_cards(app).locator(".map-title-text")).to_have_text(
+        ["reset", "poll", "blink", "poll"]
+    )
+    expect(task_cards(app).locator(".task-plugin")).to_have_text(
+        ["blinker.rn"] * 2 + ["other.rn"] * 2
+    )
+    # Its definition anew
+    card = task_cards(app).nth(1)
+    card.locator(".map-title").click()
+    expect(card.locator(".task-definition")).to_contain_text("{ 1 }")
 
 
 RUNNABLE = """pub async fn answer() { helper().await * 7 }

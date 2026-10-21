@@ -61,8 +61,8 @@ pub enum ImportError {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Imported {
     pub added: usize,
-    /// Of the tasks there already.
-    pub passed_over: usize,
+    /// Of the plugin of the same file name, imported before.
+    pub replaced: usize,
 }
 
 /// How many lines the standard output keeps: as the console's scrollback.
@@ -147,31 +147,21 @@ impl TaskContext {
     }
 
     /// Compiles `source` (of the file `plugin`) and adds a task, off, for each
-    /// public async function not already imported from a file of the same name.
+    /// public async function: in place of all those of a file of the same name.
     pub fn import_plugin(&mut self, plugin: &str, source: &str) -> Result<Imported, ImportError> {
         let compiled = compile_plugin(plugin, source).map_err(ImportError::Compile)?;
         let functions = public_async_functions(source).map_err(ImportError::Other)?;
         if functions.is_empty() {
             return Err(ImportError::Other(format!("No `pub async fn` in {plugin}")));
         }
-        let mut imported = Imported::default();
+        let mut tasks = Vec::new();
         for PluginFunction { name, definition } in functions {
-            let there = self
-                .list
-                .peek()
-                .iter()
-                .any(|task| task.plugin == plugin && task.name == name);
-            if there {
-                imported.passed_over += 1;
-                continue;
-            }
-            imported.added += 1;
             let id = *self.next_id.peek();
             self.next_id.set(id + 1);
             let ((enabled, latest, open), owner) = make_owned(self.scope, || {
                 (Signal::new(false), Signal::new(None), Signal::new(false))
             });
-            self.list.write().push(Task {
+            tasks.push(Task {
                 id,
                 name,
                 plugin: plugin.to_string(),
@@ -183,7 +173,17 @@ impl TaskContext {
                 _owner: owner,
             });
         }
-        Ok(imported)
+        let added = tasks.len();
+        let mut list = self.list.write();
+        // Where the plugin's tasks were, if it was imported: those replaced (and
+        // stopped, as they go)
+        let at = list.iter().position(|task| task.plugin == plugin);
+        let before = list.len();
+        list.retain(|task| task.plugin != plugin);
+        let replaced = before - list.len();
+        let at = at.unwrap_or(list.len());
+        list.splice(at..at, tasks);
+        Ok(Imported { added, replaced })
     }
 
     pub fn remove(&mut self, id: usize) {
