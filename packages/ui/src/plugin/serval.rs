@@ -346,6 +346,10 @@ fn number(value: &Value) -> Result<f64, String> {
 fn serial() -> Result<Module, ContextError> {
     let mut module = Module::with_crate_item("serval", ["serial"])?;
     module.function("send", send).build()?;
+    module
+        .function("get_send_buffer", get_send_buffer)
+        .build()?;
+    module.function("flush", flush).build()?;
     module.function("open", open).build()?;
     module.function("close", close).build()?;
     module.function("get_baudrate", get_baudrate).build()?;
@@ -380,6 +384,26 @@ fn send(data: Value) -> Result<(), String> {
         return Err(format!("Cannot send a {}", data.type_info()));
     };
     serial.send(bytes);
+    Ok(())
+}
+
+/// What `send` was given that is yet to be written to the port, oldest first
+/// (not of a file being sent).
+fn get_send_buffer() -> Result<Bytes, String> {
+    let unsent = host()?.serial.unsent();
+    Bytes::from_slice(unsent.as_slice()).map_err(|error| error.to_string())
+}
+
+/// How often `flush` looks whether all is written.
+const FLUSH_CHECK_MS: u32 = 10;
+
+/// Waits until all that was sent (and a file being sent) is written to the
+/// port, or failed to be.
+async fn flush() -> Result<(), String> {
+    let host = host()?;
+    while host.serial.has_pending() {
+        host.time.after_ms(FLUSH_CHECK_MS).await;
+    }
     Ok(())
 }
 

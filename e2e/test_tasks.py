@@ -324,6 +324,14 @@ pub async fn collects() {
     }
     sum
 }
+
+pub async fn flushes() {
+    serial::send("ab")?;
+    serial::send([0x63])?;
+    let held = serial::get_send_buffer()?;
+    serial::flush().await?;
+    format!("{} {} {}", held.len(), held == b"abc", serial::get_send_buffer()?.len())
+}
 """
 
 
@@ -425,3 +433,23 @@ def test_a_stream_gives_each_entry_as_it_comes(app: App, tmp_path: Path):
     app.mock("receive('reading: 2\\nreading: -1\\n')")
     expect(switch).not_to_be_checked()
     expect(card.locator(".task-latest")).to_have_text("3.0")
+
+
+def test_a_task_waits_until_what_it_sent_is_written(app: App, tmp_path: Path):
+    app.open_port()
+    app.mock("mute()")
+    app.mock("holdWrites = true")
+    (tmp_path / "serval.rn").write_text(SERVAL)
+    import_plugin(app, tmp_path / "serval.rn")
+    app.tab("Task")
+    card = task_cards(app).nth(7)
+    switch = card.get_by_role("switch", name="Toggle task")
+    switch.click()
+    # Held by the port: still waiting
+    app.page.wait_for_timeout(300)
+    expect(switch).to_be_checked()
+    app.mock("holdWrites = false")
+    app.mock("release()")
+    expect(switch).not_to_be_checked()
+    expect(card.locator(".task-latest")).to_have_text("3 true 0")
+    assert app.mock("written")[-2:] == ["ab", "c"]
