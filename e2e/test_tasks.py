@@ -199,11 +199,11 @@ def test_a_task_runs_as_it_is_turned_on_and_shows_what_it_returns(
 SERVAL = """use serval::{data, serial, time};
 
 pub async fn waits() {
-    let start = time::current_ms()?;
-    time::wait_ms(300).await?;
-    let until = time::current_ms()? + 200;
-    time::wait_until(|| time::current_ms().map(|now| now >= until)).await?;
-    time::current_ms()? - start
+    let start = time::now()?;
+    time::sleep(300).await?;
+    let until = time::now()? + 200;
+    time::sleep_until(|| time::now().map(|now| now >= until)).await?;
+    time::now()? - start
 }
 
 pub async fn keeps() {
@@ -242,7 +242,7 @@ pub async fn talks() {
 }
 
 pub async fn sleeps() {
-    time::wait_ms(60000).await?;
+    time::sleep(60000).await?;
     "woke"
 }
 

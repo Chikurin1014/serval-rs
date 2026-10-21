@@ -48,31 +48,31 @@ pub fn modules() -> Result<[Module; 3], ContextError> {
 
 fn time() -> Result<Module, ContextError> {
     let mut module = Module::with_crate_item("serval", ["time"])?;
-    module.function("current_ms", current_ms).build()?;
-    module.function("wait_ms", wait_ms).build()?;
-    module.function("wait_until", wait_until).build()?;
+    module.function("now", now).build()?;
+    module.function("sleep", sleep).build()?;
+    module.function("sleep_until", sleep_until).build()?;
     Ok(module)
 }
 
 /// Now, in ms since the Unix epoch.
-fn current_ms() -> Result<i64, String> {
+fn now() -> Result<i64, String> {
     Ok(host()?.time.current())
 }
 
 /// Waits `ms`.
-async fn wait_ms(ms: i64) -> Result<(), String> {
+async fn sleep(ms: i64) -> Result<(), String> {
     let time = host()?.time;
     let wait = time.after_ms(ms.clamp(0, u32::MAX as i64) as u32);
     wait.await;
     Ok(())
 }
 
-/// How often `wait_until` asks its condition again.
+/// How often `sleep_until` asks its condition again.
 const CONDITION_CHECK_MS: u32 = 10;
 
 /// Waits until `condition` (a function of no argument, async or not) gives
 /// `true`, checked every [`CONDITION_CHECK_MS`]; an `Err` from it is returned.
-async fn wait_until(condition: Function) -> Result<(), String> {
+async fn sleep_until(condition: Function) -> Result<(), String> {
     let time = host()?.time;
     loop {
         let mut met: Value = condition
@@ -470,7 +470,7 @@ mod tests {
         let plugin = compile_plugin(
             "paths.rn",
             "use serval::{data, serial, time};\n\
-            pub async fn now() { time::current_ms() }\n\
+            pub async fn now() { time::now() }\n\
             pub async fn label() { data::get(\"temp\") }\n\
             pub async fn baudrate() { serial::get_baudrate() }\n\
             pub async fn entry() { data::LogEntry::new(Some(\"INFO\"), \"up\").message }\n",
