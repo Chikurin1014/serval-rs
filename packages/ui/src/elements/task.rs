@@ -1,6 +1,4 @@
-//! The tasks of the plugins imported, as the maps are listed: each its card,
-//! turned on to run (off again as it ends), what it last returned beside its
-//! name, opened to its function's definition.
+//! The tasks of imported plugins, listed as the maps are.
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;

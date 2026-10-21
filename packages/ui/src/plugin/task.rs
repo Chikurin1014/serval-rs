@@ -3,8 +3,11 @@
 
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
-use super::{CompiledPlugin, PluginFunction, compile_plugin, public_async_functions, run_task};
-use crate::helper::make_owned;
+use super::{
+    CompiledPlugin, Host, PluginFunction, compile_plugin, public_async_functions, run_task,
+    set_host,
+};
+use crate::{data::DataContext, helper::make_owned, serial::SerialContext, time::TimeContext};
 
 /// The latest of a task's run: what it printed last as it goes, then how it
 /// ended (that kept if it returned nothing).
@@ -80,11 +83,8 @@ impl TaskContext {
         self.list.read().iter().find(|task| task.id == id).cloned()
     }
 
-    /// Compiles the plugin `source` (Rune), of the file `plugin`, then adds a
-    /// task, off, for each public async function of it: but those of a
-    /// function of the same name of a plugin of the same name, there already.
-    /// How many were added and passed over, or what is wrong with it with none
-    /// added.
+    /// Compiles `source` (of the file `plugin`) and adds a task, off, for each
+    /// public async function not already imported from a file of the same name.
     pub fn import_plugin(&mut self, plugin: &str, source: &str) -> Result<Imported, ImportError> {
         let compiled = compile_plugin(plugin, source).map_err(ImportError::Compile)?;
         let functions = public_async_functions(source).map_err(ImportError::Other)?;
@@ -128,10 +128,14 @@ impl TaskContext {
     }
 }
 
-/// Provides [`TaskContext`], with no task until a plugin is imported, and runs
-/// the tasks turned on.
+/// Provides [`TaskContext`] and runs the tasks turned on. Requires
+/// `DataContext`, `SerialContext` and `TimeContext`.
 #[component]
 pub fn TaskProvider(children: Element) -> Element {
+    let data = use_context::<DataContext>();
+    let serial = use_context::<SerialContext>();
+    let time = use_context::<TimeContext>();
+    use_hook(|| set_host(Host { data, serial, time }));
     use_context_provider(|| TaskContext {
         list: Signal::new(Vec::new()),
         next_id: Signal::new(0),

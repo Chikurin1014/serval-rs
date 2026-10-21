@@ -2,9 +2,11 @@
 //! they are imported and run as the tasks are turned on (`run`).
 
 mod run;
+mod serval;
 mod task;
 
 pub use run::{CompiledPlugin, INSTRUCTIONS_PER_STEP, compile_plugin, run_task};
+pub use serval::{Host, LogEntry, set_host};
 pub use task::{ImportError, Imported, Task, TaskContext, TaskOutcome, TaskProvider};
 
 use rune::{
@@ -22,10 +24,7 @@ pub struct PluginFunction {
     pub definition: String,
 }
 
-/// The public async functions `source` declares at its top level
-/// (`pub async fn name`), in order; else where it is not Rune, and why. Not
-/// those it does not make public (helpers of the others), nor those of its
-/// modules or impls.
+/// The top-level `pub async fn`s of `source`, in order; else why it is not Rune.
 pub fn public_async_functions(source: &str) -> Result<Vec<PluginFunction>, String> {
     let file = parse_all::<ast::File>(source, SourceId::empty(), true).map_err(|error| {
         let line = source[..error.span().range().start].matches('\n').count() + 1;

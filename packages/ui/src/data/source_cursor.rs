@@ -52,15 +52,6 @@ impl SourceCursor {
         }
     }
 
-    /// Whether [`Self::read`] of `queue` (of `label`) would give any entry:
-    /// without reading it.
-    pub fn pending<T>(&self, label: &str, queue: &Queue<T>) -> bool {
-        match self.read {
-            Some(read) if self.label == label && read.queue == queue.id() => queue.end() > read.end,
-            _ => !queue.is_empty(),
-        }
-    }
-
     /// As [`Self::read`] for `label`, if it holds entries of type `T`.
     pub fn new_entries<T: DataEntry>(
         &mut self,
@@ -134,23 +125,6 @@ mod tests {
 
         queue.push_within(7, 3);
         assert_eq!(cursor.read(&queue).missed, 0);
-    }
-
-    #[test]
-    fn tells_what_is_pending_without_reading_it() {
-        let mut cursor = SourceCursor::default();
-        let mut queue = queue_of(&[]);
-        assert!(!cursor.pending("", &queue));
-        queue.push(1);
-        assert!(cursor.pending("", &queue));
-        assert!(cursor.pending("", &queue), "still, as it was not read");
-        read(&mut cursor, &queue);
-        assert!(!cursor.pending("", &queue));
-        queue.push(2);
-        assert!(cursor.pending("", &queue));
-        // Another queue, or another label: all of it
-        assert!(cursor.pending("", &queue_of(&[1])));
-        assert!(cursor.pending("other", &queue));
     }
 
     #[test]

@@ -4,14 +4,17 @@
 use std::{
     future::Future,
     pin::Pin,
+    rc::Rc,
     sync::Arc,
     task::{Context as TaskContext, Poll},
 };
 
+use super::serval;
+
 use rune::{
     Context, Diagnostics, Source, Sources, Vm,
     modules::capture_io::{self, CaptureIo},
-    runtime::{Unit, budget},
+    runtime::{Function, Unit, budget},
     termcolor::NoColor,
 };
 
@@ -19,12 +22,14 @@ use rune::{
 /// it, as in a loop of no await, it is stopped (the page would stand still).
 pub const INSTRUCTIONS_PER_STEP: usize = 10_000_000;
 
-/// Formats a value in the plugin's own terms: as `format!("{}")` has it, or
-/// else as `format!("{:?}")` (for values of no display, as objects). After the
-/// plugin's own code, so its lines are numbered as the file's.
-const FORMAT_HELPERS: &str = "
+/// Appended to each plugin: formatting of what a task returns, and the
+/// generator of `serval::data::get`'s streams (Rune makes them of generators only).
+const HELPERS: &str = "
 pub fn __serval_display(value) { format!(\"{}\", value) }
 pub fn __serval_debug(value) { format!(\"{:?}\", value) }
+pub async fn __serval_stream(reader, with_time) {
+    while let Some(entry) = reader.next(with_time).await { yield entry; }
+}
 ";
 
 /// A plugin, compiled; run as many times as its tasks are.
@@ -32,12 +37,15 @@ pub fn __serval_debug(value) { format!(\"{:?}\", value) }
 pub struct CompiledPlugin(Arc<Unit>);
 
 /// The default modules, but what is printed taken to `io` rather than a
-/// stdout.
+/// stdout; and Serval's (`serval::*`).
 fn context(io: &CaptureIo) -> Result<Context, String> {
     let mut context = Context::with_config(false).map_err(|error| error.to_string())?;
     context
         .install(capture_io::module(io).map_err(|error| error.to_string())?)
         .map_err(|error| error.to_string())?;
+    for module in serval::modules().map_err(|error| error.to_string())? {
+        context.install(module).map_err(|error| error.to_string())?;
+    }
     Ok(context)
 }
 
@@ -48,8 +56,7 @@ pub fn compile_plugin(name: &str, source: &str) -> Result<CompiledPlugin, String
     let mut sources = Sources::new();
     sources
         .insert(
-            Source::new(name, format!("{source}\n{FORMAT_HELPERS}"))
-                .map_err(|error| error.to_string())?,
+            Source::new(name, format!("{source}\n{HELPERS}")).map_err(|error| error.to_string())?,
         )
         .map_err(|error| error.to_string())?;
     let mut diagnostics = Diagnostics::new();
@@ -71,9 +78,8 @@ pub fn compile_plugin(name: &str, source: &str) -> Result<CompiledPlugin, String
     }
 }
 
-/// Runs the async function `name` of `plugin` to its end: what it returns,
-/// formatted (none for `()`), or why it failed. What it prints (`print!`,
-/// `println!` and `dbg!`) goes to `on_print`, its last line as it goes.
+/// Runs the async function `name` of `plugin`: what it returns, formatted
+/// (none for `()`), or why it failed. `on_print` gets the last line printed.
 pub async fn run_task(
     plugin: &CompiledPlugin,
     name: &str,
@@ -84,7 +90,12 @@ pub async fn run_task(
     let runtime = Arc::new(context(&io)?.runtime().map_err(|error| error.to_string())?);
     let mut vm = Vm::new(runtime, plugin.0.clone());
 
-    let output = Stepped::new(io, Box::new(on_print), async {
+    let stream_of: Rc<Function> = vm
+        .lookup_function(["__serval_stream"])
+        .map_err(|error| error.to_string())?
+        .into();
+
+    let output = Stepped::new(io, stream_of, Box::new(on_print), async {
         let called = vm.async_call([name], ()).await?;
         // An async function gives its future, to be awaited
         match called.clone().into_future() {
@@ -106,20 +117,26 @@ pub async fn run_task(
     Ok(Some(formatted))
 }
 
-/// A task's future, given [`INSTRUCTIONS_PER_STEP`] anew each time it is
-/// polled: so it may go on as long as it awaits, but not past that between.
-/// What it printed is taken after each.
+/// A task's future, given [`INSTRUCTIONS_PER_STEP`] anew on each poll.
+/// Takes what it printed and sets its stream generator on each.
 struct Stepped<'a, F> {
     future: Pin<Box<F>>,
     io: CaptureIo,
+    stream_of: Rc<Function>,
     on_print: Box<dyn FnMut(&str) + 'a>,
 }
 
 impl<'a, F> Stepped<'a, F> {
-    fn new(io: CaptureIo, on_print: Box<dyn FnMut(&str) + 'a>, future: F) -> Self {
+    fn new(
+        io: CaptureIo,
+        stream_of: Rc<Function>,
+        on_print: Box<dyn FnMut(&str) + 'a>,
+        future: F,
+    ) -> Self {
         Self {
             future: Box::pin(future),
             io,
+            stream_of,
             on_print,
         }
     }
@@ -132,6 +149,7 @@ where
     type Output = Result<T, StepError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Self::Output> {
+        serval::set_stream_of(self.stream_of.clone());
         let future = self.future.as_mut();
         let (poll, exhausted) = budget::with(INSTRUCTIONS_PER_STEP, || {
             let poll = future.poll(cx);
