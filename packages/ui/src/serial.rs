@@ -256,7 +256,7 @@ impl SerialContext {
     pub fn refresh_ports(&self) {
         let context = *self;
         self.spawn(async move {
-            if context.is_open() && !context.close_port().await {
+            if context.is_open() && context.close_port().await.is_err() {
                 return;
             }
             let backend = context.backend.cloned();
@@ -279,37 +279,43 @@ impl SerialContext {
     }
 
     pub fn open(&self) {
-        if self.is_open() {
-            return;
-        }
-        let Some(port) = self.selected_port() else {
-            return;
-        };
-        let Some(baudrate) = port.baudrate else {
-            return;
-        };
         let context = *self;
         self.spawn(async move {
-            if let Err(error) = port.handle.open(baudrate).await {
-                context.report(NotificationKind::Error, "Failed to open the port", &error);
-                return;
-            }
-            let mut open = context.open;
-            open.set(Some(port.id));
-            let (mut rx_bytes, mut tx_bytes) = (context.rx_bytes, context.tx_bytes);
-            rx_bytes.set(0);
-            let mut signals = context.signals;
-            signals.set(Signals {
-                dtr: true,
-                rts: true,
-            });
-            tx_bytes.set(0);
-            let mut outgoing = context.outgoing;
-            outgoing.write().clear();
-            let opened = format!("{} at {baudrate} bps", port.info.name);
-            context.record_event(&format!("Port opened: {opened}"));
-            context.report(NotificationKind::Success, "Port opened", &opened);
+            let _ = context.open_port().await;
+        });
+    }
 
+    /// Opens the port selected at its baudrate, if none is open: read from as
+    /// it returns. Why it failed is told as by [`Self::open`] too.
+    pub async fn open_port(&self) -> SerialResult<()> {
+        if self.is_open() {
+            return Ok(());
+        }
+        let port = self.selected_port().ok_or("No port is selected")?;
+        let baudrate = port.baudrate.ok_or("No baudrate is set")?;
+        if let Err(error) = port.handle.open(baudrate).await {
+            self.report(NotificationKind::Error, "Failed to open the port", &error);
+            return Err(error);
+        }
+        let context = *self;
+        let mut open = context.open;
+        open.set(Some(port.id));
+        let (mut rx_bytes, mut tx_bytes) = (context.rx_bytes, context.tx_bytes);
+        rx_bytes.set(0);
+        let mut signals = context.signals;
+        signals.set(Signals {
+            dtr: true,
+            rts: true,
+        });
+        tx_bytes.set(0);
+        let mut outgoing = context.outgoing;
+        outgoing.write().clear();
+        let opened = format!("{} at {baudrate} bps", port.info.name);
+        context.record_event(&format!("Port opened: {opened}"));
+        context.report(NotificationKind::Success, "Port opened", &opened);
+
+        // Read until closed or lost, on its own
+        self.spawn(async move {
             let time = context.time;
             let received = Received::new(context.data, rx_bytes, context.history, context.recorder);
             let last = received.clone();
@@ -342,28 +348,30 @@ impl SerialContext {
                 }
             }
         });
+        Ok(())
     }
 
     pub fn close(&self) {
         let context = *self;
         self.spawn(async move {
-            context.close_port().await;
+            let _ = context.close_port().await;
         });
     }
 
-    /// `false` if it failed to close.
-    async fn close_port(&self) -> bool {
+    /// Closes the open port, if one is: closed as it returns. Why it failed is
+    /// told as by [`Self::close`] too.
+    pub async fn close_port(&self) -> SerialResult<()> {
         let Some(port) = (*self.open.peek()).and_then(|id| self.port(id)) else {
-            return true;
+            return Ok(());
         };
         if let Err(error) = port.handle.close().await {
             self.report(NotificationKind::Error, "Failed to close the port", &error);
-            return false;
+            return Err(error);
         }
         let mut open = self.open;
         open.set(None);
         self.report(NotificationKind::Info, "Port closed", &port.info.name);
-        true
+        Ok(())
     }
 
     /// Writes what happened to the port to the record file, if one is written.
