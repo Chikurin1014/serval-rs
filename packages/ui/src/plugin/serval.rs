@@ -166,6 +166,11 @@ fn stream(label: &str, with_time: bool) -> VmResult<Value> {
         },
         Err(error) => return VmResult::panic(error),
     };
+    stream_of(reader, with_time)
+}
+
+/// A Rune `Stream` of `reader`, by its async `next(with_time)`.
+fn stream_of(reader: impl rune::ToValue, with_time: bool) -> VmResult<Value> {
     let Some(generator) = STREAM_OF.with(|cell| cell.borrow().clone()) else {
         return VmResult::panic("No task to make a stream for");
     };
@@ -350,6 +355,12 @@ fn serial() -> Result<Module, ContextError> {
         .function("get_send_buffer", get_send_buffer)
         .build()?;
     module.function("flush", flush).build()?;
+    module.ty::<ReceivedReader>()?;
+    module
+        .function("next", next_received)
+        .build_associated::<ReceivedReader>()?;
+    module.function("received", received).build()?;
+    module.function("wait_for", wait_for).build()?;
     module.function("open", open).build()?;
     module.function("close", close).build()?;
     module.function("get_baudrate", get_baudrate).build()?;
@@ -371,20 +382,24 @@ fn send(data: Value) -> Result<(), String> {
     if !serial.is_open() {
         return Err("No port is open".to_string());
     }
-    let bytes = if let Ok(text) = rune::from_value::<String>(data.clone()) {
-        text.into_bytes()
+    serial.send(to_bytes(data)?);
+    Ok(())
+}
+
+/// The bytes of a string, bytes or a list of bytes.
+fn to_bytes(data: Value) -> Result<Vec<u8>, String> {
+    if let Ok(text) = rune::from_value::<String>(data.clone()) {
+        Ok(text.into_bytes())
     } else if let Ok(bytes) = rune::from_value::<Bytes>(data.clone()) {
-        bytes.as_slice().to_vec()
+        Ok(bytes.as_slice().to_vec())
     } else if let Ok(values) = rune::from_value::<Vec<i64>>(data.clone()) {
         values
             .into_iter()
             .map(|value| u8::try_from(value).map_err(|_| format!("Not a byte: {value}")))
-            .collect::<Result<_, _>>()?
+            .collect()
     } else {
-        return Err(format!("Cannot send a {}", data.type_info()));
-    };
-    serial.send(bytes);
-    Ok(())
+        Err(format!("Not bytes: {}", data.type_info()))
+    }
 }
 
 /// What `send` was given that is yet to be written to the port, oldest first
@@ -405,6 +420,89 @@ async fn flush() -> Result<(), String> {
         host.time.after_ms(FLUSH_CHECK_MS).await;
     }
     Ok(())
+}
+
+/// How often what is received is looked for, as there is none new.
+const RECEIVED_CHECK_MS: u32 = 10;
+
+/// What the port receives from when it was made, as `serial::received` reads
+/// it: from the console's history, apart from the data.
+#[derive(Any, Debug)]
+#[rune(item = ::serval::serial)]
+pub struct ReceivedReader {
+    /// Where it read to, counted from the first byte ever received
+    read_to: u64,
+}
+
+impl ReceivedReader {
+    fn new() -> Result<Self, String> {
+        Ok(Self {
+            read_to: host()?.serial.received_since(None).end,
+        })
+    }
+
+    /// What came since it last read, waited for as none did.
+    async fn next_bytes(&mut self) -> Result<Vec<u8>, String> {
+        let host = host()?;
+        loop {
+            let unread = host.serial.received_since(Some(self.read_to));
+            self.read_to = unread.end;
+            if !unread.bytes.is_empty() {
+                return Ok(unread.bytes);
+            }
+            host.time.after_ms(RECEIVED_CHECK_MS).await;
+        }
+    }
+}
+
+/// The bytes the port receives from now on as a Rune `Stream`, each item what
+/// came at once (as `Bytes`). It does not end.
+fn received() -> VmResult<Value> {
+    match ReceivedReader::new() {
+        Ok(reader) => stream_of(reader, false),
+        Err(error) => VmResult::panic(error),
+    }
+}
+
+async fn next_received(
+    mut reader: Mut<ReceivedReader>,
+    _with_time: bool,
+) -> VmResult<Option<Value>> {
+    let bytes = match reader.next_bytes().await {
+        Ok(bytes) => bytes,
+        Err(error) => return VmResult::panic(error),
+    };
+    match Bytes::from_slice(bytes.as_slice()).map_err(|error| error.to_string()) {
+        Ok(bytes) => {
+            to_value(bytes).map_or_else(VmResult::panic, |bytes| VmResult::Ok(Some(bytes)))
+        }
+        Err(error) => VmResult::panic(error),
+    }
+}
+
+/// Waits until the port receives `pattern` (a string, bytes or a list of
+/// bytes) from now on: what it received until then, `pattern` with it.
+async fn wait_for(pattern: Value) -> Result<Bytes, String> {
+    let pattern = to_bytes(pattern)?;
+    if pattern.is_empty() {
+        return Ok(Bytes::new());
+    }
+    let mut reader = ReceivedReader::new()?;
+    let mut received = Vec::new();
+    loop {
+        // From where it could start in what came before
+        let from = received
+            .len()
+            .saturating_sub(pattern.len().saturating_sub(1));
+        received.extend(reader.next_bytes().await?);
+        if let Some(at) = received[from..]
+            .windows(pattern.len())
+            .position(|window| window == pattern.as_slice())
+        {
+            received.truncate(from + at + pattern.len());
+            return Bytes::from_slice(received.as_slice()).map_err(|error| error.to_string());
+        }
+    }
 }
 
 /// Opens the port selected, at its baudrate: open as it returns.

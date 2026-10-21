@@ -332,6 +332,14 @@ pub async fn flushes() {
     serial::flush().await?;
     format!("{} {} {}", held.len(), held == b"abc", serial::get_send_buffer()?.len())
 }
+
+pub async fn listens() {
+    let received = serial::received();
+    let first = received.next().await.unwrap();
+    // Across what came at once
+    let reply = serial::wait_for("OK").await?;
+    format!("{} {}", String::from_utf8(first)?, String::from_utf8(reply)?)
+}
 """
 
 
@@ -453,3 +461,25 @@ def test_a_task_waits_until_what_it_sent_is_written(app: App, tmp_path: Path):
     expect(switch).not_to_be_checked()
     expect(card.locator(".task-latest")).to_have_text("3 true 0")
     assert app.mock("written")[-2:] == ["ab", "c"]
+
+
+def test_a_task_reads_what_the_port_receives(app: App, tmp_path: Path):
+    app.open_port()
+    app.mock("mute()")
+    (tmp_path / "serval.rn").write_text(SERVAL)
+    import_plugin(app, tmp_path / "serval.rn")
+    app.tab("Task")
+    card = task_cards(app).nth(8)
+    switch = card.get_by_role("switch", name="Toggle task")
+    switch.click()
+    expect(switch).to_be_checked()
+    app.page.wait_for_timeout(100)
+    app.mock("receive('hello')")
+    app.page.wait_for_timeout(300)
+    app.mock("receive('noise O')")
+    app.page.wait_for_timeout(300)
+    # Waiting for the rest of it
+    expect(switch).to_be_checked()
+    app.mock("receive('K and more')")
+    expect(switch).not_to_be_checked()
+    expect(card.locator(".task-latest")).to_have_text("hello noise OK")

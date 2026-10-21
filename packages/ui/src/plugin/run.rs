@@ -23,7 +23,7 @@ use rune::{
 pub const INSTRUCTIONS_PER_STEP: usize = 10_000_000;
 
 /// Appended to each plugin: formatting of what a task returns, and the
-/// generator of `serval::data::get`'s streams (Rune makes them of generators only).
+/// generator of Serval's streams (Rune makes them of generators only).
 const HELPERS: &str = "
 pub fn __serval_display(value) { format!(\"{}\", value) }
 pub fn __serval_debug(value) { format!(\"{:?}\", value) }
