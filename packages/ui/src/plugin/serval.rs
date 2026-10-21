@@ -3,6 +3,8 @@
 //! Rune functions must be `Send`, so they take Serval's contexts from a
 //! thread-local [`Host`] instead of holding them.
 
+mod clock;
+
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 use rune::{
@@ -48,21 +50,17 @@ pub fn modules() -> Result<[Module; 3], ContextError> {
 
 fn time() -> Result<Module, ContextError> {
     let mut module = Module::with_crate_item("serval", ["time"])?;
-    module.function("now", now).build()?;
+    clock::install(&mut module)?;
     module.function("sleep", sleep).build()?;
     module.function("sleep_until", sleep_until).build()?;
     Ok(module)
 }
 
-/// Now, in ms since the Unix epoch.
-fn now() -> Result<i64, String> {
-    Ok(host()?.time.current())
-}
-
-/// Waits `ms`.
-async fn sleep(ms: i64) -> Result<(), String> {
+/// Waits `duration`, by its ms.
+async fn sleep(duration: clock::Duration) -> Result<(), String> {
     let time = host()?.time;
-    let wait = time.after_ms(ms.clamp(0, u32::MAX as i64) as u32);
+    let ms = u32::try_from(duration.inner.as_millis()).unwrap_or(u32::MAX);
+    let wait = time.after_ms(ms);
     wait.await;
     Ok(())
 }
@@ -150,7 +148,7 @@ fn get(label: &str) -> VmResult<Value> {
     stream(label, false)
 }
 
-/// As `get`, each value with its time (in ms since the Unix epoch).
+/// As `get`, each value with its time (an `Instant`).
 fn get_with_time(label: &str) -> VmResult<Value> {
     stream(label, true)
 }
@@ -299,9 +297,8 @@ async fn next(mut reader: Mut<Reader>, with_time: bool) -> VmResult<Option<Value
         Err(error) => return VmResult::panic(error),
     };
     match entry {
-        Some((time, value)) if with_time => {
-            to_value((time, value)).map_or_else(VmResult::panic, |entry| VmResult::Ok(Some(entry)))
-        }
+        Some((time, value)) if with_time => to_value((clock::Instant { ms: time }, value))
+            .map_or_else(VmResult::panic, |entry| VmResult::Ok(Some(entry))),
         entry => VmResult::Ok(entry.map(|(_, value)| value)),
     }
 }
@@ -592,27 +589,38 @@ mod tests {
         let plugin = compile_plugin(
             "paths.rn",
             "use serval::{data, serial, time};\n\
-            pub async fn now() { time::now() }\n\
+            pub async fn now() { time::Instant::now() }\n\
+            pub async fn spans() {\n\
+                let span = time::Duration::from_millis(1500);\n\
+                span += time::Duration::from_secs(1);\n\
+                let longer = span > time::Duration::from_secs(2);\n\
+                format!(\"{} {} {} {:?}\", span.as_millis(), span.as_secs(), longer, span)\n\
+            }\n\
             pub async fn label() { data::get(\"temp\") }\n\
             pub async fn baudrate() { serial::get_baudrate() }\n\
             pub async fn entry() { data::LogEntry::new(Some(\"INFO\"), \"up\").message }\n",
         )
         .unwrap();
         // Off the page: told so, as an error the plugin may take
-        for name in ["now", "baudrate"] {
-            let returned = block_on(run_task(&plugin, name, |_| {}));
-            assert_eq!(
-                returned,
-                Ok(Some("Err(\"Serval is not there to run on\")".into())),
-                "{name}"
-            );
-        }
+        assert_eq!(
+            block_on(run_task(&plugin, "baudrate", |_| {})),
+            Ok(Some("Err(\"Serval is not there to run on\")".into()))
+        );
         assert_eq!(
             block_on(run_task(&plugin, "entry", |_| {})),
             Ok(Some("up".into()))
         );
-        // A stream, of no error to give: the task stopped
-        let failed = block_on(run_task(&plugin, "label", |_| {})).unwrap_err();
-        assert!(failed.contains("Serval is not there to run on"), "{failed}");
+        assert_eq!(
+            block_on(run_task(&plugin, "spans", |_| {})),
+            Ok(Some("2500 2 true 2.5s".into()))
+        );
+        // A stream, or an instant, of no error to give: the task stopped
+        for name in ["label", "now"] {
+            let failed = block_on(run_task(&plugin, name, |_| {})).unwrap_err();
+            assert!(
+                failed.contains("Serval is not there to run on"),
+                "{name}: {failed}"
+            );
+        }
     }
 }

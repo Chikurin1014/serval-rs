@@ -255,11 +255,11 @@ def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
 SERVAL = """use serval::{data, serial, time};
 
 pub async fn waits() {
-    let start = time::now()?;
-    time::sleep(300).await?;
-    let until = time::now()? + 200;
-    time::sleep_until(|| time::now().map(|now| now >= until)).await?;
-    time::now()? - start
+    let start = time::Instant::now();
+    time::sleep(time::Duration::from_millis(300)).await?;
+    let until = time::Instant::now() + time::Duration::from_millis(200);
+    time::sleep_until(|| time::Instant::now() >= until).await?;
+    start.elapsed().as_millis()
 }
 
 pub async fn keeps() {
@@ -298,7 +298,7 @@ pub async fn talks() {
 }
 
 pub async fn sleeps() {
-    time::sleep(60000).await?;
+    time::sleep(time::Duration::from_secs(60)).await?;
     "woke"
 }
 
