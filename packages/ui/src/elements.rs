@@ -18,4 +18,4 @@ pub use layout::{
     initial_layout, parse_layout,
 };
 pub use log_level_tag::LogLevelTag;
-pub use task::{PluginButton, TaskList};
+pub use task::{PluginButton, TaskList, TaskStdout};

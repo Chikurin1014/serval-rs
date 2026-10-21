@@ -7,7 +7,9 @@ mod task;
 
 pub use run::{CompiledPlugin, INSTRUCTIONS_PER_STEP, compile_plugin, run_task};
 pub use serval::{Host, LogEntry, set_host};
-pub use task::{ImportError, Imported, Task, TaskContext, TaskOutcome, TaskProvider};
+pub use task::{
+    ImportError, Imported, NewLines, PrintedLine, Task, TaskContext, TaskOutcome, TaskProvider,
+};
 
 use rune::{
     SourceId,

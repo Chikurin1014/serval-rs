@@ -79,7 +79,8 @@ pub fn compile_plugin(name: &str, source: &str) -> Result<CompiledPlugin, String
 }
 
 /// Runs the async function `name` of `plugin`: what it returns, formatted
-/// (none for `()`), or why it failed. `on_print` gets the last line printed.
+/// (none for `()`), or why it failed. `on_print` gets each line it prints, as it
+/// goes (one left unended, as it ends).
 pub async fn run_task(
     plugin: &CompiledPlugin,
     name: &str,
@@ -118,12 +119,14 @@ pub async fn run_task(
 }
 
 /// A task's future, given [`INSTRUCTIONS_PER_STEP`] anew on each poll.
-/// Takes what it printed and sets its stream generator on each.
+/// Takes what it printed, by lines, and sets its stream generator on each.
 struct Stepped<'a, F> {
     future: Pin<Box<F>>,
     io: CaptureIo,
     stream_of: Rc<Function>,
     on_print: Box<dyn FnMut(&str) + 'a>,
+    /// Printed, yet to end its line
+    partial: String,
 }
 
 impl<'a, F> Stepped<'a, F> {
@@ -138,6 +141,7 @@ impl<'a, F> Stepped<'a, F> {
             io,
             stream_of,
             on_print,
+            partial: String::new(),
         }
     }
 }
@@ -156,10 +160,18 @@ where
             (poll, !budget::acquire().take())
         })
         .call();
-        if let Ok(printed) = self.io.drain_utf8()
-            && let Some(last) = printed.lines().rfind(|line| !line.trim().is_empty())
-        {
-            (self.on_print)(last);
+        if let Ok(printed) = self.io.drain_utf8() {
+            self.partial.push_str(&printed);
+        }
+        if let Some(end) = self.partial.rfind('\n') {
+            let lines: String = self.partial.drain(..=end).collect();
+            for line in lines.lines() {
+                (self.on_print)(line);
+            }
+        }
+        if poll.is_ready() && !self.partial.is_empty() {
+            let line = std::mem::take(&mut self.partial);
+            (self.on_print)(&line);
         }
         match poll {
             Poll::Ready(Err(_)) if exhausted => Poll::Ready(Err(StepError::Exhausted)),
@@ -214,19 +226,21 @@ mod tests {
     }
 
     #[test]
-    fn what_a_task_prints_is_taken_by_its_last_line() {
+    fn what_a_task_prints_is_taken_by_lines() {
         let mut printed = Vec::new();
         let source = "pub async fn talks() {\n\
             println!(\"first\");\n    print!(\"second {}\\n\\n\", 2);\n    \
-            helper().await;\n    dbg!(42);\n    \"done\"\n}\n\
+            helper().await;\n    dbg!(42);\n    print!(\"unended\");\n    \"done\"\n}\n\
             async fn helper() { println!(\"from a helper\") }\n";
         let plugin = compile_plugin("test.rn", source).unwrap();
         let returned = block_on(run_task(&plugin, "talks", |line| {
             printed.push(line.to_string())
         }));
         assert_eq!(returned, Ok(Some("done".into())));
-        assert_eq!(printed.last().map(String::as_str), Some("42"));
-        assert!(!printed.is_empty());
+        assert_eq!(
+            printed,
+            ["first", "second 2", "", "from a helper", "42", "unended"]
+        );
     }
 
     #[test]

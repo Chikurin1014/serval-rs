@@ -1,6 +1,8 @@
 //! Tasks: the public async functions of the plugins imported, each run as it
 //! is turned on, and turned off again as it ends.
 
+use std::collections::VecDeque;
+
 use dioxus::{core::current_scope_id, prelude::*, signals::Owner};
 
 use super::{
@@ -63,10 +65,71 @@ pub struct Imported {
     pub passed_over: usize,
 }
 
+/// How many lines the standard output keeps: as the console's scrollback.
+const STDOUT_LINES: usize = 10_000;
+
+/// A line a task printed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrintedLine {
+    /// The task's, as `<file>::<function>`.
+    pub source: String,
+    /// When it was printed, in ms since the Unix epoch.
+    pub time: i64,
+    pub text: String,
+}
+
+/// What the tasks printed, by lines: the last [`STDOUT_LINES`].
+#[derive(Debug, Default)]
+struct Stdout {
+    lines: VecDeque<PrintedLine>,
+    /// Lines dropped from the front
+    dropped: usize,
+    /// Where it was last cleared, counted from the first line ever
+    cleared_at: usize,
+}
+
+/// Lines printed since a reader's last read.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewLines {
+    pub lines: Vec<PrintedLine>,
+    /// Where they end, counted from the first line ever: the next read's start.
+    pub end: usize,
+    /// Cleared since the last read: what was shown is to go.
+    pub cleared: bool,
+}
+
+impl Stdout {
+    fn push(&mut self, line: PrintedLine) {
+        if self.lines.len() == STDOUT_LINES {
+            self.lines.pop_front();
+            self.dropped += 1;
+        }
+        self.lines.push_back(line);
+    }
+
+    /// The lines from `from` (counted from the first ever) that are kept.
+    fn since(&self, from: usize) -> NewLines {
+        let skip = from.saturating_sub(self.dropped);
+        NewLines {
+            lines: self.lines.iter().skip(skip).cloned().collect(),
+            end: self.dropped + self.lines.len(),
+            cleared: from < self.cleared_at,
+        }
+    }
+
+    fn clear(&mut self) {
+        // One past the lines dropped: every read before it ends before it
+        self.dropped += self.lines.len() + 1;
+        self.lines.clear();
+        self.cleared_at = self.dropped;
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub struct TaskContext {
     list: Signal<Vec<Task>>,
     next_id: Signal<usize>,
+    stdout: Signal<Stdout>,
     scope: ScopeId,
 }
 
@@ -126,6 +189,21 @@ impl TaskContext {
     pub fn remove(&mut self, id: usize) {
         self.list.write().retain(|task| task.id != id);
     }
+
+    /// The lines printed from `from` (counted from the first ever; all for
+    /// none), of those kept.
+    pub fn printed_since(&self, from: Option<usize>) -> NewLines {
+        self.stdout.read().since(from.unwrap_or(0))
+    }
+
+    fn print(&mut self, line: PrintedLine) {
+        self.stdout.write().push(line);
+    }
+
+    /// Drops all that was printed, from what is shown.
+    pub fn clear_printed(&mut self) {
+        self.stdout.write().clear();
+    }
 }
 
 /// Provides [`TaskContext`] and runs the tasks turned on. Requires
@@ -139,6 +217,7 @@ pub fn TaskProvider(children: Element) -> Element {
     use_context_provider(|| TaskContext {
         list: Signal::new(Vec::new()),
         next_id: Signal::new(0),
+        stdout: Signal::new(Stdout::default()),
         scope: current_scope_id(),
     });
 
@@ -172,7 +251,8 @@ fn TaskRuns() -> Element {
 /// as it is turned off before (or removed, as this goes with it).
 #[component]
 fn TaskRun(id: usize) -> Element {
-    let context = use_context::<TaskContext>();
+    let mut context = use_context::<TaskContext>();
+    let time = use_context::<TimeContext>();
     let task = use_memo(move || context.get(id));
     let mut running = use_signal(|| None::<dioxus::core::Task>);
 
@@ -186,8 +266,20 @@ fn TaskRun(id: usize) -> Element {
                 return;
             }
             latest.set(None);
+            let time = time.clone();
+            let source = format!("{}::{}", task.plugin, task.name);
             let run = spawn(async move {
-                let printed = |line: &str| latest.set(Some(TaskOutcome::Printed(line.to_string())));
+                let printed = |line: &str| {
+                    context.print(PrintedLine {
+                        source: source.clone(),
+                        time: time.current(),
+                        text: line.to_string(),
+                    });
+                    // Beside its name: the last line of something
+                    if !line.trim().is_empty() {
+                        latest.set(Some(TaskOutcome::Printed(line.to_string())));
+                    }
+                };
                 let outcome = match run_task(&task.compiled, &task.name, printed).await {
                     Ok(returned) => returned.map(TaskOutcome::Returned),
                     Err(error) => Some(TaskOutcome::Failed(error)),
@@ -206,4 +298,60 @@ fn TaskRun(id: usize) -> Element {
     });
 
     rsx! {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PrintedLine, STDOUT_LINES, Stdout};
+
+    fn line(text: &str) -> PrintedLine {
+        PrintedLine {
+            source: "test.rn::talks".into(),
+            time: 0,
+            text: text.into(),
+        }
+    }
+
+    #[test]
+    fn printed_lines_are_read_from_where_a_reader_left() {
+        let mut stdout = Stdout::default();
+        stdout.push(line("first"));
+        let read = stdout.since(0);
+        assert_eq!(read.lines, [line("first")]);
+        stdout.push(line("second"));
+        assert_eq!(stdout.since(read.end).lines, [line("second")]);
+        assert!(stdout.since(stdout.since(0).end).lines.is_empty());
+    }
+
+    #[test]
+    fn the_oldest_lines_are_dropped_past_the_last_kept() {
+        let mut stdout = Stdout::default();
+        for index in 0..STDOUT_LINES + 2 {
+            stdout.push(line(&index.to_string()));
+        }
+        let read = stdout.since(0);
+        assert_eq!(read.lines.len(), STDOUT_LINES);
+        assert_eq!(read.lines[0], line("2"));
+        assert_eq!(read.end, STDOUT_LINES + 2);
+        // Those read before dropped: from the first kept
+        assert_eq!(stdout.since(1).lines[0], line("2"));
+        assert_eq!(
+            stdout.since(STDOUT_LINES + 1).lines,
+            [line(&(STDOUT_LINES + 1).to_string())]
+        );
+    }
+
+    #[test]
+    fn a_reader_is_told_of_a_clear_once() {
+        let mut stdout = Stdout::default();
+        stdout.push(line("first"));
+        let read = stdout.since(0);
+        assert!(!read.cleared);
+        stdout.clear();
+        stdout.push(line("second"));
+        let read = stdout.since(read.end);
+        assert!(read.cleared);
+        assert_eq!(read.lines, [line("second")]);
+        assert!(!stdout.since(read.end).cleared);
+    }
 }

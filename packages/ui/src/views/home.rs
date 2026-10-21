@@ -5,7 +5,7 @@ use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     data::RAW_BYTES_LABEL,
     elements::{
-        DataList, FilterContext, FilterKind, TaskList,
+        DataList, FilterContext, FilterKind, TaskList, TaskStdout,
         graph::GraphBoard,
         map::MapList,
         serial::{
@@ -116,7 +116,11 @@ pub fn Home() -> Element {
                     class: "home-tab",
                     index: 3usize,
                     value: "task".to_string(),
-                    TaskList {}
+                    div {
+                        class: "task-grid",
+                        TaskList {}
+                        TaskStdout {}
+                    }
                 }
             }
         }

@@ -1,4 +1,6 @@
-//! The tasks of imported plugins, listed as the maps are.
+//! The tasks of imported plugins, listed as the maps are, and what they print.
+
+use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
@@ -13,7 +15,7 @@ use crate::{
         scroll_area::ScrollArea,
         switch::Switch,
     },
-    helper::single_line,
+    helper::{single_line, use_script},
     plugin::{ImportError, Imported, Task, TaskContext, TaskOutcome},
     toast::use_toaster,
 };
@@ -22,6 +24,17 @@ use crate::{
 const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 const TASK_LIST_CSS: Asset = asset!("/assets/styling/task-list.css");
 const PLUGIN_INPUT_ID: &str = "plugin-file-input";
+const STDOUT_OUTPUT_ID: &str = "task-stdout-output";
+const STDOUT_JS: &str = include_str!("task_stdout.js");
+const XTERM_CSS: Asset = asset!("/assets/vendor/xterm/xterm.css");
+const XTERM_JS: Asset = asset!(
+    "/assets/vendor/xterm/xterm.js",
+    AssetOptions::js().with_minify(false)
+);
+const XTERM_FIT_JS: Asset = asset!(
+    "/assets/vendor/xterm-addon-fit/addon-fit.js",
+    AssetOptions::js().with_minify(false)
+);
 
 /// Lists the tasks, in the order their plugins were imported.
 #[component]
@@ -141,6 +154,63 @@ fn TaskLatest(latest: ReadSignal<Option<TaskOutcome>>) -> Element {
                 }
             },
             None => rsx! {},
+        }
+    }
+}
+
+/// What the tasks print, by lines, in a terminal: each with its task and time
+/// beside it.
+#[component]
+pub fn TaskStdout() -> Element {
+    let mut context = use_context::<TaskContext>();
+    let terminal = use_script(STDOUT_JS);
+    use_hook(|| {
+        let _ = terminal.send(STDOUT_OUTPUT_ID);
+    });
+
+    // In a hook: the effect takes each render's closure
+    let read_to = use_hook(|| Rc::new(Cell::new(None)));
+    use_effect(move || {
+        let printed = context.printed_since(read_to.get());
+        read_to.set(Some(printed.end));
+        if printed.cleared || !printed.lines.is_empty() {
+            let lines: Vec<_> = printed
+                .lines
+                .into_iter()
+                .map(|line| (line.source, line.time, line.text))
+                .collect();
+            let _ = terminal.send(("lines", printed.cleared, lines));
+        }
+    });
+
+    rsx! {
+        document::Link { rel: "stylesheet", href: XTERM_CSS }
+        document::Link { rel: "stylesheet", href: TASK_LIST_CSS }
+        document::Script { src: XTERM_JS }
+        document::Script { src: XTERM_FIT_JS }
+
+        fieldset {
+            class: "task-stdout",
+            legend { "STDOUT" }
+            div {
+                class: "task-stdout-screen",
+                Button {
+                    class: "task-stdout-clear",
+                    variant: ButtonVariant::Ghost,
+                    size: ButtonSize::IconSm,
+                    aria_label: "Clear the output",
+                    title: "Clear the output",
+                    onclick: move |_| context.clear_printed(),
+                    lucide::BrushCleaning {}
+                }
+                // Of each line, drawn by the terminal's script
+                div {
+                    class: "task-stdout-sources",
+                    id: "task-stdout-sources",
+                    aria_hidden: "true",
+                }
+                div { class: "task-stdout-output", id: STDOUT_OUTPUT_ID }
+            }
         }
     }
 }

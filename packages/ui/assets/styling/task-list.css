@@ -95,3 +95,79 @@ button.plugin-button {
 .plugin-file-input {
   display: none;
 }
+
+/* What the tasks print: framed as a card, its title on the frame's top */
+fieldset.task-stdout {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Its frame level with the cards beside it: the title above */
+  margin: -0.45rem 0 0;
+  padding: 0.25rem 0 0;
+  border: 1px solid var(--border-color);
+  background-color: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
+  color: var(--secondary-color-4);
+}
+
+.task-stdout legend {
+  margin-left: 0.75rem;
+  padding: 0 0.4rem;
+  color: var(--secondary-color-5);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* The source column and the terminal */
+.task-stdout-screen {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Each line's task and time: drawn row by row beside the terminal, as wide as
+   the longest yet (as the script has it), not to be touched */
+.task-stdout-sources {
+  flex: none;
+  box-sizing: content-box;
+  max-width: 50%;
+  padding: 0.5rem;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color);
+  color: var(--secondary-color-5);
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+}
+
+.task-stdout-sources > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* xterm.js fits the terminal to this box, whose computed height must leave
+   out the padding: so not `border-box` */
+.task-stdout-output {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+
+/* Clearing it: on the screen's top right, clear of the scrollbar, over the
+   terminal */
+button.task-stdout-clear {
+  position: absolute;
+  z-index: 2;
+  top: 0.25rem;
+  right: 1rem;
+}

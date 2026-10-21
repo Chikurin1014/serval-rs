@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect
@@ -194,6 +195,61 @@ def test_a_task_runs_as_it_is_turned_on_and_shows_what_it_returns(
 
     # Run again: what it returns anew
     expect(run_task(app, 0).locator(".task-latest")).to_have_text("42")
+
+
+# The STDOUT's rows with text: each its text, and the task and time beside it
+STDOUT_ROWS = """() => {
+    const buffer = document.querySelector('.task-stdout-output').xterm.buffer.active;
+    const sources = [...document.querySelectorAll('.task-stdout-sources > div')];
+    const rows = [];
+    for (let row = 0; row < sources.length; row++) {
+        const text = buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? '';
+        if (text) {
+            rows.push([text, sources[row].textContent]);
+        }
+    }
+    return rows;
+}"""
+
+
+def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
+    (tmp_path / "runnable.rn").write_text(RUNNABLE)
+    import_plugin(app, tmp_path / "runnable.rn")
+    app.tab("Task")
+    stdout = app.page.locator(".task-stdout")
+    expect(stdout.locator("legend")).to_have_text("STDOUT")
+
+    run_task(app, 5)
+    run_task(app, 6)
+    app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 3")
+    rows = app.page.evaluate(STDOUT_ROWS)
+    assert [text for text, _ in rows] == ["first", "last 2", "working"]
+    sources = [source for _, source in rows]
+    assert [source.split(" (")[0] for source in sources] == [
+        "runnable.rn::talks",
+        "runnable.rn::talks",
+        "runnable.rn::reports",
+    ]
+    assert all(re.fullmatch(r".+ \(\d\d:\d\d:\d\d\.\d{3}\)", s) for s in sources)
+
+    # Cleared: printed anew from the top
+    stdout.get_by_role("button", name="Clear the output").click()
+    app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 0")
+    run_task(app, 6)
+    app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 1")
+    [[text, source]] = app.page.evaluate(STDOUT_ROWS)
+    assert text == "working"
+    assert source.startswith("runnable.rn::reports (")
+
+    # Right of the tasks; under them on a small screen
+    tasks = app.page.locator(".task-list").bounding_box()
+    box = stdout.bounding_box()
+    assert box["x"] >= tasks["x"] + tasks["width"]
+    app.page.set_viewport_size({"width": 600, "height": 800})
+    expect(stdout).to_be_visible()
+    tasks = app.page.locator(".task-list").bounding_box()
+    box = stdout.bounding_box()
+    assert box["y"] >= tasks["y"] + tasks["height"]
 
 
 SERVAL = """use serval::{data, serial, time};
