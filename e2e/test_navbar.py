@@ -44,7 +44,7 @@ def test_the_repository_is_right_of_the_licenses(app: App):
 def test_documents_are_right_of_the_title(app: App):
     pages = app.page.get_by_role("navigation", name="Pages")
     documents = pages.get_by_role("menuitem", name="Documents")
-    expect(documents).to_have_attribute("href", "/docs")
+    expect(documents).to_have_attribute("href", "/docs/")
     expect(documents).to_have_attribute("target", "_blank")
     title = pages.get_by_role("menuitem", name="Serval").bounding_box()
     licenses = pages.get_by_role("menuitem", name="Licenses").bounding_box()
