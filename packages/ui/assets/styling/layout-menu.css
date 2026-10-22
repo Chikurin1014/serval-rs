@@ -9,7 +9,6 @@ button.layout-menu-trigger {
   color: var(--dc-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 button.layout-menu-trigger:hover,

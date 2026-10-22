@@ -96,7 +96,8 @@ fn WebNavbar() -> Element {
                         index: 0usize,
                         value: "home".to_string(),
                         to: Route::Home {},
-                        "Home"
+                        // The page's title (in time, its logo)
+                        span { class: "navbar-title", "Serval" }
                     }
                     // In a new tab, so the open port stays
                     NavbarItem {

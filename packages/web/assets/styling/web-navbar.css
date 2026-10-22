@@ -27,7 +27,14 @@
   color: var(--dc-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+}
+
+/* The page's title, first of the pages: larger and bolder than the others
+   (in time, a logo in its place) */
+.navbar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .route-shell {
