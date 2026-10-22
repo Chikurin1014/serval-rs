@@ -62,6 +62,12 @@ impl ReceivedHistory {
         self.end += 1;
     }
 
+    /// The position after the newest byte: where a reader of what comes from
+    /// now on starts.
+    pub fn end(&self) -> u64 {
+        self.end
+    }
+
     fn start(&self) -> u64 {
         self.end - self.bytes.len() as u64
     }

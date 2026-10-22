@@ -1,17 +1,22 @@
-//! `serval::time::Instant` and `Duration`, as `rune-modules`' `time` has them:
-//! its own are of tokio and `std::time::Instant`, of no clock on the web.
+//! `serval::time`: waiting, and `Instant` and `Duration` as `rune-modules`'
+//! `time` has them (its own are of tokio and `std::time::Instant`, of no
+//! clock on the web).
 
 use std::cmp::Ordering;
 
 use rune::{
-    Any, ContextError, Module,
+    Any, ContextError, Module, Value,
     alloc::fmt::TryWrite,
-    runtime::{Formatter, VmResult},
+    runtime::{Formatter, Function, Ref, VmResult},
 };
 
 use super::host;
+use crate::plugin::ErrorText;
 
-pub fn install(module: &mut Module) -> Result<(), ContextError> {
+pub fn module() -> Result<Module, ContextError> {
+    let mut module = Module::with_crate_item("serval", ["time"])?;
+    module.function("sleep", sleep).build()?;
+    module.function("sleep_until", sleep_until).build()?;
     module.ty::<Duration>()?;
     module.function_meta(Duration::new__meta)?;
     module.function_meta(Duration::from_secs__meta)?;
@@ -49,7 +54,47 @@ pub fn install(module: &mut Module) -> Result<(), ContextError> {
     module.function_meta(Instant::cmp__meta)?;
     module.function_meta(Instant::debug_fmt__meta)?;
     module.function_meta(Instant::clone__meta)?;
+    Ok(module)
+}
+
+/// Waits `duration`, by its ms. Taken by reference: the plugin's own is left to
+/// it, to wait again.
+async fn sleep(duration: Ref<Duration>) -> Result<(), String> {
+    let time = host()?.time;
+    let ms = u32::try_from(duration.inner.as_millis()).unwrap_or(u32::MAX);
+    let wait = time.after_ms(ms);
+    wait.await;
     Ok(())
+}
+
+/// How often `sleep_until` asks its condition again.
+const CONDITION_CHECK_MS: u32 = 10;
+
+/// Waits until `condition` (a function of no argument, async or not) gives
+/// `true`, checked every [`CONDITION_CHECK_MS`]; an `Err` from it is returned.
+async fn sleep_until(condition: Function) -> Result<(), String> {
+    let time = host()?.time;
+    loop {
+        let mut met: Value = condition.call(()).into_result().err_text()?;
+        if let Ok(future) = met.clone().into_future() {
+            met = future.await.into_result().err_text()?;
+        }
+        let met = match rune::from_value::<bool>(met.clone()) {
+            Ok(met) => met,
+            Err(_) => match rune::from_value::<Result<bool, Value>>(met.clone()) {
+                Ok(Ok(met)) => met,
+                Ok(Err(error)) => return Err(format!("The condition failed: {error:?}")),
+                Err(_) => {
+                    let found = met.type_info();
+                    return Err(format!("The condition gave a {found}, not a bool"));
+                }
+            },
+        };
+        if met {
+            return Ok(());
+        }
+        time.after_ms(CONDITION_CHECK_MS).await;
+    }
 }
 
 /// A span of time.

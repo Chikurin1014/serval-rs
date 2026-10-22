@@ -2,6 +2,7 @@
 //! function called and awaited, what it prints taken as it goes.
 
 use std::{
+    cell::RefCell,
     future::Future,
     pin::Pin,
     rc::Rc,
@@ -9,26 +10,29 @@ use std::{
     task::{Context as TaskContext, Poll},
 };
 
-use super::serval;
+use super::{ErrorText, serval};
 
 use rune::{
     Context, Diagnostics, Source, Sources, Vm,
     modules::capture_io::{self, CaptureIo},
-    runtime::{Function, Unit, budget},
+    runtime::{Function, RuntimeContext, Unit, budget},
     termcolor::NoColor,
 };
 
 /// What a task's function may do between its awaits, in instructions: past
 /// it, as in a loop of no await, it is stopped (the page would stand still).
-pub const INSTRUCTIONS_PER_STEP: usize = 10_000_000;
+const INSTRUCTIONS_PER_STEP: usize = 10_000_000;
 
-/// Appended to each plugin: formatting of what a task returns, and the
-/// generator of Serval's streams (Rune makes them of generators only).
+/// Appended to each plugin, in a module of their own not to clash with its
+/// items: formatting of what a task returns, and the generator of Serval's
+/// streams (Rune makes them of generators only).
 const HELPERS: &str = "
-pub fn __serval_display(value) { format!(\"{}\", value) }
-pub fn __serval_debug(value) { format!(\"{:?}\", value) }
-pub async fn __serval_stream(reader, with_time) {
-    while let Some(entry) = reader.next(with_time).await { yield entry; }
+pub mod __serval {
+    pub fn display(value) { format!(\"{}\", value) }
+    pub fn debug(value) { format!(\"{:?}\", value) }
+    pub async fn stream(reader, with_time) {
+        while let Some(entry) = reader.next(with_time).await { yield entry; }
+    }
 }
 ";
 
@@ -36,41 +40,60 @@ pub async fn __serval_stream(reader, with_time) {
 #[derive(Clone)]
 pub struct CompiledPlugin(Arc<Unit>);
 
-/// The default modules, but what is printed taken to `io` rather than a
-/// stdout; and Serval's (`serval::*`).
-fn context(io: &CaptureIo) -> Result<Context, String> {
-    let mut context = Context::with_config(false).map_err(|error| error.to_string())?;
-    context
-        .install(capture_io::module(io).map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())?;
-    for module in serval::modules().map_err(|error| error.to_string())? {
-        context.install(module).map_err(|error| error.to_string())?;
+/// What all the plugins compile and run on, made once: the default modules,
+/// but what is printed taken to `io` rather than a stdout; and Serval's
+/// (`serval::*`). One `io` for all the tasks: each is polled alone, and what
+/// it printed taken right after.
+struct Shared {
+    context: Context,
+    runtime: Arc<RuntimeContext>,
+    io: CaptureIo,
+}
+
+thread_local! {
+    static SHARED: RefCell<Option<Rc<Shared>>> = const { RefCell::new(None) };
+}
+
+fn shared() -> Result<Rc<Shared>, String> {
+    if let Some(shared) = SHARED.with(|cell| cell.borrow().clone()) {
+        return Ok(shared);
     }
-    Ok(context)
+    let io = CaptureIo::new();
+    let mut context = Context::with_config(false).err_text()?;
+    context
+        .install(capture_io::module(&io).err_text()?)
+        .err_text()?;
+    for module in serval::modules().err_text()? {
+        context.install(module).err_text()?;
+    }
+    let runtime = Arc::new(context.runtime().err_text()?);
+    let shared = Rc::new(Shared {
+        context,
+        runtime,
+        io,
+    });
+    SHARED.with(|cell| *cell.borrow_mut() = Some(shared.clone()));
+    Ok(shared)
 }
 
 /// Compiles the plugin `source`, of the file `name`; else what is wrong with
 /// it, as a compiler tells it: each error, its line and the code there.
 pub fn compile_plugin(name: &str, source: &str) -> Result<CompiledPlugin, String> {
-    let context = context(&CaptureIo::new())?;
+    let shared = shared()?;
     let mut sources = Sources::new();
     sources
-        .insert(
-            Source::new(name, format!("{source}\n{HELPERS}")).map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?;
+        .insert(Source::new(name, format!("{source}\n{HELPERS}")).err_text()?)
+        .err_text()?;
     let mut diagnostics = Diagnostics::new();
     let built = rune::prepare(&mut sources)
-        .with_context(&context)
+        .with_context(&shared.context)
         .with_diagnostics(&mut diagnostics)
         .build();
     match built {
         Ok(unit) if !diagnostics.has_error() => Ok(CompiledPlugin(Arc::new(unit))),
         _ => {
             let mut told = NoColor::new(Vec::new());
-            diagnostics
-                .emit(&mut told, &sources)
-                .map_err(|error| error.to_string())?;
+            diagnostics.emit(&mut told, &sources).err_text()?;
             Err(String::from_utf8_lossy(&told.into_inner())
                 .trim_end()
                 .to_string())
@@ -86,17 +109,14 @@ pub async fn run_task(
     name: &str,
     on_print: impl FnMut(&str),
 ) -> Result<Option<String>, String> {
-    // Its own output, so tasks running together do not mix theirs
-    let io = CaptureIo::new();
-    let runtime = Arc::new(context(&io)?.runtime().map_err(|error| error.to_string())?);
-    let mut vm = Vm::new(runtime, plugin.0.clone());
-
+    let shared = shared()?;
+    let mut vm = Vm::new(shared.runtime.clone(), plugin.0.clone());
     let stream_of: Rc<Function> = vm
-        .lookup_function(["__serval_stream"])
-        .map_err(|error| error.to_string())?
+        .lookup_function(["__serval", "stream"])
+        .err_text()?
         .into();
 
-    let output = Stepped::new(io, stream_of, Box::new(on_print), async {
+    let output = Stepped::new(shared.io.clone(), stream_of, Box::new(on_print), async {
         let called = vm.async_call([name], ()).await?;
         // An async function gives its future, to be awaited
         match called.clone().into_future() {
@@ -105,16 +125,16 @@ pub async fn run_task(
         }
     })
     .await
-    .map_err(|error| error.to_string())?;
+    .err_text()?;
 
     if rune::from_value::<()>(output.clone()).is_ok() {
         return Ok(None);
     }
     let formatted = vm
-        .call(["__serval_display"], (output.clone(),))
-        .or_else(|_| vm.call(["__serval_debug"], (output,)))
+        .call(["__serval", "display"], (output.clone(),))
+        .or_else(|_| vm.call(["__serval", "debug"], (output,)))
         .and_then(|text| rune::from_value::<String>(text).map_err(Into::into))
-        .map_err(|error| error.to_string())?;
+        .err_text()?;
     Ok(Some(formatted))
 }
 
@@ -154,6 +174,8 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Self::Output> {
         serval::set_stream_of(self.stream_of.clone());
+        // Printed apart from a task's poll (as it was formatted): not its
+        let _ = self.io.drain();
         let future = self.future.as_mut();
         let (poll, exhausted) = budget::with(INSTRUCTIONS_PER_STEP, || {
             let poll = future.poll(cx);
@@ -201,29 +223,8 @@ impl std::fmt::Display for StepError {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        future::Future,
-        pin::pin,
-        task::{Context, Poll, Waker},
-    };
-
     use super::{compile_plugin, run_task};
-
-    /// Runs `future`, which must not wait on anything outside it.
-    fn block_on<T>(future: impl Future<Output = T>) -> T {
-        let mut future = pin!(future);
-        let mut cx = Context::from_waker(Waker::noop());
-        loop {
-            if let Poll::Ready(output) = future.as_mut().poll(&mut cx) {
-                return output;
-            }
-        }
-    }
-
-    fn run(source: &str, name: &str) -> Result<Option<String>, String> {
-        let plugin = compile_plugin("test.rn", source)?;
-        block_on(run_task(&plugin, name, |_| {}))
-    }
+    use crate::plugin::testing::{block_on, run};
 
     #[test]
     fn what_a_task_prints_is_taken_by_lines() {
@@ -274,6 +275,14 @@ mod tests {
             run(source, "spins").unwrap_err(),
             "Ran past 10000000 instructions without awaiting"
         );
+    }
+
+    #[test]
+    fn the_helpers_clash_with_no_items_of_a_plugin() {
+        let source = "pub fn display(value) { value }\n\
+            pub fn __serval_debug(value) { value }\n\
+            pub async fn shown() { display(#{ ok: true }) }\n";
+        assert_eq!(run(source, "shown"), Ok(Some("{\"ok\": true}".into())));
     }
 
     #[test]

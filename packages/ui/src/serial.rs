@@ -218,6 +218,12 @@ impl SerialContext {
         self.history.read().since(read_to)
     }
 
+    /// Where a reader of the received bytes from now on starts (see
+    /// [`Self::received_since`]).
+    pub fn received_end(&self) -> u64 {
+        self.history.read().end()
+    }
+
     pub fn select(&self, id: usize) {
         if !self.is_open() {
             let mut selected = self.selected;

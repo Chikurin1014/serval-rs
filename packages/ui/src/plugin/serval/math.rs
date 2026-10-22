@@ -141,15 +141,7 @@ fn integer_decode(x: f64) -> (i64, i64, i64) {
 
 #[cfg(test)]
 mod tests {
-    use crate::plugin::{compile_plugin, run_task};
-
-    use super::super::tests::block_on;
-
-    fn run(expression: &str) -> Result<Option<String>, String> {
-        let source = format!("pub async fn math() {{ {expression} }}\n");
-        let plugin = compile_plugin("math.rn", &source)?;
-        block_on(run_task(&plugin, "math", |_| {}))
-    }
+    use crate::plugin::testing::run_body as run;
 
     #[test]
     fn floats_have_the_functions_of_num_traits() {

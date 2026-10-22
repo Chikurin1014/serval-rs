@@ -4,18 +4,32 @@
 mod run;
 mod serval;
 mod task;
+#[cfg(test)]
+mod testing;
 
-pub use run::{CompiledPlugin, INSTRUCTIONS_PER_STEP, compile_plugin, run_task};
-pub use serval::{Host, LogEntry, set_host};
 pub use task::{
     ImportError, Imported, NewLines, PrintedLine, Task, TaskContext, TaskOutcome, TaskProvider,
 };
+
+use run::{CompiledPlugin, compile_plugin, run_task};
+use serval::{Host, set_host};
 
 use rune::{
     SourceId,
     ast::{self, Spanned},
     parse::parse_all,
 };
+
+/// An error told as its text: how plugins (and Rune's own errors) are told.
+trait ErrorText<T> {
+    fn err_text(self) -> Result<T, String>;
+}
+
+impl<T, E: std::fmt::Display> ErrorText<T> for Result<T, E> {
+    fn err_text(self) -> Result<T, String> {
+        self.map_err(|error| error.to_string())
+    }
+}
 
 /// A `pub async fn` of a plugin.
 #[derive(Clone, Debug, PartialEq)]

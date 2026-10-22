@@ -131,14 +131,10 @@ impl Rng {
 
 #[cfg(test)]
 mod tests {
-    use crate::plugin::{compile_plugin, run_task};
-
-    use super::super::tests::block_on;
+    use crate::plugin::testing::run_body;
 
     fn run(body: &str) -> Result<Option<String>, String> {
-        let source = format!("use serval::rand;\npub async fn random() {{ {body} }}\n");
-        let plugin = compile_plugin("random.rn", &source)?;
-        block_on(run_task(&plugin, "random", |_| {}))
+        run_body(&format!("use serval::rand;\n{body}"))
     }
 
     #[test]

@@ -294,19 +294,19 @@ pub async fn keeps() {
     data::push("acc", (0, 0, 9.8))?;
     data::push("note", "hello")?;
     data::push("alert", data::LogEntry::new(Some("WARN"), "hot"))?;
-    let level = data::get("level");
+    let level = data::get("level")?;
     let first = level.next().await;
     // A stream of it: what comes after is in it
     data::push("level", 3)?;
     let rest = [level.next().await, level.next().await];
-    let pos = data::get("pos").next().await;
-    let alert = data::get("alert").next().await.unwrap();
+    let pos = data::get("pos")?.next().await;
+    let alert = data::get("alert")?.next().await.unwrap();
     format!("{:?} {:?} {:?} {} {}", first, rest, pos, alert.level.unwrap(), alert.message)
 }
 
 pub async fn awaits_data() {
     // Not there yet: waited for
-    data::get("ready").next().await.unwrap()
+    data::get("ready")?.next().await.unwrap()
 }
 
 pub async fn talks() {
@@ -330,7 +330,7 @@ pub async fn sleeps() {
 pub async fn follows() {
     data::push("count", 1)?;
     data::push("count", 2)?;
-    let count = data::get_with_time("count");
+    let count = data::get_with_time("count")?;
     let first = count.next().await.unwrap();
     let second = count.next().await.unwrap();
     data::push("count", 3)?;
@@ -339,7 +339,7 @@ pub async fn follows() {
 }
 
 pub async fn collects() {
-    let reading = data::get("reading");
+    let reading = data::get("reading")?;
     let sum = 0.0;
     while let Some(value) = reading.next().await {
         if value < 0.0 {
@@ -359,7 +359,7 @@ pub async fn flushes() {
 }
 
 pub async fn listens() {
-    let received = serial::received();
+    let received = serial::received()?;
     let first = received.next().await.unwrap();
     // Across what came at once
     let reply = serial::wait_for("OK").await?;
@@ -555,7 +555,7 @@ def test_a_stream_goes_on_past_all_the_data_cleared(app: App, tmp_path: Path):
     (tmp_path / "outlives.rn").write_text(
         "use serval::data;\n"
         "pub async fn outlives() {\n"
-        '    let kept = data::get("kept");\n'
+        '    let kept = data::get("kept")?;\n'
         "    let first = kept.next().await;\n"
         "    let second = kept.next().await;\n"
         '    format!("{:?} {:?}", first, second)\n'
@@ -577,3 +577,27 @@ def test_a_stream_goes_on_past_all_the_data_cleared(app: App, tmp_path: Path):
     app.mock("receive('kept: 2\\n')")
     expect(switch).not_to_be_checked()
     expect(card.locator(".task-latest")).to_have_text("Some(1.0) Some(2.0)")
+
+
+def test_wait_for_keeps_as_much_as_its_limit(app: App, tmp_path: Path):
+    app.open_port()
+    app.mock("mute()")
+    (tmp_path / "tails.rn").write_text(
+        "use serval::serial;\n"
+        "pub async fn tails() {\n"
+        '    String::from_utf8(serial::wait_for("OK", 4).await?)?\n'
+        "}\n"
+    )
+    import_plugin(app, tmp_path / "tails.rn")
+    app.tab("Task")
+    card = task_cards(app).first
+    switch = card.get_by_role("switch", name="Toggle task")
+    switch.click()
+    expect(switch).to_be_checked()
+    app.page.wait_for_timeout(100)
+    app.mock("receive('a long noise O')")
+    app.page.wait_for_timeout(300)
+    app.mock("receive('K and more')")
+    expect(switch).not_to_be_checked()
+    # Its last 4 bytes, `OK` with them
+    expect(card.locator(".task-latest")).to_have_text("e OK")
