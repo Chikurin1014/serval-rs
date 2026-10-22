@@ -58,11 +58,14 @@ pub enum ImportError {
 }
 
 /// What a plugin's import made.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Imported {
     pub added: usize,
     /// Of the plugin of the same file name, imported before.
     pub replaced: usize,
+    /// The public async functions that take arguments: no tasks, as a task is
+    /// called with none.
+    pub passed_over: Vec<String>,
 }
 
 /// How many lines the standard output keeps: as the console's scrollback.
@@ -154,8 +157,24 @@ impl TaskContext {
         if functions.is_empty() {
             return Err(ImportError::Other(format!("No `pub async fn` in {plugin}")));
         }
+        let (functions, passed_over): (Vec<_>, Vec<_>) = functions
+            .into_iter()
+            .partition(|function| !function.takes_arguments);
+        let passed_over: Vec<_> = passed_over
+            .into_iter()
+            .map(|function| function.name)
+            .collect();
+        if functions.is_empty() {
+            return Err(ImportError::Other(format!(
+                "No `pub async fn` of no arguments in {plugin}: {} take arguments",
+                passed_over.join(", ")
+            )));
+        }
         let mut tasks = Vec::new();
-        for PluginFunction { name, definition } in functions {
+        for PluginFunction {
+            name, definition, ..
+        } in functions
+        {
             let id = *self.next_id.peek();
             self.next_id.set(id + 1);
             let ((enabled, latest, open), owner) = make_owned(self.scope, || {
@@ -183,7 +202,11 @@ impl TaskContext {
         let replaced = before - list.len();
         let at = at.unwrap_or(list.len());
         list.splice(at..at, tasks);
-        Ok(Imported { added, replaced })
+        Ok(Imported {
+            added,
+            replaced,
+            passed_over,
+        })
     }
 
     pub fn remove(&mut self, id: usize) {

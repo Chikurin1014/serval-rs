@@ -24,6 +24,8 @@ pub struct PluginFunction {
     /// As the file has it, from its doc comments and attributes to its closing
     /// brace.
     pub definition: String,
+    /// Whether it takes arguments: then no task, as a task is called with none.
+    pub takes_arguments: bool,
 }
 
 /// The top-level `pub async fn`s of `source`, in order; else why it is not Rune.
@@ -43,6 +45,7 @@ pub fn public_async_functions(source: &str) -> Result<Vec<PluginFunction>, Strin
                 Some(PluginFunction {
                     name: source[function.name.span().range()].to_string(),
                     definition: source[function.span().range()].to_string(),
+                    takes_arguments: !function.args.is_empty(),
                 })
             }
             _ => None,
@@ -78,10 +81,12 @@ mod tests {
                     definition: "/// Blinks the LED.\n\
                         pub async fn blink(led) {\n    let text = `on {led}`;\n}"
                         .into(),
+                    takes_arguments: true,
                 },
                 PluginFunction {
                     name: "poll".into(),
                     definition: "pub async fn poll() { #{ ok: true } }".into(),
+                    takes_arguments: false,
                 },
             ]
         );

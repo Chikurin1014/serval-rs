@@ -8,9 +8,14 @@ from app import App
 PLUGIN = """// A plugin of two tasks
 const INTERVAL = 1000;
 
-pub async fn blink(led) {
+pub async fn blink() {
     helper().await;
-    led + INTERVAL
+    INTERVAL
+}
+
+// Of arguments: not a task, as a task is called with none
+pub async fn set(led) {
+    led
 }
 
 // Not public: a helper, not a task
@@ -48,7 +53,11 @@ def test_a_plugin_gives_a_task_of_each_public_async_function(app: App, tmp_path:
     (tmp_path / "blinker.rn").write_text(PLUGIN)
     import_plugin(app, tmp_path / "blinker.rn")
     app.wait_for_toast("Plugin imported")
-    assert app.toasts()[0] == ("success", "Plugin imported", "2 tasks of blinker.rn")
+    assert app.toasts()[0] == (
+        "success",
+        "Plugin imported",
+        "2 tasks of blinker.rn (not of set: taking arguments)",
+    )
     # Its tab, the rightmost
     expect(home_tabs(app)).to_have_text(["Console", "Data", "Graph", "Task"])
     app.tab("Task")
@@ -74,6 +83,17 @@ def test_a_plugin_of_no_public_async_function_gives_none(app: App, tmp_path: Pat
     import_plugin(app, tmp_path / "plain.rn")
     app.wait_for_toast("Failed to import the plugin")
     assert app.toasts()[0][2] == "No `pub async fn` in plain.rn"
+    expect(home_tabs(app)).to_have_count(3)
+
+
+def test_a_plugin_of_functions_of_arguments_alone_gives_none(app: App, tmp_path: Path):
+    # None to run: a task is called with no arguments
+    (tmp_path / "set.rn").write_text("pub async fn set(led) { led }\n")
+    import_plugin(app, tmp_path / "set.rn")
+    app.wait_for_toast("Failed to import the plugin")
+    assert app.toasts()[0][2] == (
+        "No `pub async fn` of no arguments in set.rn: set take arguments"
+    )
     expect(home_tabs(app)).to_have_count(3)
 
 
@@ -502,3 +522,58 @@ def test_a_task_takes_random_numbers_in_the_page(app: App, tmp_path: Path):
     import_plugin(app, tmp_path / "dice.rn")
     app.tab("Task")
     expect(run_task(app, 0).locator(".task-latest")).to_have_text("true")
+
+
+def test_a_task_is_told_it_cannot_send_amid_a_file(app: App, tmp_path: Path):
+    app.open_port()
+    app.mock("holdWrites = true")
+    app.page.get_by_label("Send a file").set_input_files(
+        files=[
+            {
+                "name": "data.bin",
+                "mimeType": "application/octet-stream",
+                "buffer": bytes(8192),
+            }
+        ]
+    )
+    expect(app.page.get_by_role("button", name="Stop sending the file")).to_be_visible()
+    (tmp_path / "amid.rn").write_text(
+        'use serval::serial;\npub async fn amid() { serial::send("x") }\n'
+    )
+    import_plugin(app, tmp_path / "amid.rn")
+    app.tab("Task")
+    expect(run_task(app, 0).locator(".task-latest")).to_have_text(
+        'Err("A file is being sent")'
+    )
+    app.mock("holdWrites = false")
+    app.mock("release()")
+
+
+def test_a_stream_goes_on_past_all_the_data_cleared(app: App, tmp_path: Path):
+    app.open_port()
+    app.mock("mute()")
+    (tmp_path / "outlives.rn").write_text(
+        "use serval::data;\n"
+        "pub async fn outlives() {\n"
+        '    let kept = data::get("kept");\n'
+        "    let first = kept.next().await;\n"
+        "    let second = kept.next().await;\n"
+        '    format!("{:?} {:?}", first, second)\n'
+        "}\n"
+    )
+    import_plugin(app, tmp_path / "outlives.rn")
+    app.tab("Task")
+    card = task_cards(app).first
+    switch = card.get_by_role("switch", name="Toggle task")
+    switch.click()
+    app.mock("receive('kept: 1\\n')")
+    app.tab("Data")
+    app.wait_for_labels("kept")
+    app.clear_all()
+    app.page.wait_for_timeout(300)
+    # The label gone: waited for again, not ended
+    app.tab("Task")
+    expect(switch).to_be_checked()
+    app.mock("receive('kept: 2\\n')")
+    expect(switch).not_to_be_checked()
+    expect(card.locator(".task-latest")).to_have_text("Some(1.0) Some(2.0)")

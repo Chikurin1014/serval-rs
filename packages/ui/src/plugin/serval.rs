@@ -12,7 +12,7 @@ use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 use rune::{
     Any, ContextError, Module, Value,
-    runtime::{Bytes, Function, Mut, VmResult},
+    runtime::{Bytes, Function, Mut, Ref, VmResult},
 };
 
 use crate::{
@@ -65,8 +65,9 @@ fn time() -> Result<Module, ContextError> {
     Ok(module)
 }
 
-/// Waits `duration`, by its ms.
-async fn sleep(duration: clock::Duration) -> Result<(), String> {
+/// Waits `duration`, by its ms. Taken by reference: the plugin's own is left to
+/// it, to wait again.
+async fn sleep(duration: Ref<clock::Duration>) -> Result<(), String> {
     let time = host()?.time;
     let ms = u32::try_from(duration.inner.as_millis()).unwrap_or(u32::MAX);
     let wait = time.after_ms(ms);
@@ -152,7 +153,8 @@ pub fn set_stream_of(generator: Rc<Function>) {
 }
 
 /// The entries of `label` as a Rune `Stream`: the kept ones, then each new
-/// one, waited for. It ends once the label is gone.
+/// one, waited for. It does not end: the label gone (as all the data is
+/// cleared), it waits for it again, read anew from its start.
 fn get(label: &str) -> VmResult<Value> {
     stream(label, false)
 }
@@ -168,7 +170,6 @@ fn stream(label: &str, with_time: bool) -> VmResult<Value> {
             label: label.to_string(),
             cursor: SourceCursor::default(),
             taken: VecDeque::new(),
-            seen: false,
             let_go: host.time.current(),
         },
         Err(error) => return VmResult::panic(error),
@@ -244,15 +245,13 @@ pub struct Reader {
     cursor: SourceCursor,
     /// Read from the queue, yet to be given
     taken: VecDeque<(i64, Value)>,
-    /// Whether the label has been there: it ends as the label is gone.
-    seen: bool,
     /// When it last let the page go on
     let_go: i64,
 }
 
 impl Reader {
-    /// Takes what is new to it from the queue; whether the label is there.
-    fn take(&mut self) -> Result<bool, String> {
+    /// Takes what is new to it from the queue, if the label is there.
+    fn take(&mut self) -> Result<(), String> {
         fn taken<T: DataEntry + ToRune>(
             read: Option<NewEntries<T>>,
         ) -> Result<Option<Vec<(i64, Value)>>, String> {
@@ -270,27 +269,23 @@ impl Reader {
             Some(DataType::Bytes) => taken(cursor.new_entries::<ByteData>(&data, label))?,
             None => None,
         };
-        let Some(entries) = read else {
-            return Ok(false);
-        };
-        self.seen = true;
-        self.taken.extend(entries);
-        Ok(true)
+        self.taken.extend(read.into_iter().flatten());
+        Ok(())
     }
 
-    /// The next entry, waited for: none as the label is gone.
-    async fn next_entry(&mut self) -> Result<Option<(i64, Value)>, String> {
+    /// The next entry, waited for.
+    async fn next_entry(&mut self) -> Result<(i64, Value), String> {
         let time = host()?.time;
         loop {
-            if self.taken.is_empty() && !self.take()? && self.seen {
-                return Ok(None);
+            if self.taken.is_empty() {
+                self.take()?;
             }
             if let Some(entry) = self.taken.pop_front() {
                 if time.current() - self.let_go >= LET_GO_EVERY_MS {
                     time.after_ms(0).await;
                     self.let_go = time.current();
                 }
-                return Ok(Some(entry));
+                return Ok(entry);
             }
             time.after_ms(NEW_ENTRIES_CHECK_MS).await;
             self.let_go = time.current();
@@ -298,18 +293,19 @@ impl Reader {
     }
 }
 
-/// The next value (with its time, if `with_time`); none once the label is
-/// gone. Errors stop the task: a generator has no error to give.
+/// The next value (with its time, if `with_time`), waited for: never none, as
+/// the stream does not end. Errors stop the task: a generator has no error to
+/// give.
 async fn next(mut reader: Mut<Reader>, with_time: bool) -> VmResult<Option<Value>> {
-    let entry = match reader.next_entry().await {
+    let (time, value) = match reader.next_entry().await {
         Ok(entry) => entry,
         Err(error) => return VmResult::panic(error),
     };
-    match entry {
-        Some((time, value)) if with_time => to_value((clock::Instant { ms: time }, value))
-            .map_or_else(VmResult::panic, |entry| VmResult::Ok(Some(entry))),
-        entry => VmResult::Ok(entry.map(|(_, value)| value)),
+    if !with_time {
+        return VmResult::Ok(Some(value));
     }
+    to_value((clock::Instant { ms: time }, value))
+        .map_or_else(VmResult::panic, |entry| VmResult::Ok(Some(entry)))
 }
 
 fn to_value(value: impl rune::ToValue) -> Result<Value, String> {
@@ -387,6 +383,10 @@ fn send(data: Value) -> Result<(), String> {
     let serial = host()?.serial;
     if !serial.is_open() {
         return Err("No port is open".to_string());
+    }
+    // It would go in between the file's bytes: the port takes none of it
+    if serial.is_sending_file() {
+        return Err("A file is being sent".to_string());
     }
     serial.send(to_bytes(data)?);
     Ok(())
@@ -605,6 +605,12 @@ mod tests {
                 let longer = span > time::Duration::from_secs(2);\n\
                 format!(\"{} {} {} {:?}\", span.as_millis(), span.as_secs(), longer, span)\n\
             }\n\
+            pub async fn sleeps_twice() {\n\
+                let span = time::Duration::from_millis(1);\n\
+                let first = time::sleep(span).await;\n\
+                let second = time::sleep(span).await;\n\
+                format!(\"{:?} {:?} {}\", first, second, span.as_millis())\n\
+            }\n\
             pub async fn label() { data::get(\"temp\") }\n\
             pub async fn baudrate() { serial::get_baudrate() }\n\
             pub async fn entry() { data::LogEntry::new(Some(\"INFO\"), \"up\").message }\n",
@@ -618,6 +624,14 @@ mod tests {
         assert_eq!(
             block_on(run_task(&plugin, "entry", |_| {})),
             Ok(Some("up".into()))
+        );
+        // Its duration left to it, to wait again
+        assert_eq!(
+            block_on(run_task(&plugin, "sleeps_twice", |_| {})),
+            Ok(Some(
+                "Err(\"Serval is not there to run on\") Err(\"Serval is not there to run on\") 1"
+                    .into()
+            ))
         );
         assert_eq!(
             block_on(run_task(&plugin, "spans", |_| {})),

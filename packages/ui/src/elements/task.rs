@@ -260,12 +260,17 @@ pub fn PluginButton() -> Element {
                     "document.getElementById({PLUGIN_INPUT_ID:?}).value = ''"
                 ));
                 match imported {
-                    Ok(Imported { added, replaced: 0 }) => {
-                        toaster.success("Plugin imported", &format!("{} of {name}", tasks(added)));
-                    }
-                    Ok(Imported { added, replaced }) => {
-                        let detail = format!("{} of {name}, in place of {}", tasks(added), tasks(replaced));
-                        toaster.success("Plugin reimported", &detail);
+                    Ok(Imported { added, replaced, passed_over }) => {
+                        let mut detail = format!("{} of {name}", tasks(added));
+                        if replaced > 0 {
+                            detail += &format!(", in place of {}", tasks(replaced));
+                        }
+                        // Called with none, they would fail
+                        if !passed_over.is_empty() {
+                            detail += &format!(" (not of {}: taking arguments)", passed_over.join(", "));
+                        }
+                        let title = if replaced > 0 { "Plugin reimported" } else { "Plugin imported" };
+                        toaster.success(title, &detail);
                     }
                     Err(ImportError::Compile(told)) => failed.set(Some((name, told))),
                     Err(ImportError::Other(error)) => {
