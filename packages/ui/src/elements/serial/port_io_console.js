@@ -1,7 +1,7 @@
 // The console: an xterm.js terminal, set up as Tera Term's defaults are.
 // From Rust: the container id, then `["view", "text" | "hex"]` and
 // `["data", reset, bytes, times]` (where in `bytes` each chunk starts, and when
-// it came), then `null` on unmount.
+// it came, as the app shows times), then `null` on unmount.
 // To Rust: `["typed", text]`, what is typed or pasted, to send; `["redraw"]`
 // for all the bytes again, to draw them anew; `["break"]` to send a break;
 // `["maximize"]` to maximize the console, or back.
@@ -20,17 +20,11 @@ while (!window.Terminal || !window.FitAddon || !window.WebglAddon) {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
-const probe = document.createElement("span");
-probe.style.display = "none";
-container.appendChild(probe);
-function cssColor(name) {
-  probe.style.color = `var(${name})`;
-  return getComputedStyle(probe).color;
-}
+const colors = themeColors(container);
 const theme = () => ({
-  background: cssColor("--dc-screen"),
-  foreground: cssColor("--dc-screen-text"),
-  cursor: cssColor("--dc-screen-text"),
+  background: colors.color("--dc-screen"),
+  foreground: colors.color("--dc-screen-text"),
+  cursor: colors.color("--dc-screen-text"),
 });
 
 const term = new Terminal({
@@ -82,114 +76,31 @@ fit.fit();
 container.xterm = term;
 
 // Beside each line, when its first character came: marked as each chunk is
-// written, by its count of lines from the first ever (the lines trimmed off the
-// scrollback, then its own in the buffer). One marker on the newest line tells
-// how many were trimmed: xterm.js tells each marker of each trim, too slow for
-// one a line
-const times = document.getElementById("console-times");
-// `{ line, time }` by `line`, from the first ever
-let marks = [];
-// The marker on the newest line marked, and its count from the first ever
-let anchor = null;
+// written (`helper/script/line_column.js`)
+const times = lineColumn(
+  term,
+  document.getElementById("console-times"),
+  SCROLLBACK,
+);
 
-function trimmed() {
-  return anchor ? anchor.count - anchor.marker.line : 0;
-}
-
-function forgetMarks() {
-  anchor?.marker.dispose();
-  anchor = null;
-  marks = [];
-}
-
+// `time`: when the chunk came, as the app shows times (`TimeContext`)
 function markLines(time) {
   const buffer = term.buffer.active;
   if (buffer.type !== "normal") {
     return;
   }
-  const lost = trimmed();
+  const lost = times.trimmed();
   const cursorLine = buffer.baseY + buffer.cursorY;
-  const first = Math.max(0, (marks.at(-1)?.line ?? -1) - lost + 1);
+  const first = Math.max(0, times.lastMarked() - lost + 1);
   for (let line = first; line <= cursorLine; line++) {
     const row = buffer.getLine(line);
     // Not the blank ones, nor those a long line wraps onto
     if (row && !row.isWrapped && row.translateToString(true) !== "") {
-      marks.push({ line: lost + line, time });
+      times.mark(lost + line, time);
     }
   }
-  const marker = term.registerMarker(0);
-  if (marker) {
-    anchor?.marker.dispose();
-    anchor = { marker, count: lost + cursorLine };
-  }
-  // Those trimmed off, in a while: not one by one
-  if (marks.length > 2 * SCROLLBACK) {
-    marks = marks.slice(marks.findIndex((mark) => mark.line >= lost));
-  }
-  showTimes();
+  times.settle();
 }
-
-const two = (n) => String(n).padStart(2, "0");
-function localTime(ms) {
-  const date = new Date(ms);
-  return (
-    `${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}` +
-    `.${String(date.getMilliseconds()).padStart(3, "0")}`
-  );
-}
-
-let showing = false;
-function showTimes() {
-  if (!showing) {
-    showing = true;
-    requestAnimationFrame(drawTimes);
-  }
-}
-
-function drawTimes() {
-  showing = false;
-  if (!times) {
-    return;
-  }
-  const buffer = term.buffer.active;
-  const screen = term.element?.querySelector(".xterm-screen");
-  const rowHeight = screen ? screen.clientHeight / term.rows : 0;
-  while (times.children.length < term.rows) {
-    times.appendChild(document.createElement("div"));
-  }
-  while (times.children.length > term.rows) {
-    times.lastChild.remove();
-  }
-  // From the first mark in view: they are in line order
-  const top = trimmed() + buffer.viewportY;
-  let index = 0;
-  let high = marks.length;
-  while (index < high) {
-    const middle = (index + high) >> 1;
-    if (marks[middle].line < top) {
-      index = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
-  for (let row = 0; row < term.rows; row++) {
-    const line = top + row;
-    const cell = times.children[row];
-    cell.style.height = cell.style.lineHeight = `${rowHeight}px`;
-    while (index < marks.length && marks[index].line < line) {
-      index++;
-    }
-    const mark = marks[index];
-    cell.textContent =
-      buffer.type === "normal" && mark?.line === line
-        ? localTime(mark.time)
-        : "";
-  }
-}
-
-term.onScroll(showTimes);
-term.onRender(showTimes);
-term.onResize(showTimes);
 
 const resize = new ResizeObserver(() => {
   fit.fit();
@@ -199,16 +110,10 @@ const resize = new ResizeObserver(() => {
   }
 });
 resize.observe(container);
-const updateTheme = () => {
+const stopWatchingTheme = watchTheme(() => {
+  colors.clear();
   term.options.theme = theme();
-};
-const themeObserver = new MutationObserver(updateTheme);
-themeObserver.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-theme"],
 });
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-systemTheme.addEventListener("change", updateTheme);
 
 async function clipboardText() {
   try {
@@ -346,9 +251,8 @@ while (true) {
   const [, reset, bytes, chunkTimes] = message;
   if (reset) {
     term.reset();
-    forgetMarks();
+    times.forget();
     hex = { perLine: bytesPerLine(), bytes: [] };
-    showTimes();
   }
   const data = new Uint8Array(bytes);
   // A chunk at a time, to mark the lines each starts with its time
@@ -363,7 +267,6 @@ while (true) {
 }
 
 resize.disconnect();
-themeObserver.disconnect();
-systemTheme.removeEventListener("change", updateTheme);
+stopWatchingTheme();
 container.removeEventListener("contextmenu", onContextMenu);
 term.dispose();

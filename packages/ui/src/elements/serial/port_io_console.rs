@@ -5,8 +5,9 @@ use dioxus_icons::lucide;
 
 use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
-    helper::{format_bytes, hex, use_script, visible},
+    helper::{concat_scripts, format_bytes, hex, use_script, visible},
     serial::{OutgoingFile, SerialContext},
+    time::TimeContext,
 };
 
 const PORT_IO_CONSOLE_CSS: Asset = asset!("/assets/styling/port-io-console.css");
@@ -24,7 +25,12 @@ const XTERM_WEBGL_JS: Asset = asset!(
     AssetOptions::js().with_minify(false)
 );
 
-const CONSOLE_JS: &str = include_str!("port_io_console.js");
+const CONSOLE_JS: &str = concat_scripts!(
+    "theme.js",
+    "helper/script/css_colors.js",
+    "helper/script/line_column.js",
+    "elements/serial/port_io_console.js",
+);
 
 /// One period down the send buffer's height, in an 8 by 10 box; as the masks in
 /// `port-io-console.css`.
@@ -64,6 +70,7 @@ impl ConsoleView {
 #[component]
 pub fn PortIoConsole() -> Element {
     let serial = use_context::<SerialContext>();
+    let time = use_context::<TimeContext>();
     let terminal = use_script(CONSOLE_JS);
     let mut view = use_signal(|| ConsoleView::Text);
     // Bumped as the script asks for all again, to draw it anew
@@ -93,7 +100,11 @@ pub fn PortIoConsole() -> Element {
             let unread = serial.received_since(read_to.get());
             read_to.set(Some(unread.end));
             if unread.restarted || !unread.bytes.is_empty() {
-                let _ = terminal.send(("data", unread.restarted, unread.bytes, unread.times));
+                // Each chunk's time as the app shows times
+                let times: Vec<_> = (unread.times.iter())
+                    .map(|&(at, ms)| (at, time.format_millis(ms)))
+                    .collect();
+                let _ = terminal.send(("data", unread.restarted, unread.bytes, times));
             }
         }
     });

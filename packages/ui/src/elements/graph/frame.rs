@@ -114,7 +114,6 @@ pub fn GraphFrame(
                     onmousedown: move |_| handle_held.set(true),
                     onmouseup: move |_| handle_held.set(false),
                     onkeydown: {
-                        let handle_id = handle_id.clone();
                         move |event: KeyboardEvent| {
                             let step: isize = match event.key() {
                                 Key::ArrowLeft | Key::ArrowUp => -1,

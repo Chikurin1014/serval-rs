@@ -195,7 +195,7 @@ pub fn VectorArithmeticForm(
                     LabelField {
                         name: "b",
                         value: second,
-                        list: vector_list.clone(),
+                        list: vector_list,
                         placeholder: "Label or vector",
                     }
                     if let Some(error) = error() {

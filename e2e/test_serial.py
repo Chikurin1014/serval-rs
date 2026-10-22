@@ -70,18 +70,19 @@ def test_send_buffer_marks_what_the_port_has_taken(app: App):
 def test_send_buffer_empties_from_the_left_after_three_seconds(app: App):
     app.open_port()
     app.stop_clock()
+    # Its time jumped on, the timers due fired once: not each frame on the way
     app.send_text("a")
     buffer = app.page.locator(".console-send-buffer")
     expect(buffer).to_have_text("a")
-    app.page.clock.run_for(1000)
+    app.page.clock.fast_forward(1000)
     app.send_text("b")
     expect(buffer).to_have_text("ab")
 
-    app.page.clock.run_for(1900)
+    app.page.clock.fast_forward(1900)
     expect(buffer).to_have_text("ab")
-    app.page.clock.run_for(200)
+    app.page.clock.fast_forward(200)
     expect(buffer).to_have_text("b")
-    app.page.clock.run_for(1000)
+    app.page.clock.fast_forward(1000)
     expect(buffer).to_have_text("")
 
 
@@ -92,15 +93,15 @@ def test_send_buffer_keeps_each_send_three_seconds_after_it_is_sent(app: App):
     app.send_text("x")
     buffer = app.page.locator(".console-send-buffer")
     expect(buffer).to_have_text("x")
-    app.page.clock.run_for(3500)
+    app.page.clock.fast_forward(3500)
     expect(buffer).to_have_text("x")
 
     app.mock("holdWrites = false")
     app.mock("release()")
     expect(buffer.locator("span[data-sent=true]")).to_have_count(1)
-    app.page.clock.run_for(2900)
+    app.page.clock.fast_forward(2900)
     expect(buffer).to_have_text("x")
-    app.page.clock.run_for(200)
+    app.page.clock.fast_forward(200)
     expect(buffer).to_have_text("")
 
 
