@@ -1,9 +1,11 @@
-//! The Rune modules `serval::time`, `serval::data` and `serval::serial`.
+//! The Rune modules `serval::time`, `serval::data`, `serval::serial` and
+//! `serval::math` (methods of `f64`).
 //!
 //! Rune functions must be `Send`, so they take Serval's contexts from a
 //! thread-local [`Host`] instead of holding them.
 
 mod clock;
+mod math;
 
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
@@ -44,8 +46,8 @@ fn host() -> Result<Host, String> {
 }
 
 /// The modules, each of its functions.
-pub fn modules() -> Result<[Module; 3], ContextError> {
-    Ok([time()?, data()?, serial()?])
+pub fn modules() -> Result<[Module; 4], ContextError> {
+    Ok([time()?, data()?, serial()?, math::module()?])
 }
 
 fn time() -> Result<Module, ContextError> {
@@ -574,7 +576,7 @@ mod tests {
 
     use crate::plugin::{compile_plugin, run_task};
 
-    fn block_on<T>(future: impl Future<Output = T>) -> T {
+    pub(super) fn block_on<T>(future: impl Future<Output = T>) -> T {
         let mut future = pin!(future);
         let mut cx = Context::from_waker(Waker::noop());
         loop {
