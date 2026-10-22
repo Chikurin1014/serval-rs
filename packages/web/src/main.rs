@@ -42,6 +42,7 @@ const FAVICON_PNG: Asset = asset!("/assets/favicon.png");
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 const LICENSES_PAGE: &str = "/third-party-licenses.html";
+const DOCUMENTS_PAGE: &str = "/docs/";
 
 fn main() {
     dioxus::launch(App);
@@ -99,9 +100,17 @@ fn WebNavbar() -> Element {
                         // The page's title (in time, its logo)
                         span { class: "navbar-title", "Serval" }
                     }
-                    // In a new tab, so the open port stays
+                    // For now: the documents are yet to be (in a new tab, as the licenses)
                     NavbarItem {
                         index: 1usize,
+                        value: "documents".to_string(),
+                        to: NavigationTarget::<Route>::External(DOCUMENTS_PAGE.to_string()),
+                        new_tab: true,
+                        "Documents"
+                    }
+                    // In a new tab, so the open port stays
+                    NavbarItem {
+                        index: 2usize,
                         value: "licenses".to_string(),
                         to: NavigationTarget::<Route>::External(LICENSES_PAGE.to_string()),
                         new_tab: true,

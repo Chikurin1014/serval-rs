@@ -39,3 +39,15 @@ def test_the_repository_is_right_of_the_licenses(app: App):
     theme = app.page.get_by_role("button", name="Toggle theme").bounding_box()
     assert (box["width"], box["height"]) == (theme["width"], theme["height"])
     assert licenses["x"] + licenses["width"] <= box["x"] < layout["x"]
+
+
+def test_documents_are_right_of_the_title(app: App):
+    pages = app.page.get_by_role("navigation", name="Pages")
+    documents = pages.get_by_role("menuitem", name="Documents")
+    expect(documents).to_have_attribute("href", "/docs")
+    expect(documents).to_have_attribute("target", "_blank")
+    title = pages.get_by_role("menuitem", name="Serval").bounding_box()
+    licenses = pages.get_by_role("menuitem", name="Licenses").bounding_box()
+    box = documents.bounding_box()
+    assert title["x"] + title["width"] <= box["x"]
+    assert box["x"] + box["width"] <= licenses["x"]
