@@ -1,0 +1,173 @@
+/* The tasks, as the maps are listed (`map-list.css`): a column of cards, in
+ * their order, with no grip as they are not reordered */
+.task-panel {
+  /* Its titles the width they take: no conversions to line up */
+  --map-heading-width: auto;
+}
+
+.task-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.task-plugin {
+  overflow: hidden;
+  color: var(--dc-text-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What it last returned: as long as the card has room for */
+.task-latest .map-latest-value {
+  max-width: none;
+}
+
+.task-latest[data-failed="true"] {
+  color: var(--dc-danger);
+}
+
+/* Its function's definition, scrolled within the card */
+.task-definition {
+  max-height: 20rem;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+}
+
+.task-definition pre,
+.task-definition code {
+  font-family: ui-monospace, monospace;
+}
+
+.task-definition pre {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--dc-text);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+/* What the compiler told: its lines kept as they are, scrolled within; wider
+ * than the dialog's own (of the same specificity, loaded after) */
+[role="dialog"].compile-error-dialog {
+  width: min(56rem, calc(100vw - 2rem));
+  max-width: none;
+}
+
+.compile-error-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.compile-error {
+  max-height: 60vh;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+}
+
+.compile-error pre,
+.compile-error code {
+  font-family: ui-monospace, monospace;
+}
+
+.compile-error pre {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--dc-text);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+button.plugin-button {
+  color: var(--dc-text);
+}
+
+.plugin-file-input {
+  display: none;
+}
+
+/* What the tasks print: framed as a card, its title on the frame's top */
+fieldset.task-stdout {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Its frame level with the cards beside it: the title above */
+  margin: -0.45rem 0 0;
+  padding: 0.25rem 0 0;
+  border: 1px solid var(--border-color);
+  background-color: var(--light, var(--primary-color-2))
+    var(--dark, var(--primary-color-3));
+  color: var(--secondary-color-4);
+}
+
+.task-stdout legend {
+  margin-left: 0.75rem;
+  padding: 0 0.4rem;
+  color: var(--secondary-color-5);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* The source column and the terminal */
+.task-stdout-screen {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Each line's task and time: drawn row by row beside the terminal, as wide as
+   the longest yet (as the script has it), not to be touched */
+.task-stdout-sources {
+  flex: none;
+  box-sizing: content-box;
+  max-width: 50%;
+  padding: 0.5rem;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color);
+  color: var(--secondary-color-5);
+  font-family:
+    Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+}
+
+.task-stdout-sources > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* xterm.js fits the terminal to this box, whose computed height must leave
+   out the padding: so not `border-box` */
+.task-stdout-output {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+
+/* Clearing it: on the screen's top right, clear of the scrollbar, over the
+   terminal */
+button.task-stdout-clear {
+  position: absolute;
+  z-index: 2;
+  top: 0.25rem;
+  right: 1rem;
+}

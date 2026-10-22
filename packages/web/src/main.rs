@@ -8,12 +8,13 @@ use ui::{
     },
     data::{DataProvider, MapProvider},
     elements::{
-        LayoutMenu,
+        LayoutMenu, PluginButton,
         graph::{GraphProvider, builtin_graph_kinds},
         initial_layout,
         map::builtin_map_kinds,
         serial::RecordUnloadGuard,
     },
+    plugin::TaskProvider,
     theme::ThemeSwitch,
     views::Home,
 };
@@ -63,9 +64,11 @@ fn App() -> Element {
                                 GraphProvider {
                                     kinds: builtin_graph_kinds(),
                                     initial: layout.graphs,
-                                    Router::<Route> {}
-                                    UnsupportedBrowserDialog {}
-                                    RecordUnloadGuard {}
+                                    TaskProvider {
+                                        Router::<Route> {}
+                                        UnsupportedBrowserDialog {}
+                                        RecordUnloadGuard {}
+                                    }
                                 }
                             }
                         }
@@ -106,6 +109,7 @@ fn WebNavbar() -> Element {
                     class: "navbar-tools",
                     LayoutMenu {}
                     ThemeSwitch {}
+                    PluginButton {}
                 }
             }
             div {

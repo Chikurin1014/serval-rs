@@ -75,3 +75,18 @@
     grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
+
+.task-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .task-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

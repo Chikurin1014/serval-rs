@@ -22,17 +22,22 @@ impl SerialContext {
     pub fn restart(&self, restart: Restart) {
         let context = *self;
         self.spawn(async move {
-            for &(dtr, rts, wait_ms) in restart.steps() {
-                if let Err(error) = context.write_signals(dtr, rts).await {
-                    context.report(NotificationKind::Error, "Failed to restart", &error);
-                    return;
-                }
-                if wait_ms > 0 {
-                    let wait = context.time.read().after_ms(wait_ms);
-                    wait.await;
-                }
+            if let Err(error) = context.restart_board(restart).await {
+                context.report(NotificationKind::Error, "Failed to restart", &error);
             }
         });
+    }
+
+    /// As [`Self::restart`], done as it returns.
+    pub async fn restart_board(&self, restart: Restart) -> SerialResult<()> {
+        for &(dtr, rts, wait_ms) in restart.steps() {
+            self.write_signals(dtr, rts).await?;
+            if wait_ms > 0 {
+                let wait = self.time.read().after_ms(wait_ms);
+                wait.await;
+            }
+        }
+        Ok(())
     }
 
     /// Sends a break on the open port, if not sending one already.
@@ -63,7 +68,8 @@ impl SerialContext {
         });
     }
 
-    async fn write_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> SerialResult<()> {
+    /// As [`Self::set_signals`], set as it returns.
+    pub async fn write_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> SerialResult<()> {
         let port = (*self.open.peek())
             .and_then(|id| self.port(id))
             .ok_or("No port is open")?;

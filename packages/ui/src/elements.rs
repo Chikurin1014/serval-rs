@@ -4,6 +4,7 @@ mod hover_menu;
 mod layout;
 mod log_level_tag;
 mod submenu;
+mod task;
 
 pub mod graph;
 pub mod map;
@@ -17,3 +18,4 @@ pub use layout::{
     initial_layout, parse_layout,
 };
 pub use log_level_tag::LogLevelTag;
+pub use task::{PluginButton, TaskList, TaskStdout};

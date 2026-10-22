@@ -22,8 +22,17 @@ pub struct Outgoing {
     pub bytes: Vec<u8>,
     pub file: Option<OutgoingFile>,
     pub sent: bool,
+    /// Written to the port, or failed to be: not to be waited for.
+    done: bool,
     /// Sent (or failed) `OUTGOING_MS` ago.
     expired: bool,
+}
+
+impl Outgoing {
+    /// Whether it is yet to be written to the port.
+    pub fn is_pending(&self) -> bool {
+        !self.done
+    }
 }
 
 /// A file being sent, by its name, and how far.
@@ -54,9 +63,27 @@ impl SerialContext {
         let context = *self;
         self.spawn(async move {
             let sent = context.write_sent(&port, bytes).await;
-            context.update_outgoing(id, |outgoing| outgoing.sent = sent);
+            context.update_outgoing(id, |outgoing| {
+                outgoing.sent = sent;
+                outgoing.done = true;
+            });
             context.expire_outgoing(id).await;
         });
+    }
+
+    /// The bytes given to [`Self::send`] yet to be written, oldest first.
+    pub fn unsent(&self) -> Vec<u8> {
+        self.outgoing
+            .read()
+            .iter()
+            .filter(|outgoing| outgoing.is_pending() && outgoing.file.is_none())
+            .flat_map(|outgoing| outgoing.bytes.iter().copied())
+            .collect()
+    }
+
+    /// Whether any send (or file) is yet to be written.
+    pub fn has_pending(&self) -> bool {
+        self.outgoing.read().iter().any(Outgoing::is_pending)
     }
 
     /// Whether a file is being sent.
@@ -110,6 +137,7 @@ impl SerialContext {
             let whole = sent == bytes.len();
             context.update_outgoing(id, |outgoing| {
                 outgoing.sent = whole;
+                outgoing.done = true;
                 if let Some(file) = outgoing.file.as_mut() {
                     file.stopped = !whole;
                 }
@@ -175,6 +203,7 @@ impl SerialContext {
             bytes,
             file,
             sent: false,
+            done: false,
             expired: false,
         });
         while outgoing.len() > MAX_OUTGOING {

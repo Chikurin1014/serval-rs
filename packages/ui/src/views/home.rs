@@ -5,7 +5,7 @@ use crate::{
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     data::RAW_BYTES_LABEL,
     elements::{
-        DataList, FilterContext, FilterKind,
+        DataList, FilterContext, FilterKind, TaskList, TaskStdout,
         graph::GraphBoard,
         map::MapList,
         serial::{
@@ -13,22 +13,35 @@ use crate::{
             PortSelector, PortSignalButton,
         },
     },
+    plugin::TaskContext,
 };
 
 const HOME_CSS: Asset = asset!("/assets/styling/home.css");
 
-/// Requires `SerialContext`, `DataContext` and `MapContext`.
+/// Requires `SerialContext`, `DataContext`, `MapContext`, `GraphContext` and
+/// `TaskContext`.
 #[component]
 pub fn Home() -> Element {
     // Above the tabs, so the filters stay when the data list is left
     use_context_provider(|| FilterContext::with(&[(FilterKind::Hide, RAW_BYTES_LABEL)]));
+    let tasks = use_context::<TaskContext>();
+    // Its tab once a plugin gives tasks
+    let has_tasks = use_memo(move || !tasks.is_empty());
+    let mut tab = use_signal(|| "console".to_string());
+    // Its tab gone with the last task: the console's instead
+    use_effect(move || {
+        if !has_tasks() && *tab.peek() == "task" {
+            tab.set("console".to_string());
+        }
+    });
 
     rsx! {
         document::Link { rel: "stylesheet", href: HOME_CSS }
 
         Tabs {
             class: "home",
-            default_value: "console".to_string(),
+            value: Some(tab()),
+            on_value_change: move |value| tab.set(value),
             div {
                 class: "toolbar",
                 div {
@@ -61,6 +74,15 @@ pub fn Home() -> Element {
                         lucide::ChartLine { size: 20 }
                         "Graph"
                     }
+                    if has_tasks() {
+                        TabTrigger {
+                            class: "home-tab-trigger",
+                            index: 3usize,
+                            value: "task".to_string(),
+                            lucide::Blocks { size: 20 }
+                            "Task"
+                        }
+                    }
                 }
             }
             TabContent {
@@ -88,6 +110,18 @@ pub fn Home() -> Element {
                 index: 2usize,
                 value: "graph".to_string(),
                 GraphBoard {}
+            }
+            if has_tasks() {
+                TabContent {
+                    class: "home-tab",
+                    index: 3usize,
+                    value: "task".to_string(),
+                    div {
+                        class: "task-grid",
+                        TaskList {}
+                        TaskStdout {}
+                    }
+                }
             }
         }
     }
