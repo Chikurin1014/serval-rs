@@ -60,6 +60,24 @@ and serve:
 dx serve
 ```
 
+#### Documents
+
+The documents are an [mdBook](https://rust-lang.github.io/mdBook/) in `docs/`, served at `/docs/` of the app.
+`mdbook build docs` builds them into `packages/web/public/docs` (not kept in git), which `dx serve` and `dx build` serve with the app.
+While writing, rebuild them as they change:
+
+```bash
+mdbook watch docs
+```
+
+or preview them alone, at <http://localhost:3000>:
+
+```bash
+mdbook serve docs
+```
+
+`nix build .#docs` builds them apart, and `nix build .#web` puts them at `/docs/` of the app.
+
 #### Building for Release
 
 `nix build .#web` (or `nix build`) builds the web app as it is deployed, into `result/`.

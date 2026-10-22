@@ -20,6 +20,19 @@ def test_licenses_open_in_a_new_tab(app: App):
     expect(app.page.get_by_role("button", name="Close port")).to_be_visible()
 
 
+def test_documents_open_in_a_new_tab(app: App):
+    app.open_port()
+    with app.page.context.expect_page() as opened:
+        app.page.get_by_role("navigation", name="Pages").get_by_role(
+            "menuitem", name="Documents"
+        ).click()
+    documents = opened.value
+    documents.wait_for_load_state()
+    expect(documents).to_have_title("Introduction - Serval")
+
+    expect(app.page.get_by_role("button", name="Close port")).to_be_visible()
+
+
 def github_link(app: App):
     return app.page.get_by_role("link", name="Serval on GitHub")
 

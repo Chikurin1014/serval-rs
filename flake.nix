@@ -58,6 +58,7 @@
             settings.global.excludes = [
               # Generated
               "packages/web/public/third-party-licenses.html"
+              "packages/web/public/docs/**"
               "packages/ui/src/components/**"
               "packages/ui/assets/dx-components-theme.css"
               "CHANGELOG.md"

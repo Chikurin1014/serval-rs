@@ -1,7 +1,10 @@
-# The web app (the `web` package of the workspace, of `ui`): its build, served
-# (`nix run`), its checks and its shell.
+# The web app (the `web` package of the workspace, of `ui`), with the documents
+# at `/docs/`: its build, served (`nix run`), its checks and its shell.
 {
-  imports = [ ./common.nix ];
+  imports = [
+    ./common.nix
+    ./docs.nix
+  ];
 
   perSystem =
     {
@@ -73,6 +76,8 @@
             installPhaseCommand = ''
               mkdir -p $out/share
               cp -r target/dx/web/release/web/public $out/share/serval-web
+              # The documents, as `dx` serves them of `public/docs`
+              cp -r --no-preserve=mode ${config.packages.docs} $out/share/serval-web/docs
             '';
           }
         );
@@ -151,6 +156,7 @@
             packages = [
               rustToolchain
               pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
+              pkgs.mdbook # `docs/`
               pkgs.nodejs
               pkgs.prettier
               pkgs.pyright

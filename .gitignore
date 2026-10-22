@@ -23,3 +23,6 @@ __pycache__/
 
 # wrangler (Cloudflare Pages deploys) cache
 /.wrangler
+
+# The documents, built (`mdbook build docs`)
+/packages/web/public/docs
