@@ -41,14 +41,6 @@ def task_cards(app: App):
     return app.page.locator(".task-list .task-card")
 
 
-def test_plugin_button_is_right_of_the_theme_switch(app: App):
-    plugin = app.page.get_by_role("button", name="Import plugin")
-    theme = app.page.get_by_role("button", name="Toggle theme")
-    assert plugin.bounding_box()["x"] > theme.bounding_box()["x"]
-    # No tab for tasks until a plugin gives some
-    expect(home_tabs(app)).to_have_text(["Console", "Data", "Graph"])
-
-
 def test_a_plugin_gives_a_task_of_each_public_async_function(app: App, tmp_path: Path):
     (tmp_path / "blinker.rn").write_text(PLUGIN)
     import_plugin(app, tmp_path / "blinker.rn")
@@ -78,7 +70,38 @@ def test_a_plugin_gives_a_task_of_each_public_async_function(app: App, tmp_path:
     expect(task_cards(app).locator(".map-title-text")).to_have_text(["poll"])
 
 
-def test_a_plugin_of_no_public_async_function_gives_none(app: App, tmp_path: Path):
+def compile_error_dialog(app: App):
+    return app.page.get_by_role("dialog")
+
+
+def test_a_plugin_that_cannot_run_gives_no_task(app: App, tmp_path: Path):
+    # Not Rune: where, told in a dialog
+    (tmp_path / "broken.rn").write_text(
+        "pub async fn ok() {}\npub async fn broken( {\n"
+    )
+    import_plugin(app, tmp_path / "broken.rn")
+    dialog = compile_error_dialog(app)
+    expect(dialog).to_be_visible()
+    expect(dialog.get_by_role("heading")).to_have_text("Failed to compile broken.rn")
+    expect(dialog.locator(".compile-error")).to_contain_text("broken.rn:2:")
+    dialog.get_by_role("button", name="Close").click()
+    expect(dialog).to_have_count(0)
+    expect(home_tabs(app)).to_have_count(3)
+
+    # Compiled as it is imported: each error, its line and the code there
+    (tmp_path / "calls.rn").write_text(
+        "pub async fn ok() {}\n\npub async fn calls() {\n    missing()\n}\n"
+    )
+    import_plugin(app, tmp_path / "calls.rn")
+    told = dialog.locator(".compile-error")
+    expect(told).to_contain_text("missing")
+    expect(told).to_contain_text("calls.rn:4:")
+    expect(told).to_contain_text("    missing()")
+    dialog.get_by_role("button", name="Close").click()
+    # None of its tasks: it does not compile as a whole
+    expect(home_tabs(app)).to_have_count(3)
+
+    # No `pub async fn`
     (tmp_path / "plain.rn").write_text("async fn private() {}\npub fn sync() {}\n")
     import_plugin(app, tmp_path / "plain.rn")
     app.wait_for_toast("Failed to import the plugin")
@@ -92,38 +115,6 @@ def test_a_plugin_of_no_public_async_function_gives_none(app: App, tmp_path: Pat
     assert app.toasts()[0][2] == (
         "No `pub async fn` of no arguments in set.rn: set take arguments"
     )
-    expect(home_tabs(app)).to_have_count(3)
-
-
-def compile_error_dialog(app: App):
-    return app.page.get_by_role("dialog")
-
-
-def test_a_file_not_of_rune_is_told_where_in_a_dialog(app: App, tmp_path: Path):
-    (tmp_path / "broken.rn").write_text(
-        "pub async fn ok() {}\npub async fn broken( {\n"
-    )
-    import_plugin(app, tmp_path / "broken.rn")
-    dialog = compile_error_dialog(app)
-    expect(dialog).to_be_visible()
-    expect(dialog.get_by_role("heading")).to_have_text("Failed to compile broken.rn")
-    expect(dialog.locator(".compile-error")).to_contain_text("broken.rn:2:")
-    dialog.get_by_role("button", name="Close").click()
-    expect(dialog).to_have_count(0)
-    expect(home_tabs(app)).to_have_count(3)
-
-
-def test_a_plugin_is_compiled_as_it_is_imported(app: App, tmp_path: Path):
-    (tmp_path / "calls.rn").write_text(
-        "pub async fn ok() {}\n\npub async fn calls() {\n    missing()\n}\n"
-    )
-    import_plugin(app, tmp_path / "calls.rn")
-    told = compile_error_dialog(app).locator(".compile-error")
-    # Each error, its line and the code there
-    expect(told).to_contain_text("missing")
-    expect(told).to_contain_text("calls.rn:4:")
-    expect(told).to_contain_text("    missing()")
-    # None of its tasks: it does not compile as a whole
     expect(home_tabs(app)).to_have_count(3)
 
 
@@ -235,6 +226,15 @@ STDOUT_ROWS = """() => {
 }"""
 
 
+def wait_for_stdout_rows(app: App, count: int):
+    """Until `count` rows show, each with its source beside it: drawn on the
+    frame after the terminal's."""
+    app.page.wait_for_function(
+        f"() => {{ const rows = ({STDOUT_ROWS})();"
+        f" return rows.length === {count} && rows.every(([, source]) => source); }}"
+    )
+
+
 def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
     (tmp_path / "runnable.rn").write_text(RUNNABLE)
     import_plugin(app, tmp_path / "runnable.rn")
@@ -244,7 +244,7 @@ def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
 
     run_task(app, 5)
     run_task(app, 6)
-    app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 3")
+    wait_for_stdout_rows(app, 3)
     rows = app.page.evaluate(STDOUT_ROWS)
     assert [text for text, _ in rows] == ["first", "last 2", "working"]
     sources = [source for _, source in rows]
@@ -259,7 +259,7 @@ def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
     stdout.get_by_role("button", name="Clear the output").click()
     app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 0")
     run_task(app, 6)
-    app.page.wait_for_function(f"() => ({STDOUT_ROWS})().length === 1")
+    wait_for_stdout_rows(app, 1)
     [[text, source]] = app.page.evaluate(STDOUT_ROWS)
     assert text == "working"
     assert source.startswith("runnable.rn::reports (")

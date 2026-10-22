@@ -1,6 +1,8 @@
 """Operations on the app shared by the tests."""
 
+import json
 import re
+from pathlib import Path
 
 from playwright.sync_api import ConsoleMessage, Page, expect
 
@@ -34,6 +36,40 @@ _CONSOLE_TEXT = """() => {
 }"""
 
 NAME_VALUE = r"(\w+):([\d.]+)"
+
+# The maps the app starts with
+_INITIAL_MAPS = json.loads(
+    (
+        Path(__file__).resolve().parent.parent
+        / "packages/ui/src/elements/initial_layout.json"
+    ).read_text()
+)["maps"]
+
+
+def saved_map(kind: str, sources: list[str], output: str, **settings) -> dict:
+    """A map as a layout file keeps it, on: `kind` from `sources` to `output`
+    types, of its `settings` as they are saved."""
+    return {
+        "kind": kind,
+        "from": sources,
+        "to": output,
+        "enabled": True,
+        "settings": settings,
+    }
+
+
+def name_value_map() -> dict:
+    """The Match map `add_match_map` adds, of its defaults."""
+    return saved_map(
+        "Match",
+        ["Log"],
+        "Number",
+        from_label="log",
+        pattern=NAME_VALUE,
+        replacement="$2",
+        to_label="$1",
+        weakest_level="NONE",
+    )
 
 
 class App:
@@ -94,6 +130,26 @@ class App:
     def clear_all(self, within: str = ".data-grid"):
         """Clears all data with the data list's button in `within`."""
         self.page.locator(within).get_by_role("button", name="Clear all").click()
+
+    def load_layout(self, maps: list[dict], graphs: list[dict] | None = None):
+        """Puts the maps the app starts with, then `maps`, and `graphs` (one time
+        series if none) in place, as a layout file imported does: for the tests
+        of what maps and graphs do, not of how they are added."""
+        layout = {
+            "maps": _INITIAL_MAPS + maps,
+            "graphs": graphs or [{"kind": "Time series"}],
+        }
+        self.page.locator("#layout-file-input").set_input_files(
+            files=[
+                {
+                    "name": "layout.json",
+                    "mimeType": "application/json",
+                    "buffer": json.dumps(layout).encode(),
+                }
+            ]
+        )
+        self.wait_for_toast("Layout imported")
+        expect(self.map_cards()).to_have_count(len(layout["maps"]))
 
     def add_map(self, name: str, source: str, output: str):
         """Adds the map `name` from `source` to `output` type, from the Data tab."""

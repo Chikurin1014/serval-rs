@@ -24,7 +24,7 @@ def wait_for_full_scrollback(app: App):
     )
 
 
-def test_shows_the_received_text_as_it_arrives(app: App):
+def test_shows_the_received_text_as_it_arrives_past_clearing_data(app: App):
     app.open_port()
     app.wait_for_console_text()
     first = app.console_text()
@@ -35,20 +35,13 @@ def test_shows_the_received_text_as_it_arrives(app: App):
     assert len(later) > len(first)
     assert_whole_stream(later)
 
-
-def test_keeps_its_text_after_clearing_all_data(app: App):
-    """It shows the port's history, not the data."""
-    app.open_port()
-    app.wait_for_console_text()
-    before = app.console_text()
-
+    # The port's history, not the data: kept as all the data is cleared
     app.tab("Data")
     app.clear_all()
     app.tab("Console")
-    app.wait_for_console_text(longer_than=len(before))
+    app.wait_for_console_text(longer_than=len(later))
     after = app.console_text()
-
-    assert after.startswith(before)
+    assert after.startswith(later)
     assert_whole_stream(after)
 
 
@@ -146,6 +139,13 @@ def view_rows(app: App):
 
 
 def test_times_show_beside_the_lines_with_text(app: App):
+    # Not to be touched: drawn row by row beside the terminal
+    style = app.page.evaluate(
+        "() => { const s = getComputedStyle(document.getElementById('console-times'));"
+        " return [s.pointerEvents, s.userSelect]; }"
+    )
+    assert style == ["none", "none"]
+
     app.open_port()
     app.mock("mute()")
     app.mock("receive('a long line ' + 'x'.repeat(300) + '\\n\\nok\\n')")
@@ -189,14 +189,6 @@ def test_times_stay_as_the_console_renders_again(app: App):
     app.wait_for_console_text()
     after = [row for row in view_rows(app) if row[0] in ("one", "two")]
     assert before == after and len(after) == 2
-
-
-def test_times_cannot_be_touched(app: App):
-    style = app.page.evaluate(
-        "() => { const s = getComputedStyle(document.getElementById('console-times'));"
-        " return [s.pointerEvents, s.userSelect]; }"
-    )
-    assert style == ["none", "none"]
 
 
 def buffer_lines(app: App) -> list[str]:

@@ -21,24 +21,37 @@ def test_closes_and_reopens_the_port(app: App):
     app.wait_for_console_text(longer_than=stopped)
 
 
-def test_sends_each_key_typed_in_the_console(app: App):
+def test_keys_are_sent_as_tera_term_sends_them(app: App):
+    # None while the port is closed
+    app.send_text("x")
+    app.page.wait_for_timeout(200)
+    assert app.mock("written") == []
+
     app.open_port()
     app.send_text("led on")
     app.page.keyboard.press("Enter")
-
     app.wait_for_mock("written.length >= 7")
-    # As Tera Term: Enter sends CR
+    # Enter sends CR
     assert "".join(app.mock("written")) == "led on\r"
 
-
-def test_backspace_and_delete_send_bs_and_del(app: App):
-    app.open_port()
-    app.page.locator(".console-output").click()
+    # Backspace sends BS and Delete DEL
     app.page.keyboard.press("Backspace")
     app.page.keyboard.press("Delete")
+    app.wait_for_mock("written.length >= 9")
+    assert app.mock("written")[-2:] == ["\b", "\x7f"]
 
-    app.wait_for_mock("written.length >= 2")
-    assert app.mock("written") == ["\b", "\x7f"]
+    # Alt+B sends a break, nothing typed
+    app.page.keyboard.press("Alt+B")
+    app.wait_for_mock("signals.length === 2")
+    assert app.mock("signals") == [{"break": True}, {"break": False}]
+    assert len(app.mock("written")) == 9
+
+    # Alt+R sends the clipboard, a CR for each line break and one after
+    app.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    app.page.evaluate("navigator.clipboard.writeText('led on\\nled off')")
+    app.page.keyboard.press("Alt+R")
+    app.wait_for_mock("written.length >= 10")
+    assert app.mock("written")[-1] == "led on\rled off\r"
 
 
 def send_buffer(app: App) -> list[list]:
@@ -105,12 +118,6 @@ def test_send_buffer_keeps_each_send_three_seconds_after_it_is_sent(app: App):
     expect(buffer).to_have_text("")
 
 
-def test_keys_are_not_sent_while_the_port_is_closed(app: App):
-    app.send_text("x")
-    app.page.wait_for_timeout(200)
-    assert app.mock("written") == []
-
-
 def test_refresh_lists_the_ports_granted_before(app: App):
     trigger = app.page.locator(".port-selector-trigger")
     expect(trigger).to_have_text("No Devices allowed")
@@ -146,38 +153,18 @@ def signal_action(app: App, name: str):
     ).click()
 
 
-def test_restart_arduino_is_the_default_and_pulses_dtr(app: App):
+def test_signals_are_set_as_each_action_has_them(app: App):
+    # Restart (Arduino) the default, of no port yet
     restart = app.page.get_by_role("button", name="Restart (Arduino)")
     expect(restart).to_be_disabled()
     app.open_port()
-    restart.click()
-    app.wait_for_mock("signals.length === 2")
-    assert app.mock("signals") == [
-        {"dataTerminalReady": False, "requestToSend": False},
-        {"dataTerminalReady": True, "requestToSend": True},
-    ]
 
-
-def test_restart_espressif_pulses_rts_with_dtr_off(app: App):
-    app.open_port()
-    signal_action(app, "Restart (Espressif)")
-    app.page.get_by_role("button", name="Restart (Espressif)").click()
-    app.wait_for_mock("signals.length === 2")
-    assert app.mock("signals") == [
-        {"dataTerminalReady": False, "requestToSend": True},
-        {"requestToSend": False},
-    ]
-
-
-def test_manual_toggles_dtr_and_rts(app: App):
-    app.open_port()
+    # Manual: DTR and RTS toggled, on as the port opens
     signal_action(app, "Manual")
     dtr = app.page.get_by_role("button", name="DTR")
     rts = app.page.get_by_role("button", name="RTS")
-    # On as the port opens
     expect(dtr).to_have_attribute("aria-pressed", "true")
     expect(rts).to_have_attribute("aria-pressed", "true")
-
     dtr.click()
     expect(dtr).to_have_attribute("aria-pressed", "false")
     rts.click()
@@ -188,6 +175,24 @@ def test_manual_toggles_dtr_and_rts(app: App):
         {"dataTerminalReady": False},
         {"requestToSend": False},
         {"dataTerminalReady": True},
+    ]
+
+    # Arduino's: DTR and RTS off a moment, then on again
+    signal_action(app, "Restart (Arduino)")
+    restart.click()
+    app.wait_for_mock("signals.length === 5")
+    assert app.mock("signals")[3:] == [
+        {"dataTerminalReady": False, "requestToSend": False},
+        {"dataTerminalReady": True, "requestToSend": True},
+    ]
+
+    # Espressif's: RTS pulsed with DTR off
+    signal_action(app, "Restart (Espressif)")
+    app.page.get_by_role("button", name="Restart (Espressif)").click()
+    app.wait_for_mock("signals.length === 7")
+    assert app.mock("signals")[5:] == [
+        {"dataTerminalReady": False, "requestToSend": True},
+        {"requestToSend": False},
     ]
 
 
@@ -263,26 +268,6 @@ def test_a_file_shows_its_progress_on_all_the_bar(app: App):
     )
 
 
-def test_alt_b_sends_a_break(app: App):
-    app.open_port()
-    app.page.locator(".console-output").click()
-    app.page.keyboard.press("Alt+B")
-    app.wait_for_mock("signals.length === 2")
-    assert app.mock("signals") == [{"break": True}, {"break": False}]
-    # Nothing typed
-    assert app.mock("written") == []
-
-
-def test_alt_r_sends_the_clipboard_and_a_cr(app: App):
-    app.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
-    app.open_port()
-    app.page.locator(".console-output").click()
-    app.page.evaluate("navigator.clipboard.writeText('led on\\nled off')")
-    app.page.keyboard.press("Alt+R")
-    app.wait_for_mock("written.length >= 1")
-    assert app.mock("written") == ["led on\rled off\r"]
-
-
 def drag_file(app: App, events: list[str], contents: bytes = FILE):
     """Drags a file over the console, as from the desktop, by these events."""
     transfer = app.page.evaluate_handle(
@@ -297,24 +282,21 @@ def drag_file(app: App, events: list[str], contents: bytes = FILE):
         app.page.dispatch_event(".console-output", event, {"dataTransfer": transfer})
 
 
-def test_a_file_dropped_on_the_console_is_sent(app: App):
-    app.open_port()
+def test_a_file_dropped_on_the_console_is_sent_while_the_port_is_open(app: App):
     console = app.page.locator(".console")
-    drag_file(app, ["dragenter", "dragover"])
-    expect(console).to_have_attribute("data-dropping", "true")
-
-    drag_file(app, ["drop"])
-    expect(console).to_have_attribute("data-dropping", "false")
-    app.wait_for_mock(f"writtenBytes.flat().length === {len(FILE)}")
-    assert bytes(sum(app.mock("writtenBytes"), [])) == FILE
-    expect(app.page.locator(".console-send-file")).to_have_text("data.bin (10,240 B)")
-
-
-def test_a_file_dropped_while_the_port_is_closed_is_not_sent(app: App):
-    console = app.page.locator(".console")
+    # Not while it is closed
     drag_file(app, ["dragenter", "dragover"])
     expect(console).to_have_attribute("data-dropping", "false")
     drag_file(app, ["drop"])
     app.page.wait_for_timeout(300)
     assert app.mock("writtenBytes") == []
     expect(app.page.locator(".console-send-file")).to_have_count(0)
+
+    app.open_port()
+    drag_file(app, ["dragenter", "dragover"])
+    expect(console).to_have_attribute("data-dropping", "true")
+    drag_file(app, ["drop"])
+    expect(console).to_have_attribute("data-dropping", "false")
+    app.wait_for_mock(f"writtenBytes.flat().length === {len(FILE)}")
+    assert bytes(sum(app.mock("writtenBytes"), [])) == FILE
+    expect(app.page.locator(".console-send-file")).to_have_text("data.bin (10,240 B)")
