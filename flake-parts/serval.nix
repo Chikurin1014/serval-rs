@@ -180,6 +180,9 @@
             ''
               export HOME="$TMPDIR"
               cp -r ${src}/e2e e2e
+              # What `e2e/app.py` takes the app's initial maps from
+              mkdir -p packages/ui/src/elements
+              cp ${src}/packages/ui/src/elements/initial_layout.json packages/ui/src/elements/
               pytest e2e -p no:cacheprovider
               touch $out
             '';
