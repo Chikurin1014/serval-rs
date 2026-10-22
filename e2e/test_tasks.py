@@ -85,12 +85,10 @@ def test_a_plugin_of_no_public_async_function_gives_none(app: App, tmp_path: Pat
     assert app.toasts()[0][2] == "No `pub async fn` in plain.rn"
     expect(home_tabs(app)).to_have_count(3)
 
-
-def test_a_plugin_of_functions_of_arguments_alone_gives_none(app: App, tmp_path: Path):
-    # None to run: a task is called with no arguments
+    # Of arguments alone: none to run, as a task is called with none
     (tmp_path / "set.rn").write_text("pub async fn set(led) { led }\n")
     import_plugin(app, tmp_path / "set.rn")
-    app.wait_for_toast("Failed to import the plugin")
+    expect(app.page.locator("[role=alertdialog]")).to_have_count(2)
     assert app.toasts()[0][2] == (
         "No `pub async fn` of no arguments in set.rn: set take arguments"
     )

@@ -113,11 +113,9 @@ def test_a_wrong_layout_changes_nothing(app: App, tmp_path: Path):
         "graphs": layout["graphs"][:1]
     }
 
-
-def test_a_file_not_of_a_layout_changes_nothing(app: App, tmp_path: Path):
-    app.tab("Graph")
+    # Nor a file not of a layout at all
     (tmp_path / "broken.json").write_text("{")
     import_layout(app, tmp_path / "broken.json")
-    app.wait_for_toast("Failed to import the layout")
+    expect(app.page.locator("[role=alertdialog]")).to_have_count(2)
     assert app.toasts()[0][2].startswith("Not a layout file")
     expect(app.graphs()).to_have_count(1)
