@@ -5978,6 +5978,8 @@ dependencies = [
  "dioxus-primitives",
  "dioxus-ssr",
  "fancy-regex",
+ "getrandom 0.4.3",
+ "rand 0.10.2",
  "rune",
  "serde",
  "serde_json",

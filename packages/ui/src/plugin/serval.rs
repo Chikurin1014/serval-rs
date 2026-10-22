@@ -1,11 +1,12 @@
-//! The Rune modules `serval::time`, `serval::data`, `serval::serial` and
-//! `serval::math` (methods of `f64`).
+//! The Rune modules `serval::time`, `serval::data`, `serval::serial`,
+//! `serval::math` (methods of `f64`) and `serval::rand`.
 //!
 //! Rune functions must be `Send`, so they take Serval's contexts from a
 //! thread-local [`Host`] instead of holding them.
 
 mod clock;
 mod math;
+mod random;
 
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
@@ -46,8 +47,14 @@ fn host() -> Result<Host, String> {
 }
 
 /// The modules, each of its functions.
-pub fn modules() -> Result<[Module; 4], ContextError> {
-    Ok([time()?, data()?, serial()?, math::module()?])
+pub fn modules() -> Result<[Module; 5], ContextError> {
+    Ok([
+        time()?,
+        data()?,
+        serial()?,
+        math::module()?,
+        random::module()?,
+    ])
 }
 
 fn time() -> Result<Module, ContextError> {

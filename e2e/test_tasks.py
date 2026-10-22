@@ -488,3 +488,17 @@ def test_a_task_reads_what_the_port_receives(app: App, tmp_path: Path):
     app.mock("receive('K and more')")
     expect(switch).not_to_be_checked()
     expect(card.locator(".task-latest")).to_have_text("hello noise OK")
+
+
+def test_a_task_takes_random_numbers_in_the_page(app: App, tmp_path: Path):
+    # Seeded by the browser's own: none in the page would fail it
+    (tmp_path / "dice.rn").write_text(
+        "use serval::rand;\n"
+        "pub async fn roll() {\n"
+        "    let roll = rand::random_range(1, 7);\n"
+        "    roll >= 1 && roll <= 6 && rand::Rng::new().random() < 1.0\n"
+        "}\n"
+    )
+    import_plugin(app, tmp_path / "dice.rn")
+    app.tab("Task")
+    expect(run_task(app, 0).locator(".task-latest")).to_have_text("true")
