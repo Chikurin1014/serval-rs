@@ -17,3 +17,25 @@ def test_licenses_open_in_a_new_tab(app: App):
     expect(licenses.get_by_role("heading", name="uPlot")).to_be_visible()
 
     expect(app.page.get_by_role("button", name="Close port")).to_be_visible()
+
+
+def github_link(app: App):
+    return app.page.get_by_role("link", name="Serval on GitHub")
+
+
+def test_the_repository_is_right_of_the_licenses(app: App):
+    link = github_link(app)
+    expect(link).to_have_attribute("href", "https://github.com/Chikurin1014/serval-rs")
+    # In a new tab, so the open port stays
+    expect(link).to_have_attribute("target", "_blank")
+    licenses = (
+        app.page.get_by_role("navigation", name="Pages")
+        .get_by_role("menuitem", name="Licenses")
+        .bounding_box()
+    )
+    layout = app.page.get_by_role("button", name="Layout").bounding_box()
+    box = link.bounding_box()
+    # An icon button, as the theme switch is
+    theme = app.page.get_by_role("button", name="Toggle theme").bounding_box()
+    assert (box["width"], box["height"]) == (theme["width"], theme["height"])
+    assert licenses["x"] + licenses["width"] <= box["x"] < layout["x"]

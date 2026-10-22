@@ -19,11 +19,13 @@ use ui::{
     views::Home,
 };
 
+mod github_link;
 mod record_file;
 mod serial;
 mod time;
 mod unsupported;
 
+use github_link::GithubLink;
 use serial::SerialProvider;
 use time::TimeProvider;
 use unsupported::UnsupportedBrowserDialog;
@@ -105,6 +107,7 @@ fn WebNavbar() -> Element {
                         "Licenses"
                     }
                 }
+                GithubLink {}
                 div {
                     class: "navbar-tools",
                     LayoutMenu {}
