@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/Chikurin1014/serval-rs/compare/v0.4.1...v0.5.0) (2026-10-22)
+
+
+### Features
+
+* ✨ Add `serial::received` and `serial::wait_for` ([03dbad6](https://github.com/Chikurin1014/serval-rs/commit/03dbad6306ef7a14c8c775f3c78ada1d8476ca0d))
+* ✨ Add github url button ([aa9eacc](https://github.com/Chikurin1014/serval-rs/commit/aa9eacc7777c5091a206a9c8aecec9d89da09d8c))
+* ✨ Add math methods ([1dd3898](https://github.com/Chikurin1014/serval-rs/commit/1dd389894e527cf31c81b7e60c1d95e490c1b01b))
+* ✨ Add navbar-title ([dc22be1](https://github.com/Chikurin1014/serval-rs/commit/dc22be101f20c920e6044f7f97ab33a22cbb01c7))
+* ✨ Add rand module ([e9f9569](https://github.com/Chikurin1014/serval-rs/commit/e9f95695cf6cf00ae63fa1eb7e005d751bd32eca))
+* ✨ Add send_buffer features ([1c30ff9](https://github.com/Chikurin1014/serval-rs/commit/1c30ff9cf6f4ad484278606d7b1bce5a53efed31))
+* ✨ Add serval-unique modules to scripting language ([79dc26d](https://github.com/Chikurin1014/serval-rs/commit/79dc26d234c460682a115fa5055a20a81587ca44))
+* ✨ Improve task tab view ([48217d7](https://github.com/Chikurin1014/serval-rs/commit/48217d720add70df72bc2adeb734e856e3bb9744))
+
+
+### Bug Fixes
+
+* 🐛 Fix bugs about plugins ([4c8b7c7](https://github.com/Chikurin1014/serval-rs/commit/4c8b7c7e61172e71cafd1062138c783e7beb2bfe))
+
 ## [0.4.1](https://github.com/Chikurin1014/serval-rs/compare/v0.4.0...v0.4.1) (2026-10-20)
 
 
