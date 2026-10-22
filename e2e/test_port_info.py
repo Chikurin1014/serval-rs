@@ -21,7 +21,7 @@ def notifications(app: App) -> list[tuple[str, str]]:
     ]
 
 
-def test_shows_the_device_and_its_settings(app: App):
+def test_shows_the_device_its_settings_and_its_bytes(app: App):
     app.open_port()
     shown = details(app)
     assert shown["Vendor"] == "Arduino SA"
@@ -34,9 +34,7 @@ def test_shows_the_device_and_its_settings(app: App):
     )
     assert shown["Flow control"] == "none"
 
-
-def test_counts_the_bytes_received_and_sent(app: App):
-    app.open_port()
+    # The bytes received and sent, counted
     app.page.wait_for_function(
         "() => [...document.querySelectorAll('.port-info dt')]"
         ".find(dt => dt.textContent === 'Received').nextElementSibling.textContent !== '0 B'"

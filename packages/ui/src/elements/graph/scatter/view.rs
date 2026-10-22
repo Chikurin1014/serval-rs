@@ -182,7 +182,6 @@ pub fn ScatterGraph(id: usize) -> Element {
                 class: "graph-plot",
                 id: "{container_id}",
                 onmounted: {
-                    let container_id = container_id.clone();
                     move |_| {
                         let _ = plot.send(container_id.clone());
                     }

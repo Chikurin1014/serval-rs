@@ -15,8 +15,9 @@ use crate::{
         scroll_area::ScrollArea,
         switch::Switch,
     },
-    helper::{single_line, use_script},
+    helper::{clear_file, concat_scripts, pick_file, single_line, use_script},
     plugin::{ImportError, Imported, Task, TaskContext, TaskOutcome},
+    time::TimeContext,
     toast::use_toaster,
 };
 
@@ -25,7 +26,11 @@ const MAP_LIST_CSS: Asset = asset!("/assets/styling/map-list.css");
 const TASK_LIST_CSS: Asset = asset!("/assets/styling/task-list.css");
 const PLUGIN_INPUT_ID: &str = "plugin-file-input";
 const STDOUT_OUTPUT_ID: &str = "task-stdout-output";
-const STDOUT_JS: &str = include_str!("task_stdout.js");
+const STDOUT_JS: &str = concat_scripts!(
+    "theme.js",
+    "helper/script/line_column.js",
+    "elements/task_stdout.js",
+);
 const XTERM_CSS: Asset = asset!("/assets/vendor/xterm/xterm.css");
 const XTERM_JS: Asset = asset!(
     "/assets/vendor/xterm/xterm.js",
@@ -163,6 +168,7 @@ fn TaskLatest(latest: ReadSignal<Option<TaskOutcome>>) -> Element {
 #[component]
 pub fn TaskStdout() -> Element {
     let mut context = use_context::<TaskContext>();
+    let time = use_context::<TimeContext>();
     let terminal = use_script(STDOUT_JS);
     use_hook(|| {
         let _ = terminal.send(STDOUT_OUTPUT_ID);
@@ -177,7 +183,11 @@ pub fn TaskStdout() -> Element {
             let lines: Vec<_> = printed
                 .lines
                 .into_iter()
-                .map(|line| (line.source, line.time, line.text))
+                // Beside it: its task and time, as the app shows times
+                .map(|line| {
+                    let shown = format!("{} ({})", line.source, time.format_millis(line.time));
+                    (shown, line.text)
+                })
                 .collect();
             let _ = terminal.send(("lines", printed.cleared, lines));
         }
@@ -234,11 +244,7 @@ pub fn PluginButton() -> Element {
             size: ButtonSize::IconSm,
             aria_label: "Import plugin",
             title: "Import a plugin (Rune)",
-            onclick: move |_| {
-                document::eval(&format!(
-                    "document.getElementById({PLUGIN_INPUT_ID:?})?.click()"
-                ));
-            },
+            onclick: move |_| pick_file(PLUGIN_INPUT_ID),
             lucide::Blocks {}
         }
         input {
@@ -256,9 +262,7 @@ pub fn PluginButton() -> Element {
                     Err(error) => Err(ImportError::Other(error.to_string())),
                 };
                 // So the same file picked again is a change
-                document::eval(&format!(
-                    "document.getElementById({PLUGIN_INPUT_ID:?}).value = ''"
-                ));
+                clear_file(PLUGIN_INPUT_ID);
                 match imported {
                     Ok(Imported { added, replaced, passed_over }) => {
                         let mut detail = format!("{} of {name}", tasks(added));

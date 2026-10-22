@@ -3,52 +3,85 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from app import NAME_VALUE, App
+from app import NAME_VALUE, App, name_value_map, saved_map
+
+# The types of two vectors' maps
+V2 = ["Vector2d", "Vector2d"]
+V3 = ["Vector3d", "Vector3d"]
 
 
 def is_whole_line(text: str) -> bool:
     return re.fullmatch(r"(temp|volt):[\d.]+", text) is not None
 
 
-def test_initial_map_splits_raw_bytes_into_lines(app: App):
-    app.open_port()
+def test_initial_maps_read_what_the_port_sends(app: App):
     app.tab("Data")
+    decode, numbers, name_value = (app.map_cards().nth(index) for index in range(3))
     expect(app.map_cards()).to_have_count(3)
-    app.wait_for_labels("log")
-    assert is_whole_line(app.data_rows()["log"][1])
+    # Lines of raw bytes, as logs of their levels
+    expect(decode.locator(".map-title-text")).to_have_text("Decode")
+    decode.locator(".map-title").click()
+    expect(decode.get_by_placeholder("Input label")).to_have_value("raw_bytes")
+    expect(decode.get_by_placeholder("Text to be matched")).to_have_value(
+        r"^(?:\[(?:.*? )??({level})(?: .*?)?\] )?(.*)$"
+    )
+    expect(decode.get_by_placeholder("Output label")).to_have_value("log")
+    expect(decode.get_by_label("Level", exact=True)).to_have_value("$1")
+    expect(decode.get_by_label("Message", exact=True)).to_have_value("$2")
+    # Numbers with no label
+    expect(numbers.locator(".map-title-text")).to_have_text("Match")
+    expect(numbers.get_by_role("switch")).to_be_checked()
+    numbers.locator(".map-title").click()
+    expect(numbers.get_by_placeholder("Input label")).to_have_value("log")
+    expect(numbers.get_by_placeholder("Text to be matched")).to_have_value("^{number}")
+    expect(numbers.get_by_placeholder("Output label")).to_have_value("anonymous data")
+    expect(numbers.get_by_label("To", exact=True)).to_have_value("$0")
+    # Numbers after their names
+    expect(name_value.locator(".map-title-text")).to_have_text("Match")
+    expect(name_value.get_by_role("switch")).to_be_checked()
+    name_value.locator(".map-title").click()
+    expect(name_value.get_by_placeholder("Input label")).to_have_value("log")
+    expect(name_value.get_by_placeholder("Text to be matched")).to_have_value(
+        "({word}): ({number})"
+    )
+    expect(name_value.get_by_placeholder("Output label")).to_have_value("$1")
+    expect(name_value.get_by_label("To", exact=True)).to_have_value("$2")
 
-
-def test_initial_match_map_reads_numbers_with_no_label(app: App):
-    app.tab("Data")
-    card = app.map_cards().nth(1)
-    expect(card.locator(".map-title-text")).to_have_text("Match")
-    expect(card.get_by_role("switch")).to_be_checked()
-    card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("log")
-    expect(card.get_by_placeholder("Text to be matched")).to_have_value("^{number}")
-    expect(card.get_by_placeholder("Output label")).to_have_value("anonymous data")
-    expect(card.get_by_label("To", exact=True)).to_have_value("$0")
-
+    # Whole lines, of no level: the line alone
     app.open_port()
+    app.wait_for_labels("log")
+    kind, latest, _ = app.data_rows()["log"]
+    assert kind == "Log" and latest.startswith(("temp:", "volt:"))
+    assert is_whole_line(latest)
+
+    app.mock("mute()")
+    app.mock("receive('[warning] disk full\\n')")
+    wait_for_latest(app, "log", "WARN disk full")
+    # Its level as a tag in its color, in the data list too
+    row = app.page.locator(".data-row").filter(
+        has=app.page.locator("th", has_text="log")
+    )
+    tag = row.locator(".log-level-tag")
+    expect(tag).to_have_text("WARN")
+    expect(tag).to_have_attribute("data-level", "WARN")
+    colors = tag.evaluate(
+        "t => [getComputedStyle(t).color, getComputedStyle(t.parentElement).color]"
+    )
+    assert colors[0] != colors[1]
+    # Its level by its name, in capitals
+    latest = decode.locator(".map-latest-to")
+    expect(latest.locator(".log-level-tag")).to_have_text("WARN")
+    expect(latest).to_contain_text("disk full")
+    # The bytes it took, in hex
+    expect(decode.locator(".map-latest-from .map-latest-value")).to_have_text(
+        " ".join(f"{byte:02X}" for byte in b"[warning] disk full\n")
+    )
+
     app.mock("receive('-1.5e2\\n')")
     app.wait_for_labels("anonymous data")
     assert app.data_rows()["anonymous data"][1] == "-150.00"
     app.page.wait_for_timeout(300)
     assert app.data_rows()["anonymous data"][1] == "-150.00"
-
-
-def test_initial_match_map_reads_name_value_numbers(app: App):
-    app.tab("Data")
-    card = app.map_cards().nth(2)
-    expect(card.locator(".map-title-text")).to_have_text("Match")
-    expect(card.get_by_role("switch")).to_be_checked()
-    card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("log")
-    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        "({word}): ({number})"
-    )
-    expect(card.get_by_placeholder("Output label")).to_have_value("$1")
-    expect(card.get_by_label("To", exact=True)).to_have_value("$2")
 
 
 def test_match_map_extracts_numbers(app: App):
@@ -175,16 +208,13 @@ def test_adding_and_removing_maps_warns_nothing(app: App):
     assert warnings == []
 
 
-def test_add_menus_are_by_output_type(app: App):
+def test_add_menus_offer_the_maps_by_output_type(app: App):
     app.tab("Data")
     bar = app.page.locator(".add-map-bar")
     expect(bar.locator(".add-map-label")).to_have_text("Map to")
     expect(bar.get_by_role("button")).to_have_text(["Bytes", "Log", "Number", "Vector"])
 
-
-def test_add_menus_open_on_hover(app: App):
-    app.tab("Data")
-    bar = app.page.locator(".add-map-bar")
+    # Opened as they are pointed at
     number = bar.get_by_role("button", name="Number", exact=True)
     number.hover()
     expect(number).to_have_attribute("aria-expanded", "true")
@@ -218,14 +248,23 @@ def test_add_menus_open_on_hover(app: App):
     expect(string).to_have_attribute("aria-expanded", "false")
     expect(bar.get_by_role("option")).to_have_count(0)
 
-
-def test_bytes_menu_offers_encode(app: App):
-    app.tab("Data")
-    bar = app.page.locator(".add-map-bar")
+    # Bytes of logs, by Encode
     bar.get_by_role("button", name="Bytes", exact=True).hover()
     option = bar.get_by_role("option")
     expect(option.locator(".add-map-title")).to_have_text(["Encode"])
     expect(option.locator(".map-types")).to_have_text(["LogBytes"])
+
+    # Presets of Match beside its item
+    item = app.map_item("Number")
+    presets = item.get_by_role("menuitem")
+    expect(presets.first).to_be_hidden()
+    item.hover()
+    expect(presets.locator(".add-map-preset-name")).to_have_text(
+        ["value", "name: value", "Arduino", "Teleplot"]
+    )
+
+    # None for logs: Decode reads them
+    expect(app.map_item("Log").get_by_role("menuitem")).to_have_count(0)
 
 
 def test_decode_splits_at_the_chosen_delimiters(app: App):
@@ -291,24 +330,30 @@ def test_encode_turns_strings_into_bytes(app: App):
     )
 
 
-def test_cards_open_to_their_settings(app: App):
+def test_cards_show_their_types_and_open_to_their_settings(app: App):
     app.tab("Data")
-    initial = app.map_cards().first
-    expect(initial.get_by_placeholder("Input label")).to_be_hidden()
-    app.add_map("Match", "Log", "Number")
-    expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
-
-    initial.locator(".map-title").click()
-    expect(initial.get_by_placeholder("Input label")).to_be_visible()
-
-
-def test_delete_button_shows_on_hover(app: App):
-    app.tab("Data")
+    # Its delete button shown as a card is pointed at
     app.page.mouse.move(0, 0)
     remove = app.map_cards().first.get_by_role("button", name="Delete map")
     expect(remove).to_have_css("opacity", "0")
     app.map_cards().first.hover()
     expect(remove).to_have_css("opacity", "1")
+
+    # Closed, those of the start; open as it is added
+    initial = app.map_cards().first
+    expect(initial.get_by_placeholder("Input label")).to_be_hidden()
+    app.add_map("Match", "Log", "Number")
+    expect(app.map_cards().last.get_by_placeholder("Input label")).to_be_visible()
+    initial.locator(".map-title").click()
+    expect(initial.get_by_placeholder("Input label")).to_be_visible()
+
+    # Each its title and types in its header
+    expect(app.map_cards().locator(".map-title-text")).to_have_text(
+        ["Decode", "Match", "Match", "Match"]
+    )
+    expect(app.map_cards().locator(".map-types")).to_have_text(
+        ["BytesLog", "LogNumber", "LogNumber", "LogNumber"]
+    )
 
 
 def test_title_shows_the_latest_conversion(app: App):
@@ -322,17 +367,6 @@ def test_title_shows_the_latest_conversion(app: App):
     expect(taken).to_have_count(2)
     assert taken.nth(0).text_content() in ("temp", "volt")
     assert re.fullmatch(r"[\d.]+", taken.nth(1).text_content())
-
-
-def test_card_header_shows_the_types(app: App):
-    app.tab("Data")
-    app.add_map("Match", "Log", "Number")
-    expect(app.map_cards().locator(".map-title-text")).to_have_text(
-        ["Decode", "Match", "Match", "Match"]
-    )
-    expect(app.map_cards().locator(".map-types")).to_have_text(
-        ["BytesLog", "LogNumber", "LogNumber", "LogNumber"]
-    )
 
 
 def add_replace_map(app: App, pattern: str, replacement: str, target: str):
@@ -437,20 +471,6 @@ def test_formula_renders_with_katex(app: App):
     assert failed == []
 
 
-def test_match_presets_show_beside_the_item(app: App):
-    app.tab("Data")
-    item = app.map_item("Number")
-    presets = item.get_by_role("menuitem")
-    expect(presets.first).to_be_hidden()
-    item.hover()
-    expect(presets.locator(".add-map-preset-name")).to_have_text(
-        ["value", "name: value", "Arduino", "Teleplot"]
-    )
-
-    # None for logs: Decode reads them
-    expect(app.map_item("Log").get_by_role("menuitem")).to_have_count(0)
-
-
 def test_match_preset_adds_a_set_map(app: App):
     app.tab("Data")
     item = app.map_item("Number")
@@ -502,20 +522,27 @@ def test_match_presets_by_keyboard(app: App):
     )
 
 
-def add_calculus_map(app: App, name: str, target: str):
-    app.add_map(name, "Number", "Number")
-    card = app.map_cards().last
-    card.get_by_placeholder("Input label").fill("temp")
-    card.get_by_placeholder("Output label").fill(target)
-    card.get_by_role("switch").click()
-    return card
-
-
 def test_differentiate_and_integrate(app: App):
     app.tab("Data")
-    app.add_match_map()
-    add_calculus_map(app, "Differentiate", "temp_rate")
-    add_calculus_map(app, "Integrate", "temp_total")
+    app.load_layout(
+        [
+            name_value_map(),
+            saved_map(
+                "Differentiate",
+                ["Number"],
+                "Number",
+                from_label="temp",
+                to_label="temp_rate",
+            ),
+            saved_map(
+                "Integrate",
+                ["Number"],
+                "Number",
+                from_label="temp",
+                to_label="temp_total",
+            ),
+        ]
+    )
     derivative = app.map_cards().nth(-2)
     expect(derivative.locator(".map-title-text")).to_have_text("Differentiate")
     # Its readings, each 50 ms apart, as the clock moves on
@@ -896,12 +923,20 @@ def test_vectors_are_matched(app: App):
     expect(bad.locator(".field-error")).to_have_text("The result 'led' is not a number")
 
 
-def compose_p_and_v(app: App):
+def p_and_v_maps() -> list[dict]:
     """p = (temp, volt) and v = (temp, volt, 12), of numbers yet to come."""
-    app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "2D", ["temp", "volt"], "p")
-    add_compose_map(app, "3D", ["temp", "volt", "12"], "v")
+    return [
+        name_value_map(),
+        compose_map(to_label="p", x="temp", y="volt"),
+        compose_map(to_label="v", x="temp", y="volt", z="12"),
+    ]
+
+
+def compose_map(**settings) -> dict:
+    """A Compose map of `settings`, 3D if it has a z."""
+    sources = ["Number"] * (3 if "z" in settings else 2)
+    output = "Vector3d" if "z" in settings else "Vector2d"
+    return saved_map("Compose", sources, output, **settings)
 
 
 def receive_p_and_v(app: App):
@@ -912,34 +947,41 @@ def receive_p_and_v(app: App):
     wait_for_latest(app, "p", "(3.0000, 4.0000)")
 
 
-def add_number_vector_map(app: App, title: str, variant: str, fields: dict[str, str]):
-    """Adds the number map `title` of a vector, its `variant` (2D or 3D) picked
-    beside it, its `fields` (by label or placeholder) filled."""
-    vector_variant(app, title, variant, "Number").locator("> [role=menuitem]").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    for name, value in fields.items():
-        if name in ("Input label", "Output label"):
-            card.get_by_placeholder(name).fill(value)
-        else:
-            card.get_by_label(name, exact=True).fill(value)
-    card.get_by_role("switch").click()
-    return card
-
-
 def test_vector_maps_compute_vectors(app: App):
-    compose_p_and_v(app)
-    add_vector_arithmetic_map(app, "Add", "2D", "p", "(1, 1)", "q")
-    add_vector_arithmetic_map(app, "Subtract", "2D", "q", "p", "r")
-    # The number first, as `a`
-    multiply = add_vector_arithmetic_map(app, "Multiply", "3D", "temp", "v", "w")
-    add_vector_arithmetic_map(app, "Multiply", "2D", "0.5", "(4, -2)", "half")
-    # Its only variant: picked itself
-    app.map_item("Vector", "Cross").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_label("a", exact=True).fill("v")
-    card.get_by_label("b", exact=True).fill("(0, 0, 1)")
-    card.get_by_placeholder("Output label").fill("v_cross")
-    card.get_by_role("switch").click()
+    app.tab("Data")
+    app.load_layout(
+        p_and_v_maps()
+        + [
+            saved_map("Add", V2, "Vector2d", first="p", second="(1, 1)", to_label="q"),
+            saved_map("Subtract", V2, "Vector2d", first="q", second="p", to_label="r"),
+            # The number first, as `a`
+            saved_map(
+                "Multiply",
+                ["Number", "Vector3d"],
+                "Vector3d",
+                first="temp",
+                second="v",
+                to_label="w",
+            ),
+            saved_map(
+                "Multiply",
+                ["Number", "Vector2d"],
+                "Vector2d",
+                first="0.5",
+                second="(4, -2)",
+                to_label="half",
+            ),
+            saved_map(
+                "Cross",
+                V3,
+                "Vector3d",
+                first="v",
+                second="(0, 0, 1)",
+                to_label="v_cross",
+            ),
+        ]
+    )
+    multiply = app.map_cards().nth(-3)
 
     receive_p_and_v(app)
     wait_for_latest(app, "q", "(4.0000, 5.0000)")
@@ -954,33 +996,38 @@ def test_vector_maps_compute_vectors(app: App):
 
 
 def test_vector_maps_compute_numbers(app: App):
-    compose_p_and_v(app)
-    add_number_vector_map(
-        app, "Dot", "2D", {"a": "p", "b": "(1, 2)", "Output label": "p_dot"}
+    app.tab("Data")
+    app.load_layout(
+        p_and_v_maps()
+        + [
+            saved_map(
+                "Dot", V2, "Number", first="p", second="(1, 2)", to_label="p_dot"
+            ),
+            saved_map(
+                "Dot", V3, "Number", first="v", second="(1, 1, 1)", to_label="v_dot"
+            ),
+            saved_map(
+                "Cross", V2, "Number", first="p", second="(1, 0)", to_label="p_cross"
+            ),
+            saved_map(
+                "Magnitude", ["Vector2d"], "Number", from_label="p", to_label="p_length"
+            ),
+            saved_map(
+                "Magnitude", ["Vector3d"], "Number", from_label="v", to_label="v_length"
+            ),
+            # y left out
+            saved_map(
+                "Decompose",
+                ["Vector3d"],
+                "Number",
+                from_label="v",
+                x_label="v_x",
+                y_label="",
+                z_label="v_z",
+            ),
+        ]
     )
-    add_number_vector_map(
-        app, "Dot", "3D", {"a": "v", "b": "(1, 1, 1)", "Output label": "v_dot"}
-    )
-    # Of 2D vectors alone, so picked itself
-    app.map_item("Number", "Cross").click()
-    card = app.map_cards().nth(app.map_cards().count() - 1)
-    card.get_by_label("a", exact=True).fill("p")
-    card.get_by_label("b", exact=True).fill("(1, 0)")
-    card.get_by_placeholder("Output label").fill("p_cross")
-    card.get_by_role("switch").click()
-    add_number_vector_map(
-        app, "Magnitude", "2D", {"a": "p", "Output label": "p_length"}
-    )
-    length = add_number_vector_map(
-        app, "Magnitude", "3D", {"a": "v", "Output label": "v_length"}
-    )
-    decompose = add_number_vector_map(
-        # y left out
-        app,
-        "Decompose",
-        "3D",
-        {"Input label": "v", "x": "v_x", "z": "v_z"},
-    )
+    length, decompose = app.map_cards().nth(-2), app.map_cards().last
     expect(decompose.get_by_placeholder("Output label")).to_have_count(3)
 
     receive_p_and_v(app)
@@ -1012,18 +1059,19 @@ def test_vector_maps_compute_numbers(app: App):
 
 def test_vectors_differentiate_and_integrate_by_component(app: App):
     app.tab("Data")
-    app.add_match_map()
-    add_compose_map(app, "2D", ["temp", "volt"], "p")
-    add_compose_map(app, "3D", ["temp", "volt", "1"], "v")
-    for title, variant, source, target in [
-        ("Differentiate", "2D", "p", "dp"),
-        ("Integrate", "3D", "v", "iv"),
-    ]:
-        vector_variant(app, title, variant).locator("> [role=menuitem]").click()
-        card = app.map_cards().nth(app.map_cards().count() - 1)
-        card.get_by_label("f(t)", exact=True).fill(source)
-        card.get_by_placeholder("Output label").fill(target)
-        card.get_by_role("switch").click()
+    app.load_layout(
+        [
+            name_value_map(),
+            compose_map(to_label="p", x="temp", y="volt"),
+            compose_map(to_label="v", x="temp", y="volt", z="1"),
+            saved_map(
+                "Differentiate", ["Vector2d"], "Vector2d", from_label="p", to_label="dp"
+            ),
+            saved_map(
+                "Integrate", ["Vector3d"], "Vector3d", from_label="v", to_label="iv"
+            ),
+        ]
+    )
     app.stop_clock()
     app.open_port()
     app.run_clock_until(lambda: {"dp", "iv"} <= app.data_rows().keys())
@@ -1038,35 +1086,6 @@ def test_vectors_differentiate_and_integrate_by_component(app: App):
     assert z() - first == pytest.approx(1, abs=0.1)
 
 
-def test_initial_decode_reads_levels_and_messages(app: App):
-    app.tab("Data")
-    card = app.map_cards().first
-    app.open_port()
-    app.mock("mute()")
-    app.mock("receive('[warning] disk full\\n')")
-    wait_for_latest(app, "log", "WARN disk full")
-    assert app.data_rows()["log"][0] == "Log"
-    # Its level as a tag in its color, in the data list too
-    row = app.page.locator(".data-row").filter(
-        has=app.page.locator("th", has_text="log")
-    )
-    tag = row.locator(".log-level-tag")
-    expect(tag).to_have_text("WARN")
-    expect(tag).to_have_attribute("data-level", "WARN")
-    colors = tag.evaluate(
-        "t => [getComputedStyle(t).color, getComputedStyle(t.parentElement).color]"
-    )
-    assert colors[0] != colors[1]
-    # Its level by its name, in capitals
-    latest = card.locator(".map-latest-to")
-    expect(latest.locator(".log-level-tag")).to_have_text("WARN")
-    expect(latest).to_contain_text("disk full")
-    # The bytes it took, in hex
-    expect(card.locator(".map-latest-from .map-latest-value")).to_have_text(
-        " ".join(f"{byte:02X}" for byte in b"[warning] disk full\n")
-    )
-
-
 def choose_weakest(card, level: str, input: int = 0):
     """Takes the levels of the card's `input`th input down to `level`."""
     # Its choices as the pointer is over it
@@ -1075,25 +1094,6 @@ def choose_weakest(card, level: str, input: int = 0):
     expect(card.get_by_role("button", name="Weakest level").nth(input)).to_have_text(
         f"Filter by{level}"
     )
-
-
-def test_initial_decode_takes_lines_as_logs(app: App):
-    app.tab("Data")
-    card = app.map_cards().first
-    expect(card.locator(".map-title-text")).to_have_text("Decode")
-    card.locator(".map-title").click()
-    expect(card.get_by_placeholder("Input label")).to_have_value("raw_bytes")
-    expect(card.get_by_placeholder("Text to be matched")).to_have_value(
-        r"^(?:\[(?:.*? )??({level})(?: .*?)?\] )?(.*)$"
-    )
-    expect(card.get_by_placeholder("Output label")).to_have_value("log")
-    expect(card.get_by_label("Level", exact=True)).to_have_value("$1")
-    expect(card.get_by_label("Message", exact=True)).to_have_value("$2")
-    app.open_port()
-    app.wait_for_labels("log")
-    kind, latest, _ = app.data_rows()["log"]
-    # Of no level, so the line alone
-    assert kind == "Log" and latest.startswith(("temp:", "volt:"))
 
 
 def test_maps_of_logs_take_all_levels_by_default(app: App):

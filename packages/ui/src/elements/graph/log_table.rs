@@ -232,7 +232,6 @@ pub fn LogTable(id: usize) -> Element {
                 class: "graph-plot log-table",
                 id: "{container_id}",
                 onmounted: {
-                    let container_id = container_id.clone();
                     move |_| {
                         let _ = follow.send(container_id.clone());
                     }
@@ -266,7 +265,6 @@ pub fn LogTable(id: usize) -> Element {
                                 key: "{label}",
                                 class: if hidden.read().contains(&label) { "u-series u-off" } else { "u-series" },
                                 onclick: {
-                                    let label = label.clone();
                                     move |_| {
                                         let label = label.clone();
                                         graph_context.update(id, move |property| {

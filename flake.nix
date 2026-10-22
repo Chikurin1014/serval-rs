@@ -19,7 +19,7 @@
     inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
-        ./flake-parts/serval.nix
+        ./flake-parts/web.nix
       ];
 
       systems = [ "x86_64-linux" ];
@@ -28,6 +28,7 @@
         {
           system,
           pkgs,
+          config,
           ...
         }:
         {
@@ -37,6 +38,10 @@
               inputs.rust-overlay.overlays.default
             ];
           };
+
+          packages.default = config.packages.web;
+          devShells.default = config.devShells.web;
+          apps.default = config.apps.web;
 
           formatter = inputs.treefmt-nix.lib.mkWrapper pkgs {
             projectRootFile = "flake.nix";

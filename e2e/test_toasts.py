@@ -8,6 +8,13 @@ def titled(app: App, title: str) -> list[tuple[str, str, str]]:
 
 
 def test_each_turn_of_the_port_is_reported(app: App):
+    # The chooser cancelled: nothing to tell
+    app.mock("cancelRequest = true")
+    app.page.locator(".toolbar-port button").first.click()
+    app.page.wait_for_timeout(300)
+    assert app.toasts() == []
+    app.mock("cancelRequest = false")
+
     app.mock("openError = 'The port is already open.'")
     app.page.locator(".toolbar-port button").first.click()
     app.page.get_by_placeholder("Baudrate (e.g. 9600)").fill("9600")
@@ -63,10 +70,3 @@ def test_each_send_failure_shows_its_toast(app: App):
         "Failed to send",
         "The device did not respond.",
     )
-
-
-def test_cancelling_the_port_chooser_shows_nothing(app: App):
-    app.mock("cancelRequest = true")
-    app.page.locator(".toolbar-port button").first.click()
-    app.page.wait_for_timeout(300)
-    assert app.toasts() == []

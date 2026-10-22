@@ -59,3 +59,46 @@ test("toggleTheme still switches when the choice cannot be stored", () => {
   assert.equal(toggleTheme(root, blockedStorage, false), "light");
   assert.equal(toggleTheme(root, null, false), "dark");
 });
+
+test("watchTheme calls back as the page's or the system's theme changes, until stopped", () => {
+  const observers = [];
+  const listeners = new Set();
+  const root = {};
+  const { watchTheme } = loadScript(new URL("./theme.js", import.meta.url), {
+    document: { documentElement: root },
+    MutationObserver: class {
+      constructor(callback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+      observe(target, options) {
+        this.target = target;
+        this.options = options;
+      }
+      disconnect() {
+        this.callback = null;
+      }
+    },
+    matchMedia: (query) => ({
+      query,
+      addEventListener: (_, listener) => listeners.add(listener),
+      removeEventListener: (_, listener) => listeners.delete(listener),
+    }),
+  });
+  let changes = 0;
+  const stop = watchTheme(() => changes++);
+
+  // `data-theme` on <html>, as `toggleTheme` sets it
+  const [observer] = observers;
+  assert.equal(observer.target, root);
+  assert.deepEqual([...observer.options.attributeFilter], ["data-theme"]);
+  observer.callback();
+  for (const listener of listeners) {
+    listener();
+  }
+  assert.equal(changes, 2);
+
+  stop();
+  assert.equal(observer.callback, null);
+  assert.equal(listeners.size, 0);
+});

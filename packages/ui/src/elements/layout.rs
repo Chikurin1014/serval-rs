@@ -12,12 +12,11 @@ use crate::{
     },
     data::{DataType, InitialMap, MapContext, MapKind},
     elements::graph::{GraphContext, GraphKind, GraphProperty},
-    helper::download_text,
+    helper::{clear_file, download_text, pick_file},
     toast::use_toaster,
 };
 
 const LAYOUT_MENU_CSS: Asset = asset!("/assets/styling/layout-menu.css");
-const LAYOUT_JS: &str = include_str!("layout.js");
 const INITIAL_LAYOUT: &str = include_str!("initial_layout.json");
 
 /// The version of Serval a layout file is of.
@@ -195,7 +194,7 @@ pub fn LayoutMenu() -> Element {
                     index: 0usize,
                     on_select: move |_: &str| {
                         open.set(false);
-                        document::eval(&format!("{LAYOUT_JS}\npickFile({FILE_INPUT_ID:?});"));
+                        pick_file(FILE_INPUT_ID);
                     },
                     lucide::FileUp {}
                     "Import from JSON"
@@ -230,7 +229,7 @@ pub fn LayoutMenu() -> Element {
                     Err(error) => Err(error.to_string()),
                 };
                 // So the same file picked again is a change
-                document::eval(&format!("{LAYOUT_JS}\nclearFile({FILE_INPUT_ID:?});"));
+                clear_file(FILE_INPUT_ID);
                 match imported {
                     Ok(()) => toaster.success("Layout imported", &file.name()),
                     Err(error) => toaster.error("Failed to import the layout", &error),
@@ -425,7 +424,7 @@ mod tests {
             wrong_setting["maps"][0]["settings"]["pattern"] = json!(1);
             assert!(wrong(wrong_setting).starts_with("Decode: 'pattern'"));
 
-            let mut wrong_level = layout.clone();
+            let mut wrong_level = layout;
             wrong_level["graphs"][0]["settings"]["weakest_level"] = json!("LOUD");
             assert!(wrong(wrong_level).starts_with("Not a layout file"));
 

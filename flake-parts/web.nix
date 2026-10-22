@@ -1,0 +1,167 @@
+# The web app (the `web` package of the workspace, of `ui`): its build, served
+# (`nix run`), its checks and its shell.
+{
+  imports = [ ./common.nix ];
+
+  perSystem =
+    {
+      config,
+      pkgs,
+      common,
+      ...
+    }:
+    let
+      inherit (common)
+        craneLib
+        commonArgs
+        playwrightEnv
+        python
+        rustToolchain
+        src
+        ;
+
+      args = commonArgs // {
+        pname = "serval-web";
+        nativeBuildInputs =
+          commonArgs.nativeBuildInputs
+          ++ (with pkgs; [
+            dioxus-cli
+            wasm-bindgen-cli_0_2_126
+            binaryen # `wasm-opt`, which `dx` would otherwise download
+          ]);
+        # `wasm-opt` aborts on the debug symbols `dx` adds by default
+        buildPhaseCargoCommand = "dx build --release --debug-symbols false --package web";
+        doCheck = false;
+      };
+      dependencies = craneLib.buildDepsOnly (
+        removeAttrs args [ "src" ]
+        // {
+          # `wasm-bindgen` fails on an app that does nothing
+          dummySrc = craneLib.mkDummySrc {
+            inherit src;
+            extraDummyScript = ''
+              chmod +w $out/packages/web/src/main.rs
+              cat > $out/packages/web/src/main.rs <<'EOF'
+              fn main() {
+                  dioxus::launch(|| dioxus::prelude::VNode::empty());
+              }
+              EOF
+            '';
+          };
+        }
+      );
+
+      uiArgs = commonArgs // {
+        pname = "serval-ui";
+        cargoExtraArgs = "--locked --package ui";
+      };
+      uiArtifacts = craneLib.buildDepsOnly uiArgs;
+
+      webArgs = commonArgs // {
+        pname = "serval-web-lint";
+        cargoExtraArgs = "--locked --package web --target wasm32-unknown-unknown";
+        doCheck = false;
+      };
+    in
+    {
+      packages = {
+        web = craneLib.buildPackage (
+          args
+          // {
+            cargoArtifacts = dependencies;
+            doNotPostBuildInstallCargoBinaries = true;
+            installPhaseCommand = ''
+              mkdir -p $out/share
+              cp -r target/dx/web/release/web/public $out/share/serval-web
+            '';
+          }
+        );
+      };
+
+      # The app as it is built, served on localhost (a secure context, as Web
+      # Serial needs): of the flake, so from anywhere (`nix run
+      # github:Chikurin1014/serval-rs`), on the port given (8080 if none)
+      apps.web = {
+        type = "app";
+        program = pkgs.lib.getExe (
+          pkgs.writeShellApplication {
+            name = "serval-web";
+            runtimeInputs = [ pkgs.python3 ];
+            text = ''
+              port=''${1:-8080}
+              echo "Serval at http://localhost:$port/"
+              exec python3 ${./serve.py} "$port" ${config.packages.web}/share/serval-web
+            '';
+          }
+        );
+      };
+
+      checks = {
+        rust-tests = craneLib.cargoTest (uiArgs // { cargoArtifacts = uiArtifacts; });
+
+        clippy-ui = craneLib.cargoClippy (
+          uiArgs
+          // {
+            cargoArtifacts = uiArtifacts;
+            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+          }
+        );
+
+        clippy-web = craneLib.cargoClippy (
+          webArgs
+          // {
+            cargoArtifacts = craneLib.buildDepsOnly webArgs;
+            cargoClippyExtraArgs = "-- --deny warnings";
+          }
+        );
+
+        js-tests = pkgs.runCommand "serval-js-tests" { nativeBuildInputs = [ pkgs.nodejs ]; } ''
+          cd ${src}
+          node --test 'packages/**/*.test.mjs'
+          touch $out
+        '';
+
+        e2e-tests =
+          pkgs.runCommand "serval-e2e-tests"
+            (
+              playwrightEnv
+              // {
+                nativeBuildInputs = [ python ];
+                # Chromium aborts without a fontconfig setup
+                FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+                SERVAL_E2E_APP = "${config.packages.web}/share/serval-web";
+              }
+            )
+            ''
+              export HOME="$TMPDIR"
+              cp -r ${src}/e2e e2e
+              # What `e2e/app.py` takes the app's initial maps from
+              mkdir -p packages/ui/src/elements
+              cp ${src}/packages/ui/src/elements/initial_layout.json packages/ui/src/elements/
+              pytest e2e -p no:cacheprovider
+              touch $out
+            '';
+      };
+
+      devShells = {
+        web = pkgs.mkShell (
+          playwrightEnv
+          // {
+            inputsFrom = [ config.packages.web ];
+            packages = [
+              rustToolchain
+              pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
+              pkgs.nodejs
+              pkgs.prettier
+              pkgs.pyright
+              pkgs.ruff
+              pkgs.taplo
+              pkgs.vscode-css-languageserver
+              pkgs.vscode-json-languageserver
+              python
+            ];
+          }
+        );
+      };
+    };
+}

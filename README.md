@@ -62,7 +62,7 @@ dx serve
 
 #### Building for Release
 
-`nix build .#web` builds the web app as it is deployed, into `result/`.
+`nix build .#web` (or `nix build`) builds the web app as it is deployed, into `result/`.
 To build it with `dx` instead, turn off the debug symbols it adds by default:
 
 ```bash

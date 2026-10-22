@@ -1,5 +1,6 @@
 // The theme is `data-theme` on <html>, or else the system preference; the
-// user's choice is kept in storage.
+// user's choice is kept in storage. Scripts that follow the theme watch it
+// here (`watchTheme`), as this tells it.
 
 const THEMES = ["light", "dark"];
 const STORAGE_KEY = "theme";
@@ -37,4 +38,22 @@ function toggleTheme(root, storage, systemPrefersDark) {
     storage?.setItem(STORAGE_KEY, next);
   } catch (_) {}
   return next;
+}
+
+/**
+ * Calls `onChange` as the theme changes, the page's or the system's; gives
+ * what stops that.
+ */
+function watchTheme(onChange) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  const system = matchMedia("(prefers-color-scheme: dark)");
+  system.addEventListener("change", onChange);
+  return () => {
+    observer.disconnect();
+    system.removeEventListener("change", onChange);
+  };
 }

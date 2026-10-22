@@ -5,10 +5,32 @@ from playwright.sync_api import expect
 from app import App
 
 
-def test_empty_until_a_port_is_open(app: App):
+def test_filters_are_added_kept_and_removed_before_any_data(app: App):
     app.tab("Data")
+    # Empty until a port is open
     expect(app.page.locator(".data-grid .data-table")).to_be_visible()
     assert app.data_rows() == {}
+
+    # Kept across tabs
+    add_filter(app, "volt")
+    app.tab("Console")
+    app.tab("Data")
+    expect(filter_tags(app)).to_have_text(["raw_bytes", "volt"])
+
+    # Removed from its tag, its button shown as it is pointed at
+    tag = filter_tags(app).last
+    remove = tag.get_by_role("button", name="Remove Show filter volt")
+    app.page.mouse.move(0, 0)
+    expect(remove).to_have_css("opacity", "0")
+    tag.hover()
+    expect(remove).to_have_css("opacity", "1")
+    remove.click()
+    expect(filter_tags(app)).to_have_text(["raw_bytes"])
+
+    # Not of a regex: told so, not added
+    add_filter(app, "(")
+    expect(app.page.locator(".label-filter-error")).to_contain_text("Invalid regex")
+    expect(filter_tags(app)).to_have_text(["raw_bytes"])
 
 
 def add_filter(app: App, pattern: str, by_enter: bool = False, kind: str = "Show"):
@@ -45,18 +67,15 @@ def wait_for_rows(app: App, *labels: str):
     )
 
 
-def test_raw_bytes_are_hidden_by_default(app: App):
+def test_shows_each_label_with_its_latest_value(app: App):
     app.open_port()
     app.tab("Data")
+    # Raw bytes hidden by default
     expect(filter_tags(app)).to_have_text(["raw_bytes"])
     expect(filter_tags(app)).to_have_attribute("data-kind", "Hide")
     app.wait_for_labels("log")
     assert "raw_bytes" not in app.data_rows()
 
-
-def test_shows_each_label_with_its_latest_value(app: App):
-    app.open_port()
-    app.tab("Data")
     remove_filter(app, "Hide", "raw_bytes")
     app.add_match_map()
     app.wait_for_labels("raw_bytes", "log", "temp", "volt")
@@ -94,9 +113,14 @@ def test_deletes_a_label(app: App):
     expect(app.page.get_by_role("button", name="Open port")).to_be_visible()
 
     rows = app.page.locator(".data-grid .data-table tr.data-row")
-    rows.filter(has=app.page.locator("th", has_text="volt")).get_by_role(
-        "button", name="Delete label"
-    ).click()
+    row = rows.filter(has=app.page.locator("th", has_text="volt"))
+    delete = row.get_by_role("button", name="Delete label")
+    # Shown as its row is pointed at
+    app.page.mouse.move(0, 0)
+    expect(delete).to_have_css("opacity", "0")
+    row.hover()
+    expect(delete).to_have_css("opacity", "1")
+    delete.click()
 
     expect(rows).to_have_count(2)
     assert set(app.data_rows()) == {"log", "temp"}
@@ -116,34 +140,6 @@ def test_filters_show_the_labels_any_of_them_match(app: App):
     add_filter(app, "raw_.*|log", by_enter=True)
     expect(filter_tags(app)).to_have_text(["raw_bytes", "temp", "raw_.*|log"])
     wait_for_rows(app, "temp", "log")
-
-
-def test_a_filter_is_removed_from_its_tag(app: App):
-    app.tab("Data")
-    add_filter(app, "volt")
-    tag = filter_tags(app).last
-    remove = tag.get_by_role("button", name="Remove Show filter volt")
-    app.page.mouse.move(0, 0)
-    expect(remove).to_have_css("opacity", "0")
-    tag.hover()
-    expect(remove).to_have_css("opacity", "1")
-    remove.click()
-    expect(filter_tags(app)).to_have_text(["raw_bytes"])
-
-
-def test_an_invalid_filter_shows_an_error(app: App):
-    app.tab("Data")
-    add_filter(app, "(")
-    expect(app.page.locator(".label-filter-error")).to_contain_text("Invalid regex")
-    expect(filter_tags(app)).to_have_text(["raw_bytes"])
-
-
-def test_filters_stay_across_tabs(app: App):
-    app.tab("Data")
-    add_filter(app, "temp")
-    app.tab("Console")
-    app.tab("Data")
-    expect(filter_tags(app)).to_have_text(["raw_bytes", "temp"])
 
 
 def test_hide_filters_hide_what_they_match(app: App):
@@ -228,20 +224,6 @@ def test_a_row_opens_to_its_recent_values(app: App):
         ".every(tr => tr.getBoundingClientRect().height < 1)",
         arg=group.element_handle(),
     )
-
-
-def test_delete_button_shows_on_hover(app: App):
-    app.open_port()
-    app.tab("Data")
-    app.wait_for_labels("log")
-    row = app.page.locator(".data-table .data-row").filter(
-        has=app.page.locator("th", has_text=re.compile("^log$"))
-    )
-    delete = row.get_by_role("button", name="Delete label")
-    app.page.mouse.move(0, 0)
-    expect(delete).to_have_css("opacity", "0")
-    row.hover()
-    expect(delete).to_have_css("opacity", "1")
 
 
 def test_exports_the_data_shown_as_csv(app: App):
