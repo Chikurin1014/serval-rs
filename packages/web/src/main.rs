@@ -19,11 +19,13 @@ use ui::{
     views::Home,
 };
 
+mod github_link;
 mod record_file;
 mod serial;
 mod time;
 mod unsupported;
 
+use github_link::GithubLink;
 use serial::SerialProvider;
 use time::TimeProvider;
 use unsupported::UnsupportedBrowserDialog;
@@ -40,6 +42,7 @@ const FAVICON_PNG: Asset = asset!("/assets/favicon.png");
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const WEB_NAVBAR_CSS: Asset = asset!("/assets/styling/web-navbar.css");
 const LICENSES_PAGE: &str = "/third-party-licenses.html";
+const DOCUMENTS_PAGE: &str = "/docs/";
 
 fn main() {
     dioxus::launch(App);
@@ -94,17 +97,27 @@ fn WebNavbar() -> Element {
                         index: 0usize,
                         value: "home".to_string(),
                         to: Route::Home {},
-                        "Home"
+                        // The page's title (in time, its logo)
+                        span { class: "navbar-title", "Serval" }
+                    }
+                    // For now: the documents are yet to be (in a new tab, as the licenses)
+                    NavbarItem {
+                        index: 1usize,
+                        value: "documents".to_string(),
+                        to: NavigationTarget::<Route>::External(DOCUMENTS_PAGE.to_string()),
+                        new_tab: true,
+                        "Documents"
                     }
                     // In a new tab, so the open port stays
                     NavbarItem {
-                        index: 1usize,
+                        index: 2usize,
                         value: "licenses".to_string(),
                         to: NavigationTarget::<Route>::External(LICENSES_PAGE.to_string()),
                         new_tab: true,
                         "Licenses"
                     }
                 }
+                GithubLink {}
                 div {
                     class: "navbar-tools",
                     LayoutMenu {}

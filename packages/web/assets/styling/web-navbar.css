@@ -27,11 +27,48 @@
   color: var(--dc-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+}
+
+/* The page's title, first of the pages: larger and bolder than the others
+   (in time, a logo in its place) */
+.navbar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .route-shell {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+/* The repository: an icon button, as the navbar's tools (a ghost button of
+   `icon-sm`), not as the page links' text */
+.navbar-shell a.github-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-left: -0.5rem;
+  color: var(--secondary-color-4);
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navbar-shell a.github-link:hover {
+  background-color: var(--light, var(--primary-color-5))
+    var(--dark, color-mix(in oklab, var(--primary-color-5) 50%, transparent));
+  color: var(--secondary-color-1);
+}
+
+.navbar-shell a.github-link:focus-visible {
+  outline: 2px solid var(--focused-border-color);
+  outline-offset: -2px;
+}
+
+.github-link svg {
+  width: 1rem;
+  height: 1rem;
 }
