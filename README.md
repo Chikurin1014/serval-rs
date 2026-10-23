@@ -76,7 +76,13 @@ or preview them alone, at <http://localhost:3000>:
 mdbook serve docs
 ```
 
-`nix build .#docs` builds them apart, and `nix build .#web` puts them at `/docs/` of the app.
+Their videos and screenshots are recorded of the app as it is built, not kept in git: `nix build .#docs` records them as it builds the documents, and `nix build .#web` (as a release deploys it) puts both at `/docs/` of the app.
+The checks build the documents without them, so CI records them only on a release.
+To see them as you write, record them into `docs/src/media` of an app you built (here, as the e2e tests build it):
+
+```bash
+python docs/media/capture.py target/e2e/dx/web/debug/web/public docs/src/media
+```
 
 #### Building for Release
 

@@ -1,0 +1,139 @@
+{
+  "maps": [
+    {
+      "kind": "Decode",
+      "from": ["Bytes"],
+      "to": "Log",
+      "enabled": true,
+      "settings": {
+        "delimiters": ["CR", "LF", "CRLF"],
+        "from_label": "raw_bytes",
+        "level": "$1",
+        "message": "$2",
+        "pattern": "^(?:\\[(?:.*? )??({level})(?: .*?)?\\] )?(.*)$",
+        "to_label": "log"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Number",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "^{number}",
+        "replacement": "$0",
+        "to_label": "anonymous data",
+        "weakest_level": "NONE"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Number",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "({word}): ({number})",
+        "replacement": "$2",
+        "to_label": "$1",
+        "weakest_level": "NONE"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Vector3d",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "({word})=\\(({number}), ({number}), ({number})\\)",
+        "to_label": "$1",
+        "replacement": "$2",
+        "y_replacement": "$3",
+        "z_replacement": "$4",
+        "weakest_level": "NONE"
+      }
+    },
+    {
+      "kind": "Match",
+      "from": ["Log"],
+      "to": "Log",
+      "enabled": true,
+      "settings": {
+        "from_label": "log",
+        "pattern": "^(motor|battery|sensor) (.*)",
+        "to_label": "$1",
+        "replacement": "${level:0}",
+        "y_replacement": "$2",
+        "weakest_level": "NONE"
+      }
+    }
+  ],
+  "graphs": [
+    {
+      "kind": "Time series",
+      "settings": {
+        "title": "Readings",
+        "value_scale": "Linear",
+        "x_scale": "Linear",
+        "x_label": "",
+        "y_label": "",
+        "regression": false,
+        "trails": false,
+        "weakest_level": "NONE",
+        "draw_style": "Linear",
+        "time_window": 10,
+        "hidden": []
+      }
+    },
+    {
+      "kind": "Box plot",
+      "settings": {
+        "title": "Spread",
+        "value_scale": "Linear",
+        "x_scale": "Linear",
+        "x_label": "",
+        "y_label": "",
+        "regression": false,
+        "trails": false,
+        "weakest_level": "NONE",
+        "draw_style": "Linear",
+        "time_window": 10,
+        "hidden": []
+      }
+    },
+    {
+      "kind": "Arrows (3D)",
+      "settings": {
+        "title": "Motion",
+        "value_scale": "Linear",
+        "x_scale": "Linear",
+        "x_label": "",
+        "y_label": "",
+        "regression": false,
+        "trails": true,
+        "weakest_level": "NONE",
+        "draw_style": "Linear",
+        "time_window": 10,
+        "hidden": []
+      }
+    },
+    {
+      "kind": "Log",
+      "settings": {
+        "title": "Events",
+        "value_scale": "Linear",
+        "x_scale": "Linear",
+        "x_label": "",
+        "y_label": "",
+        "regression": false,
+        "trails": false,
+        "weakest_level": "INFO",
+        "draw_style": "Linear",
+        "time_window": 10,
+        "hidden": ["log"]
+      }
+    }
+  ]
+}

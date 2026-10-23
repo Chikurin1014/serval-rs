@@ -56,6 +56,19 @@
           PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
         };
+        # For Chromium in a build, which aborts with no fontconfig setup: the
+        # generic families (as the app's `sans-serif`) as DejaVu's, not
+        # whichever fontconfig finds first
+        fontsConf = pkgs.writeText "fonts.conf" ''
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+          <fontconfig>
+            <include>${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}</include>
+            <alias><family>sans-serif</family><prefer><family>DejaVu Sans</family></prefer></alias>
+            <alias><family>serif</family><prefer><family>DejaVu Serif</family></prefer></alias>
+            <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>
+          </fontconfig>
+        '';
       };
     };
 }
