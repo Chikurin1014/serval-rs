@@ -84,6 +84,19 @@ To see them as you write, record them into `docs/src/media` of an app you built 
 python docs/media/capture.py target/e2e/dx/web/debug/web/public docs/src/media
 ```
 
+The plugins' API reference (at `api/` of the documents) is generated of the docstrings of their Rune modules (`packages/ui/src/plugin/serval/`) by `tools/serval-rune`, Rune's own CLI with them, not kept in git either.
+`nix build .#docs` builds it with the documents; to see it as you write, build it into `docs/src/api`:
+
+```bash
+nix build .#docs-api -o docs/src/api
+```
+
+or with Cargo, in the empty Rune workspace of `tools/serval-rune` (a Cargo workspace of its own):
+
+```bash
+cd tools/serval-rune && cargo run -- doc --output ../../docs/src/api
+```
+
 #### Building for Release
 
 `nix build .#web` (or `nix build`) builds the web app as it is deployed, into `result/`.

@@ -1,0 +1,4 @@
+# An empty Rune workspace: `serval-rune doc` documents only its context
+# (`std` and `serval::*`) in it (`flake-parts/docs.nix`).
+[workspace]
+members = []

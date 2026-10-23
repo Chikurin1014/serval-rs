@@ -1,0 +1,17 @@
+# Rune's own CLI, with Serval's modules: `serval-rune doc` builds the plugins'
+# API reference of their docstrings (`flake-parts/docs.nix`).
+#
+# A workspace of its own, of its own `Cargo.lock`: Rune's CLI takes a newer
+# `toml` than the desktop app's GTK may have in the same lock.
+[workspace]
+
+[package]
+name = "serval-rune"
+version = "0.0.0"
+license = "MIT"
+publish = false
+edition = "2024"
+
+[dependencies]
+rune = { version = "0.14", features = ["cli"] }
+ui = { path = "../../packages/ui" }

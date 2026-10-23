@@ -28,3 +28,6 @@ __pycache__/
 # (`docs/media/capture.py`)
 /packages/web/public/docs
 /docs/src/media
+
+# The plugins' API reference, generated (`nix build .#docs-api -o docs/src/api`)
+/docs/src/api
