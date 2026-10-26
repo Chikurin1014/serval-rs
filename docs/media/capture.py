@@ -1,9 +1,13 @@
 """Records the documents' videos and screenshots of the app as it is built.
 
-    python docs/media/capture.py <app> <out>
+    python docs/media/capture.py <app> [<out>...]
 
 `<app>` is the app built (as `dx build` or `nix build .#web-app` gives it), and
-`<out>` where the media go (`docs/src/media`, as the documents link to them).
+each `<out>` where the media go. With none, they go where a working copy has
+them: `docs/src/media`, as the documents link to them (and `mdbook build`
+takes them from), and `packages/web/public/docs/media`, as the documents
+built there (and served by `dx serve`) have them, so they show without
+building the documents again.
 The app is driven in Chromium through the e2e tests' mock Web Serial port, fed
 the readings of a made-up device; each recording is cut to what follows its
 setup.
@@ -23,8 +27,15 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 
 HERE = Path(__file__).resolve().parent
-MOCK_SERIAL = HERE.parent.parent / "e2e" / "mock_serial.js"
+ROOT = HERE.parent.parent
+MOCK_SERIAL = ROOT / "e2e" / "mock_serial.js"
 SIZE = {"width": 1280, "height": 800}
+
+# Where the media go with no `<out>` given: those of a working copy
+DEV_OUTS = [
+    ROOT / "docs" / "src" / "media",
+    ROOT / "packages" / "web" / "public" / "docs" / "media",
+]
 
 
 # The introduction's demo: the maps the app starts with (Decode, then numbers by
@@ -86,6 +97,30 @@ POINTER = """() => {
     document.addEventListener('mousedown', () => pointer.style.transform = 'scale(0.6)', true);
     document.addEventListener('mouseup', () => pointer.style.transform = '', true);
 }"""
+
+
+# The plugin of the Task tab's screenshot: a task pushing data, and one
+# printing what the device sends
+PLUGIN = """use serval::{data, time};
+
+/// Pushes a sine wave to `wave`, 20 times a second.
+pub async fn wave() {
+    let start = time::Instant::now();
+    loop {
+        let t = start.elapsed().as_secs_f64();
+        data::push("wave", t.sin())?;
+        time::sleep(time::Duration::from_millis(50)).await?;
+    }
+}
+
+/// Prints each temperature the device sends.
+pub async fn watch_temp() {
+    let temps = data::get("temp")?;
+    while let Some(temp) = temps.next().await {
+        println!("temp: {temp}");
+    }
+}
+"""
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
@@ -190,8 +225,134 @@ def record(browser, url: str, out: Path, name: str):
         )
 
 
+def open_app(browser, url: str, layout: dict | None = None):
+    """A page of the app, its port to be asked for; of `layout`, if given."""
+    context = browser.new_context(viewport=SIZE)
+    page = context.new_page()
+    page.add_init_script(path=str(MOCK_SERIAL))
+    page.goto(url)
+    page.locator(".toolbar-tabs").wait_for()
+    if layout is not None:
+        load_layout(page, layout)
+    return context, page
+
+
+def open_port(page: Page):
+    """The port asked for and opened, reading `DEVICE`."""
+    page.locator(".toolbar-port button").first.click()
+    page.get_by_placeholder("Baudrate (e.g. 9600)").fill("115200")
+    page.get_by_role("button", name="Open port").click()
+    page.get_by_role("button", name="Close port").wait_for()
+    page.evaluate(DEVICE)
+
+
+def tab(page: Page, name: str, wait: int = 1500):
+    page.locator(".toolbar-tabs").get_by_role("tab", name=name).click()
+    page.wait_for_timeout(wait)
+
+
+def settle(page: Page):
+    """The toasts gone, not to be in a screenshot, and a menu just opened
+    faded in."""
+    page.locator("[role=alertdialog]").first.wait_for(state="detached", timeout=15000)
+    page.wait_for_timeout(400)
+
+
+def shot(page: Page, path: Path):
+    settle(page)
+    page.screenshot(path=path)
+
+
+def shot_top(page: Page, path: Path, down_to):
+    """The top of the page, across it, down to the bottom of `down_to`."""
+    settle(page)
+    box = down_to.bounding_box()
+    height = min(SIZE["height"], box["y"] + box["height"] + 12)
+    page.screenshot(
+        path=path, clip={"x": 0, "y": 0, "width": SIZE["width"], "height": height}
+    )
+
+
+def screenshots(browser, url: str, out: Path):
+    """The documents' screenshots, each `<out>/<name>.png`."""
+    # As one starts: the app's own layout, reading the device
+    context, page = open_app(browser, url)
+    open_port(page)
+    page.wait_for_timeout(3000)
+    shot(page, out / "getting-started-console.png")
+    tab(page, "Data")
+    shot(page, out / "getting-started-data.png")
+    tab(page, "Graph", wait=3000)
+    shot(page, out / "getting-started-graph.png")
+
+    # The toolbar, and its menus
+    tab(page, "Console")
+    shot_top(page, out / "toolbar.png", page.locator(".toolbar"))
+    page.locator(".port-signal-trigger").click()
+    shot_top(
+        page, out / "toolbar-signals.png", page.locator(".port-signal-menu-content")
+    )
+    page.keyboard.press("Escape")
+    page.locator(".layout-menu-trigger").click()
+    shot_top(page, out / "toolbar-layout.png", page.locator(".layout-menu-content"))
+    page.keyboard.press("Escape")
+
+    # The console: in hex, and its record menu
+    page.locator(".console-views").get_by_role("tab", name="Hex").click()
+    page.wait_for_timeout(1000)
+    settle(page)
+    page.locator(".console-grid").screenshot(path=out / "console-hex.png")
+    page.locator(".console-views").get_by_role("tab", name="Text").click()
+    page.locator(".record-start").click()
+    page.locator(".record-menu-content").get_by_role("option").first.hover()
+    page.wait_for_timeout(500)
+    shot(page, out / "console-record.png")
+    page.keyboard.press("Escape")
+
+    # The data: a map's card open, and the menu maps are added from
+    tab(page, "Data")
+    page.locator(".map-card").nth(2).locator(".map-title").click()
+    page.wait_for_timeout(1000)
+    shot(page, out / "data-map.png")
+    page.locator(".add-map-bar").get_by_role(
+        "button", name="Number", exact=True
+    ).hover()
+    page.wait_for_timeout(500)
+    shot(page, out / "data-add-map.png")
+    context.close()
+
+    # A graph of each kind, as in the introduction's demo
+    context, page = open_app(browser, url, INTRO_LAYOUT)
+    open_port(page)
+    tab(page, "Graph", wait=4500)
+    shot(page, out / "graph.png")
+    page.locator(".add-graph-bar").get_by_role("button", name="Time series").hover()
+    page.wait_for_timeout(500)
+    shot(page, out / "graph-add.png")
+    context.close()
+
+    # The tasks of `PLUGIN`, both on
+    context, page = open_app(browser, url)
+    open_port(page)
+    page.locator("#plugin-file-input").set_input_files(
+        files=[{"name": "demo.rn", "mimeType": "text/plain", "buffer": PLUGIN.encode()}]
+    )
+    tab(page, "Task", wait=500)
+    switches = page.locator(".task-list").get_by_role("switch", name="Toggle task")
+    for index in range(switches.count()):
+        switches.nth(index).click()
+    page.wait_for_timeout(3000)
+    shot(page, out / "task.png")
+    context.close()
+
+
 def main():
-    app, out = Path(sys.argv[1]), Path(sys.argv[2])
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    app = Path(sys.argv[1])
+    outs = [Path(out) for out in sys.argv[2:]] or DEV_OUTS
+    # Recorded into the first, then copied to the rest
+    out = outs[0]
     out.mkdir(parents=True, exist_ok=True)
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg is needed, to cut the recordings")
@@ -199,7 +360,10 @@ def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         record(browser, url, out, "demo")
+        screenshots(browser, url, out)
         browser.close()
+    for other in outs[1:]:
+        shutil.copytree(out, other, dirs_exist_ok=True)
 
 
 if __name__ == "__main__":

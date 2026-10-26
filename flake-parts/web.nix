@@ -168,6 +168,7 @@
               rustToolchain
               pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
               pkgs.mdbook # `docs/`
+              pkgs.mdbook-mermaid # its diagrams
               pkgs.ffmpeg # `docs/media/capture.py`
               pkgs.nodejs
               pkgs.prettier

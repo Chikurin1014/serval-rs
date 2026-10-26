@@ -24,8 +24,9 @@ __pycache__/
 # wrangler (Cloudflare Pages deploys) cache
 /.wrangler
 
-# The documents, built (`mdbook build docs`), and their videos and screenshots
-# (`docs/media/capture.py`)
+# The documents, built (`mdbook build docs`, and into the web app's), and their
+# videos and screenshots (`docs/media/capture.py`)
+/docs/book
 /packages/web/public/docs
 /docs/src/media
 

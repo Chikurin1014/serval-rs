@@ -25,7 +25,11 @@ def pytest_configure(config: pytest.Config):
         return
     target = ROOT / "target" / "e2e"
     # Into `packages/web/public/docs`, which `dx` serves at `/docs/`
-    subprocess.run(["mdbook", "build", "docs"], cwd=ROOT, check=True)
+    subprocess.run(
+        ["mdbook", "build", "docs", "--dest-dir", "packages/web/public/docs"],
+        cwd=ROOT,
+        check=True,
+    )
     subprocess.run(
         ["dx", "build", "--platform", "web"],
         cwd=ROOT / "packages" / "web",

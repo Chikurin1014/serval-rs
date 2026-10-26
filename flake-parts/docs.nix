@@ -19,7 +19,12 @@
       # Of `docs/` alone, so built anew only as it changes
       book = fileset.toSource {
         root = ../docs;
-        fileset = ../docs/book.toml;
+        fileset = fileset.unions [
+          ../docs/book.toml
+          # Mermaid's, for its diagrams
+          ../docs/mermaid.min.js
+          ../docs/mermaid-init.js
+        ];
       };
       pages = fileset.toSource {
         root = ../docs;
@@ -45,13 +50,20 @@
 
       mkDocs =
         media:
-        pkgs.runCommand "serval-docs" { nativeBuildInputs = [ pkgs.mdbook ]; } ''
-          cp -r --no-preserve=mode ${book} book
-          cp -r --no-preserve=mode ${pages}/src book/src
-          cp -r --no-preserve=mode ${config.packages.docs-api} book/src/api
-          ${optionalString (media != null) "cp -r --no-preserve=mode ${media} book/src/media"}
-          mdbook build book --dest-dir "$out"
-        '';
+        pkgs.runCommand "serval-docs"
+          {
+            nativeBuildInputs = [
+              pkgs.mdbook
+              pkgs.mdbook-mermaid
+            ];
+          }
+          ''
+            cp -r --no-preserve=mode ${book} book
+            cp -r --no-preserve=mode ${pages}/src book/src
+            cp -r --no-preserve=mode ${config.packages.docs-api} book/src/api
+            ${optionalString (media != null) "cp -r --no-preserve=mode ${media} book/src/media"}
+            mdbook build book --dest-dir "$out"
+          '';
     in
     {
       packages = {

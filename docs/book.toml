@@ -1,13 +1,15 @@
 # The documents, at `/docs/` of the site: `mdbook build docs` builds them into
-# `packages/web/public/docs`, which `dx serve` and `dx build` serve as the
-# app's own; Nix builds them apart (`flake-parts/docs.nix`)
+# `docs/book`, of no app. Each app takes them in as it is built: the web app's
+# `dx serve` and `dx build` of `packages/web/public/docs` (`mdbook build docs
+# --dest-dir packages/web/public/docs`), Nix's of its own build
+# (`flake-parts/docs.nix`, `flake-parts/web.nix`)
 [book]
 title = "Serval"
 language = "en"
 src = "src"
 
 [build]
-build-dir = "../packages/web/public/docs"
+build-dir = "book"
 # Each page as `SUMMARY.md` lists it, none made up for it
 create-missing = false
 
@@ -16,3 +18,10 @@ create-missing = false
 site-url = "/docs/"
 git-repository-url = "https://github.com/Chikurin1014/serval-rs"
 edit-url-template = "https://github.com/Chikurin1014/serval-rs/edit/main/docs/{path}"
+# Mermaid's diagrams, drawn in the page (`mdbook-mermaid install docs` wrote
+# these scripts)
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+# Turns the `mermaid` code blocks into Mermaid's diagrams
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
