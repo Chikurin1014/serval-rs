@@ -4,7 +4,7 @@ A map takes the values of its input labels, and gives a value to its output
 label as each one arrives.
 Maps are chained by their labels: the output of one is the input of the next.
 
-Most of them read text with a [regular expression](../reference/maps.md#regular-expressions),
+Most of them read text with a [regular expression](../reference/patterns.md),
 so they can take whatever format your device writes.
 
 ## The default layout

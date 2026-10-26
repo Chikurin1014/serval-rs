@@ -50,5 +50,5 @@ The **Graph** tab plots the values against time.
 
 ## Next steps
 
-* [Usage](usage/README.md): each part of the app.
-* [Concept](concept/README.md): how Serval turns what it receives into data.
+* [Usage](usage/index.md): each part of the app.
+* [Concept](concept/index.md): how Serval turns what it receives into data.

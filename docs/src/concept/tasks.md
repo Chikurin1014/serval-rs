@@ -28,4 +28,4 @@ A function that takes arguments or is not public is not a task, but tasks can
 call it.
 
 See [Usage / Plugin](../usage/task.md) to run them, and
-[Reference / Tasks](../reference/tasks/README.md) for what they can use.
+[Reference / Tasks](../reference/tasks/index.md) for what they can use.

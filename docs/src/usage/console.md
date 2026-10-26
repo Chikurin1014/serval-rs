@@ -26,16 +26,10 @@ Only the console is cleared: the data, and a [record](#recording) being written,
 
 ### Keyboard shortcuts
 
-As in Tera Term:
-
-| Keys | |
-|---|---|
-| <kbd>Backspace</kbd> / <kbd>Delete</kbd> | Sends BS / DEL |
-| <kbd>Alt</kbd> + <kbd>V</kbd> | Pastes |
-| <kbd>Alt</kbd> + <kbd>R</kbd> | Pastes, with a CR after |
-| <kbd>Alt</kbd> + <kbd>B</kbd> | Sends a break |
-| <kbd>Alt</kbd> + <kbd>Enter</kbd> | Maximizes or restores the console |
-| <kbd>Alt</kbd> + drag | Selects a block |
+The console has keyboard shortcuts as in Tera Term, such as
+<kbd>Alt</kbd> + <kbd>V</kbd> (<kbd>Option</kbd> + <kbd>V</kbd> on macOS) to
+paste. See [Reference / Console](../reference/console.md#keyboard-shortcuts)
+for all of them.
 
 ## Recording
 
