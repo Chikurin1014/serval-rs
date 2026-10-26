@@ -26,7 +26,7 @@ def test_shows_the_device_its_settings_and_its_bytes(app: App):
     shown = details(app)
     assert shown["Vendor"] == "Arduino SA"
     assert shown["Product"] == "Uno R3 (CDC ACM)"
-    assert shown["Baudrate"] == "9600 bps"
+    assert shown["Baud rate"] == "9600 bps"
     assert (shown["Data bits"], shown["Parity"], shown["Stop bits"]) == (
         "8",
         "none",

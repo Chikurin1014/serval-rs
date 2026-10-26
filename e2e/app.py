@@ -83,7 +83,7 @@ class App:
     def open_port(self):
         page = self.page
         page.locator(".toolbar-port button").first.click()
-        page.get_by_placeholder("Baudrate (e.g. 9600)").fill("9600")
+        page.get_by_placeholder("Baud rate (e.g. 9600)").fill("9600")
         page.get_by_role("button", name="Open port").click()
         expect(page.get_by_role("button", name="Close port")).to_be_visible()
 

@@ -165,7 +165,7 @@ def demo(page: Page):
     """About 15 s: the port asked for and opened, then each tab in turn."""
     toolbar = page.locator(".toolbar-port")
     click(page, toolbar.locator("button").first)
-    baudrate = page.get_by_placeholder("Baudrate (e.g. 9600)")
+    baudrate = page.get_by_placeholder("Baud rate (e.g. 9600)")
     click(page, baudrate)
     baudrate.press_sequentially("115200", delay=60)
     click(page, page.get_by_role("button", name="Open port"))
@@ -240,7 +240,7 @@ def open_app(browser, url: str, layout: dict | None = None):
 def open_port(page: Page):
     """The port asked for and opened, reading `DEVICE`."""
     page.locator(".toolbar-port button").first.click()
-    page.get_by_placeholder("Baudrate (e.g. 9600)").fill("115200")
+    page.get_by_placeholder("Baud rate (e.g. 9600)").fill("115200")
     page.get_by_role("button", name="Open port").click()
     page.get_by_role("button", name="Close port").wait_for()
     page.evaluate(DEVICE)

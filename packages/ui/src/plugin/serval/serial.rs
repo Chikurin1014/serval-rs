@@ -192,7 +192,7 @@ async fn wait_until_received(pattern: Value, limit: Value) -> Result<Bytes, Stri
     }
 }
 
-/// Opens the port selected, at its baudrate: open as it returns.
+/// Opens the port selected, at its baud rate: open as it returns.
 async fn open() -> Result<(), String> {
     host()?.serial.open_port().await
 }
@@ -202,18 +202,18 @@ async fn close() -> Result<(), String> {
     host()?.serial.close_port().await
 }
 
-/// The baudrate of the port selected, if it has one.
+/// The baud rate of the port selected, if it has one.
 fn get_baudrate() -> Result<Option<i64>, String> {
     let port = host()?.serial.selected_port();
     Ok(port.and_then(|port| port.baudrate).map(i64::from))
 }
 
-/// Sets the baudrate of the port selected, for it to be opened at.
+/// Sets the baud rate of the port selected, for it to be opened at.
 fn set_baudrate(baudrate: i64) -> Result<(), String> {
     let baudrate = u32::try_from(baudrate)
         .ok()
         .filter(|&baudrate| baudrate > 0)
-        .ok_or_else(|| format!("Not a baudrate: {baudrate}"))?;
+        .ok_or_else(|| format!("Not a baud rate: {baudrate}"))?;
     host()?.serial.set_baudrate(baudrate);
     Ok(())
 }
