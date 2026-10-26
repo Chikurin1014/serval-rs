@@ -1,4 +1,4 @@
-# Getting started
+# Getting Started
 
 1. Open Serval in a browser.
 2. Pick a port, set its baudrate and open it.
