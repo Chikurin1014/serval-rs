@@ -73,15 +73,15 @@ macro_rules! components_preset {
     };
 }
 
-/// A 2D vector alone, e.g. `(1.5, -2)`.
-pub const XY_ONLY: &str = r"^\(({number}), ({number})\)$";
+/// A 2D vector alone, e.g. `(1.5, -2)`: spaced or not after the comma.
+pub const XY_ONLY: &str = r"^\(({number}),\s*({number})\)$";
 
 /// `name: (x, y)`, e.g. `pos: (1.5, -2)`: spaced or not after the colon and
 /// the comma.
 pub const NAME_COLON_XY: &str = r"({word}):\s*\(({number}),\s*({number})\)";
 
-/// A 3D vector alone, e.g. `(1.5, -2, 0)`.
-pub const XYZ_ONLY: &str = r"^\(({number}), ({number}), ({number})\)$";
+/// A 3D vector alone, e.g. `(1.5, -2, 0)`: spaced or not after the commas.
+pub const XYZ_ONLY: &str = r"^\(({number}),\s*({number}),\s*({number})\)$";
 
 /// `name: (x, y, z)`, e.g. `acc: (1.5, -2, 0)`: spaced or not after the colon
 /// and the commas.
