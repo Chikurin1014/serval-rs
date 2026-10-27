@@ -81,7 +81,8 @@ All graphs share the same settings; each uses those of its kind.
 | `x_label`, `y_label` | Number labels | `""` | Scatter |
 | `regression` | `true`, `false` | `false` | Scatter |
 | `draw_style` | `"Points"`, `"Linear"`, `"Stepped"` | `"Linear"` | Time series |
-| `time_window` | Seconds, 10–300 (rounded to 10) | `10` | Time series |
+| `time_window` | Seconds, 10–300 (rounded to 10) | `10` | Time series (its time range) |
+| `all_time` | `true` (all the values, the time range aside), `false` | `false` | Time series |
 | `trails` | `true`, `false` | `false` | Arrows |
 | `weakest_level` | A level | `"NONE"` | Log |
 

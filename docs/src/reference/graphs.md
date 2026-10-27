@@ -2,7 +2,7 @@
 
 | Graph | Menu | Of | Settings |
 |---|---|---|---|
-| [Time series](#time-series) | Time series › Points / Linear / Stepped | Number | Value axis, Draw, Time axis |
+| [Time series](#time-series) | Time series › Points / Linear / Stepped | Number | Value axis, Draw, Time range |
 | [Box plot](#box-plot) | Statistics | Number | Value axis |
 | [Scatter](#scatter) | Statistics | Number × 2 | X label, Y label, X axis, Y axis, Regression |
 | [Arrows (2D)](#arrows) | Vector | Vector2d | Trails |
@@ -31,9 +31,12 @@
 |---|---|---|
 | Value axis | Linear, Log | Linear |
 | Draw | Points, Linear, Stepped | As picked from the menu |
-| Time axis | 10–300 s, in steps of 10 s | 10 s |
+| Time range | 10–300 s, in steps of 10 s | 10 s |
+| All | On, off | Off |
 
-* Time axis at 10 s fits the data instead, up to 10 s.
+* The time axis fits the data, up to the time range: back from the newest
+  value.
+* **All**: all the data kept, the time range off.
 * Drag a rectangle to zoom in, which [pauses](#pausing) the graphs; double click
   to zoom out.
 

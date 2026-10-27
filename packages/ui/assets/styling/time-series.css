@@ -177,3 +177,8 @@
 .graph-plot > .u-legend {
   margin-top: 0.25rem;
 }
+
+/* Its time range off, of all the time */
+.graph-time-window-value[data-off="true"] {
+  opacity: 0.5;
+}

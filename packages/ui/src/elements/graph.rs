@@ -9,6 +9,7 @@ mod frame;
 mod log_table;
 mod plot;
 mod scatter;
+mod time_range;
 mod time_series;
 
 pub use arrows::{ARROWS, ARROWS_3D, ArrowsGraph, Dimension};

@@ -135,42 +135,60 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
         app.wait_for_graph_legends([["temp", "volt"]])
 
 
-def wait_for_time_span(graph, low: float, high: float):
-    graph.page.wait_for_function(
-        """([plot, low, high]) => {
-            const span = Number(plot.dataset.timeSpan);
-            return low <= span && span <= high;
-        }""",
-        arg=[graph.locator(".graph-plot").element_handle(), low, high],
-    )
+def test_time_range_fits_the_data_up_to_its_seconds(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    # Of a alone: none of the readings before it was muted
+    app.add_match_map(pattern=r"(a):([\d.]+)")
+    app.stop_clock()
+    # Two values, 25 s apart: of the shortest time range, and the next
+    app.mock("receive('a:1\\n')")
+    app.run_clock_until(lambda: "a" in app.data_rows())
+    app.page.clock.run_for(25_000)
+    app.mock("receive('a:2\\n')")
+    app.tab("Graph")
+    app.add_graph()
+    graph = app.graphs().last
 
-
-def test_time_axis_shows_a_window_of_the_newest_data(app: App):
-    open_graphs_with_numbers(app)
-    app.wait_for_graph_legends([["temp", "volt"]])
-    graph = app.graphs().first
-
-    # 10 s: fits the data
-    wait_for_time_span(graph, 0.01, 9.99)
+    def span() -> float:
+        return float(graph.locator(".graph-plot").get_attribute("data-time-span") or 0)
 
     graph.locator(".graph-title").click()  # opens the settings
-    slider = graph.get_by_role("slider", name="Time axis")
+    slider = graph.get_by_role("slider", name="Time range")
     expect(slider).to_have_attribute("aria-valuemin", "10")
     expect(slider).to_have_attribute("aria-valuemax", "300")
     expect(slider).to_have_attribute("aria-valuenow", "10")
     value = graph.locator(".graph-time-window-value")
     expect(value).to_have_text("10 s")
+    app.run_clock_until(lambda: 9.99 <= span() <= 10.01)
 
+    # 30 s: the data, as short as it is
     slider.focus()
-    for _ in range(5):
-        app.page.keyboard.press("ArrowRight")
-    expect(slider).to_have_attribute("aria-valuenow", "60")
-    expect(value).to_have_text("60 s")
-    wait_for_time_span(graph, 59.99, 60.01)
+    app.page.keyboard.press("ArrowRight")
+    app.page.keyboard.press("ArrowRight")
+    expect(value).to_have_text("30 s")
+    app.run_clock_until(lambda: 25 <= span() <= 26)
+    app.page.keyboard.press("ArrowLeft")
+    expect(value).to_have_text("20 s")
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
+
+    # All the time: all the data, the slider off
+    all_time = graph.get_by_role("button", name="All")
+    all_time.click()
+    expect(all_time).to_have_attribute("aria-pressed", "true")
+    expect(slider).to_be_disabled()
+    expect(value).to_have_attribute("data-off", "true")
+    app.run_clock_until(lambda: 25 <= span() <= 26)
+    # Off again: its time range as it was
+    all_time.click()
+    expect(slider).to_be_enabled()
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
 
     app.tab("Console")
     app.tab("Graph")
-    wait_for_time_span(app.graphs().first, 59.99, 60.01)
+    graph = app.graphs().last
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
 
 
 def test_cursor_moves_together_across_graphs(app: App):

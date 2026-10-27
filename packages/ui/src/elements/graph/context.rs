@@ -46,13 +46,16 @@ pub struct GraphProperty {
     /// The weakest level a log table shows: those weaker left out.
     pub weakest_level: LogLevel,
     pub draw_style: DrawStyle,
+    /// A time series's time range.
     pub time_window: TimeWindow,
+    /// Whether a time series is of all the values kept, its time range aside.
+    pub all_time: bool,
     /// The labels turned off in the legend.
     pub hidden: Vec<String>,
 }
 
-/// How many seconds of the newest data the time axis shows. At the smallest, it
-/// fits the data instead, up to that long.
+/// How many seconds of the newest data the time axis shows at most: it fits
+/// the data, up to that long.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "u32", into = "u32")]
 pub struct TimeWindow(u32);
@@ -69,10 +72,6 @@ impl TimeWindow {
 
     pub fn seconds(self) -> u32 {
         self.0
-    }
-
-    pub fn fits_data(self) -> bool {
-        self.0 == Self::MIN
     }
 }
 
@@ -300,7 +299,7 @@ pub fn GraphProvider(
 
 #[cfg(test)]
 mod tests {
-    use super::TimeWindow;
+    use super::{GraphProperty, TimeWindow};
 
     #[test]
     fn time_windows_are_steps_within_their_range() {
@@ -312,8 +311,10 @@ mod tests {
     }
 
     #[test]
-    fn only_the_smallest_window_fits_the_data() {
-        assert!(TimeWindow::default().fits_data());
-        assert!(!TimeWindow::new(20).fits_data());
+    fn all_the_time_is_off_unless_a_layout_has_it() {
+        let property: GraphProperty = serde_json::from_str("{}").unwrap();
+        assert!(!property.all_time);
+        let property: GraphProperty = serde_json::from_str(r#"{"all_time": true}"#).unwrap();
+        assert!(property.all_time);
     }
 }

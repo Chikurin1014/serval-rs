@@ -22,7 +22,7 @@ Hover over a category in the bar at the top, then pick a graph.
 
 ## Settings
 
-Click a graph's title to see its settings, such as its title and the scale of its axes (linear or log).
+Click a graph's title to see its settings, such as its title, the scale of its axes (linear or log), and its time range.
 
 > [!TIP]
 > You can hide a label by clicking it in the legend.
