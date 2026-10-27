@@ -1,7 +1,8 @@
 # Data Types
 
 Each label holds values of one type, each value with the time it arrived.
-A label keeps a limited number of its newest values, dropping the oldest as new ones arrive.
+A label keeps a limited number of its newest values, dropping the oldest as new ones arrive
+(see [Reference / Data](../reference/data.md#retention)).
 
 | Type | Value | e.g. |
 |---|---|---|

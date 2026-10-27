@@ -87,8 +87,11 @@ All graphs share the same settings; each uses those of its kind.
 
 ## Defaults
 
-* A missing `settings`, or a setting missing from it, takes the value of a new
-  map or graph of that kind.
+* A map's missing `settings`, or a setting missing from them, takes the value
+  of a new map of that kind.
+* A graph's takes the default in the table above: not the setting a graph
+  added from the menu starts with (e.g. `trails` is on for Arrows added from
+  the menu, but `false` when left out here).
 * A missing `version` is taken as the running Serval's.
 
 ## Errors

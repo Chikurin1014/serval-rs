@@ -22,8 +22,8 @@ pub async fn ping() {
   or it is turned off.
 * What it returns is shown in its card; what it prints (`println!`) in
   **STDOUT**.
-* A task must `.await` now and then: one that runs on too long without (as in a
-  loop of no `await`) is stopped, as it would stand the page still.
+* A loop with no `.await` would freeze the page: a task that runs too long
+  without one is stopped (see [Runtime](runtime.md#limits)).
 
 What a task can use: [About Rune](rune.md) for the language and its standard
 library, [Examples](examples.md) of whole plugins, and the [API Reference](api.md)

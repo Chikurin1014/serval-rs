@@ -64,10 +64,22 @@ What the port receives goes to:
 Chunks are gathered for about one frame (16 ms) before they go to the data,
 or at once when 256 have gathered.
 
+## Port Info
+
+The panel beside the console:
+
+| Item | |
+|---|---|
+| Vendor, Product | Of a USB port, if known |
+| Baud rate | In bps |
+| Data bits, Parity, Stop bits, Flow control | As in [Port settings](#port-settings) |
+| Received, Sent | The bytes received and sent since the port was opened |
+| Notifications | Below them, newest first (see [Notifications](#notifications)) |
+
 ## Notifications
 
-Shown as a toast, and kept in the [Port Info](../usage/console.md#port-info)
-panel, newest first, up to 100.
+Shown as a toast, and kept in the [Port Info](#port-info) panel, newest
+first, up to 100.
 
 | Notification | Kind |
 |---|---|

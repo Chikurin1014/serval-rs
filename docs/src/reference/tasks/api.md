@@ -1,6 +1,6 @@
 # API Reference
 
-The full reference is generated of their docstrings:
+The full reference is generated from their docstrings:
 [Serval's modules](../../api/serval.module.html), and
 [Rune's standard library](../../api/std.module.html) (`std`).
 

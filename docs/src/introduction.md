@@ -30,7 +30,7 @@ Serval is designed to run on Windows, Linux, macOS, and the web.
 
 ### Flexible data format
 
-You can use regular expressions to extract data from serial input.
+You can use [regular expressions](reference/patterns.md) to extract data from serial input.
 
 ### Typed data
 

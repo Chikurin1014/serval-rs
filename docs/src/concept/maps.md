@@ -39,7 +39,7 @@ Serval makes:
 
 | Label | Type | Values |
 |---|---|---|
-| `log` | Log | `INFO started`, `temp: 22.5`, `volt: 3.31`, `42` |
+| `log` | Log | `[INFO] started`, `temp: 22.5`, `volt: 3.31`, `42` |
 | `temp` | Number | `22.5` |
 | `volt` | Number | `3.31` |
 | `anonymous data` | Number | `42` |

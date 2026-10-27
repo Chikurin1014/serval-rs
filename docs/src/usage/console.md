@@ -45,7 +45,7 @@ It goes on while the port is closed and opened again.
 | **Raw bytes** | The bytes received, as they are |
 | **Continue with existing file** | Adds to a file written before, in its format |
 
-The text and hex files can have the time of each line, and what was sent too
+The text and hex files can have the time of each line (of each chunk, in hex), and what was sent too
 (marked `>` / `TX`, and what was received `<` / `RX`).
 
 ## Port Info
