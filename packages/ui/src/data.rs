@@ -24,8 +24,8 @@ pub use map::{
     VectorOperation,
 };
 pub(crate) use map::{
-    Endpoints, Input, Operand, Source, endpoints, keep_taken, pairs, take_newest_all,
-    take_newest_pair, trim_segments,
+    Endpoints, Input, Operand, Source, constant_or_number, endpoints, keep_taken, pairs,
+    take_newest_all, take_newest_pair, trim_segments,
 };
 pub(crate) use pattern::compile_for_map;
 pub use pattern::{PATTERN_ALIASES, compile_pattern, expand_aliases};

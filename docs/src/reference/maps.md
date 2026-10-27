@@ -28,7 +28,9 @@ the log has none (`NONE`).
 ## Constants
 
 A field of a label or a number (of Add, Pow, Compose, …) also takes a constant,
-by its name after `#`. No label starts with `#`, so none is taken for one.
+by its name after `#`, and so does each component of a vector in a field of a
+label or a vector (e.g. `(#pi, 0)`). No label starts with `#`, so none is taken
+for one. Hover over such a field to see what it takes.
 
 | Constant | |
 |---|---|

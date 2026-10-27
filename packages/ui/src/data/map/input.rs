@@ -121,6 +121,15 @@ fn named_constant(text: &str) -> Option<f64> {
     }
 }
 
+/// `text` as a named constant (as `#pi`), or else a number.
+pub(crate) fn constant_or_number(text: &str) -> Option<f64> {
+    if text.starts_with(CONSTANT_PREFIX) {
+        named_constant(text)
+    } else {
+        text.parse().ok()
+    }
+}
+
 impl Operand {
     /// `text` as a named constant (as `#pi`), a Number label, or a number: a
     /// label over a number of its name.

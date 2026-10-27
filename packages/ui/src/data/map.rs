@@ -43,7 +43,8 @@ pub use decode::{Decode, DecodeSettings};
 pub use decompose::{Decompose, DecomposeSettings};
 pub use encode::{Encode, EncodeSettings};
 pub(crate) use input::{
-    Endpoints, Input, Operand, Source, endpoints, pairs, take_newest_all, take_newest_pair,
+    Endpoints, Input, Operand, Source, constant_or_number, endpoints, pairs, take_newest_all,
+    take_newest_pair,
 };
 pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};

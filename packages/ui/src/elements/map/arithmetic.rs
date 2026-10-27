@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use super::field::LabelField;
+use super::field::{LabelField, NUMBER_HINT, NUMBER_PLACEHOLDER, VECTOR_HINT};
 use super::form_of;
 use super::map_list::labels_list;
 use crate::{
@@ -68,13 +68,15 @@ pub fn ArithmeticForm(settings: ArithmeticSettings) -> Element {
                         name: "a",
                         value: first,
                         list: labels_list(DataType::Number),
-                        placeholder: "Label or number",
+                        placeholder: NUMBER_PLACEHOLDER,
+                        hint: NUMBER_HINT,
                     }
                     LabelField {
                         name: "b",
                         value: second,
                         list: labels_list(DataType::Number),
-                        placeholder: "Label or number",
+                        placeholder: NUMBER_PLACEHOLDER,
+                        hint: NUMBER_HINT,
                     }
                     if let Some(error) = error() {
                         span { class: "field-error", "{error}" }
@@ -191,13 +193,15 @@ pub fn VectorArithmeticForm(
                         name: "a",
                         value: first,
                         list: if by_number { labels_list(DataType::Number).to_string() } else { vector_list.clone() },
-                        placeholder: if by_number { "Label or number" } else { "Label or vector" },
+                        placeholder: if by_number { NUMBER_PLACEHOLDER } else { "Label or vector" },
+                        hint: if by_number { NUMBER_HINT } else { VECTOR_HINT },
                     }
                     LabelField {
                         name: "b",
                         value: second,
                         list: vector_list,
                         placeholder: "Label or vector",
+                        hint: VECTOR_HINT,
                     }
                     if let Some(error) = error() {
                         span { class: "field-error", "{error}" }

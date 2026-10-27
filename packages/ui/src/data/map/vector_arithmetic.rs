@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Input, MapRunner,
-    MapSettings, NumberData, Operand, Segment, Source, Vector, format_number, keep_taken, pairs,
+    MapSettings, NumberData, Operand, Segment, Source, Vector, constant_or_number, format_number,
+    keep_taken, pairs,
 };
 use crate::helper::set_if_changed;
 
@@ -146,7 +147,7 @@ impl<V: Vector> Source<V> {
     }
 }
 
-/// `(x, y)` or `x, y` (and z), if each is a number.
+/// `(x, y)` or `x, y` (and z), if each is a number or a constant (as `#pi`).
 fn parse_vector<V: Vector>(text: &str) -> Option<V> {
     let inner = text
         .strip_prefix('(')
@@ -154,7 +155,7 @@ fn parse_vector<V: Vector>(text: &str) -> Option<V> {
         .unwrap_or(text);
     let components = inner
         .split(',')
-        .map(|component| component.trim().parse().ok())
+        .map(|component| constant_or_number(component.trim()))
         .collect::<Option<Vec<f64>>>()?;
     V::from_components(&components)
 }
@@ -311,6 +312,14 @@ mod tests {
         assert_eq!(parse_vector("1,2,3"), Some(Vector3d::new(1.0, 2.0, 3.0)));
         assert_eq!(parse_vector::<Vector2d>("(1, 2, 3)"), None);
         assert_eq!(parse_vector::<Vector2d>("(1, x)"), None);
+    }
+
+    #[test]
+    fn vectors_take_constants() {
+        use std::f64::consts::{E, PI};
+        assert_eq!(parse_vector("(#pi, -#e)"), None::<Vector2d>);
+        assert_eq!(parse_vector("(#pi, #e)"), Some(Vector2d::new(PI, E)));
+        assert_eq!(parse_vector::<Vector2d>("(#tau, 1)"), None);
     }
 
     #[test]

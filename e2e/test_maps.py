@@ -419,7 +419,7 @@ def test_concat_joins_the_newest_of_both(app: App):
 def add_arithmetic_map(app: App, name: str, first: str, second: str, target: str):
     app.add_map(name, "Number", "Number")
     card = app.map_cards().last
-    fields = card.get_by_placeholder("Label or number")
+    fields = card.get_by_placeholder("Label, number or #pi")
     fields.nth(0).fill(first)
     fields.nth(1).fill(second)
     card.get_by_placeholder("Output label").fill(target)
@@ -892,6 +892,9 @@ def test_vectors_are_composed(app: App):
     expect(bad_add.locator(".field-error")).to_have_text(
         "No Vector2d label or vector '(1, 2, 3)'"
     )
+    # Of named constants
+    add_vector_arithmetic_map(app, "Add", "2D", "(#pi, 0)", "(0, #e)", "named")
+    wait_for_latest(app, "named", "(3.1416, 2.7183)")
 
     app.open_port()
     app.mock("mute()")
