@@ -9,6 +9,7 @@ mod frame;
 mod log_table;
 mod plot;
 mod scatter;
+mod time_range;
 mod time_series;
 
 pub use arrows::{ARROWS, ARROWS_3D, ArrowsGraph, Dimension};
@@ -16,7 +17,7 @@ pub use board::GraphBoard;
 pub use box_plot::{BOX_PLOT, BoxPlotGraph};
 pub use context::{
     AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty,
-    GraphProvider, TimeWindow,
+    GraphProvider, TimeRange, TimeRangeWidth,
 };
 pub use frame::GraphFrame;
 pub use log_table::{LOG_TABLE, LogTable};

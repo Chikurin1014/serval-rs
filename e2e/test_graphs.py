@@ -4,7 +4,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from app import App
+from app import App, name_value_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -135,42 +135,60 @@ def test_values_can_be_drawn_as_points_lines_or_steps(app: App):
         app.wait_for_graph_legends([["temp", "volt"]])
 
 
-def wait_for_time_span(graph, low: float, high: float):
-    graph.page.wait_for_function(
-        """([plot, low, high]) => {
-            const span = Number(plot.dataset.timeSpan);
-            return low <= span && span <= high;
-        }""",
-        arg=[graph.locator(".graph-plot").element_handle(), low, high],
-    )
+def test_time_range_fits_the_data_up_to_its_seconds(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    # Of a alone: none of the readings before it was muted
+    app.add_match_map(pattern=r"(a):([\d.]+)")
+    app.stop_clock()
+    # Two values, 25 s apart: of the shortest time range, and the next
+    app.mock("receive('a:1\\n')")
+    app.run_clock_until(lambda: "a" in app.data_rows())
+    app.page.clock.run_for(25_000)
+    app.mock("receive('a:2\\n')")
+    app.tab("Graph")
+    app.add_graph()
+    graph = app.graphs().last
 
-
-def test_time_axis_shows_a_window_of_the_newest_data(app: App):
-    open_graphs_with_numbers(app)
-    app.wait_for_graph_legends([["temp", "volt"]])
-    graph = app.graphs().first
-
-    # 10 s: fits the data
-    wait_for_time_span(graph, 0.01, 9.99)
+    def span() -> float:
+        return float(graph.locator(".graph-plot").get_attribute("data-time-span") or 0)
 
     graph.locator(".graph-title").click()  # opens the settings
-    slider = graph.get_by_role("slider", name="Time axis")
+    slider = graph.get_by_role("slider", name="Time range")
     expect(slider).to_have_attribute("aria-valuemin", "10")
     expect(slider).to_have_attribute("aria-valuemax", "300")
     expect(slider).to_have_attribute("aria-valuenow", "10")
-    value = graph.locator(".graph-time-window-value")
+    value = graph.locator(".graph-time-range-value")
     expect(value).to_have_text("10 s")
+    app.run_clock_until(lambda: 9.99 <= span() <= 10.01)
 
+    # 30 s: the data, as short as it is
     slider.focus()
-    for _ in range(5):
-        app.page.keyboard.press("ArrowRight")
-    expect(slider).to_have_attribute("aria-valuenow", "60")
-    expect(value).to_have_text("60 s")
-    wait_for_time_span(graph, 59.99, 60.01)
+    app.page.keyboard.press("ArrowRight")
+    app.page.keyboard.press("ArrowRight")
+    expect(value).to_have_text("30 s")
+    app.run_clock_until(lambda: 25 <= span() <= 26)
+    app.page.keyboard.press("ArrowLeft")
+    expect(value).to_have_text("20 s")
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
+
+    # All the time: all the data, the slider off
+    all_time = graph.get_by_role("button", name="All")
+    all_time.click()
+    expect(all_time).to_have_attribute("aria-pressed", "true")
+    expect(slider).to_be_disabled()
+    expect(value).to_have_attribute("data-off", "true")
+    app.run_clock_until(lambda: 25 <= span() <= 26)
+    # Off again: its time range as it was
+    all_time.click()
+    expect(slider).to_be_enabled()
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
 
     app.tab("Console")
     app.tab("Graph")
-    wait_for_time_span(app.graphs().first, 59.99, 60.01)
+    graph = app.graphs().last
+    app.run_clock_until(lambda: 19.99 <= span() <= 20.01)
 
 
 def test_cursor_moves_together_across_graphs(app: App):
@@ -784,12 +802,124 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     expect(bar.get_by_role("button", name="Play graphs")).to_be_visible()
 
 
+def test_box_plot_takes_the_values_of_its_time_range(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.stop_clock()
+    # An outlier (100) among the first values, none among those 15 s later
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\na:100\\n')")
+    app.run_clock_until(lambda: "a" in app.data_rows())
+    app.page.clock.run_for(15_000)
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\n')")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Box plot", exact=True).click()
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+
+    def outliers_of_a():
+        boxes = json.loads(plot.get_attribute("data-boxes") or "[]")
+        return next((outliers for label, outliers, *_ in boxes if label == "a"), None)
+
+    # 10 s back from the newest at first: those after the outlier alone
+    graph.locator(".graph-title").click()  # opens the settings
+    slider = graph.get_by_role("slider", name="Time range")
+    expect(slider).to_have_attribute("aria-valuenow", "10")
+    expect(graph.locator(".graph-time-range-value")).to_have_text("10 s")
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # 20 s: the outlier back
+    slider.focus()
+    app.page.keyboard.press("ArrowRight")
+    expect(slider).to_have_attribute("aria-valuenow", "20")
+    app.run_clock_until(lambda: outliers_of_a() == 1)
+    app.page.keyboard.press("ArrowLeft")
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # Back from the newest: no newer values, none leaves it as time goes on
+    app.page.clock.run_for(11_000)
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # All the time: all the values kept, the slider off
+    graph.get_by_role("button", name="All").click()
+    expect(slider).to_be_disabled()
+    app.run_clock_until(lambda: outliers_of_a() == 1)
+
+
+def test_scatter_shows_the_points_of_its_time_range(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.stop_clock()
+    app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\n')")
+    app.run_clock_until(lambda: "b" in app.data_rows())
+    app.page.clock.run_for(15_000)
+    app.mock("receive('a:3\\nb:30\\n')")
+    app.tab("Graph")
+    graph = app.add_scatter()
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("a")
+    graph.get_by_label("Y label").fill("b")
+    plot = graph.locator(".graph-plot")
+
+    def points():
+        return int(plot.get_attribute("data-points") or 0)
+
+    # 10 s back from the newest at first: the last alone
+    slider = graph.get_by_role("slider", name="Time range")
+    expect(slider).to_have_attribute("aria-valuenow", "10")
+    app.run_clock_until(lambda: points() == 1)
+
+    # 20 s: those before come back
+    slider.focus()
+    app.page.keyboard.press("ArrowRight")
+    app.run_clock_until(lambda: points() == 3)
+    app.page.keyboard.press("ArrowLeft")
+    app.run_clock_until(lambda: points() == 1)
+
+    # All the time: every one
+    graph.get_by_role("button", name="All").click()
+    app.run_clock_until(lambda: points() == 3)
+
+
+def test_scatter_settings_open_and_close_in_any_row(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.load_layout(
+        [name_value_map()],
+        [
+            {"kind": "Time series"},
+            {"kind": "Box plot"},
+            {"kind": "Scatter", "settings": {"x_label": "temp", "y_label": "volt"}},
+        ],
+    )
+    app.tab("Graph")
+    # In the second row
+    scatter = app.graphs().nth(2)
+    assert scatter.bounding_box()["y"] > app.graphs().first.bounding_box()["y"]
+    title = scatter.locator(".graph-title")
+    body = scatter.locator(".graph-settings-body")
+
+    title.click()
+    expect(body).to_be_visible()
+    # Its title at the top of the settings, taller than they show: not under the
+    # plot, so it closes them again
+    title.click()
+    expect(body).to_be_hidden()
+
+
 def test_scatter_redraws_ten_times_a_second_at_most(app: App):
     open_graphs_with_numbers(app)
     graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
+    # So none leaves it as they are counted
+    graph.get_by_role("button", name="All").click()
     plot = graph.locator(".graph-plot")
     app.page.wait_for_function(
         "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()

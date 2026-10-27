@@ -13,6 +13,7 @@ use crate::elements::graph::{
     AxisScale, GraphContext, GraphFrame,
     context::use_graph_setting,
     plot::{PlotAssets, plot_script, use_plot},
+    time_range::TimeRangeSetting,
 };
 use crate::helper::set_if_changed;
 
@@ -36,6 +37,7 @@ pub fn ScatterGraph(id: usize) -> Element {
     let x_scale = use_graph_setting(graph_context, id, |property| property.x_scale);
     let y_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let regression = use_graph_setting(graph_context, id, |property| property.regression);
+    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
     let mut line = use_signal(|| None::<Line>);
     let container_id = format!("graph-plot-{id}");
     let labels_list_id = format!("graph-number-labels-{id}");
@@ -46,6 +48,7 @@ pub fn ScatterGraph(id: usize) -> Element {
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
+        let range = time_range();
         let (x, y) = (x_label(), y_label());
         let labels = (x.as_str(), y.as_str());
         let mut feed = feed.borrow_mut();
@@ -53,11 +56,12 @@ pub fn ScatterGraph(id: usize) -> Element {
             .with_label(&x, |x_data| {
                 data_context.with_label(&y, |y_data| {
                     let (x, y) = (NumberData::queue(x_data), NumberData::queue(y_data));
-                    feed.next(labels, x, y, paused_at)
+                    feed.next(labels, x, y, paused_at, range)
                 })
             })
             .flatten();
-        let (reset, points) = update.unwrap_or_else(|| feed.next(labels, None, None, paused_at));
+        let (reset, points) =
+            update.unwrap_or_else(|| feed.next(labels, None, None, paused_at, range));
         let fitted = feed.line();
         set_if_changed(&mut line, fitted);
         let statistics = feed.statistics().map(statistics_texts);
@@ -170,6 +174,12 @@ pub fn ScatterGraph(id: usize) -> Element {
                             }
                         }
                     }
+                }
+                TimeRangeSetting {
+                    range: time_range(),
+                    on_change: move |range| {
+                        graph_context.update(id, |property| property.time_range = range);
+                    },
                 }
                 datalist {
                     id: "{labels_list_id}",

@@ -4,11 +4,11 @@ use dioxus::prelude::*;
 
 use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    TimeWindow,
     context::{until_paused, use_graph_setting},
     plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
+    time_range::TimeRangeSetting,
 };
-use crate::components::{slider::Slider, toggle::Toggle};
+use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, SourceCursor, TypedData};
 use crate::elements::FilterContext;
 
@@ -111,7 +111,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let mut graph_context = use_context::<GraphContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
-    let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
+    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, TIME_SERIES_JS);
@@ -133,7 +133,8 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .map(|(index, label)| (label.clone(), series_color(index)))
             .collect::<HashMap<_, _>>();
         let log = value_scale() == AxisScale::Log;
-        let window = (time_window().seconds(), time_window().fits_data());
+        // None, of all the time
+        let window = time_range().seconds();
         let _ = plot.send((
             labels,
             updates,
@@ -188,29 +189,11 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                         }
                     }
                 }
-                div {
-                    class: "graph-setting",
-                    span { class: "graph-setting-label", "Time axis" }
-                    div {
-                        class: "graph-time-window",
-                        Slider {
-                            value: Some(f64::from(time_window().seconds())),
-                            min: f64::from(TimeWindow::MIN),
-                            max: f64::from(TimeWindow::MAX),
-                            step: f64::from(TimeWindow::STEP),
-                            label: Some("Time axis".to_string()),
-                            on_value_change: move |seconds: f64| {
-                                let window = TimeWindow::new(seconds.round() as u32);
-                                if time_window() != window {
-                                    graph_context.update(id, |property| property.time_window = window);
-                                }
-                            },
-                        }
-                        span {
-                            class: "graph-time-window-value",
-                            "{time_window().seconds()} s"
-                        }
-                    }
+                TimeRangeSetting {
+                    range: time_range(),
+                    on_change: move |range| {
+                        graph_context.update(id, |property| property.time_range = range);
+                    },
                 }
             },
             div {

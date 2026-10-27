@@ -339,7 +339,7 @@ mod tests {
             assert!(decode["settings"].get("pattern_error").is_none());
             let graph = &layout["graphs"][0];
             assert_eq!(graph["kind"], "Time series");
-            assert_eq!(graph["settings"]["time_window"], 10);
+            assert_eq!(graph["settings"]["time_range"], 10);
             assert_eq!(graph["settings"]["weakest_level"], "NONE");
         });
     }
@@ -353,7 +353,7 @@ mod tests {
             layout["maps"].as_array_mut().unwrap().truncate(1);
             layout["graphs"] = json!([
                 { "kind": "Log", "settings": { "weakest_level": "WARN", "hidden": ["log"] } },
-                { "kind": "Scatter", "settings": { "x_label": "x", "time_window": 64 } },
+                { "kind": "Scatter", "settings": { "x_label": "x", "time_range": 64 } },
             ]);
             import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
 
@@ -367,7 +367,7 @@ mod tests {
             assert_eq!(log.property.hidden, ["log"]);
             assert_eq!(scatter.property.x_label, "x");
             // Clamped to its steps
-            assert_eq!(scatter.property.time_window.seconds(), 60);
+            assert_eq!(scatter.property.time_range.seconds(), Some(60));
         });
     }
 

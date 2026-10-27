@@ -4,6 +4,7 @@ use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind,
     context::{until_paused, use_graph_setting},
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
+    time_range::TimeRangeSetting,
 };
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
@@ -125,8 +126,8 @@ type PlotBox = (
     [(&'static str, String); 7],
 );
 
-/// A box for each Number label the data list shows, of all its values; each
-/// turned on or off in the legend.
+/// A box for each Number label the data list shows, of its values in the time
+/// range; each turned on or off in the legend.
 #[component]
 pub fn BoxPlotGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
@@ -134,6 +135,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     let mut graph_context = use_context::<GraphContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
+    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, BOX_PLOT_JS);
 
@@ -142,19 +144,41 @@ pub fn BoxPlotGraph(id: usize) -> Element {
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
+        let range = time_range();
         // Colored by their place among the number labels, as the lines of a time series
         let colors = number_labels.read().clone();
         let boxes: Vec<PlotBox> = data_context.with_each(Some(DataType::Number), |data| {
-            data.iter()
+            let shown: Vec<_> = data
+                .iter()
                 .filter(|(label, _)| filter_context.shows(label))
-                .filter_map(|&(label, data)| {
-                    let TypedData::Number(queue) = data else {
-                        return None;
-                    };
+                .filter_map(|&(label, data)| match data {
+                    TypedData::Number(queue) => Some((label, queue)),
+                    _ => None,
+                })
+                .collect();
+            // Back from the newest of them all, as the time axis of a time series
+            let newest = shown
+                .iter()
+                .filter_map(|(_, queue)| {
+                    // In order of time: the last of those up to a pause
+                    queue
+                        .iter()
+                        .map(|entry| entry.timestamp())
+                        .take_while(|&timestamp| until_paused(paused_at, timestamp))
+                        .last()
+                })
+                .max();
+            let since = newest.map_or(i64::MIN, |newest| range.since(newest));
+            shown
+                .into_iter()
+                .filter_map(|(label, queue)| {
                     let summary = Summary::of(
                         queue
                             .iter()
-                            .filter(|entry| until_paused(paused_at, entry.timestamp()))
+                            .filter(|entry| {
+                                entry.timestamp() >= since
+                                    && until_paused(paused_at, entry.timestamp())
+                            })
                             .map(|entry| *entry.value()),
                     )?;
                     let (low, high) = summary.whiskers;
@@ -202,6 +226,12 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                             }
                         }
                     }
+                }
+                TimeRangeSetting {
+                    range: time_range(),
+                    on_change: move |range| {
+                        graph_context.update(id, |property| property.time_range = range);
+                    },
                 }
             },
             div {

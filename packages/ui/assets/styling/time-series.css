@@ -35,19 +35,19 @@
   border-bottom-right-radius: 0.125rem;
 }
 
-.graph-time-window {
+.graph-time-range {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   min-width: 0;
 }
 
-.graph-time-window > :first-child {
+.graph-time-range > :first-child {
   flex: 1;
   min-width: 0;
 }
 
-.graph-time-window-value {
+.graph-time-range-value {
   min-width: 3.5em;
   color: var(--dc-text);
   font-size: 0.75rem;
@@ -176,4 +176,9 @@
 
 .graph-plot > .u-legend {
   margin-top: 0.25rem;
+}
+
+/* Its time range off, of all the time */
+.graph-time-range-value[data-off="true"] {
+  opacity: 0.5;
 }
