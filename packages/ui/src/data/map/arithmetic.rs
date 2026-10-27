@@ -12,6 +12,8 @@ pub enum Operation {
     Subtract,
     Multiply,
     Divide,
+    /// `a` to the power of `b`.
+    Pow,
 }
 
 impl Operation {
@@ -21,6 +23,7 @@ impl Operation {
             Operation::Subtract => "−",
             Operation::Multiply => "×",
             Operation::Divide => "/",
+            Operation::Pow => "^",
         }
     }
 
@@ -31,16 +34,18 @@ impl Operation {
             Operation::Subtract => "a - b",
             Operation::Multiply => "a \\times b",
             Operation::Divide => "a / b",
+            Operation::Pow => "a^b",
         }
     }
 
-    fn apply(self, first: f64, second: f64) -> Result<f64, String> {
+    /// As Rust's `f64` has it: by 0, infinite; 0 / 0, NaN.
+    fn apply(self, first: f64, second: f64) -> f64 {
         match self {
-            Operation::Add => Ok(first + second),
-            Operation::Subtract => Ok(first - second),
-            Operation::Multiply => Ok(first * second),
-            Operation::Divide if second == 0.0 => Err("Division by zero".to_string()),
-            Operation::Divide => Ok(first / second),
+            Operation::Add => first + second,
+            Operation::Subtract => first - second,
+            Operation::Multiply => first * second,
+            Operation::Divide => first / second,
+            Operation::Pow => first.powf(second),
         }
     }
 }
@@ -61,13 +66,12 @@ super::saved_settings!(ArithmeticSettings {
     to_label
 });
 
-/// Adds, subtracts, multiplies or divides two numbers, each from a label or a
-/// constant. With two labels, a result comes once both have a new number.
+/// Adds, subtracts, multiplies, divides or raises to a power two numbers, each
+/// from a label or a constant. With two labels, a result comes once both have a new number.
 pub struct Arithmetic {
     settings: ArithmeticSettings,
     taken: Option<[String; 3]>,
     operands: Operands,
-    failure: Option<String>,
 }
 
 #[derive(Default)]
@@ -90,7 +94,6 @@ impl Arithmetic {
             },
             taken: None,
             operands: Operands::default(),
-            failure: None,
         }
     }
 }
@@ -151,7 +154,6 @@ impl MapRunner for Arithmetic {
         let taken = (!texts.iter().any(String::is_empty)).then_some(texts);
         if keep_taken(&mut self.taken, taken) {
             self.operands = Operands::default();
-            self.failure = None;
         }
         set_if_changed(&mut error, None);
     }
@@ -178,18 +180,14 @@ impl MapRunner for Arithmetic {
             return None;
         }
 
+        set_if_changed(&mut error, None);
+
         let mut latest = None;
         for (first_value, second_value) in self.operands.pairs(data, &first, &second) {
-            match operation.apply(first_value, second_value) {
-                Ok(result) => {
-                    data.push(to, NumberData::new(timestamp, result));
-                    latest = Some((first_value, second_value, result));
-                    self.failure = None;
-                }
-                Err(message) => self.failure = Some(message),
-            }
+            let result = operation.apply(first_value, second_value);
+            data.push(to, NumberData::new(timestamp, result));
+            latest = Some((first_value, second_value, result));
         }
-        set_if_changed(&mut error, self.failure.clone());
         let (first_value, second_value, result) = latest?;
         Some(Conversion {
             from: vec![first.input(first_value), second.input(second_value)],
@@ -210,15 +208,11 @@ mod tests {
 
     #[test]
     fn operations_apply_in_order() {
-        assert_eq!(Operation::Add.apply(6.0, 3.0), Ok(9.0));
-        assert_eq!(Operation::Subtract.apply(6.0, 3.0), Ok(3.0));
-        assert_eq!(Operation::Multiply.apply(6.0, 3.0), Ok(18.0));
-        assert_eq!(Operation::Divide.apply(6.0, 3.0), Ok(2.0));
-    }
-
-    #[test]
-    fn division_by_zero_is_an_error() {
-        assert!(Operation::Divide.apply(1.0, 0.0).is_err());
+        assert_eq!(Operation::Add.apply(6.0, 3.0), 9.0);
+        assert_eq!(Operation::Subtract.apply(6.0, 3.0), 3.0);
+        assert_eq!(Operation::Multiply.apply(6.0, 3.0), 18.0);
+        assert_eq!(Operation::Divide.apply(6.0, 3.0), 2.0);
+        assert_eq!(Operation::Pow.apply(6.0, 3.0), 216.0);
     }
 
     fn arithmetic(
@@ -246,6 +240,19 @@ mod tests {
     }
 
     #[test]
+    fn constants_are_named_after_a_hash() {
+        let mut maps = Maps::new();
+        arithmetic(&mut maps, Operation::Multiply, ["#pi", "temp", "turned"]);
+        let unknown = arithmetic(&mut maps, Operation::Add, ["#tau", "temp", "sum"]);
+        maps.push("temp", number(2.0));
+        assert_eq!(maps.values("turned"), ["6.2832"]);
+        assert_eq!(
+            maps.read(unknown.error).as_deref(),
+            Some("No constant '#tau'")
+        );
+    }
+
+    #[test]
     fn a_label_wins_over_a_number() {
         let mut maps = Maps::new();
         maps.push("10", number(3.0));
@@ -255,22 +262,28 @@ mod tests {
     }
 
     #[test]
-    fn what_cannot_be_computed_is_an_error() {
+    fn an_unknown_operand_is_an_error() {
         let mut maps = Maps::new();
-        let divided = arithmetic(&mut maps, Operation::Divide, ["1", "0", "quotient"]);
         let unknown = arithmetic(
             &mut maps,
             Operation::Subtract,
             ["nothing", "1", "difference"],
         );
         assert_eq!(
-            maps.read(divided.error).as_deref(),
-            Some("Division by zero")
-        );
-        assert_eq!(
             maps.read(unknown.error).as_deref(),
             Some("No Number label or number 'nothing'")
         );
-        assert!(maps.values("quotient").is_empty());
+        assert!(maps.values("difference").is_empty());
+    }
+
+    #[test]
+    fn division_by_zero_is_no_error() {
+        let mut maps = Maps::new();
+        let divided = arithmetic(&mut maps, Operation::Divide, ["temp", "0", "quotient"]);
+        maps.push("temp", number(1.0));
+        maps.push("temp", number(-1.0));
+        maps.push("temp", number(0.0));
+        assert_eq!(maps.values("quotient"), ["inf", "-inf", "NaN"]);
+        assert_eq!(maps.read(divided.error), None);
     }
 }

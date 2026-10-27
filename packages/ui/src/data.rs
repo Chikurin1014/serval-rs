@@ -6,7 +6,7 @@ mod pattern;
 mod queue;
 mod source_cursor;
 
-pub use data_context::{DataContext, DataProvider, RAW_BYTES_LABEL};
+pub use data_context::{CONSTANT_PREFIX, DataContext, DataProvider, RAW_BYTES_LABEL};
 pub use data_type::{
     ByteData, Data, DataEntry, DataType, LogData, NumberData, NumberText, ShownValue, TypedData,
     Vector, Vector2d, Vector2dData, Vector3d, Vector3dData, format_number,

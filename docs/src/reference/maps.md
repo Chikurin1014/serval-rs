@@ -23,6 +23,16 @@ The output label and the values a map gives (its **To**, **Level** and
 A **Level** field takes a level's name (e.g. `WARN`, or `$1`); left empty,
 the log has none (`NONE`).
 
+## Constants
+
+A field of a label or a number (of Add, Pow, Compose, …) also takes a constant,
+by its name after `#`. No label starts with `#`, so none is taken for one.
+
+| Constant | |
+|---|---|
+| `#pi` | π (`3.141592653589793`) |
+| `#e` | e (`2.718281828459045`) |
+
 ## Maps by output type
 
 ### To Bytes
@@ -55,11 +65,15 @@ other words around it, before the message:
 |---|---|---|
 | **Match** | Log | Each message matching **From**: **To** as a number, to the output label |
 | **Add**, **Subtract**, **Multiply**, **Divide** | Number, Number | Of two labels, or a label and a number. Of two labels, once both have a new number |
+| **Pow** | Number, Number | a to the power of b, as the others |
 | **Differentiate** / **Integrate** | Number | Over time, in seconds (integrated by the trapezoidal rule) |
 | **Magnitude** | Vector2d / Vector3d | The length of each vector |
 | **Decompose** | Vector2d / Vector3d | Each component to its own label (left empty for none) |
 | **Dot** | Vectors | The dot product |
 | **Cross** | Vector2d, Vector2d | The z of the cross product |
+
+These compute as Rust's `f64`: by 0, `inf` or `-inf`; 0 / 0, or a number
+below 0 to a power not whole, `NaN`. Graphs leave those out.
 
 Match's presets:
 

@@ -1,5 +1,6 @@
 use crate::data::{
-    ConversionInput, Data, DataContext, DataEntry, DataType, SourceCursor, format_number,
+    CONSTANT_PREFIX, ConversionInput, Data, DataContext, DataEntry, DataType, SourceCursor,
+    format_number,
 };
 
 /// `from` and `to`, trimmed, if both are set and differ.
@@ -98,9 +99,26 @@ pub(crate) enum Operand {
     Constant(f64),
 }
 
+/// The constant `text` names after [`CONSTANT_PREFIX`] (as `#pi`), if any.
+fn named_constant(text: &str) -> Option<f64> {
+    match text.strip_prefix(CONSTANT_PREFIX)? {
+        "pi" => Some(std::f64::consts::PI),
+        "e" => Some(std::f64::consts::E),
+        _ => None,
+    }
+}
+
 impl Operand {
+    /// `text` as a named constant (as `#pi`), a Number label, or a number: a
+    /// label over a number of its name.
     pub(crate) fn resolve(data: &DataContext, text: &str) -> Result<Self, String> {
         let text = text.trim();
+        // No label of its name: none starts so
+        if text.starts_with(CONSTANT_PREFIX) {
+            return named_constant(text)
+                .map(Operand::Constant)
+                .ok_or_else(|| format!("No constant '{text}'"));
+        }
         let is_label = data.data_type_of(text) == Some(DataType::Number);
         if is_label {
             Ok(Operand::Label(text.to_string()))
@@ -143,7 +161,16 @@ pub(crate) fn take_newest_all<'a, T: 'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{Input, endpoints, take_newest_all, take_newest_pair};
+    use super::{Input, endpoints, named_constant, take_newest_all, take_newest_pair};
+
+    #[test]
+    fn constants_are_named_after_a_hash() {
+        assert_eq!(named_constant("#pi"), Some(std::f64::consts::PI));
+        assert_eq!(named_constant("#e"), Some(std::f64::consts::E));
+        assert_eq!(named_constant("pi"), None);
+        assert_eq!(named_constant("#tau"), None);
+        assert_eq!(named_constant("#PI"), None);
+    }
 
     #[test]
     fn endpoints_are_set_and_apart() {

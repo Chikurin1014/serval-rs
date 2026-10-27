@@ -226,6 +226,7 @@ def test_add_menus_offer_the_maps_by_output_type(app: App):
             "Subtract",
             "Multiply",
             "Divide",
+            "Pow",
             "Differentiate",
             "Integrate",
             "Dot",
@@ -451,6 +452,20 @@ def test_arithmetic_with_a_constant(app: App):
     (value, constant), result = latest_numbers(card)
     assert constant == "2.0000"
     assert result == pytest.approx(float(value) * 2, rel=1e-4)
+
+
+def test_pow_raises_a_to_the_power_of_b(app: App):
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Pow", "2", "10", "power")
+    expect(card.locator(".map-formula .katex-mathml annotation")).to_have_text("a^b")
+    app.wait_for_labels("power")
+    assert latest_numbers(card)[1] == 1024
+
+    # 1 / 0: no error, as Rust's `f64` has it
+    card = add_arithmetic_map(app, "Pow", "0", "-1", "inverse")
+    app.wait_for_labels("inverse")
+    assert app.data_rows()["inverse"][1] == "inf"
+    expect(card.locator(".field-error")).to_have_count(0)
 
 
 def test_formula_renders_with_katex(app: App):
