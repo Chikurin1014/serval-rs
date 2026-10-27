@@ -51,9 +51,18 @@ Box plot and Scatter are of the values of their **Time range**:
 | Back from | The newest value the graph shows (as of the pause, while paused): of all its labels for Box plot, the newest point for Scatter |
 | All | All the values kept, the time range off. Off by default |
 
+* Values leave it only as newer ones arrive, not as time goes by.
+* A longer time range, or **All**, brings back the older values still kept.
+
 ## Box plot
 
 A box per label, of its values in the [time range](#statistics-time-range).
+
+| Setting | Values | Default |
+|---|---|---|
+| Value axis | Linear, Log | Linear |
+| Time range | 10–300 s, in steps of 10 s | 10 s |
+| All | On, off | Off |
 
 | | |
 |---|---|
@@ -65,17 +74,21 @@ A box per label, of its values in the [time range](#statistics-time-range).
 
 ## Scatter
 
-| Setting | |
-|---|---|
-| X label / Y label | A Number label each |
-| X axis / Y axis | Linear or Log |
-| Regression | Shows the least-squares line and its equation. On, from the menu |
+| Setting | Values | Default |
+|---|---|---|
+| X label / Y label | A Number label each | Empty |
+| X axis / Y axis | Linear, Log | Linear |
+| Regression | Shows the least-squares line and its equation | On, from the menu |
+| Time range | 10–300 s, in steps of 10 s | 10 s |
+| All | On, off | Off |
 
 * A point pairs the newest X with the newest Y, once both have a new value,
   at the time of the later.
-* The points of the [time range](#statistics-time-range), up to 10,000.
+* Shows the points of the [time range](#statistics-time-range), of the 10,000
+  newest it keeps.
 * Shows the covariance (over n − 1) and Pearson's correlation coefficient, to
   two decimal places.
+* The regression line and the statistics are of the points shown alone.
 
 ## Arrows
 
