@@ -387,7 +387,8 @@ mod tests {
     fn a_layout_has_a_time_range_as_its_seconds_or_all() {
         let property: GraphProperty = serde_json::from_str("{}").unwrap();
         assert_eq!(property.time_range, TimeRange::default());
-        // Its name before, taken no more
+        // Its name before: of a layout of v0.4.1, upgraded as it is imported, not here
+
         let property: GraphProperty = serde_json::from_str(r#"{"time_window": 30}"#).unwrap();
         assert_eq!(property.time_range, TimeRange::default());
 

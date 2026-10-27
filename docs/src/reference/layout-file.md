@@ -94,6 +94,17 @@ All graphs share the same settings; each uses those of its kind.
   the menu, but `false` when left out here).
 * A missing `version` is taken as the running Serval's.
 
+## Older layout files
+
+A layout file of an earlier `version` (0.4.0 or later) is taken as of this
+one, by each change of the format since:
+
+| Up to 0.4.1 | Taken as |
+|---|---|
+| `"Linear"`, `"Log"` (`value_scale`, `x_scale`), `"Points"`, `"Linear"`, `"Stepped"` (`draw_style`) | In lower case |
+| `time_window` of a Time series | Its `time_range` |
+| Box plot, Scatter (of all the values then) | `"time_range": "all"` |
+
 ## Errors
 
 Importing replaces all the maps and graphs; on an error, nothing changes and
@@ -104,6 +115,9 @@ the error is shown in a toast.
 | `Not a layout file: …` | Not JSON, a field missing, or a value of the wrong kind (e.g. an unknown level) |
 | `No map <kind> from <types> to <type>` | No map of that `kind`, `from`, and `to` |
 | `No graph <kind>` | No graph of that `kind` |
+| `Of a newer Serval, <version>: …` | Exported by a later Serval than the one running |
+| `No version '<version>'` | A `version` not of the form `major.minor.patch` |
+| `No layout file of version <version>: …` | A `version` before 0.4.0, which had no layout files |
 | `<kind>: '<setting>' …` | A setting a map cannot take |
 
 ## Initial layout

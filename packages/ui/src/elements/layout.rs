@@ -16,6 +16,10 @@ use crate::{
     toast::use_toaster,
 };
 
+mod compatibility;
+
+use compatibility::resolve_version;
+
 const LAYOUT_MENU_CSS: Asset = asset!("/assets/styling/layout-menu.css");
 const INITIAL_LAYOUT: &str = include_str!("initial_layout.json");
 
@@ -96,15 +100,17 @@ pub struct Layout {
     pub graphs: Vec<(GraphKind, GraphProperty)>,
 }
 
-/// The layout of the file `text`, of `map_kinds` and `graph_kinds`; else what is
-/// wrong with it.
+/// The layout of the file `text` (of this version, or upgraded to it), of
+/// `map_kinds` and `graph_kinds`; else what is wrong with it.
 pub fn parse_layout(
     text: &str,
     map_kinds: &[MapKind],
     graph_kinds: &[GraphKind],
 ) -> Result<Layout, String> {
+    let not_a_layout = |error: serde_json::Error| format!("Not a layout file: {error}");
+    let json = serde_json::from_str(text).map_err(not_a_layout)?;
     let file: LayoutFile =
-        serde_json::from_str(text).map_err(|error| format!("Not a layout file: {error}"))?;
+        serde_json::from_value(resolve_version(json, LAYOUT_VERSION)?).map_err(not_a_layout)?;
     let maps = file
         .maps
         .into_iter()
@@ -254,7 +260,9 @@ mod tests {
         TimeContext,
         data::{DataProvider, MapContext, MapProvider},
         elements::{
-            graph::{GraphContext, GraphProvider, builtin_graph_kinds},
+            graph::{
+                AxisScale, DrawStyle, GraphContext, GraphProvider, TimeRange, builtin_graph_kinds,
+            },
             map::builtin_map_kinds,
         },
     };
@@ -402,6 +410,49 @@ mod tests {
     }
 
     #[test]
+    fn a_layout_of_v0_4_1_is_taken_as_of_this_version() {
+        with_layout(|mut maps, mut graphs| {
+            let mut layout = parsed(&export_layout(maps, graphs));
+            layout["version"] = json!("0.4.1");
+            // As it exported them: with `time_window`, its values capitalized
+            let old = |kind: &str, settings: Value| {
+                let mut all = json!({
+                    "value_scale": "Linear",
+                    "x_scale": "Linear",
+                    "draw_style": "Linear",
+                    "time_window": 10,
+                });
+                all.as_object_mut()
+                    .unwrap()
+                    .extend(settings.as_object().unwrap().clone());
+                json!({ "kind": kind, "settings": all })
+            };
+            layout["graphs"] = json!([
+                old(
+                    "Time series",
+                    json!({ "draw_style": "Stepped", "time_window": 30 })
+                ),
+                old("Box plot", json!({ "value_scale": "Log" })),
+                old("Scatter", json!({ "x_scale": "Log" })),
+                old("Log", json!({})),
+            ]);
+            import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
+
+            let [series, box_plot, scatter, log] = &graphs.list()[..] else {
+                panic!("four graphs");
+            };
+            assert_eq!(series.property.draw_style, DrawStyle::Stepped);
+            assert_eq!(series.property.time_range.seconds(), Some(30));
+            // Of all the values, as they were
+            assert_eq!(box_plot.property.value_scale, AxisScale::Log);
+            assert_eq!(box_plot.property.time_range, TimeRange::All);
+            assert_eq!(scatter.property.x_scale, AxisScale::Log);
+            assert_eq!(scatter.property.time_range, TimeRange::All);
+            assert_eq!(log.property.time_range, TimeRange::default());
+        });
+    }
+
+    #[test]
     fn a_wrong_layout_changes_nothing() {
         with_layout(|mut maps, mut graphs| {
             let before = export_layout(maps, graphs);
@@ -427,6 +478,10 @@ mod tests {
             let mut wrong_level = layout;
             wrong_level["graphs"][0]["settings"]["weakest_level"] = json!("LOUD");
             assert!(wrong(wrong_level).starts_with("Not a layout file"));
+
+            let mut newer = parsed(&before);
+            newer["version"] = json!("99.0.0");
+            assert!(wrong(newer).starts_with("Of a newer Serval, 99.0.0"));
 
             assert!(wrong(json!({ "maps": [] })).starts_with("Not a layout file"));
         });
