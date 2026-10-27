@@ -298,7 +298,7 @@ impl SerialContext {
             return Ok(());
         }
         let port = self.selected_port().ok_or("No port is selected")?;
-        let baudrate = port.baudrate.ok_or("No baudrate is set")?;
+        let baudrate = port.baudrate.ok_or("No baud rate is set")?;
         if let Err(error) = port.handle.open(baudrate).await {
             self.report(NotificationKind::Error, "Failed to open the port", &error);
             return Err(error);

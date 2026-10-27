@@ -58,11 +58,15 @@
             settings.global.excludes = [
               # Generated
               "packages/web/public/third-party-licenses.html"
+              "docs/book/**"
+              "packages/web/public/docs/**"
               "packages/ui/src/components/**"
               "packages/ui/assets/dx-components-theme.css"
               "CHANGELOG.md"
               # Third-party
               "packages/ui/assets/vendor/**"
+              "docs/mermaid.min.js"
+              "docs/mermaid-init.js"
             ];
           };
         };

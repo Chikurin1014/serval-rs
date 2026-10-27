@@ -12,6 +12,12 @@ pub use task::{
 };
 
 use run::{CompiledPlugin, compile_plugin, run_task};
+
+/// The Rune modules plugins have (`serval::*`), of their docs: for tools, as
+/// `serval-rune`, which builds their API reference.
+pub fn rune_modules() -> Result<[rune::Module; 5], rune::ContextError> {
+    serval::modules()
+}
 use serval::{Host, set_host};
 
 use rune::{

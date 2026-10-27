@@ -22,7 +22,7 @@ pub fn PortBaudrateConfigurator() -> Element {
                 type: "number",
                 min: "1",
                 step: "1",
-                placeholder: "Baudrate (e.g. 9600)",
+                placeholder: "Baud rate (e.g. 9600)",
                 list: BAUDRATE_PRESETS_LIST,
                 value: selected_baudrate.map(|baudrate| baudrate.to_string()),
                 oninput: move |event: FormEvent| {

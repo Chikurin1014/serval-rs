@@ -24,6 +24,12 @@ def pytest_configure(config: pytest.Config):
     if os.environ.get("SERVAL_E2E_APP") or hasattr(config, "workerinput"):
         return
     target = ROOT / "target" / "e2e"
+    # Into `packages/web/public/docs`, which `dx` serves at `/docs/`
+    subprocess.run(
+        ["mdbook", "build", "docs", "--dest-dir", "packages/web/public/docs"],
+        cwd=ROOT,
+        check=True,
+    )
     subprocess.run(
         ["dx", "build", "--platform", "web"],
         cwd=ROOT / "packages" / "web",

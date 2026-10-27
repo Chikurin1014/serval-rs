@@ -60,7 +60,7 @@ pub fn PortInfoPanel() -> Element {
                         dd { "{vendor}" }
                         dt { "Product" }
                         dd { "{product}" }
-                        dt { "Baudrate" }
+                        dt { "Baud rate" }
                         dd { "{baudrate}" }
                         dt { "Data bits" }
                         dd { "{DATA_BITS}" }

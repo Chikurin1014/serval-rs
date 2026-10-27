@@ -13,10 +13,30 @@ use rune::{
 use super::host;
 use crate::plugin::ErrorText;
 
+/// Time: waiting, spans of time (`Duration`), and points in time (`Instant`).
+///
+/// Serval's clock is the wall clock, in milliseconds.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{data, time};
+///
+/// /// Pushes a count to `ticks` each second.
+/// pub async fn ticks() {
+///     let count = 0;
+///     loop {
+///         data::push("ticks", count)?;
+///         count += 1;
+///         time::sleep(time::Duration::from_secs(1)).await?;
+///     }
+/// }
+/// ```
+#[rune::module(::serval::time)]
 pub fn module() -> Result<Module, ContextError> {
-    let mut module = Module::with_crate_item("serval", ["time"])?;
-    module.function("sleep", sleep).build()?;
-    module.function("sleep_until", sleep_until).build()?;
+    let mut module = Module::from_meta(self::module_meta)?;
+    module.function_meta(sleep__meta)?;
+    module.function_meta(sleep_until__meta)?;
     module.ty::<Duration>()?;
     module.function_meta(Duration::new__meta)?;
     module.function_meta(Duration::from_secs__meta)?;
@@ -57,8 +77,24 @@ pub fn module() -> Result<Module, ContextError> {
     Ok(module)
 }
 
-/// Waits `duration`, by its ms. Taken by reference: the plugin's own is left to
-/// it, to wait again.
+// Taken by reference: the plugin's own is left to it, to wait again.
+/// Waits for `duration`, to the millisecond.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{serial, time};
+///
+/// /// Sends `ping` every 500 ms.
+/// pub async fn ping() {
+///     let interval = time::Duration::from_millis(500);
+///     loop {
+///         serial::send("ping\n")?;
+///         time::sleep(interval).await?;
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 async fn sleep(duration: Ref<Duration>) -> Result<(), String> {
     let time = host()?.time;
     let ms = u32::try_from(duration.inner.as_millis()).unwrap_or(u32::MAX);
@@ -70,8 +106,23 @@ async fn sleep(duration: Ref<Duration>) -> Result<(), String> {
 /// How often `sleep_until` asks its condition again.
 const CONDITION_CHECK_MS: u32 = 10;
 
-/// Waits until `condition` (a function of no argument, async or not) gives
-/// `true`, checked every [`CONDITION_CHECK_MS`]; an `Err` from it is returned.
+/// Waits until `condition` gives `true`, checking it every 10 ms.
+///
+/// `condition` is a function of no arguments, async or not, that gives a `bool`
+/// (or a `Result` of one: an `Err` is returned).
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{serial, time};
+///
+/// /// Waits until DTR is turned off.
+/// pub async fn wait_for_dtr_off() {
+///     time::sleep_until(|| !serial::get_dtr().unwrap()).await?;
+///     println!("DTR is off");
+/// }
+/// ```
+#[rune::function(keep)]
 async fn sleep_until(condition: Function) -> Result<(), String> {
     let time = host()?.time;
     loop {
@@ -97,7 +148,22 @@ async fn sleep_until(condition: Function) -> Result<(), String> {
     }
 }
 
-/// A span of time.
+/// A span of time, as Rust's `std::time::Duration`.
+///
+/// They can be added (`+`, `+=`), compared, and printed with `{:?}` (e.g.
+/// `1.5s`).
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::time;
+///
+/// pub async fn spans() {
+///     let span = time::Duration::from_millis(1500);
+///     span += time::Duration::from_secs(1);
+///     println!("{:?} = {} ms", span, span.as_millis());
+/// }
+/// ```
 #[derive(Any, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[rune(item = ::serval::time)]
 pub struct Duration {
@@ -114,6 +180,7 @@ impl Duration {
         Self { inner }
     }
 
+    /// A span of `secs` seconds and `nanos` nanoseconds.
     #[rune::function(keep, path = Self::new)]
     fn new(secs: u64, nanos: u32) -> VmResult<Self> {
         if u64::from(nanos / 1_000_000_000) > u64::MAX - secs {
@@ -122,26 +189,31 @@ impl Duration {
         VmResult::Ok(Self::of(std::time::Duration::new(secs, nanos)))
     }
 
+    /// A span of `secs` seconds.
     #[rune::function(keep, path = Self::from_secs)]
     fn from_secs(secs: u64) -> Self {
         Self::of(std::time::Duration::from_secs(secs))
     }
 
+    /// A span of `millis` milliseconds.
     #[rune::function(keep, path = Self::from_millis)]
     pub fn from_millis(millis: u64) -> Self {
         Self::of(std::time::Duration::from_millis(millis))
     }
 
+    /// A span of `micros` microseconds.
     #[rune::function(keep, path = Self::from_micros)]
     fn from_micros(micros: u64) -> Self {
         Self::of(std::time::Duration::from_micros(micros))
     }
 
+    /// A span of `nanos` nanoseconds.
     #[rune::function(keep, path = Self::from_nanos)]
     fn from_nanos(nanos: u64) -> Self {
         Self::of(std::time::Duration::from_nanos(nanos))
     }
 
+    /// A span of `secs` seconds, a float (e.g. `0.25`).
     #[rune::function(keep, path = Self::from_secs_f64)]
     fn from_secs_f64(secs: f64) -> VmResult<Self> {
         match std::time::Duration::try_from_secs_f64(secs) {
@@ -150,46 +222,55 @@ impl Duration {
         }
     }
 
+    /// Whether it is no time at all.
     #[rune::function(keep, instance)]
     fn is_zero(&self) -> bool {
         self.inner.is_zero()
     }
 
+    /// Its whole seconds.
     #[rune::function(keep, instance)]
     fn as_secs(&self) -> i64 {
         saturated(u128::from(self.inner.as_secs()))
     }
 
+    /// Its milliseconds past its whole seconds.
     #[rune::function(keep, instance)]
     fn subsec_millis(&self) -> u32 {
         self.inner.subsec_millis()
     }
 
+    /// Its microseconds past its whole seconds.
     #[rune::function(keep, instance)]
     fn subsec_micros(&self) -> u32 {
         self.inner.subsec_micros()
     }
 
+    /// Its nanoseconds past its whole seconds.
     #[rune::function(keep, instance)]
     fn subsec_nanos(&self) -> u32 {
         self.inner.subsec_nanos()
     }
 
+    /// Its whole milliseconds.
     #[rune::function(keep, instance)]
     fn as_millis(&self) -> i64 {
         saturated(self.inner.as_millis())
     }
 
+    /// Its whole microseconds.
     #[rune::function(keep, instance)]
     fn as_micros(&self) -> i64 {
         saturated(self.inner.as_micros())
     }
 
+    /// Its nanoseconds.
     #[rune::function(keep, instance)]
     fn as_nanos(&self) -> i64 {
         saturated(self.inner.as_nanos())
     }
 
+    /// Its seconds, as a float (e.g. `1.5`).
     #[rune::function(keep, instance)]
     fn as_secs_f64(&self) -> f64 {
         self.inner.as_secs_f64()
@@ -245,7 +326,23 @@ impl Duration {
     }
 }
 
-/// A point in time: Serval's clock (the wall clock), in ms.
+/// A point in time, of Serval's clock (the wall clock), to the millisecond.
+///
+/// What `data::get_with_time` gives each value with. Instants can be compared,
+/// and a `Duration` added to one.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::time;
+///
+/// /// Prints how long a second of sleep takes.
+/// pub async fn measure() {
+///     let start = time::Instant::now();
+///     time::sleep(time::Duration::from_secs(1)).await?;
+///     println!("{} ms", start.elapsed().as_millis());
+/// }
+/// ```
 #[derive(Any, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[rune(item = ::serval::time)]
 pub struct Instant {
@@ -254,6 +351,7 @@ pub struct Instant {
 }
 
 impl Instant {
+    /// The current time.
     #[rune::function(keep, path = Self::now)]
     fn now() -> VmResult<Instant> {
         match host() {
@@ -264,12 +362,13 @@ impl Instant {
         }
     }
 
-    /// How long after `earlier` it is: none if it is before it.
+    /// How long after `earlier` it is: no time, if it is before `earlier`.
     #[rune::function(keep, instance)]
     fn duration_since(&self, earlier: &Instant) -> Duration {
         Duration::from_millis(self.ms.saturating_sub(earlier.ms).max(0) as u64)
     }
 
+    /// How long ago it is.
     #[rune::function(keep, instance)]
     fn elapsed(&self) -> VmResult<Duration> {
         let now = rune::vm_try!(Self::now());

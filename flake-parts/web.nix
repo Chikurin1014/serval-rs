@@ -1,7 +1,10 @@
-# The web app (the `web` package of the workspace, of `ui`): its build, served
-# (`nix run`), its checks and its shell.
+# The web app (the `web` package of the workspace, of `ui`), with the documents
+# at `/docs/`: its build, served (`nix run`), its checks and its shell.
 {
-  imports = [ ./common.nix ];
+  imports = [
+    ./common.nix
+    ./docs.nix
+  ];
 
   perSystem =
     {
@@ -57,6 +60,15 @@
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 
+      # The app with `docs` at `/docs/`, as `dx` serves them of `public/docs`
+      withDocs =
+        docs:
+        pkgs.runCommand "serval-web-${commonArgs.version}" { } ''
+          mkdir -p $out/share
+          cp -r --no-preserve=mode ${config.packages.web-app}/share/serval-web $out/share/serval-web
+          cp -r --no-preserve=mode ${docs} $out/share/serval-web/docs
+        '';
+
       webArgs = commonArgs // {
         pname = "serval-web-lint";
         cargoExtraArgs = "--locked --package web --target wasm32-unknown-unknown";
@@ -65,7 +77,8 @@
     in
     {
       packages = {
-        web = craneLib.buildPackage (
+        # The app alone
+        web-app = craneLib.buildPackage (
           args
           // {
             cargoArtifacts = dependencies;
@@ -76,6 +89,9 @@
             '';
           }
         );
+        # With the documents, their videos and screenshots recorded as it is
+        # built: as it is deployed (on a release), not as the checks build it
+        web = withDocs config.packages.docs;
       };
 
       # The app as it is built, served on localhost (a secure context, as Web
@@ -127,9 +143,9 @@
               playwrightEnv
               // {
                 nativeBuildInputs = [ python ];
-                # Chromium aborts without a fontconfig setup
-                FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
-                SERVAL_E2E_APP = "${config.packages.web}/share/serval-web";
+                FONTCONFIG_FILE = common.fontsConf;
+                # Of the documents with no videos: none recorded as the checks run
+                SERVAL_E2E_APP = "${withDocs config.packages.docs-without-media}/share/serval-web";
               }
             )
             ''
@@ -147,10 +163,13 @@
         web = pkgs.mkShell (
           playwrightEnv
           // {
-            inputsFrom = [ config.packages.web ];
+            inputsFrom = [ config.packages.web-app ];
             packages = [
               rustToolchain
               pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
+              pkgs.mdbook # `docs/`
+              pkgs.mdbook-mermaid # its diagrams
+              pkgs.ffmpeg # `docs/media/capture.py`
               pkgs.nodejs
               pkgs.prettier
               pkgs.pyright

@@ -60,6 +60,53 @@ and serve:
 dx serve
 ```
 
+#### Documents
+
+The documents are an [mdBook](https://rust-lang.github.io/mdBook/) in `docs/`, served at `/docs/` of the app.
+`mdbook build docs` builds them into `docs/book`, of no app (neither is kept in git).
+For `dx serve` and `dx build` to serve them with the web app, build them into its `packages/web/public/docs`:
+
+```bash
+mdbook build docs --dest-dir packages/web/public/docs
+```
+
+While writing, rebuild them there as they change:
+
+```bash
+mdbook watch docs --dest-dir packages/web/public/docs
+```
+
+or preview them alone, at <http://localhost:3000>:
+
+```bash
+mdbook serve docs
+```
+
+Their videos and screenshots are recorded of the app as it is built, not kept in git: `nix build .#docs` records them as it builds the documents, and `nix build .#web` (as a release deploys it) puts both at `/docs/` of the app.
+The checks build the documents without them, so CI records them only on a release.
+To see them as you write, record them of an app you built (here, as the e2e tests build it):
+
+```bash
+python docs/media/capture.py target/e2e/dx/web/debug/web/public
+```
+
+They go into `docs/src/media`, which `mdbook build` takes them from, and `packages/web/public/docs/media`, so the documents `dx serve` serves show them at once.
+
+Their diagrams are [Mermaid](https://mermaid.js.org/)'s, of `mermaid` code blocks, by `mdbook-mermaid` (in `nix develop`); its scripts, `docs/mermaid.min.js` and `docs/mermaid-init.js`, are kept in git.
+
+The plugins' API reference (at `api/` of the documents) is generated of the docstrings of their Rune modules (`packages/ui/src/plugin/serval/`) by `tools/serval-rune`, Rune's own CLI with them, not kept in git either.
+`nix build .#docs` builds it with the documents; to see it as you write, build it into `docs/src/api`:
+
+```bash
+nix build .#docs-api -o docs/src/api
+```
+
+or with Cargo, in the empty Rune workspace of `tools/serval-rune` (a Cargo workspace of its own):
+
+```bash
+cd tools/serval-rune && cargo run -- doc --output ../../docs/src/api
+```
+
 #### Building for Release
 
 `nix build .#web` (or `nix build`) builds the web app as it is deployed, into `result/`.

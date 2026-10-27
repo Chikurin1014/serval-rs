@@ -17,7 +17,7 @@ def test_each_turn_of_the_port_is_reported(app: App):
 
     app.mock("openError = 'The port is already open.'")
     app.page.locator(".toolbar-port button").first.click()
-    app.page.get_by_placeholder("Baudrate (e.g. 9600)").fill("9600")
+    app.page.get_by_placeholder("Baud rate (e.g. 9600)").fill("9600")
     app.page.get_by_role("button", name="Open port").click()
     app.wait_for_toast("Failed to open the port")
     assert app.toasts()[0] == (

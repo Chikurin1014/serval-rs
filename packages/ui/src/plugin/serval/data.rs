@@ -16,11 +16,32 @@ use crate::{
     plugin::ErrorText,
 };
 
-/// A log, as `serval::data::get` gives it and `push` takes it.
+/// A log: a message, and its level.
+///
+/// What `get` gives of a Log label, and what `push` takes.
+///
+/// * `level`: the level's name (`"ERROR"`, `"WARN"`, `"INFO"`, `"DEBUG"`, or
+///   `"TRACE"`), or `None` for none.
+/// * `message`: the text.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// /// Prints each warning of `log`.
+/// pub async fn warnings() {
+///     let logs = data::get("log")?;
+///     while let Some(log) = logs.next().await {
+///         if log.level == Some("WARN") {
+///             println!("{}", log.message);
+///         }
+///     }
+/// }
+/// ```
 #[derive(Any, Debug, Clone)]
 #[rune(item = ::serval::data)]
 pub struct LogEntry {
-    /// Its level's name, as `INFO`; none for none.
     #[rune(get, set)]
     pub level: Option<String>,
     #[rune(get, set)]
@@ -28,32 +49,115 @@ pub struct LogEntry {
 }
 
 impl LogEntry {
+    /// A log of `level` (a level's name, or `None`) and `message`.
+    ///
+    /// # Examples
+    ///
+    /// ```rune
+    /// use serval::data;
+    ///
+    /// pub async fn alert() {
+    ///     data::push("alerts", data::LogEntry::new(Some("WARN"), "battery low"))?;
+    /// }
+    /// ```
     #[rune::function(path = Self::new)]
     fn new(level: Option<String>, message: String) -> Self {
         Self { level, message }
     }
 }
 
+/// The data: values under labels, read as they arrive and pushed to.
+///
+/// Each type is read and pushed as:
+///
+/// * Number: a float (an integer is taken too).
+/// * Vector2d: a tuple of two floats, `(x, y)`.
+/// * Vector3d: a tuple of three floats, `(x, y, z)`.
+/// * Log: a `LogEntry` (a string is taken too, as a log of no level).
+/// * Bytes: `Bytes`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// /// Pushes the power, of the voltage and the current, to `power`.
+/// pub async fn power() {
+///     let volts = data::get("volt")?;
+///     let amps = data::get("amp")?;
+///     loop {
+///         let volt = volts.next().await.unwrap();
+///         let amp = amps.next().await.unwrap();
+///         data::push("power", volt * amp)?;
+///     }
+/// }
+/// ```
+#[rune::module(::serval::data)]
 pub fn module() -> Result<Module, ContextError> {
-    let mut module = Module::with_crate_item("serval", ["data"])?;
+    let mut module = Module::from_meta(self::module_meta)?;
     module.ty::<LogEntry>()?;
     module.function_meta(LogEntry::new)?;
     module.ty::<Reader>()?;
     module.function("next", next).build_associated::<Reader>()?;
-    module.function("get", get).build()?;
-    module.function("get_with_time", get_with_time).build()?;
-    module.function("push", push).build()?;
+    module.function_meta(get__meta)?;
+    module.function_meta(get_with_time__meta)?;
+    module.function_meta(push__meta)?;
     Ok(module)
 }
 
-/// The entries of `label` as a Rune `Stream`: the kept ones, then each new
-/// one, waited for. It does not end: the label gone (as all the data is
-/// cleared), it waits for it again, read anew from its start.
+/// The values of `label`, as a stream.
+///
+/// It gives those the label keeps, then each new one as it arrives.
+///
+/// * `next().await` waits for the next value. It never gives `None`: the
+///   stream does not end.
+/// * The label need not be there yet: the stream waits for it.
+/// * If the label is cleared, the stream reads it again from its start.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// /// Pushes the mean of all the temperatures so far to `temp mean`.
+/// pub async fn mean() {
+///     let temps = data::get("temp")?;
+///     let sum = 0.0;
+///     let count = 0.0;
+///     while let Some(temp) = temps.next().await {
+///         sum += temp;
+///         count += 1.0;
+///         data::push("temp mean", sum / count)?;
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn get(label: &str) -> Result<Value, String> {
     stream(label, false)
 }
 
-/// As `get`, each value with its time (an `Instant`).
+/// As `get`, each value with the time it arrived.
+///
+/// Each item is `(time, value)`, its time a `time::Instant`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// /// Prints how long after the one before each voltage arrives.
+/// pub async fn intervals() {
+///     let volts = data::get_with_time("volt")?;
+///     let last = None;
+///     while let Some((time, volt)) = volts.next().await {
+///         if let Some(previous) = last {
+///             println!("{} ms", time.duration_since(previous).as_millis());
+///         }
+///         last = Some(time);
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn get_with_time(label: &str) -> Result<Value, String> {
     stream(label, true)
 }
@@ -118,8 +222,8 @@ const NEW_ENTRIES_CHECK_MS: u32 = 10;
 /// so a task that takes many entries at once does not stand the page still.
 const LET_GO_EVERY_MS: i64 = 16;
 
-/// What a stream of `serval::data::get` reads its label by, as Serval's own
-/// readers do.
+/// The reader behind the streams of `get` and `get_with_time`.
+// It reads its label as Serval's own readers do.
 #[derive(Any, Debug)]
 #[rune(item = ::serval::data)]
 pub struct Reader {
@@ -191,8 +295,33 @@ async fn next(mut reader: Mut<Reader>, with_time: bool) -> VmResult<Option<Value
     )
 }
 
-/// Pushes `value` to `label`: a number, a 2- or 3-tuple of numbers (vector),
-/// a string or [`LogEntry`] (log), or bytes. Another type replaces the label.
+/// Pushes `value` to `label`, at the current time.
+///
+/// The label's type is that of `value`:
+///
+/// * A float or an integer: Number.
+/// * `(x, y)`: Vector2d.
+/// * `(x, y, z)`: Vector3d.
+/// * A string, or a `LogEntry`: Log.
+/// * `Bytes`: Bytes.
+///
+/// A value of another type than the label's replaces the label.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// pub async fn values() {
+///     data::push("speed", 1.5)?;
+///     data::push("position", (1.0, 2.0))?;
+///     data::push("attitude", (0.0, 0.5, 1.0))?;
+///     data::push("note", "started")?;
+///     data::push("alerts", data::LogEntry::new(Some("WARN"), "battery low"))?;
+///     data::push("frame", b"\x02ok\x03")?;
+/// }
+/// ```
+#[rune::function(keep)]
 fn push(label: &str, value: Value) -> Result<(), String> {
     let host = host()?;
     let (mut data, now) = (host.data, host.time.current());
