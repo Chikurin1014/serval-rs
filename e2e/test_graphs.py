@@ -500,12 +500,26 @@ def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
     expect(plot).to_have_attribute("data-value-scale", "log")
 
 
+def settled(app: App, read, apart_ms: int = 300, tries: int = 20) -> int:
+    """What `read` gives once it gives the same twice `apart_ms` apart."""
+    last = read()
+    for _ in range(tries):
+        app.page.wait_for_timeout(apart_ms)
+        now = read()
+        if now == last:
+            return now
+        last = now
+    raise AssertionError(f"Still changing after {tries} reads: {last}")
+
+
 def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     open_graphs_with_numbers(app)
     graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
+    # All of them: of 10 s, they would stop growing at 200, as a slow run nears it
+    graph.get_by_role("button", name="All").click()
     plot = graph.locator(".graph-plot")
     points = lambda: int(plot.get_attribute("data-points") or 0)  # noqa: E731
     app.page.wait_for_function(
@@ -528,9 +542,8 @@ def test_graphs_pause_and_play_as_the_port_is_read(app: App):
     # lucide's Play, a triangle
     expect(play.locator("svg rect")).to_have_count(0)
     expect(play.locator("svg path, svg polygon")).to_have_count(1)
-    # Up to the time paused at, sent anew
-    app.page.wait_for_timeout(200)
-    held = points()
+    # Up to the time paused at, sent anew: drawn as late as the page is busy
+    held = settled(app, points)
     # A reading each 50 ms meanwhile, the graphs as they were
     app.page.wait_for_timeout(600)
     assert points() == held

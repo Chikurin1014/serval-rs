@@ -45,13 +45,13 @@ function alignedData(series, labels) {
   return [xs, ...ys];
 }
 
-/** The data up to the last `windowSeconds`; all of it with none. */
-function timeRange(min, max, windowSeconds) {
+/** The data of the last `rangeSeconds` (of its time range); all of it with none. */
+function timeRange(min, max, rangeSeconds) {
   // None: all of it
-  if (min == null || max == null || windowSeconds == null) {
+  if (min == null || max == null || rangeSeconds == null) {
     return [min, max];
   }
-  const from = max - windowSeconds;
+  const from = max - rangeSeconds;
   return [Math.max(min, from), max];
 }
 
