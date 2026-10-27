@@ -924,7 +924,7 @@ def test_vectors_are_matched(app: App):
     app.mock("mute()")
     app.mock(
         "receive('pos:1.5,-2\\nacc=1,2,3\\ngyro=-1,0,0.5\\n"
-        "mag: (1, 2, 3)\\nmag2:(4,5,6)\\n(1.5, -2)\\nled:1\\n')"
+        "mag: (1, 2, 3)\\nmag2:(4,5,6)\\n(1.5,-2)\\nled:1\\n')"
     )
     app.wait_for_labels("position", "acc", "gyro", "mag", "mag2", "pt")
     rows = app.data_rows()

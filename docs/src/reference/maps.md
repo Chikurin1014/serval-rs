@@ -99,9 +99,9 @@ Match's presets:
 
 | Preset | Pattern |
 |---|---|
-| (x, y) | `^\(({number}), ({number})\)$` |
+| (x, y) | `^\(({number}),\s*({number})\)$` |
 | name: (x, y) | `({word}):\s*\(({number}),\s*({number})\)` |
-| (x, y, z) | `^\(({number}), ({number}), ({number})\)$` |
+| (x, y, z) | `^\(({number}),\s*({number}),\s*({number})\)$` |
 | name: (x, y, z) | `({word}):\s*\(({number}),\s*({number}),\s*({number})\)` |
 
 ## Weakest level

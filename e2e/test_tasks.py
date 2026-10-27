@@ -248,10 +248,11 @@ def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
     rows = app.page.evaluate(STDOUT_ROWS)
     assert [text for text, _ in rows] == ["first", "last 2", "working"]
     sources = [source for _, source in rows]
+    # Its file without the extension
     assert [source.split(" (")[0] for source in sources] == [
-        "runnable.rn::talks",
-        "runnable.rn::talks",
-        "runnable.rn::reports",
+        "runnable::talks",
+        "runnable::talks",
+        "runnable::reports",
     ]
     assert all(re.fullmatch(r".+ \(\d\d:\d\d:\d\d\.\d{3}\)", s) for s in sources)
 
@@ -262,7 +263,7 @@ def test_what_tasks_print_is_shown_beside_them(app: App, tmp_path: Path):
     wait_for_stdout_rows(app, 1)
     [[text, source]] = app.page.evaluate(STDOUT_ROWS)
     assert text == "working"
-    assert source.startswith("runnable.rn::reports (")
+    assert source.startswith("runnable::reports (")
 
     # Right of the tasks; under them on a small screen
     tasks = app.page.locator(".task-list").bounding_box()

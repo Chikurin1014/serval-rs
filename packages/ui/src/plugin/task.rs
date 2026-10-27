@@ -74,7 +74,7 @@ const STDOUT_LINES: usize = 10_000;
 /// A line a task printed.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintedLine {
-    /// The task's, as `<file>::<function>`.
+    /// The task's, as `<file>::<function>`: its file without its extension.
     pub source: String,
     /// When it was printed, in ms since the Unix epoch.
     pub time: i64,
@@ -290,7 +290,7 @@ fn TaskRun(id: usize) -> Element {
             }
             latest.set(None);
             let time = time.clone();
-            let source = format!("{}::{}", task.plugin, task.name);
+            let source = format!("{}::{}", without_extension(&task.plugin), task.name);
             let run = spawn(async move {
                 let printed = |line: &str| {
                     context.print(PrintedLine {
@@ -323,13 +323,28 @@ fn TaskRun(id: usize) -> Element {
     rsx! {}
 }
 
+/// `file`'s name without its (last) extension: `demo` of `demo.rn`.
+fn without_extension(file: &str) -> &str {
+    std::path::Path::new(file)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(file)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{PrintedLine, STDOUT_LINES, Stdout};
+    use super::{PrintedLine, STDOUT_LINES, Stdout, without_extension};
+
+    #[test]
+    fn files_are_named_without_their_extension() {
+        assert_eq!(without_extension("demo.rn"), "demo");
+        assert_eq!(without_extension("demo.v2.rn"), "demo.v2");
+        assert_eq!(without_extension("demo"), "demo");
+    }
 
     fn line(text: &str) -> PrintedLine {
         PrintedLine {
-            source: "test.rn::talks".into(),
+            source: "test::talks".into(),
             time: 0,
             text: text.into(),
         }
