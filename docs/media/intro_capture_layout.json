@@ -76,12 +76,6 @@
       "settings": {
         "title": "Readings",
         "value_scale": "linear",
-        "x_scale": "linear",
-        "x_label": "",
-        "y_label": "",
-        "regression": false,
-        "trails": false,
-        "weakest_level": "NONE",
         "draw_style": "linear",
         "time_range": 10,
         "hidden": []
@@ -92,13 +86,6 @@
       "settings": {
         "title": "Spread",
         "value_scale": "linear",
-        "x_scale": "linear",
-        "x_label": "",
-        "y_label": "",
-        "regression": false,
-        "trails": false,
-        "weakest_level": "NONE",
-        "draw_style": "linear",
         "time_range": 10,
         "hidden": []
       }
@@ -107,15 +94,7 @@
       "kind": "Arrows (3D)",
       "settings": {
         "title": "Motion",
-        "value_scale": "linear",
-        "x_scale": "linear",
-        "x_label": "",
-        "y_label": "",
-        "regression": false,
         "trails": true,
-        "weakest_level": "NONE",
-        "draw_style": "linear",
-        "time_range": 10,
         "hidden": []
       }
     },
@@ -123,15 +102,7 @@
       "kind": "Log",
       "settings": {
         "title": "Events",
-        "value_scale": "linear",
-        "x_scale": "linear",
-        "x_label": "",
-        "y_label": "",
-        "regression": false,
-        "trails": false,
         "weakest_level": "INFO",
-        "draw_style": "linear",
-        "time_range": 10,
         "hidden": ["log"]
       }
     }

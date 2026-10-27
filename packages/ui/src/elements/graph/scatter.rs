@@ -4,8 +4,12 @@
 use std::collections::VecDeque;
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
-use super::{GraphKind, GraphPreset, GraphProperty, TimeRange, context::until_paused};
+use super::{
+    AxisScale, GraphKind, GraphPreset, GraphProperty, GraphSettings, TimeRange,
+    context::until_paused,
+};
 use crate::data::{MAX_ENTRIES_PER_LABEL, NumberData, Queue, SourceCursor};
 
 mod view;
@@ -16,15 +20,33 @@ pub const SCATTER: GraphKind = GraphKind {
     name: "Scatter",
     menu: "Statistics",
     view: |id| rsx! { ScatterGraph { id } },
+    settings: || GraphSettings::Scatter(ScatterSettings::default()),
     // Itself, its regression line on from the start
     presets: &[GraphPreset {
         name: "Scatter",
-        property: || GraphProperty {
-            regression: true,
-            ..GraphProperty::default()
+        property: || {
+            GraphProperty::new(GraphSettings::Scatter(ScatterSettings {
+                regression: true,
+                ..ScatterSettings::default()
+            }))
         },
     }],
 };
+
+/// A scatter plot's own settings, each missing in a layout file as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScatterSettings {
+    /// The Number labels it pairs, as X and Y.
+    pub x_label: String,
+    pub y_label: String,
+    pub x_scale: AxisScale,
+    /// Its Y axis's (as the value axis of the others).
+    pub value_scale: AxisScale,
+    /// Whether it shows the line fit to its points.
+    pub regression: bool,
+    pub time_range: TimeRange,
+}
 
 /// The points of two Number labels a plot does not have yet: each the newest X
 /// with the newest Y, once both have a new one (as a map of two inputs takes

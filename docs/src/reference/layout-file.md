@@ -70,26 +70,58 @@ Levels are written as `"ERROR"`, `"WARN"`, `"INFO"`, `"DEBUG"`, `"TRACE"`, or
 | `kind` | `"Time series"`, `"Box plot"`, `"Scatter"`, `"Arrows (2D)"`, `"Arrows (3D)"`, or `"Log"` |
 | `settings` | Its settings, below. Optional |
 
-All graphs share the same settings; each uses those of its kind.
+Each graph has the settings of every kind, and those of its own kind. An
+export writes those alone; an import ignores those of other kinds.
 
-| Setting | Values | Default | Used by |
-|---|---|---|---|
-| `title` | Text, or `null` | `null` (numbered) | All |
-| `hidden` | Labels hidden in the legend | `[]` | All |
-| `value_scale` | `"linear"`, `"log"` | `"linear"` | Time series, Box plot, Scatter (Y) |
-| `x_scale` | `"linear"`, `"log"` | `"linear"` | Scatter |
-| `x_label`, `y_label` | Number labels | `""` | Scatter |
-| `regression` | `true`, `false` | `false` | Scatter |
-| `draw_style` | `"points"`, `"linear"`, `"stepped"` | `"linear"` | Time series |
-| `time_range` | Seconds, 10–300 (rounded to 10), or `"all"` (all the values kept) | `10` | Time series, Box plot, Scatter |
-| `trails` | `true`, `false` | `false` | Arrows |
-| `weakest_level` | A level | `"NONE"` | Log |
+### Every kind
+
+| Setting | Values | Default |
+|---|---|---|
+| `title` | Text, or `null` | `null` (numbered) |
+| `hidden` | Labels hidden in the legend (Scatter has none) | `[]` |
+
+### Time series
+
+| Setting | Values | Default |
+|---|---|---|
+| `value_scale` | `"linear"`, `"log"` | `"linear"` |
+| `draw_style` | `"points"`, `"linear"`, `"stepped"` | `"linear"` |
+| `time_range` | Seconds, 10–300 (rounded to 10), or `"all"` (all the values kept) | `10` |
+
+### Box plot
+
+| Setting | Values | Default |
+|---|---|---|
+| `value_scale` | `"linear"`, `"log"` | `"linear"` |
+| `time_range` | As a Time series's | `10` |
+
+### Scatter
+
+| Setting | Values | Default |
+|---|---|---|
+| `x_label`, `y_label` | Number labels | `""` |
+| `x_scale` | `"linear"`, `"log"` | `"linear"` |
+| `value_scale` | The Y axis's: `"linear"`, `"log"` | `"linear"` |
+| `regression` | `true`, `false` | `false` |
+| `time_range` | As a Time series's | `10` |
+
+### Arrows (2D), Arrows (3D)
+
+| Setting | Values | Default |
+|---|---|---|
+| `trails` | `true`, `false` | `false` |
+
+### Log
+
+| Setting | Values | Default |
+|---|---|---|
+| `weakest_level` | A level | `"NONE"` |
 
 ## Defaults
 
 * A map's missing `settings`, or a setting missing from them, takes the value
   of a new map of that kind.
-* A graph's takes the default in the table above: not the setting a graph
+* A graph's takes the default in its table above: not the setting a graph
   added from the menu starts with (e.g. `trails` is on for Arrows added from
   the menu, but `false` when left out here).
 * A missing `version` is taken as the running Serval's.
@@ -112,13 +144,14 @@ the error is shown in a toast.
 
 | Error | Cause |
 |---|---|
-| `Not a layout file: …` | Not JSON, a field missing, or a value of the wrong kind (e.g. an unknown level) |
+| `Not a layout file: …` | Not JSON, or a field missing or of the wrong type |
 | `No map <kind> from <types> to <type>` | No map of that `kind`, `from`, and `to` |
 | `No graph <kind>` | No graph of that `kind` |
 | `Of a newer Serval, <version>: …` | Exported by a later Serval than the one running |
 | `No version '<version>'` | A `version` not of the form `major.minor.patch` |
 | `No layout file of version <version>: …` | A `version` before 0.4.0, which had no layout files |
 | `<kind>: '<setting>' …` | A setting a map cannot take |
+| `<kind>: …` | A setting a graph cannot take (e.g. an unknown level) |
 
 ## Initial layout
 
