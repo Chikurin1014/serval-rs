@@ -82,7 +82,8 @@ All graphs share the same settings; each uses those of its kind.
 | `regression` | `true`, `false` | `false` | Scatter |
 | `draw_style` | `"Points"`, `"Linear"`, `"Stepped"` | `"Linear"` | Time series |
 | `time_window` | Seconds, 10–300 (rounded to 10) | `10` | Time series (its time range) |
-| `all_time` | `true` (all the values, the time range aside), `false` | `false` | Time series |
+| `time_range` | Seconds, 10–300 (rounded to 10) | `10` | Box plot, Scatter |
+| `all_time` | `true` (all the values, the time range aside), `false` | `false` | Time series, Box plot, Scatter |
 | `trails` | `true`, `false` | `false` | Arrows |
 | `weakest_level` | A level | `"NONE"` | Log |
 

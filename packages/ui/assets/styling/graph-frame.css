@@ -38,9 +38,12 @@
   outline-offset: -1px;
 }
 
-/* Capped so the open settings leave room for the plot */
+/* Capped so the open settings leave room for the plot. From the top: centered
+   (as cards are), settings taller than it would overflow above, out of reach of
+   its scroll, their title hidden under the plot */
 .graph [data-slot="card-footer"] {
   flex: none;
+  align-items: flex-start;
   max-height: 50%;
   overflow-y: auto;
   padding: 0 1rem;

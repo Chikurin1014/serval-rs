@@ -1,4 +1,5 @@
-//! The time range setting of a time series.
+//! The time range setting of the graphs over time: a time series's, a box
+//! plot's and a scatter plot's.
 
 use dioxus::prelude::*;
 

@@ -3,8 +3,8 @@
 | Graph | Menu | Of | Settings |
 |---|---|---|---|
 | [Time series](#time-series) | Time series › Points / Linear / Stepped | Number | Value axis, Draw, Time range |
-| [Box plot](#box-plot) | Statistics | Number | Value axis |
-| [Scatter](#scatter) | Statistics | Number × 2 | X label, Y label, X axis, Y axis, Regression |
+| [Box plot](#box-plot) | Statistics | Number | Value axis, Time range |
+| [Scatter](#scatter) | Statistics | Number × 2 | X label, Y label, X axis, Y axis, Regression, Time range |
 | [Arrows (2D)](#arrows) | Vector | Vector2d | Trails |
 | [Arrows (3D)](#arrows) | Vector | Vector3d | Trails |
 | [Log](#log) | Text | Log | Weakest level |
@@ -40,9 +40,20 @@
 * Drag a rectangle to zoom in, which [pauses](#pausing) the graphs; double click
   to zoom out.
 
+## Statistics time range
+
+Box plot and Scatter are of the values of their **Time range**:
+
+| | |
+|---|---|
+| Values | Those that arrived in the 10–300 s (in steps of 10 s) back from the newest |
+| Default | 10 s |
+| Back from | The newest value the graph shows (as of the pause, while paused): of all its labels for Box plot, the newest point for Scatter |
+| All | All the values kept, the time range off. Off by default |
+
 ## Box plot
 
-A box per label, of all the values it keeps.
+A box per label, of its values in the [time range](#statistics-time-range).
 
 | | |
 |---|---|
@@ -60,8 +71,9 @@ A box per label, of all the values it keeps.
 | X axis / Y axis | Linear or Log |
 | Regression | Shows the least-squares line and its equation. On, from the menu |
 
-* A point pairs the newest X with the newest Y, once both have a new value.
-* Up to 10,000 points, dropping the oldest.
+* A point pairs the newest X with the newest Y, once both have a new value,
+  at the time of the later.
+* The points of the [time range](#statistics-time-range), up to 10,000.
 * Shows the covariance (over n − 1) and Pearson's correlation coefficient, to
   two decimal places.
 

@@ -17,7 +17,7 @@ pub use board::GraphBoard;
 pub use box_plot::{BOX_PLOT, BoxPlotGraph};
 pub use context::{
     AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty,
-    GraphProvider, TimeWindow,
+    GraphProvider, TimeRange, TimeWindow,
 };
 pub use frame::GraphFrame;
 pub use log_table::{LOG_TABLE, LogTable};

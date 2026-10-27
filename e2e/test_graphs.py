@@ -4,7 +4,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from app import App
+from app import App, name_value_map
 
 GRID_COLUMNS = (
     "getComputedStyle(document.querySelector('.graph-grid'))"
@@ -802,12 +802,124 @@ def test_zooming_into_a_graph_pauses_them(app: App):
     expect(bar.get_by_role("button", name="Play graphs")).to_be_visible()
 
 
+def test_box_plot_takes_the_values_of_its_time_range(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.stop_clock()
+    # An outlier (100) among the first values, none among those 15 s later
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\na:100\\n')")
+    app.run_clock_until(lambda: "a" in app.data_rows())
+    app.page.clock.run_for(15_000)
+    app.mock("receive('a:1\\na:2\\na:3\\na:4\\n')")
+    app.tab("Graph")
+    bar = app.page.locator(".add-graph-bar")
+    bar.get_by_role("button", name="Statistics").hover()
+    bar.get_by_role("option", name="Box plot", exact=True).click()
+    graph = app.graphs().last
+    plot = graph.locator(".graph-plot")
+
+    def outliers_of_a():
+        boxes = json.loads(plot.get_attribute("data-boxes") or "[]")
+        return next((outliers for label, outliers, *_ in boxes if label == "a"), None)
+
+    # 10 s back from the newest at first: those after the outlier alone
+    graph.locator(".graph-title").click()  # opens the settings
+    slider = graph.get_by_role("slider", name="Time range")
+    expect(slider).to_have_attribute("aria-valuenow", "10")
+    expect(graph.locator(".graph-time-window-value")).to_have_text("10 s")
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # 20 s: the outlier back
+    slider.focus()
+    app.page.keyboard.press("ArrowRight")
+    expect(slider).to_have_attribute("aria-valuenow", "20")
+    app.run_clock_until(lambda: outliers_of_a() == 1)
+    app.page.keyboard.press("ArrowLeft")
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # Back from the newest: no newer values, none leaves it as time goes on
+    app.page.clock.run_for(11_000)
+    app.run_clock_until(lambda: outliers_of_a() == 0)
+
+    # All the time: all the values kept, the slider off
+    graph.get_by_role("button", name="All").click()
+    expect(slider).to_be_disabled()
+    app.run_clock_until(lambda: outliers_of_a() == 1)
+
+
+def test_scatter_shows_the_points_of_its_time_range(app: App):
+    app.open_port()
+    app.mock("mute()")
+    app.tab("Data")
+    app.add_match_map()
+    app.stop_clock()
+    app.mock("receive('a:1\\nb:10\\na:2\\nb:20\\n')")
+    app.run_clock_until(lambda: "b" in app.data_rows())
+    app.page.clock.run_for(15_000)
+    app.mock("receive('a:3\\nb:30\\n')")
+    app.tab("Graph")
+    graph = app.add_scatter()
+    graph.locator(".graph-title").click()  # opens the settings
+    graph.get_by_label("X label").fill("a")
+    graph.get_by_label("Y label").fill("b")
+    plot = graph.locator(".graph-plot")
+
+    def points():
+        return int(plot.get_attribute("data-points") or 0)
+
+    # 10 s back from the newest at first: the last alone
+    slider = graph.get_by_role("slider", name="Time range")
+    expect(slider).to_have_attribute("aria-valuenow", "10")
+    app.run_clock_until(lambda: points() == 1)
+
+    # 20 s: those before come back
+    slider.focus()
+    app.page.keyboard.press("ArrowRight")
+    app.run_clock_until(lambda: points() == 3)
+    app.page.keyboard.press("ArrowLeft")
+    app.run_clock_until(lambda: points() == 1)
+
+    # All the time: every one
+    graph.get_by_role("button", name="All").click()
+    app.run_clock_until(lambda: points() == 3)
+
+
+def test_scatter_settings_open_and_close_in_any_row(app: App):
+    app.open_port()
+    app.tab("Data")
+    app.load_layout(
+        [name_value_map()],
+        [
+            {"kind": "Time series"},
+            {"kind": "Box plot"},
+            {"kind": "Scatter", "settings": {"x_label": "temp", "y_label": "volt"}},
+        ],
+    )
+    app.tab("Graph")
+    # In the second row
+    scatter = app.graphs().nth(2)
+    assert scatter.bounding_box()["y"] > app.graphs().first.bounding_box()["y"]
+    title = scatter.locator(".graph-title")
+    body = scatter.locator(".graph-settings-body")
+
+    title.click()
+    expect(body).to_be_visible()
+    # Its title at the top of the settings, taller than they show: not under the
+    # plot, so it closes them again
+    title.click()
+    expect(body).to_be_hidden()
+
+
 def test_scatter_redraws_ten_times_a_second_at_most(app: App):
     open_graphs_with_numbers(app)
     graph = app.add_scatter()
     graph.locator(".graph-title").click()  # opens the settings
     graph.get_by_label("X label").fill("temp")
     graph.get_by_label("Y label").fill("volt")
+    # So none leaves it as they are counted
+    graph.get_by_role("button", name="All").click()
     plot = graph.locator(".graph-plot")
     app.page.wait_for_function(
         "plot => Number(plot.dataset.points) > 2", arg=plot.element_handle()
