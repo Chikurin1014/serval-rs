@@ -21,6 +21,7 @@ pub const MULTIPLY: MapKind = arithmetic_kind("Multiply", || {
 });
 pub const DIVIDE: MapKind =
     arithmetic_kind("Divide", || Box::new(Arithmetic::new(Operation::Divide)));
+pub const POW: MapKind = arithmetic_kind("Pow", || Box::new(Arithmetic::new(Operation::Pow)));
 
 const fn arithmetic_kind(
     name: &'static str,

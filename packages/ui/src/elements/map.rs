@@ -21,7 +21,7 @@ use crate::data::MapKind;
 
 pub use arithmetic::{
     ADD, ADD_2D, ADD_3D, ArithmeticForm, CROSS_2D, CROSS_3D, DIVIDE, DOT_2D, DOT_3D, MULTIPLY,
-    MULTIPLY_2D, MULTIPLY_3D, SUBTRACT, SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
+    MULTIPLY_2D, MULTIPLY_3D, POW, SUBTRACT, SUBTRACT_2D, SUBTRACT_3D, VectorArithmeticForm,
 };
 pub use calculus::{
     CalculusForm, DIFFERENTIATE, DIFFERENTIATE_2D, DIFFERENTIATE_3D, INTEGRATE, INTEGRATE_2D,
@@ -66,6 +66,7 @@ pub fn builtin_map_kinds() -> Vec<MapKind> {
         SUBTRACT,
         MULTIPLY,
         DIVIDE,
+        POW,
         ADD_2D,
         ADD_3D,
         SUBTRACT_2D,

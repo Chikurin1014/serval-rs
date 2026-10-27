@@ -118,7 +118,10 @@ impl ScatterFeed {
                 self.newest.1 = Some(value);
             }
             if let (Some(x), Some(y)) = self.newest {
-                points.push((timestamp, x, y));
+                // `Inf`, `-Inf` and `NaN` left out, as of no place on the plot
+                if x.is_finite() && y.is_finite() {
+                    points.push((timestamp, x, y));
+                }
                 self.newest = (None, None);
             }
         }
@@ -307,6 +310,17 @@ mod tests {
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(2.0, 30.0), (4.0, 40.0)])
+        );
+    }
+
+    #[test]
+    fn leaves_out_the_pairs_not_finite() {
+        let mut feed = ScatterFeed::default();
+        let x = numbers(&[(1, 1.0), (2, f64::INFINITY), (3, 3.0)]);
+        let y = numbers(&[(1, 10.0), (2, 20.0), (3, f64::NAN)]);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
+            (false, vec![(1.0, 10.0)])
         );
     }
 
