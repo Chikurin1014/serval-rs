@@ -46,24 +46,84 @@ pub struct GraphProperty {
     /// The weakest level a log table shows: those weaker left out.
     pub weakest_level: LogLevel,
     pub draw_style: DrawStyle,
-    /// A time series's time range.
-    pub time_window: TimeWindow,
-    /// A box plot's and a scatter plot's: of the values that came in it.
+    /// A time series's, a box plot's and a scatter plot's.
     pub time_range: TimeRange,
-    /// Whether a time series, a box plot or a scatter plot is of all the
-    /// values kept, its time range aside.
-    pub all_time: bool,
     /// The labels turned off in the legend.
     pub hidden: Vec<String>,
 }
 
-/// How many seconds of the newest data the time axis shows at most: it fits
-/// the data, up to that long.
+/// The newest values a graph over time is of: a time series's time axis fits
+/// the data, up to that long; a box plot and a scatter plot take those back
+/// from the newest they show (up to when the graphs were paused).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "TimeRangeFile", into = "TimeRangeFile")]
+pub enum TimeRange {
+    Ranged(TimeRangeWidth),
+    /// All the values kept.
+    All,
+}
+
+impl TimeRange {
+    /// Its seconds; none for all the time.
+    pub fn seconds(self) -> Option<u32> {
+        match self {
+            Self::Ranged(width) => Some(width.get()),
+            Self::All => None,
+        }
+    }
+
+    /// The time the values in it start from, it ending at `until`.
+    pub fn since(self, until: i64) -> i64 {
+        self.seconds()
+            .map_or(i64::MIN, |seconds| until - i64::from(seconds) * 1000)
+    }
+}
+
+impl Default for TimeRange {
+    fn default() -> Self {
+        Self::Ranged(TimeRangeWidth::default())
+    }
+}
+
+/// A time range as a layout file has it: its width in seconds, or `"all"`.
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum TimeRangeFile {
+    Ranged(TimeRangeWidth),
+    All(AllTime),
+}
+
+#[derive(Serialize, Deserialize)]
+enum AllTime {
+    #[serde(rename = "all")]
+    All,
+}
+
+impl From<TimeRangeFile> for TimeRange {
+    fn from(range: TimeRangeFile) -> Self {
+        match range {
+            TimeRangeFile::Ranged(width) => Self::Ranged(width),
+            TimeRangeFile::All(AllTime::All) => Self::All,
+        }
+    }
+}
+
+impl From<TimeRange> for TimeRangeFile {
+    fn from(range: TimeRange) -> Self {
+        match range {
+            TimeRange::Ranged(width) => Self::Ranged(width),
+            TimeRange::All => Self::All(AllTime::All),
+        }
+    }
+}
+
+/// How many seconds a time range is wide: in its steps within its bounds; the
+/// shortest at first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "u32", into = "u32")]
-pub struct TimeWindow(u32);
+pub struct TimeRangeWidth(u32);
 
-impl TimeWindow {
+impl TimeRangeWidth {
     pub const MIN: u32 = 10;
     pub const MAX: u32 = 300;
     pub const STEP: u32 = 10;
@@ -73,68 +133,26 @@ impl TimeWindow {
         Self(steps * Self::STEP)
     }
 
-    pub fn seconds(self) -> u32 {
+    pub fn get(self) -> u32 {
         self.0
     }
 }
 
-impl From<u32> for TimeWindow {
+impl From<u32> for TimeRangeWidth {
     fn from(seconds: u32) -> Self {
         Self::new(seconds)
     }
 }
 
-impl From<TimeWindow> for u32 {
-    fn from(window: TimeWindow) -> Self {
-        window.seconds()
+impl From<TimeRangeWidth> for u32 {
+    fn from(width: TimeRangeWidth) -> Self {
+        width.get()
     }
 }
 
-impl Default for TimeWindow {
+impl Default for TimeRangeWidth {
     fn default() -> Self {
         Self(Self::MIN)
-    }
-}
-
-/// How many seconds of values a box plot or a scatter plot is of, back from
-/// the newest it shows (up to when the graphs were paused): in the steps of a
-/// [`TimeWindow`]; the shortest at first.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(from = "u32", into = "u32")]
-pub struct TimeRange(TimeWindow);
-
-impl TimeRange {
-    pub const MIN: Self = Self(TimeWindow(TimeWindow::MIN));
-
-    pub fn new(seconds: u32) -> Self {
-        Self(TimeWindow::new(seconds))
-    }
-
-    pub fn seconds(self) -> u32 {
-        self.0.seconds()
-    }
-
-    /// The time the values in it start from, it ending at `until`.
-    pub fn since(self, until: i64) -> i64 {
-        until - i64::from(self.seconds()) * 1000
-    }
-}
-
-impl From<u32> for TimeRange {
-    fn from(seconds: u32) -> Self {
-        Self::new(seconds)
-    }
-}
-
-impl From<TimeRange> for u32 {
-    fn from(range: TimeRange) -> Self {
-        range.seconds()
-    }
-}
-
-impl Default for TimeRange {
-    fn default() -> Self {
-        Self::MIN
     }
 }
 
@@ -344,39 +362,42 @@ pub fn GraphProvider(
 
 #[cfg(test)]
 mod tests {
-    use super::{GraphProperty, TimeRange, TimeWindow};
+    use super::{GraphProperty, TimeRange, TimeRangeWidth};
 
     #[test]
-    fn time_windows_are_steps_within_their_range() {
-        assert_eq!(TimeWindow::default().seconds(), 10);
-        assert_eq!(TimeWindow::new(64).seconds(), 60);
-        assert_eq!(TimeWindow::new(65).seconds(), 70);
-        assert_eq!(TimeWindow::new(0).seconds(), 10);
-        assert_eq!(TimeWindow::new(1000).seconds(), 300);
+    fn widths_are_steps_within_their_range_the_shortest_at_first() {
+        assert_eq!(TimeRangeWidth::default().get(), 10);
+        assert_eq!(TimeRangeWidth::new(64).get(), 60);
+        assert_eq!(TimeRangeWidth::new(65).get(), 70);
+        assert_eq!(TimeRangeWidth::new(0).get(), 10);
+        assert_eq!(TimeRangeWidth::new(1000).get(), 300);
     }
 
     #[test]
-    fn time_ranges_are_the_shortest_at_first_in_the_steps_of_windows() {
-        assert_eq!(TimeRange::default().seconds(), 10);
-        assert_eq!(TimeRange::new(64).seconds(), 60);
-        assert_eq!(TimeRange::new(0).seconds(), 10);
-        assert_eq!(TimeRange::new(10).since(60_000), 50_000);
+    fn a_time_range_starts_its_seconds_back_or_with_all_from_the_start() {
+        assert_eq!(TimeRange::default().seconds(), Some(10));
+        assert_eq!(TimeRange::default().since(60_000), 50_000);
+        assert_eq!(TimeRange::All.seconds(), None);
+        assert_eq!(TimeRange::All.since(60_000), i64::MIN);
     }
 
     #[test]
-    fn a_time_range_missing_from_a_layout_is_the_shortest() {
-        let property: GraphProperty = serde_json::from_str(r#"{"time_window": 30}"#).unwrap();
-        assert_eq!(property.time_range.seconds(), 10);
-        let property: GraphProperty = serde_json::from_str(r#"{"time_range": 64}"#).unwrap();
-        assert_eq!(property.time_range.seconds(), 60);
-        assert_eq!(serde_json::to_value(property).unwrap()["time_range"], 60);
-    }
-
-    #[test]
-    fn all_the_time_is_off_unless_a_layout_has_it() {
+    fn a_layout_has_a_time_range_as_its_seconds_or_all() {
         let property: GraphProperty = serde_json::from_str("{}").unwrap();
-        assert!(!property.all_time);
-        let property: GraphProperty = serde_json::from_str(r#"{"all_time": true}"#).unwrap();
-        assert!(property.all_time);
+        assert_eq!(property.time_range, TimeRange::default());
+        // Its name before, taken no more
+        let property: GraphProperty = serde_json::from_str(r#"{"time_window": 30}"#).unwrap();
+        assert_eq!(property.time_range, TimeRange::default());
+
+        let property: GraphProperty = serde_json::from_str(r#"{"time_range": 64}"#).unwrap();
+        assert_eq!(property.time_range.seconds(), Some(60));
+        assert_eq!(serde_json::to_value(&property).unwrap()["time_range"], 60);
+        let property: GraphProperty = serde_json::from_str(r#"{"time_range": "all"}"#).unwrap();
+        assert_eq!(property.time_range, TimeRange::All);
+        assert_eq!(
+            serde_json::to_value(&property).unwrap()["time_range"],
+            "all"
+        );
+        assert!(serde_json::from_str::<GraphProperty>(r#"{"time_range": "All"}"#).is_err());
     }
 }

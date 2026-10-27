@@ -10,7 +10,7 @@ use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{DataContext, DataEntry, DataType, NumberData};
 use crate::elements::Formula;
 use crate::elements::graph::{
-    AxisScale, GraphContext, GraphFrame, TimeRange,
+    AxisScale, GraphContext, GraphFrame,
     context::use_graph_setting,
     plot::{PlotAssets, plot_script, use_plot},
     time_range::TimeRangeSetting,
@@ -38,7 +38,6 @@ pub fn ScatterGraph(id: usize) -> Element {
     let y_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let regression = use_graph_setting(graph_context, id, |property| property.regression);
     let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
-    let all_time = use_graph_setting(graph_context, id, |property| property.all_time);
     let mut line = use_signal(|| None::<Line>);
     let container_id = format!("graph-plot-{id}");
     let labels_list_id = format!("graph-number-labels-{id}");
@@ -49,7 +48,7 @@ pub fn ScatterGraph(id: usize) -> Element {
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
-        let range = (!all_time()).then_some(time_range());
+        let range = time_range();
         let (x, y) = (x_label(), y_label());
         let labels = (x.as_str(), y.as_str());
         let mut feed = feed.borrow_mut();
@@ -177,14 +176,9 @@ pub fn ScatterGraph(id: usize) -> Element {
                     }
                 }
                 TimeRangeSetting {
-                    seconds: time_range().seconds(),
-                    on_change: move |seconds| {
-                        let range = TimeRange::new(seconds);
+                    range: time_range(),
+                    on_change: move |range| {
                         graph_context.update(id, |property| property.time_range = range);
-                    },
-                    all: all_time(),
-                    on_all_change: move |all| {
-                        graph_context.update(id, |property| property.all_time = all);
                     },
                 }
                 datalist {

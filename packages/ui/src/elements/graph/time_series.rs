@@ -4,7 +4,6 @@ use dioxus::prelude::*;
 
 use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    TimeWindow,
     context::{until_paused, use_graph_setting},
     plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
@@ -112,8 +111,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let mut graph_context = use_context::<GraphContext>();
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
-    let time_window = use_graph_setting(graph_context, id, |property| property.time_window);
-    let all_time = use_graph_setting(graph_context, id, |property| property.all_time);
+    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, TIME_SERIES_JS);
@@ -135,8 +133,8 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .map(|(index, label)| (label.clone(), series_color(index)))
             .collect::<HashMap<_, _>>();
         let log = value_scale() == AxisScale::Log;
-        // No window, of all the time
-        let window = (!all_time()).then(|| time_window().seconds());
+        // None, of all the time
+        let window = time_range().seconds();
         let _ = plot.send((
             labels,
             updates,
@@ -192,14 +190,9 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                     }
                 }
                 TimeRangeSetting {
-                    seconds: time_window().seconds(),
-                    on_change: move |seconds| {
-                        let window = TimeWindow::new(seconds);
-                        graph_context.update(id, |property| property.time_window = window);
-                    },
-                    all: all_time(),
-                    on_all_change: move |all| {
-                        graph_context.update(id, |property| property.all_time = all);
+                    range: time_range(),
+                    on_change: move |range| {
+                        graph_context.update(id, |property| property.time_range = range);
                     },
                 }
             },

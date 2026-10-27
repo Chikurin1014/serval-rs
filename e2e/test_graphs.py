@@ -159,7 +159,7 @@ def test_time_range_fits_the_data_up_to_its_seconds(app: App):
     expect(slider).to_have_attribute("aria-valuemin", "10")
     expect(slider).to_have_attribute("aria-valuemax", "300")
     expect(slider).to_have_attribute("aria-valuenow", "10")
-    value = graph.locator(".graph-time-window-value")
+    value = graph.locator(".graph-time-range-value")
     expect(value).to_have_text("10 s")
     app.run_clock_until(lambda: 9.99 <= span() <= 10.01)
 
@@ -828,7 +828,7 @@ def test_box_plot_takes_the_values_of_its_time_range(app: App):
     graph.locator(".graph-title").click()  # opens the settings
     slider = graph.get_by_role("slider", name="Time range")
     expect(slider).to_have_attribute("aria-valuenow", "10")
-    expect(graph.locator(".graph-time-window-value")).to_have_text("10 s")
+    expect(graph.locator(".graph-time-range-value")).to_have_text("10 s")
     app.run_clock_until(lambda: outliers_of_a() == 0)
 
     # 20 s: the outlier back

@@ -45,7 +45,7 @@ struct ScatterFeed {
     /// How many of the newest of them the plot has.
     shown: usize,
     /// The time range it has them of.
-    range: Option<TimeRange>,
+    range: TimeRange,
     /// When the graphs were paused, if they are: the entries after are left
     /// out, and all sent anew as it changes.
     paused_at: Option<i64>,
@@ -53,14 +53,14 @@ struct ScatterFeed {
 
 impl ScatterFeed {
     /// The new points, and whether they replace those sent before (else they
-    /// follow them); those of `range` (all, with none).
+    /// follow them); those of `range`.
     fn next(
         &mut self,
         labels: (&str, &str),
         x: Option<&Queue<NumberData>>,
         y: Option<&Queue<NumberData>>,
         paused_at: Option<i64>,
-        range: Option<TimeRange>,
+        range: TimeRange,
     ) -> (bool, Vec<(f64, f64)>) {
         let mut reset = false;
         if (self.labels.0.as_str(), self.labels.1.as_str()) != labels || self.paused_at != paused_at
@@ -125,9 +125,10 @@ impl ScatterFeed {
         self.kept.extend(&points);
         let excess = self.kept.len().saturating_sub(MAX_ENTRIES_PER_LABEL);
         self.kept.drain(..excess);
-        let since = range
-            .zip(self.kept.back())
-            .map_or(i64::MIN, |(range, &(newest, ..))| range.since(newest));
+        let since = self
+            .kept
+            .back()
+            .map_or(i64::MIN, |&(newest, ..)| range.since(newest));
         let shown = self
             .kept
             .iter()
@@ -280,8 +281,9 @@ fn in_turn(
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, ScatterFeed, TimeRange, statistics_texts};
+    use super::{Line, ScatterFeed, statistics_texts};
     use crate::data::{NumberData, Queue};
+    use crate::elements::graph::{TimeRange, TimeRangeWidth};
 
     fn numbers(points: &[(i64, f64)]) -> Queue<NumberData> {
         points
@@ -292,7 +294,9 @@ mod tests {
 
     const LABELS: (&str, &str) = ("temp", "volt");
     /// The shortest time range
-    const TEN_SECONDS: Option<TimeRange> = Some(TimeRange::MIN);
+    fn ten_seconds() -> TimeRange {
+        TimeRange::default()
+    }
 
     #[test]
     fn pairs_the_newest_of_each_once_both_have_one() {
@@ -301,7 +305,7 @@ mod tests {
         let x = numbers(&[(1, 1.0), (2, 2.0), (4, 4.0)]);
         let y = numbers(&[(3, 30.0), (4, 40.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(2.0, 30.0), (4.0, 40.0)])
         );
     }
@@ -313,7 +317,7 @@ mod tests {
         let x = numbers(&[(1, 1.0), (1, 2.0)]);
         let y = numbers(&[(1, 10.0), (1, 20.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(1.0, 10.0), (2.0, 20.0)])
         );
     }
@@ -323,17 +327,17 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let mut x = numbers(&[(1, 1.0)]);
         let mut y = numbers(&[(1, 10.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
 
         // One waits for the other, across reads
         x.push(NumberData::new(2, 2.0));
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![])
         );
         y.push(NumberData::new(3, 20.0));
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(2.0, 20.0)])
         );
     }
@@ -343,27 +347,33 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 10.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
 
         // Cleared: no points left, then those of the new queue
         assert_eq!(
-            feed.next(LABELS, None, Some(&y), None, None),
+            feed.next(LABELS, None, Some(&y), None, TimeRange::All),
             (true, vec![])
         );
         assert_eq!(
-            feed.next(LABELS, None, Some(&y), None, None),
+            feed.next(LABELS, None, Some(&y), None, TimeRange::All),
             (false, vec![])
         );
         let x = numbers(&[(5, 5.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(5.0, 10.0)])
         );
 
         // Another X: all of its points in place of those
         let other = numbers(&[(6, 6.0)]);
         assert_eq!(
-            feed.next(("other", "volt"), Some(&other), Some(&y), None, None),
+            feed.next(
+                ("other", "volt"),
+                Some(&other),
+                Some(&y),
+                None,
+                TimeRange::All
+            ),
             (true, vec![(6.0, 10.0)])
         );
     }
@@ -373,11 +383,11 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 10.0), (2, 20.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
 
         let x = numbers(&[(2, 2.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (true, vec![(2.0, 10.0)])
         );
     }
@@ -387,7 +397,7 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(
             feed.line(),
             Some(Line {
@@ -402,12 +412,12 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(feed.line(), None);
 
         let x = numbers(&[(1, 2.0), (2, 2.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y), None, None);
+        feed.next(("other", "volt"), Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(feed.line(), None);
     }
 
@@ -416,11 +426,11 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 1.0), (2, 2.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         // Cleared and made anew: those before left out
         let x = numbers(&[(3, 1.0), (4, 2.0)]);
         let y = numbers(&[(3, 5.0), (4, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(
             feed.line(),
             Some(Line {
@@ -444,7 +454,7 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (2, 2.0), (3, 3.0)]);
         let y = numbers(&[(1, 3.0), (2, 5.0), (3, 4.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         // Over n − 1: 1 / 2; and 1 / √(2 × 2)
         assert_eq!(feed.statistics(), Some((0.5, Some(0.5))));
         assert_eq!(statistics_texts((0.5, Some(0.5))), ["0.50", "0.50"]);
@@ -454,7 +464,7 @@ mod tests {
         // Falling: below 0
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 4.0), (2, 2.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y), None, None);
+        feed.next(("other", "volt"), Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(feed.statistics(), Some((-1.0, Some(-1.0))));
         assert_eq!(statistics_texts((-1.0, Some(-1.0))), ["−1.00", "−1.00"]);
     }
@@ -464,13 +474,13 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0)]);
         let y = numbers(&[(1, 3.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(feed.statistics(), None);
 
         // Y all of one value: covarying with nothing
         let x = numbers(&[(1, 1.0), (2, 2.0)]);
         let y = numbers(&[(1, 3.0), (2, 3.0)]);
-        feed.next(("other", "volt"), Some(&x), Some(&y), None, None);
+        feed.next(("other", "volt"), Some(&x), Some(&y), None, TimeRange::All);
         assert_eq!(feed.statistics(), Some((0.0, None)));
         assert_eq!(statistics_texts((0.0, None)), ["0.00", "—"]);
     }
@@ -480,16 +490,16 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(1, 1.0), (3, 3.0)]);
         let y = numbers(&[(1, 10.0), (3, 30.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, None);
+        feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
 
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), Some(2), None),
+            feed.next(LABELS, Some(&x), Some(&y), Some(2), TimeRange::All),
             (true, vec![(1.0, 10.0)])
         );
         // Its line and statistics of those alone
         assert_eq!(feed.statistics(), None);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (true, vec![(1.0, 10.0), (3.0, 30.0)])
         );
     }
@@ -501,12 +511,12 @@ mod tests {
         let y = numbers(&[(0, 0.0), (5_000, 50.0), (20_000, 200.0)]);
         // 10 s back from the newest (20 s): those at 10 s or after
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS),
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
             (false, vec![(20.0, 200.0)])
         );
         // None leaving it: nothing to send
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS),
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
             (false, vec![])
         );
     }
@@ -516,13 +526,13 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(0, 0.0), (5_000, 1.0), (8_000, 2.0)]);
         let y = numbers(&[(0, 0.0), (5_000, 10.0), (8_000, 20.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS);
+        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
 
         // A newer point puts the first out: all go anew
         let x = numbers(&[(0, 0.0), (5_000, 1.0), (8_000, 2.0), (12_000, 3.0)]);
         let y = numbers(&[(0, 0.0), (5_000, 10.0), (8_000, 20.0), (12_000, 30.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS),
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
             (true, vec![(1.0, 10.0), (2.0, 20.0), (3.0, 30.0)])
         );
         // Its line of those alone
@@ -540,20 +550,26 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(0, 0.0), (15_000, 1.0), (20_000, 2.0)]);
         let y = numbers(&[(0, 0.0), (15_000, 10.0), (20_000, 20.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS);
+        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
 
         // Longer: those before come back
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, Some(TimeRange::new(20))),
+            feed.next(
+                LABELS,
+                Some(&x),
+                Some(&y),
+                None,
+                TimeRange::Ranged(TimeRangeWidth::new(20))
+            ),
             (true, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
         );
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, TEN_SECONDS),
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
             (true, vec![(1.0, 10.0), (2.0, 20.0)])
         );
         // All the time: every one
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (true, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
         );
     }
@@ -564,7 +580,7 @@ mod tests {
         let x = numbers(&[(0, 0.0), (60_000, 1.0)]);
         let y = numbers(&[(0, 0.0), (60_000, 10.0)]);
         assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, None),
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (false, vec![(0.0, 0.0), (1.0, 10.0)])
         );
     }

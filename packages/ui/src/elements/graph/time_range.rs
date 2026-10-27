@@ -3,45 +3,50 @@
 
 use dioxus::prelude::*;
 
-use super::TimeWindow;
+use super::{TimeRange, TimeRangeWidth};
 use crate::components::{slider::Slider, toggle::Toggle};
 
-/// A slider of `seconds`, in the steps of a [`TimeWindow`], and a toggle of
-/// `all` the time, which turns the slider off; `on_change` is given each step
-/// picked, `on_all_change` the toggle's state.
+/// A slider of the width of `range`, and a toggle of all the time, which
+/// turns the slider off; `on_change` is given each range picked.
 #[component]
-pub(super) fn TimeRangeSetting(
-    seconds: u32,
-    all: bool,
-    on_change: EventHandler<u32>,
-    on_all_change: EventHandler<bool>,
-) -> Element {
+pub(super) fn TimeRangeSetting(range: TimeRange, on_change: EventHandler<TimeRange>) -> Element {
+    // Of all the time, those it had: so turned off, it has them again
+    let mut ranged = use_signal(|| match range {
+        TimeRange::Ranged(width) => width,
+        TimeRange::All => TimeRangeWidth::default(),
+    });
+    let all = range == TimeRange::All;
+    let width = match range {
+        TimeRange::Ranged(width) => width,
+        TimeRange::All => ranged(),
+    };
+
     rsx! {
         div {
             class: "graph-setting",
             span { class: "graph-setting-label", "Time range" }
             div {
-                class: "graph-time-window",
+                class: "graph-time-range",
                 Slider {
-                    value: Some(f64::from(seconds)),
-                    min: f64::from(TimeWindow::MIN),
-                    max: f64::from(TimeWindow::MAX),
-                    step: f64::from(TimeWindow::STEP),
+                    value: Some(f64::from(width.get())),
+                    min: f64::from(TimeRangeWidth::MIN),
+                    max: f64::from(TimeRangeWidth::MAX),
+                    step: f64::from(TimeRangeWidth::STEP),
                     disabled: all,
                     // The primitive marks its thumb as `data-disabled` alone
                     aria_disabled: all,
                     label: Some("Time range".to_string()),
                     on_value_change: move |picked: f64| {
-                        let picked = TimeWindow::new(picked.round() as u32).seconds();
-                        if picked != seconds {
-                            on_change.call(picked);
+                        let picked = TimeRangeWidth::new(picked.round() as u32);
+                        if picked != width {
+                            on_change.call(TimeRange::Ranged(picked));
                         }
                     },
                 }
                 span {
-                    class: "graph-time-window-value",
+                    class: "graph-time-range-value",
                     "data-off": all,
-                    "{seconds} s"
+                    "{width.get()} s"
                 }
                 div {
                     class: "graph-scale",
@@ -49,7 +54,14 @@ pub(super) fn TimeRangeSetting(
                     aria_label: "All the time",
                     Toggle {
                         pressed: Some(all),
-                        on_pressed_change: move |pressed: bool| on_all_change.call(pressed),
+                        on_pressed_change: move |pressed: bool| {
+                            if pressed {
+                                ranged.set(width);
+                                on_change.call(TimeRange::All);
+                            } else {
+                                on_change.call(TimeRange::Ranged(width));
+                            }
+                        },
                         "All"
                     }
                 }

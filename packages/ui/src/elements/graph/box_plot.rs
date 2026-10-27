@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::{
-    AxisScale, GraphContext, GraphFrame, GraphKind, TimeRange,
+    AxisScale, GraphContext, GraphFrame, GraphKind,
     context::{until_paused, use_graph_setting},
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
@@ -136,7 +136,6 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
-    let all_time = use_graph_setting(graph_context, id, |property| property.all_time);
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, BOX_PLOT_JS);
 
@@ -145,7 +144,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
-        let range = (!all_time()).then_some(time_range());
+        let range = time_range();
         // Colored by their place among the number labels, as the lines of a time series
         let colors = number_labels.read().clone();
         let boxes: Vec<PlotBox> = data_context.with_each(Some(DataType::Number), |data| {
@@ -169,9 +168,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                         .last()
                 })
                 .max();
-            let since = range
-                .zip(newest)
-                .map_or(i64::MIN, |(range, newest)| range.since(newest));
+            let since = newest.map_or(i64::MIN, |newest| range.since(newest));
             shown
                 .into_iter()
                 .filter_map(|(label, queue)| {
@@ -231,14 +228,9 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                     }
                 }
                 TimeRangeSetting {
-                    seconds: time_range().seconds(),
-                    on_change: move |seconds| {
-                        let range = TimeRange::new(seconds);
+                    range: time_range(),
+                    on_change: move |range| {
                         graph_context.update(id, |property| property.time_range = range);
-                    },
-                    all: all_time(),
-                    on_all_change: move |all| {
-                        graph_context.update(id, |property| property.all_time = all);
                     },
                 }
             },

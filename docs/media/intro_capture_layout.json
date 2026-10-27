@@ -83,7 +83,7 @@
         "trails": false,
         "weakest_level": "NONE",
         "draw_style": "Linear",
-        "time_window": 10,
+        "time_range": 10,
         "hidden": []
       }
     },
@@ -99,7 +99,7 @@
         "trails": false,
         "weakest_level": "NONE",
         "draw_style": "Linear",
-        "time_window": 10,
+        "time_range": 10,
         "hidden": []
       }
     },
@@ -115,7 +115,7 @@
         "trails": true,
         "weakest_level": "NONE",
         "draw_style": "Linear",
-        "time_window": 10,
+        "time_range": 10,
         "hidden": []
       }
     },
@@ -131,7 +131,7 @@
         "trails": false,
         "weakest_level": "INFO",
         "draw_style": "Linear",
-        "time_window": 10,
+        "time_range": 10,
         "hidden": ["log"]
       }
     }
