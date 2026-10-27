@@ -140,7 +140,7 @@ fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
                                 let items = items.clone();
                                 move |index: usize| {
                                     let item: &MenuItem = &items[index];
-                                    context.add(item.kind, (item.property)());
+                                    context.add(item.property());
                                     menus.close(menu);
                                 }
                             },
@@ -158,7 +158,15 @@ fn AddGraphBar(kinds: Vec<GraphKind>) -> Element {
 struct MenuItem {
     name: &'static str,
     kind: GraphKind,
-    property: fn() -> GraphProperty,
+    /// None for the kind as it is.
+    preset: Option<fn() -> GraphProperty>,
+}
+
+impl MenuItem {
+    fn property(&self) -> GraphProperty {
+        self.preset
+            .map_or_else(|| self.kind.property(), |preset| preset())
+    }
 }
 
 /// Each menu, in the order its first kind comes, with the items of its kinds:
@@ -170,7 +178,7 @@ fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
             vec![MenuItem {
                 name: kind.name,
                 kind,
-                property: GraphProperty::default,
+                preset: None,
             }]
         } else {
             kind.presets
@@ -178,7 +186,7 @@ fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
                 .map(|preset| MenuItem {
                     name: preset.name,
                     kind,
-                    property: preset.property,
+                    preset: Some(preset.property),
                 })
                 .collect()
         };

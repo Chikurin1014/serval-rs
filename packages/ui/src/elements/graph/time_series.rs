@@ -2,9 +2,12 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
 
+use serde::{Deserialize, Serialize};
+
 use super::{
     AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    context::{until_paused, use_graph_setting},
+    GraphSettings, TimeRange,
+    context::{until_paused, use_graph_setting, use_variant_setting},
     plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
 };
@@ -18,6 +21,7 @@ pub const TIME_SERIES: GraphKind = GraphKind {
     name: "Time series",
     menu: "Time series",
     view: |id| rsx! { TimeSeriesGraph { id } },
+    settings: || GraphSettings::TimeSeries(TimeSeriesSettings::default()),
     presets: &[
         GraphPreset {
             name: "Points",
@@ -35,10 +39,19 @@ pub const TIME_SERIES: GraphKind = GraphKind {
 };
 
 fn with_draw_style(draw_style: DrawStyle) -> GraphProperty {
-    GraphProperty {
+    GraphProperty::new(GraphSettings::TimeSeries(TimeSeriesSettings {
         draw_style,
-        ..GraphProperty::default()
-    }
+        ..TimeSeriesSettings::default()
+    }))
+}
+
+/// A time series's own settings, each missing in a layout file as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TimeSeriesSettings {
+    pub value_scale: AxisScale,
+    pub draw_style: DrawStyle,
+    pub time_range: TimeRange,
 }
 
 /// `(label, reset, [(timestamp_ms, value)])`
@@ -109,9 +122,15 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
-    let value_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
-    let draw_style = use_graph_setting(graph_context, id, |property| property.draw_style);
-    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
+    let value_scale = use_variant_setting(graph_context, id, |settings: &TimeSeriesSettings| {
+        settings.value_scale
+    });
+    let draw_style = use_variant_setting(graph_context, id, |settings: &TimeSeriesSettings| {
+        settings.draw_style
+    });
+    let time_range = use_variant_setting(graph_context, id, |settings: &TimeSeriesSettings| {
+        settings.time_range
+    });
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, TIME_SERIES_JS);
@@ -164,7 +183,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                             Toggle {
                                 pressed: Some(value_scale() == scale),
                                 on_pressed_change: move |_| {
-                                    graph_context.update(id, |property| property.value_scale = scale);
+                                    graph_context.update_variant(id, |settings: &mut TimeSeriesSettings| settings.value_scale = scale);
                                 },
                                 "{scale.name()}"
                             }
@@ -182,7 +201,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                             Toggle {
                                 pressed: Some(draw_style() == style),
                                 on_pressed_change: move |_| {
-                                    graph_context.update(id, |property| property.draw_style = style);
+                                    graph_context.update_variant(id, |settings: &mut TimeSeriesSettings| settings.draw_style = style);
                                 },
                                 "{style.label()}"
                             }
@@ -192,7 +211,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
                 TimeRangeSetting {
                     range: time_range(),
                     on_change: move |range| {
-                        graph_context.update(id, |property| property.time_range = range);
+                        graph_context.update_variant(id, |settings: &mut TimeSeriesSettings| settings.time_range = range);
                     },
                 }
             },

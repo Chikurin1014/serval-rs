@@ -1,8 +1,9 @@
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    context::{until_paused, use_graph_setting},
+    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty, GraphSettings,
+    context::{until_paused, use_graph_setting, use_variant_setting},
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
 };
 use crate::components::toggle::Toggle;
@@ -16,21 +17,17 @@ const ZDOG_JS: Asset = asset!(
 const ARROWS_JS: &str = plot_script!("arrows.js");
 const ARROWS_3D_JS: &str = plot_script!("arrows_3d.js");
 
-/// Itself, its trails on from the start.
-fn with_trails() -> GraphProperty {
-    GraphProperty {
-        trails: true,
-        ..GraphProperty::default()
-    }
-}
+/// The trails on from the start.
+const WITH_TRAILS: ArrowsSettings = ArrowsSettings { trails: true };
 
 pub const ARROWS: GraphKind = GraphKind {
     name: "Arrows (2D)",
     menu: "Vector",
     view: |id| rsx! { ArrowsGraph { id, dimension: Dimension::Two } },
+    settings: || GraphSettings::Arrows(ArrowsSettings::default()),
     presets: &[GraphPreset {
         name: "Arrows (2D)",
-        property: with_trails,
+        property: || GraphProperty::new(GraphSettings::Arrows(WITH_TRAILS)),
     }],
 };
 
@@ -38,11 +35,21 @@ pub const ARROWS_3D: GraphKind = GraphKind {
     name: "Arrows (3D)",
     menu: "Vector",
     view: |id| rsx! { ArrowsGraph { id, dimension: Dimension::Three } },
+    settings: || GraphSettings::Arrows3d(ArrowsSettings::default()),
     presets: &[GraphPreset {
         name: "Arrows (3D)",
-        property: with_trails,
+        property: || GraphProperty::new(GraphSettings::Arrows3d(WITH_TRAILS)),
     }],
 };
+
+/// The arrows' own settings (of 2D and 3D vectors alike), each missing in a
+/// layout file as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ArrowsSettings {
+    /// Whether the arrows trail the tips they had.
+    pub trails: bool,
+}
 
 /// Of which vectors arrows are drawn: on a plane with uPlot, or in space with
 /// Zdog.
@@ -130,7 +137,9 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
-    let trails = use_graph_setting(graph_context, id, |property| property.trails);
+    let trails = use_variant_setting(graph_context, id, |settings: &ArrowsSettings| {
+        settings.trails
+    });
     let container_id = format!("graph-plot-{id}");
     let plot = use_plot(id, dimension.script());
     let data_type = dimension.data_type();
@@ -187,7 +196,7 @@ pub fn ArrowsGraph(id: usize, dimension: Dimension) -> Element {
                         Toggle {
                             pressed: Some(trails()),
                             on_pressed_change: move |pressed: bool| {
-                                graph_context.update(id, |property| property.trails = pressed);
+                                graph_context.update_variant(id, |settings: &mut ArrowsSettings| settings.trails = pressed);
                             },
                             "Show"
                         }

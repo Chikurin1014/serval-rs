@@ -1,17 +1,34 @@
 //! The graphs, kept in a context so they survive the board being unmounted.
 
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::Value;
 
-use crate::data::LogLevel;
+use super::{
+    ARROWS, ARROWS_3D, BOX_PLOT, LOG_TABLE, SCATTER, TIME_SERIES, arrows::ArrowsSettings,
+    box_plot::BoxPlotSettings, log_table::LogTableSettings, scatter::ScatterSettings,
+    time_series::TimeSeriesSettings,
+};
 
+/// A kind of graph: what it is named and shown as. Which kind a graph is, its
+/// settings tell ([`GraphSettings::kind`]).
 #[derive(Clone, Copy, Debug)]
 pub struct GraphKind {
     pub name: &'static str,
     /// The add menu it is in: with its presets, or itself if it has none.
     pub menu: &'static str,
     pub view: fn(usize) -> Element,
+    /// Its settings by default: of a graph added as it is, and of those a
+    /// layout file leaves out.
+    pub settings: fn() -> GraphSettings,
     pub presets: &'static [GraphPreset],
+}
+
+impl GraphKind {
+    /// A graph of it as it is, its settings by default.
+    pub fn property(&self) -> GraphProperty {
+        GraphProperty::new((self.settings)())
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -26,30 +43,129 @@ impl PartialEq for GraphKind {
     }
 }
 
-/// As a layout file keeps it, each setting missing there as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+/// A graph's settings: those of every kind, and its kind's own. A layout file
+/// keeps them all in one object, those of its kind alone.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct GraphProperty {
     /// `None` for a numbered default.
     pub title: Option<String>,
-    /// The value axis's: a scatter plot's Y axis.
-    pub value_scale: AxisScale,
-    /// A scatter plot's X axis.
-    pub x_scale: AxisScale,
-    /// The Number labels a scatter plot pairs, as X and Y.
-    pub x_label: String,
-    pub y_label: String,
-    /// Whether a scatter plot shows the line fit to its points.
-    pub regression: bool,
-    /// Whether the arrows of 2D vectors trail the tips they had.
-    pub trails: bool,
-    /// The weakest level a log table shows: those weaker left out.
-    pub weakest_level: LogLevel,
-    pub draw_style: DrawStyle,
-    /// A time series's, a box plot's and a scatter plot's.
-    pub time_range: TimeRange,
-    /// The labels turned off in the legend.
+    /// The labels turned off in the legend (a scatter plot has none).
     pub hidden: Vec<String>,
+    #[serde(flatten)]
+    pub settings: GraphSettings,
+}
+
+/// The settings of every kind, as a layout file keeps them.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct CommonSettings {
+    title: Option<String>,
+    hidden: Vec<String>,
+}
+
+impl GraphProperty {
+    pub fn new(settings: GraphSettings) -> Self {
+        Self {
+            title: None,
+            hidden: Vec::new(),
+            settings,
+        }
+    }
+
+    pub fn kind(&self) -> GraphKind {
+        self.settings.kind()
+    }
+
+    /// A graph of `kind` of its settings `saved` in a layout file, each missing
+    /// as by default (and those of other kinds left out); else what is wrong.
+    pub fn load(kind: GraphKind, saved: &Value) -> Result<Self, String> {
+        let wrong = |error: serde_json::Error| format!("{}: {error}", kind.name);
+        let CommonSettings { title, hidden } = CommonSettings::deserialize(saved).map_err(wrong)?;
+        let settings = (kind.settings)().load(saved).map_err(wrong)?;
+        Ok(Self {
+            title,
+            hidden,
+            settings,
+        })
+    }
+}
+
+/// A graph's own settings, of its kind: which kind it is.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum GraphSettings {
+    TimeSeries(TimeSeriesSettings),
+    BoxPlot(BoxPlotSettings),
+    Scatter(ScatterSettings),
+    Arrows(ArrowsSettings),
+    Arrows3d(ArrowsSettings),
+    LogTable(LogTableSettings),
+}
+
+impl GraphSettings {
+    /// The one place a kind is tied to its settings.
+    pub fn kind(&self) -> GraphKind {
+        match self {
+            Self::TimeSeries(_) => TIME_SERIES,
+            Self::BoxPlot(_) => BOX_PLOT,
+            Self::Scatter(_) => SCATTER,
+            Self::Arrows(_) => ARROWS,
+            Self::Arrows3d(_) => ARROWS_3D,
+            Self::LogTable(_) => LOG_TABLE,
+        }
+    }
+
+    /// Of its kind, of `saved`: each missing as by default.
+    fn load(self, saved: &Value) -> Result<Self, serde_json::Error> {
+        fn of<T: DeserializeOwned>(saved: &Value) -> Result<T, serde_json::Error> {
+            T::deserialize(saved)
+        }
+        Ok(match self {
+            Self::TimeSeries(_) => Self::TimeSeries(of(saved)?),
+            Self::BoxPlot(_) => Self::BoxPlot(of(saved)?),
+            Self::Scatter(_) => Self::Scatter(of(saved)?),
+            Self::Arrows(_) => Self::Arrows(of(saved)?),
+            Self::Arrows3d(_) => Self::Arrows3d(of(saved)?),
+            Self::LogTable(_) => Self::LogTable(of(saved)?),
+        })
+    }
+}
+
+/// A kind's own settings (or some kinds'): one variant of [`GraphSettings`],
+/// taken out of it if it is of that variant.
+pub(super) trait VariantOfGraphSettings: 'static {
+    fn of(settings: &GraphSettings) -> Option<&Self>;
+    fn of_mut(settings: &mut GraphSettings) -> Option<&mut Self>;
+}
+
+macro_rules! variant_of_graph_settings {
+    ($($settings:ty: $($variant:ident)|+;)+) => {
+        $(
+            impl VariantOfGraphSettings for $settings {
+                fn of(settings: &GraphSettings) -> Option<&Self> {
+                    match settings {
+                        $(GraphSettings::$variant(own))|+ => Some(own),
+                        _ => None,
+                    }
+                }
+
+                fn of_mut(settings: &mut GraphSettings) -> Option<&mut Self> {
+                    match settings {
+                        $(GraphSettings::$variant(own))|+ => Some(own),
+                        _ => None,
+                    }
+                }
+            }
+        )+
+    };
+}
+
+variant_of_graph_settings! {
+    TimeSeriesSettings: TimeSeries;
+    BoxPlotSettings: BoxPlot;
+    ScatterSettings: Scatter;
+    ArrowsSettings: Arrows | Arrows3d;
+    LogTableSettings: LogTable;
 }
 
 /// The newest values a graph over time is of: a time series's time axis fits
@@ -209,16 +325,19 @@ impl AxisScale {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Graph {
     pub id: usize,
-    pub kind: GraphKind,
     pub property: GraphProperty,
 }
 
 impl Graph {
+    pub fn kind(&self) -> GraphKind {
+        self.property.kind()
+    }
+
     /// Keyed by id, so each graph keeps its state as others come and go.
     pub fn view(&self) -> Element {
         let id = self.id;
         rsx! {
-            Fragment { key: "{id}", {(self.kind.view)(id)} }
+            Fragment { key: "{id}", {(self.kind().view)(id)} }
         }
     }
 }
@@ -250,10 +369,10 @@ impl GraphContext {
         self.graphs.read().iter().position(|g| g.id == id)
     }
 
-    pub fn add(&mut self, kind: GraphKind, property: GraphProperty) -> usize {
+    pub fn add(&mut self, property: GraphProperty) -> usize {
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
-        self.graphs.write().push(Graph { id, kind, property });
+        self.graphs.write().push(Graph { id, property });
         id
     }
 
@@ -261,6 +380,19 @@ impl GraphContext {
         if let Some(graph) = self.graphs.write().iter_mut().find(|g| g.id == id) {
             f(&mut graph.property);
         }
+    }
+
+    /// As [`Self::update`], of its settings' variant `S` (if they are of it).
+    pub(super) fn update_variant<S: VariantOfGraphSettings>(
+        &mut self,
+        id: usize,
+        f: impl FnOnce(&mut S),
+    ) {
+        self.update(id, |property| {
+            if let Some(settings) = S::of_mut(&mut property.settings) {
+                f(settings);
+            }
+        });
     }
 
     /// Turns off `labels` in its legend, the others on.
@@ -278,13 +410,13 @@ impl GraphContext {
     }
 
     /// Puts `graphs` in place of all there are.
-    pub fn replace_all(&mut self, graphs: Vec<(GraphKind, GraphProperty)>) {
+    pub fn replace_all(&mut self, graphs: Vec<GraphProperty>) {
         let first = *self.next_id.peek();
         self.next_id.set(first + graphs.len());
         let graphs = graphs
             .into_iter()
             .zip(first..)
-            .map(|((kind, property), id)| Graph { id, kind, property })
+            .map(|(property, id)| Graph { id, property })
             .collect();
         self.graphs.set(graphs);
     }
@@ -328,7 +460,7 @@ pub(super) fn until_paused(paused_at: Option<i64>, timestamp: i64) -> bool {
 pub(super) fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
     graph_context: GraphContext,
     id: usize,
-    setting: fn(&GraphProperty) -> T,
+    setting: impl Fn(&GraphProperty) -> T + 'static,
 ) -> Memo<T> {
     use_memo(move || {
         graph_context
@@ -338,10 +470,24 @@ pub(super) fn use_graph_setting<T: Clone + Default + PartialEq + 'static>(
     })
 }
 
+/// As [`use_graph_setting`], of its settings' variant `S` (if they are of it).
+pub(super) fn use_variant_setting<
+    S: VariantOfGraphSettings,
+    T: Clone + Default + PartialEq + 'static,
+>(
+    graph_context: GraphContext,
+    id: usize,
+    setting: fn(&S) -> T,
+) -> Memo<T> {
+    use_graph_setting(graph_context, id, move |property| {
+        S::of(&property.settings).map(setting).unwrap_or_default()
+    })
+}
+
 #[component]
 pub fn GraphProvider(
     kinds: Vec<GraphKind>,
-    #[props(default)] initial: Vec<(GraphKind, GraphProperty)>,
+    #[props(default)] initial: Vec<GraphProperty>,
     children: Element,
 ) -> Element {
     use_context_provider(|| {
@@ -351,8 +497,8 @@ pub fn GraphProvider(
             next_id: Signal::new(0),
             paused_at: Signal::new(None),
         };
-        for (kind, property) in initial {
-            context.add(kind, property);
+        for property in initial {
+            context.add(property);
         }
         context
     });
@@ -364,7 +510,13 @@ pub fn GraphProvider(
 
 #[cfg(test)]
 mod tests {
-    use super::{AxisScale, DrawStyle, GraphProperty, TimeRange, TimeRangeWidth};
+    use serde_json::json;
+
+    use super::{
+        AxisScale, DrawStyle, GraphProperty, GraphSettings, LOG_TABLE, SCATTER, TimeRange,
+        TimeRangeWidth, TimeSeriesSettings,
+    };
+    use crate::elements::graph::builtin_graph_kinds;
 
     #[test]
     fn widths_are_steps_within_their_range_the_shortest_at_first() {
@@ -383,36 +535,87 @@ mod tests {
         assert_eq!(TimeRange::All.since(60_000), i64::MIN);
     }
 
+    fn series(text: &str) -> Result<TimeSeriesSettings, serde_json::Error> {
+        serde_json::from_str(text)
+    }
+
     #[test]
     fn a_layout_has_a_time_range_as_its_seconds_or_all() {
-        let property: GraphProperty = serde_json::from_str("{}").unwrap();
-        assert_eq!(property.time_range, TimeRange::default());
+        assert_eq!(series("{}").unwrap().time_range, TimeRange::default());
         // Its name before: of a layout of v0.4.1, upgraded as it is imported, not here
+        let settings = series(r#"{"time_window": 30}"#).unwrap();
+        assert_eq!(settings.time_range, TimeRange::default());
 
-        let property: GraphProperty = serde_json::from_str(r#"{"time_window": 30}"#).unwrap();
-        assert_eq!(property.time_range, TimeRange::default());
-
-        let property: GraphProperty = serde_json::from_str(r#"{"time_range": 64}"#).unwrap();
-        assert_eq!(property.time_range.seconds(), Some(60));
-        assert_eq!(serde_json::to_value(&property).unwrap()["time_range"], 60);
-        let property: GraphProperty = serde_json::from_str(r#"{"time_range": "all"}"#).unwrap();
-        assert_eq!(property.time_range, TimeRange::All);
+        let settings = series(r#"{"time_range": 64}"#).unwrap();
+        assert_eq!(settings.time_range.seconds(), Some(60));
+        assert_eq!(serde_json::to_value(&settings).unwrap()["time_range"], 60);
+        let settings = series(r#"{"time_range": "all"}"#).unwrap();
+        assert_eq!(settings.time_range, TimeRange::All);
         assert_eq!(
-            serde_json::to_value(&property).unwrap()["time_range"],
+            serde_json::to_value(&settings).unwrap()["time_range"],
             "all"
         );
-        assert!(serde_json::from_str::<GraphProperty>(r#"{"time_range": "All"}"#).is_err());
+        assert!(series(r#"{"time_range": "All"}"#).is_err());
     }
 
     #[test]
     fn a_layout_has_scales_and_draw_styles_in_lower_case() {
-        let property: GraphProperty =
-            serde_json::from_str(r#"{"value_scale": "log", "draw_style": "stepped"}"#).unwrap();
-        assert_eq!(property.value_scale, AxisScale::Log);
-        assert_eq!(property.draw_style, DrawStyle::Stepped);
-        let written = serde_json::to_value(&property).unwrap();
-        assert_eq!(written["x_scale"], "linear");
+        let settings = series(r#"{"value_scale": "log", "draw_style": "stepped"}"#).unwrap();
+        assert_eq!(settings.value_scale, AxisScale::Log);
+        assert_eq!(settings.draw_style, DrawStyle::Stepped);
+        let written = serde_json::to_value(&settings).unwrap();
         assert_eq!(written["draw_style"], "stepped");
-        assert!(serde_json::from_str::<GraphProperty>(r#"{"value_scale": "Log"}"#).is_err());
+        assert!(series(r#"{"value_scale": "Log"}"#).is_err());
+    }
+
+    #[test]
+    fn a_graph_has_its_own_settings_and_those_of_every_kind() {
+        let saved = json!({
+            "title": "Pairs",
+            "x_label": "temp",
+            "regression": true,
+            // Of other kinds: left out
+            "draw_style": "stepped",
+            "weakest_level": "LOUD",
+        });
+        let property = GraphProperty::load(SCATTER, &saved).unwrap();
+        assert_eq!(property.kind().name, "Scatter");
+        assert_eq!(property.title.as_deref(), Some("Pairs"));
+        let GraphSettings::Scatter(scatter) = &property.settings else {
+            panic!("a scatter plot's");
+        };
+        assert_eq!(scatter.x_label, "temp");
+        assert!(scatter.regression);
+
+        let written = serde_json::to_value(&property).unwrap();
+        let mut keys: Vec<_> = written.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "hidden",
+                "regression",
+                "time_range",
+                "title",
+                "value_scale",
+                "x_label",
+                "x_scale",
+                "y_label"
+            ]
+        );
+        assert_eq!(GraphProperty::load(SCATTER, &written).unwrap(), property);
+
+        let wrong = GraphProperty::load(LOG_TABLE, &saved).unwrap_err();
+        assert!(wrong.starts_with("Log: "), "{wrong}");
+    }
+
+    #[test]
+    fn each_kind_makes_settings_of_its_own() {
+        for kind in builtin_graph_kinds() {
+            assert_eq!(kind.property().kind().name, kind.name);
+            for preset in kind.presets {
+                assert_eq!((preset.property)().kind().name, kind.name);
+            }
+        }
     }
 }

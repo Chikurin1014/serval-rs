@@ -5,13 +5,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{Line, ScatterFeed, statistics_texts};
+use super::{Line, ScatterFeed, ScatterSettings, statistics_texts};
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{DataContext, DataEntry, DataType, NumberData};
 use crate::elements::Formula;
 use crate::elements::graph::{
     AxisScale, GraphContext, GraphFrame,
-    context::use_graph_setting,
+    context::use_variant_setting,
     plot::{PlotAssets, plot_script, use_plot},
     time_range::TimeRangeSetting,
 };
@@ -30,14 +30,26 @@ pub fn ScatterGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let mut graph_context = use_context::<GraphContext>();
     // As typed, for the fields
-    let x_text = use_graph_setting(graph_context, id, |property| property.x_label.clone());
-    let y_text = use_graph_setting(graph_context, id, |property| property.y_label.clone());
+    let x_text = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.x_label.clone()
+    });
+    let y_text = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.y_label.clone()
+    });
     let x_label = use_memo(move || x_text.read().trim().to_string());
     let y_label = use_memo(move || y_text.read().trim().to_string());
-    let x_scale = use_graph_setting(graph_context, id, |property| property.x_scale);
-    let y_scale = use_graph_setting(graph_context, id, |property| property.value_scale);
-    let regression = use_graph_setting(graph_context, id, |property| property.regression);
-    let time_range = use_graph_setting(graph_context, id, |property| property.time_range);
+    let x_scale = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.x_scale
+    });
+    let y_scale = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.value_scale
+    });
+    let regression = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.regression
+    });
+    let time_range = use_variant_setting(graph_context, id, |settings: &ScatterSettings| {
+        settings.time_range
+    });
     let mut line = use_signal(|| None::<Line>);
     let container_id = format!("graph-plot-{id}");
     let labels_list_id = format!("graph-number-labels-{id}");
@@ -112,11 +124,11 @@ pub fn ScatterGraph(id: usize) -> Element {
                             value: "{chosen}",
                             oninput: move |event: FormEvent| {
                                 let value = event.value();
-                                graph_context.update(id, |property| {
+                                graph_context.update_variant(id, |settings: &mut ScatterSettings| {
                                     if axis == "X" {
-                                        property.x_label = value;
+                                        settings.x_label = value;
                                     } else {
-                                        property.y_label = value;
+                                        settings.y_label = value;
                                     }
                                 });
                             },
@@ -135,11 +147,11 @@ pub fn ScatterGraph(id: usize) -> Element {
                                 Toggle {
                                     pressed: Some(scale() == choice),
                                     on_pressed_change: move |_| {
-                                        graph_context.update(id, |property| {
+                                        graph_context.update_variant(id, |settings: &mut ScatterSettings| {
                                             if axis == "X" {
-                                                property.x_scale = choice;
+                                                settings.x_scale = choice;
                                             } else {
-                                                property.value_scale = choice;
+                                                settings.value_scale = choice;
                                             }
                                         });
                                     },
@@ -161,7 +173,7 @@ pub fn ScatterGraph(id: usize) -> Element {
                             Toggle {
                                 pressed: Some(regression()),
                                 on_pressed_change: move |pressed: bool| {
-                                    graph_context.update(id, |property| property.regression = pressed);
+                                    graph_context.update_variant(id, |settings: &mut ScatterSettings| settings.regression = pressed);
                                 },
                                 "Line"
                             }
@@ -178,7 +190,7 @@ pub fn ScatterGraph(id: usize) -> Element {
                 TimeRangeSetting {
                     range: time_range(),
                     on_change: move |range| {
-                        graph_context.update(id, |property| property.time_range = range);
+                        graph_context.update_variant(id, |settings: &mut ScatterSettings| settings.time_range = range);
                     },
                 }
                 datalist {

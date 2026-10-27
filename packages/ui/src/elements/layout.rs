@@ -58,11 +58,14 @@ fn no_settings() -> Value {
     Value::Object(Default::default())
 }
 
+/// A graph, its kind by its name.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct SavedGraph {
     kind: String,
-    #[serde(default)]
-    settings: GraphProperty,
+    /// Those of every kind and its kind's own, each missing as by default
+    /// (those of other kinds left out).
+    #[serde(default = "no_settings")]
+    settings: Value,
 }
 
 /// The layout as a layout file has it.
@@ -84,8 +87,8 @@ pub fn export_layout(maps: MapContext, graphs: GraphContext) -> String {
             .list()
             .into_iter()
             .map(|graph| SavedGraph {
-                kind: graph.kind.name.to_string(),
-                settings: graph.property,
+                kind: graph.kind().name.to_string(),
+                settings: serde_json::to_value(&graph.property).expect("settings are JSON"),
             })
             .collect(),
     };
@@ -97,7 +100,7 @@ pub fn export_layout(maps: MapContext, graphs: GraphContext) -> String {
 pub struct Layout {
     /// Their settings are checked only as they are made.
     pub maps: Vec<InitialMap>,
-    pub graphs: Vec<(GraphKind, GraphProperty)>,
+    pub graphs: Vec<GraphProperty>,
 }
 
 /// The layout of the file `text` (of this version, or upgraded to it), of
@@ -142,7 +145,7 @@ pub fn parse_layout(
                 .iter()
                 .find(|kind| kind.name == graph.kind)
                 .ok_or_else(|| format!("No graph {}", graph.kind))?;
-            Ok((*kind, graph.settings))
+            GraphProperty::load(*kind, &graph.settings)
         })
         .collect::<Result<Vec<_>, String>>()?;
     Ok(Layout { maps, graphs })
@@ -261,7 +264,8 @@ mod tests {
         data::{DataProvider, MapContext, MapProvider},
         elements::{
             graph::{
-                AxisScale, DrawStyle, GraphContext, GraphProvider, TimeRange, builtin_graph_kinds,
+                AxisScale, DrawStyle, GraphContext, GraphProvider, GraphSettings, TimeRange,
+                builtin_graph_kinds,
             },
             map::builtin_map_kinds,
         },
@@ -322,7 +326,7 @@ mod tests {
                 graphs
                     .list()
                     .iter()
-                    .map(|graph| graph.kind.name)
+                    .map(|graph| graph.kind().name)
                     .collect::<Vec<_>>(),
                 ["Time series"]
             );
@@ -348,7 +352,10 @@ mod tests {
             let graph = &layout["graphs"][0];
             assert_eq!(graph["kind"], "Time series");
             assert_eq!(graph["settings"]["time_range"], 10);
-            assert_eq!(graph["settings"]["weakest_level"], "NONE");
+            assert_eq!(graph["settings"]["hidden"], json!([]));
+            // Of its kind's alone
+            assert!(graph["settings"].get("weakest_level").is_none());
+            assert!(graph["settings"].get("x_label").is_none());
         });
     }
 
@@ -370,12 +377,17 @@ mod tests {
             let [log, scatter] = &graphs.list()[..] else {
                 panic!("two graphs");
             };
-            assert_eq!(log.kind.name, "Log");
-            assert_eq!(log.property.weakest_level, crate::data::LogLevel::Warn);
+            let GraphSettings::LogTable(log_settings) = &log.property.settings else {
+                panic!("a log table's");
+            };
+            assert_eq!(log_settings.weakest_level, crate::data::LogLevel::Warn);
             assert_eq!(log.property.hidden, ["log"]);
-            assert_eq!(scatter.property.x_label, "x");
+            let GraphSettings::Scatter(scatter) = &scatter.property.settings else {
+                panic!("a scatter plot's");
+            };
+            assert_eq!(scatter.x_label, "x");
             // Clamped to its steps
-            assert_eq!(scatter.property.time_range.seconds(), Some(60));
+            assert_eq!(scatter.time_range.seconds(), Some(60));
         });
     }
 
@@ -405,7 +417,7 @@ mod tests {
             layout.as_object_mut().unwrap().remove("version");
             layout["graphs"] = json!([{ "kind": "Scatter" }]);
             import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
-            assert_eq!(graphs.list()[0].kind.name, "Scatter");
+            assert_eq!(graphs.list()[0].kind().name, "Scatter");
         });
     }
 
@@ -438,17 +450,27 @@ mod tests {
             ]);
             import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
 
-            let [series, box_plot, scatter, log] = &graphs.list()[..] else {
-                panic!("four graphs");
+            let settings: Vec<_> = graphs
+                .list()
+                .into_iter()
+                .map(|graph| graph.property.settings)
+                .collect();
+            let [
+                GraphSettings::TimeSeries(series),
+                GraphSettings::BoxPlot(box_plot),
+                GraphSettings::Scatter(scatter),
+                GraphSettings::LogTable(_),
+            ] = &settings[..]
+            else {
+                panic!("four graphs of their kinds: {settings:?}");
             };
-            assert_eq!(series.property.draw_style, DrawStyle::Stepped);
-            assert_eq!(series.property.time_range.seconds(), Some(30));
+            assert_eq!(series.draw_style, DrawStyle::Stepped);
+            assert_eq!(series.time_range.seconds(), Some(30));
             // Of all the values, as they were
-            assert_eq!(box_plot.property.value_scale, AxisScale::Log);
-            assert_eq!(box_plot.property.time_range, TimeRange::All);
-            assert_eq!(scatter.property.x_scale, AxisScale::Log);
-            assert_eq!(scatter.property.time_range, TimeRange::All);
-            assert_eq!(log.property.time_range, TimeRange::default());
+            assert_eq!(box_plot.value_scale, AxisScale::Log);
+            assert_eq!(box_plot.time_range, TimeRange::All);
+            assert_eq!(scatter.x_scale, AxisScale::Log);
+            assert_eq!(scatter.time_range, TimeRange::All);
         });
     }
 
@@ -475,9 +497,9 @@ mod tests {
             wrong_setting["maps"][0]["settings"]["pattern"] = json!(1);
             assert!(wrong(wrong_setting).starts_with("Decode: 'pattern'"));
 
-            let mut wrong_level = layout;
-            wrong_level["graphs"][0]["settings"]["weakest_level"] = json!("LOUD");
-            assert!(wrong(wrong_level).starts_with("Not a layout file"));
+            let mut wrong_scale = layout;
+            wrong_scale["graphs"][0]["settings"]["value_scale"] = json!("loud");
+            assert!(wrong(wrong_scale).starts_with("Time series: unknown variant `loud`"));
 
             let mut newer = parsed(&before);
             newer["version"] = json!("99.0.0");
