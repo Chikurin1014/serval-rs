@@ -25,3 +25,8 @@ additional-js = ["mermaid.min.js", "mermaid-init.js"]
 # Turns the `mermaid` code blocks into Mermaid's diagrams
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
+
+# `rust` code blocks are Rune's, for plugins: not to be run on the Rust
+# Playground
+[output.html.playground]
+runnable = false

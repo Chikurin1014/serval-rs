@@ -148,6 +148,58 @@ mod tests {
         assert!(failed.contains("Serval is not there to run on"), "{failed}");
     }
 
+    /// The `rune` code blocks of `docs`, by its lines.
+    fn rune_blocks<'a>(docs: impl Iterator<Item = &'a str>) -> Vec<String> {
+        let mut blocks = Vec::new();
+        let mut block: Option<String> = None;
+        for line in docs {
+            match (&mut block, line) {
+                (None, "```rune") => block = Some(String::new()),
+                (Some(_), "```") => blocks.extend(block.take()),
+                (Some(code), line) => {
+                    code.push_str(line);
+                    code.push('\n');
+                }
+                (None, _) => {}
+            }
+        }
+        blocks
+    }
+
+    /// The examples of the modules' docs, each a plugin: of their doc comments,
+    /// and of `wait_for`'s, which has none.
+    fn doc_examples() -> Vec<(&'static str, String)> {
+        let files = [
+            ("data.rs", include_str!("serval/data.rs")),
+            ("math.rs", include_str!("serval/math.rs")),
+            ("random.rs", include_str!("serval/random.rs")),
+            ("serial.rs", include_str!("serval/serial.rs")),
+            ("time.rs", include_str!("serval/time.rs")),
+        ];
+        let mut examples = Vec::new();
+        for (file, source) in files {
+            let docs = source.lines().filter_map(|line| {
+                let doc = line.trim_start().strip_prefix("///")?;
+                Some(doc.strip_prefix(' ').unwrap_or(doc))
+            });
+            examples.extend(rune_blocks(docs).into_iter().map(|block| (file, block)));
+        }
+        let wait_for = rune_blocks(super::serial::WAIT_FOR_DOCS.lines());
+        examples.extend(wait_for.into_iter().map(|block| ("serial.rs", block)));
+        examples
+    }
+
+    #[test]
+    fn doc_examples_compile() {
+        let examples = doc_examples();
+        assert!(!examples.is_empty(), "{} examples", examples.len());
+        for (file, example) in examples {
+            if let Err(error) = compile_plugin("example.rn", &example) {
+                panic!("an example of {file} does not compile:\n{example}\n{error}");
+            }
+        }
+    }
+
     #[test]
     fn wait_for_takes_a_limit_or_its_default() {
         let waits = |arguments: &str| {

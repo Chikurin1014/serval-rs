@@ -26,4 +26,5 @@ pub async fn ping() {
   loop of no `await`) is stopped, as it would stand the page still.
 
 What a task can use: [About Rune](rune.md) for the language and its standard
-library, and the [API Reference](api.md) for Serval's modules (`serval::*`).
+library, [Examples](examples.md) of whole plugins, and the [API Reference](api.md)
+for Serval's modules (`serval::*`).

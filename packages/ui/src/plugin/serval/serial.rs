@@ -8,35 +8,73 @@ use rune::{
 use super::{host, or_stop, stream_of, to_value};
 use crate::{plugin::ErrorText, serial::Restart};
 
+/// The serial port: what is sent to it, what it receives, and its signals.
+///
+/// Most functions fail with an `Err` when no port is open: take it with `?` to
+/// stop the task.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Asks the device for its version once the port is open.
+/// pub async fn version() {
+///     serial::set_baudrate(115200)?;
+///     serial::open().await?;
+///     serial::send("version\r\n")?;
+///     let reply = serial::wait_for("\n").await?;
+///     println!("{}", String::from_utf8(reply)?);
+/// }
+/// ```
+#[rune::module(::serval::serial)]
 pub fn module() -> Result<Module, ContextError> {
-    let mut module = Module::with_crate_item("serval", ["serial"])?;
-    module.function("send", send).build()?;
-    module
-        .function("get_send_buffer", get_send_buffer)
-        .build()?;
-    module.function("flush", flush).build()?;
+    let mut module = Module::from_meta(self::module_meta)?;
+    module.function_meta(send__meta)?;
+    module.function_meta(get_send_buffer__meta)?;
+    module.function_meta(flush__meta)?;
     module.ty::<ReceivedReader>()?;
     module
         .function("next", next_received)
         .build_associated::<ReceivedReader>()?;
-    module.function("received", received).build()?;
-    module.raw_function("wait_for", wait_for).build()?;
-    module.function("open", open).build()?;
-    module.function("close", close).build()?;
-    module.function("get_baudrate", get_baudrate).build()?;
-    module.function("set_baudrate", set_baudrate).build()?;
-    module.function("get_dtr", get_dtr).build()?;
-    module.function("get_rts", get_rts).build()?;
-    module.function("set_dtr", set_dtr).build()?;
-    module.function("set_rts", set_rts).build()?;
-    module.function("toggle_dtr", toggle_dtr).build()?;
-    module.function("toggle_rts", toggle_rts).build()?;
-    module.function("restart", restart).build()?;
+    module.function_meta(received__meta)?;
+    module
+        .raw_function("wait_for", wait_for)
+        .build()?
+        .docs(WAIT_FOR_DOCS.lines())?;
+    module.function_meta(open__meta)?;
+    module.function_meta(close__meta)?;
+    module.function_meta(get_baudrate__meta)?;
+    module.function_meta(set_baudrate__meta)?;
+    module.function_meta(get_dtr__meta)?;
+    module.function_meta(get_rts__meta)?;
+    module.function_meta(set_dtr__meta)?;
+    module.function_meta(set_rts__meta)?;
+    module.function_meta(toggle_dtr__meta)?;
+    module.function_meta(toggle_rts__meta)?;
+    module.function_meta(restart__meta)?;
     Ok(module)
 }
 
-/// Pushes `data` to the send buffer, sent as the port takes it: a string as
-/// UTF-8, bytes, or a vector of byte values.
+/// Sends `data` to the open port.
+///
+/// `data` is a string (sent as UTF-8), `Bytes`, or a vector of byte values.
+///
+/// It goes to the send buffer, and returns at once: use `flush` to wait until
+/// the port takes it. Fails while a file is being sent.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn hello() {
+///     serial::send("hello\r\n")?;
+///     serial::send(b"\x02ok\x03")?;
+///     serial::send([0x02, 0x41, 0x03])?;
+/// }
+/// ```
+#[rune::function(keep)]
 fn send(data: Value) -> Result<(), String> {
     let serial = host()?.serial;
     if !serial.is_open() {
@@ -66,8 +104,21 @@ fn to_bytes(data: Value) -> Result<Vec<u8>, String> {
     }
 }
 
-/// What `send` was given that is yet to be written to the port, oldest first
-/// (not of a file being sent).
+/// What `send` was given that the port has yet to take.
+///
+/// As `Bytes`, oldest first.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn backlog() {
+///     let unsent = serial::get_send_buffer()?;
+///     println!("{} bytes to go", unsent.len());
+/// }
+/// ```
+#[rune::function(keep)]
 fn get_send_buffer() -> Result<Bytes, String> {
     let unsent = host()?.serial.unsent();
     Bytes::from_slice(unsent.as_slice()).err_text()
@@ -76,8 +127,23 @@ fn get_send_buffer() -> Result<Bytes, String> {
 /// How often `flush` looks whether all is written.
 const FLUSH_CHECK_MS: u32 = 10;
 
-/// Waits until all that was sent (and a file being sent) is written to the
-/// port, or failed to be.
+/// Waits until the port has taken all that was sent.
+///
+/// A file being sent included. It also returns if the port failed to take it.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Sends a command, then closes the port once it is sent.
+/// pub async fn send_and_close() {
+///     serial::send("sleep\r\n")?;
+///     serial::flush().await?;
+///     serial::close().await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn flush() -> Result<(), String> {
     let host = host()?;
     while host.serial.has_pending() {
@@ -89,8 +155,8 @@ async fn flush() -> Result<(), String> {
 /// How often what is received is looked for, as there is none new.
 const RECEIVED_CHECK_MS: u32 = 10;
 
-/// What the port receives from when it was made, as `serial::received` reads
-/// it: from the console's history, apart from the data.
+/// The reader behind the stream of `received`.
+// It reads the console's history, apart from the data.
 #[derive(Any, Debug)]
 #[rune(item = ::serval::serial)]
 pub struct ReceivedReader {
@@ -119,8 +185,27 @@ impl ReceivedReader {
     }
 }
 
-/// The bytes the port receives from now on as a Rune `Stream`, each item what
-/// came at once (as `Bytes`). It does not end.
+/// What the port receives from now on, as a stream of chunks.
+///
+/// Each item is a chunk, as `Bytes`.
+///
+/// `next().await` waits for the next chunk; the stream does not end. It reads
+/// the bytes as they arrive, apart from the maps.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Prints how many bytes each chunk has.
+/// pub async fn chunks() {
+///     let chunks = serial::received()?;
+///     while let Some(chunk) = chunks.next().await {
+///         println!("{} bytes", chunk.len());
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn received() -> Result<Value, String> {
     stream_of(ReceivedReader::new()?, false)
 }
@@ -140,6 +225,39 @@ async fn next_received(
 
 /// How much `wait_for` keeps of what comes before `pattern`, if it is not told.
 const WAIT_FOR_LIMIT: i64 = 1000;
+
+/// The docs of `wait_for`, a raw function, which takes no doc comments.
+pub(super) const WAIT_FOR_DOCS: &str = "\
+Waits until the port receives `pattern`, from now on.
+
+`wait_for(pattern)`, `wait_for(pattern, limit)`: `pattern` is a string,
+`Bytes`, or a vector of byte values.
+
+Gives what it received until then, `pattern` included, as `Bytes`: its last
+`limit` bytes at most (1000 if not given).
+
+# Examples
+
+```rune
+use serval::serial;
+
+/// Sends an AT command, and prints the reply.
+pub async fn at() {
+    serial::send(\"AT\\r\\n\")?;
+    let reply = serial::wait_for(\"OK\\r\\n\").await?;
+    println!(\"{}\", String::from_utf8(reply)?);
+}
+```
+
+```rune
+use serval::serial;
+
+/// Waits for a line, keeping 100 bytes at most.
+pub async fn line() {
+    serial::wait_for(b\"\\n\", 100).await
+}
+```
+";
 
 /// `wait_for(pattern, limit = 1000)`: Rune has no default arguments, so it
 /// takes what it is given, and waits as `wait_until_received` does.
@@ -192,23 +310,78 @@ async fn wait_until_received(pattern: Value, limit: Value) -> Result<Bytes, Stri
     }
 }
 
-/// Opens the port selected, at its baud rate: open as it returns.
+/// Opens the selected port at its baud rate.
+///
+/// The port is open when it returns. See `set_baudrate`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn connect() {
+///     serial::set_baudrate(9600)?;
+///     serial::open().await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn open() -> Result<(), String> {
     host()?.serial.open_port().await
 }
 
-/// Closes the open port: closed as it returns.
+/// Closes the open port. The port is closed when it returns.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn disconnect() {
+///     serial::close().await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn close() -> Result<(), String> {
     host()?.serial.close_port().await
 }
 
-/// The baud rate of the port selected, if it has one.
+/// The baud rate of the selected port: `None` if it has none yet.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn baud_rate() {
+///     match serial::get_baudrate()? {
+///         Some(baud_rate) => println!("{} bps", baud_rate),
+///         None => println!("No baud rate"),
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn get_baudrate() -> Result<Option<i64>, String> {
     let port = host()?.serial.selected_port();
     Ok(port.and_then(|port| port.baudrate).map(i64::from))
 }
 
-/// Sets the baud rate of the port selected, for it to be opened at.
+/// Sets the baud rate of the selected port.
+///
+/// A positive integer. It takes effect when the port is opened next.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Opens the port again at another baud rate.
+/// pub async fn reopen() {
+///     serial::close().await?;
+///     serial::set_baudrate(115200)?;
+///     serial::open().await?;
+/// }
+/// ```
+#[rune::function(keep)]
 fn set_baudrate(baudrate: i64) -> Result<(), String> {
     let baudrate = u32::try_from(baudrate)
         .ok()
@@ -218,33 +391,101 @@ fn set_baudrate(baudrate: i64) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether DTR is on, as Serval last set it (it is not read back from the port).
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn signals() {
+///     println!("DTR: {}, RTS: {}", serial::get_dtr()?, serial::get_rts()?);
+/// }
+/// ```
+#[rune::function(keep)]
 fn get_dtr() -> Result<bool, String> {
     Ok(host()?.serial.signals().dtr)
 }
 
+/// Whether RTS is on, as Serval last set it (it is not read back from the port).
+/// See `get_dtr`.
+#[rune::function(keep)]
 fn get_rts() -> Result<bool, String> {
     Ok(host()?.serial.signals().rts)
 }
 
-/// Sets DTR on the open port: set as it returns.
+/// Turns DTR on or off on the open port. It is set when it returns.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{serial, time};
+///
+/// /// Pulses DTR off for 100 ms.
+/// pub async fn pulse() {
+///     serial::set_dtr(false).await?;
+///     time::sleep(time::Duration::from_millis(100)).await?;
+///     serial::set_dtr(true).await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn set_dtr(on: bool) -> Result<(), String> {
     host()?.serial.write_signals(Some(on), None).await
 }
 
+/// Turns RTS on or off on the open port.
+///
+/// It is set when it returns. See `set_dtr`.
+#[rune::function(keep)]
 async fn set_rts(on: bool) -> Result<(), String> {
     host()?.serial.write_signals(None, Some(on)).await
 }
 
+/// Turns DTR off if it is on, and on if it is off.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn flip() {
+///     serial::toggle_dtr().await?;
+///     serial::toggle_rts().await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn toggle_dtr() -> Result<(), String> {
     set_dtr(!get_dtr()?).await
 }
 
+/// Turns RTS off if it is on, and on if it is off. See `toggle_dtr`.
+#[rune::function(keep)]
 async fn toggle_rts() -> Result<(), String> {
     set_rts(!get_rts()?).await
 }
 
-/// Restarts the board on the open port, as `kind` is (`"arduino"` or
-/// `"espressif"`, for ESP32 and the like): restarted as it returns.
+/// Restarts the board on the open port, through DTR and RTS.
+///
+/// As `kind` is:
+///
+/// * `"arduino"`: an Arduino, as avrdude does.
+/// * `"espressif"` (or `"esp32"`, `"esp8266"`): an ESP32, ESP8266, or the
+///   like, as esptool does.
+///
+/// It is restarted when it returns.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Restarts the board, and waits for it to say it is ready.
+/// pub async fn reboot() {
+///     serial::restart("espressif").await?;
+///     serial::wait_for("ready").await?;
+/// }
+/// ```
+#[rune::function(keep)]
 async fn restart(kind: String) -> Result<(), String> {
     let restart = match kind.to_ascii_lowercase().as_str() {
         "arduino" => Restart::Arduino,

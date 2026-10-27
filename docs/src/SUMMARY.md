@@ -26,4 +26,5 @@
   - [Tasks](reference/tasks/index.md)
     - [About Rune](reference/tasks/rune.md)
     - [Runtime](reference/tasks/runtime.md)
+    - [Examples](reference/tasks/examples.md)
     - [API Reference](reference/tasks/api.md)

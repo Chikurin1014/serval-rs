@@ -10,7 +10,8 @@ macro_rules! methods {
         $(
             $module
                 .function(stringify!($name), |x: f64| x.$name())
-                .build_associated::<f64>()?;
+                .build_associated::<f64>()?
+                .docs([concat!(" As Rust's `f64::", stringify!($name), "`.")])?;
         )*
     };
 }
@@ -21,7 +22,8 @@ macro_rules! constants {
         $(
             $module
                 .function(stringify!($name), || std::f64::consts::$name)
-                .build_associated::<f64>()?;
+                .build_associated::<f64>()?
+                .docs([concat!(" The constant `", stringify!($name), "`, as Rust's `std::f64::consts::", stringify!($name), "`.")])?;
         )*
     };
 }
@@ -32,13 +34,42 @@ macro_rules! associated {
         $(
             $module
                 .function(stringify!($name), || -> f64 { $value })
-                .build_associated::<f64>()?;
+                .build_associated::<f64>()?
+                .docs([concat!(" As `num_traits`' `Float::", stringify!($name), "`.")])?;
         )*
     };
 }
 
+/// Methods of `f64` that Rune's own lacks, as Rust's.
+///
+/// Trigonometry, logarithms, and the like (`x.sin()`, `y.atan2(x)`), and
+/// constants (`f64::PI()`).
+///
+/// They are methods of `f64` itself: no `use` is needed.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::data;
+///
+/// /// Pushes the angle of `acc`, in degrees, to `angle`.
+/// pub async fn angle() {
+///     let accs = data::get("acc")?;
+///     while let Some((x, y, z)) = accs.next().await {
+///         data::push("angle", y.atan2(x).to_degrees())?;
+///     }
+/// }
+/// ```
+///
+/// ```rune
+/// pub async fn constants() {
+///     let circumference = 2.0 * f64::PI() * 10.0;
+///     println!("{}", circumference);
+/// }
+/// ```
+#[rune::module(::serval::math)]
 pub fn module() -> Result<Module, ContextError> {
-    let mut module = Module::with_crate_item("serval", ["math"])?;
+    let mut module = Module::from_meta(self::module_meta)?;
     methods!(
         module, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, exp, exp2,
         exp_m1, ln, ln_1p, log2, log10, to_degrees, to_radians,

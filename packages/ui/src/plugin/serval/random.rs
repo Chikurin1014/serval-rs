@@ -7,11 +7,32 @@ use std::cell::RefCell;
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rune::{Any, ContextError, Module, Value, runtime::VmResult};
 
+/// Pseudo random numbers, as Rust's `rand` crate gives them.
+///
+/// The functions share a generator seeded by the system (the browser, on the
+/// web). For the same numbers each run, make an `Rng` of a seed.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{data, rand, time};
+///
+/// /// Pushes a noisy sine wave to `noisy`, for trying maps and graphs.
+/// pub async fn noise() {
+///     let start = time::Instant::now();
+///     loop {
+///         let t = start.elapsed().as_secs_f64();
+///         data::push("noisy", t.sin() + rand::random_range(-0.1, 0.1))?;
+///         time::sleep(time::Duration::from_millis(50)).await?;
+///     }
+/// }
+/// ```
+#[rune::module(::serval::rand)]
 pub fn module() -> Result<Module, ContextError> {
-    let mut module = Module::with_crate_item("serval", ["rand"])?;
-    module.function("random", random).build()?;
-    module.function("random_range", random_range).build()?;
-    module.function("random_bool", random_bool).build()?;
+    let mut module = Module::from_meta(self::module_meta)?;
+    module.function_meta(random__meta)?;
+    module.function_meta(random_range__meta)?;
+    module.function_meta(random_bool__meta)?;
     module.ty::<Rng>()?;
     module.function_meta(Rng::new__meta)?;
     module.function_meta(Rng::seed_from_u64__meta)?;
@@ -44,17 +65,61 @@ fn with_rng<T>(f: impl FnOnce(&mut SmallRng) -> VmResult<T>) -> VmResult<T> {
     })
 }
 
-/// In `0.0..1.0`.
+/// A float from `0.0` up to (not including) `1.0`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::rand;
+///
+/// pub async fn roll() {
+///     if rand::random() < 0.5 {
+///         println!("heads");
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn random() -> VmResult<f64> {
     with_rng(|rng| VmResult::Ok(rng.random()))
 }
 
-/// In `low..high`: integers of integers, floats of floats.
+/// A number from `low` up to (not including) `high`.
+///
+/// An integer of two integers, a float of two floats.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::rand;
+///
+/// pub async fn dice() {
+///     let die = rand::random_range(1, 7);
+///     let jitter = rand::random_range(-0.5, 0.5);
+///     println!("{} {}", die, jitter);
+/// }
+/// ```
+#[rune::function(keep)]
 fn random_range(low: Value, high: Value) -> VmResult<Value> {
     with_rng(|rng| in_range(rng, low, high))
 }
 
-/// `true` with the probability `p` (in `0.0..=1.0`).
+/// `true` with the probability `p`, from `0.0` to `1.0`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::{rand, serial};
+///
+/// /// Sends a corrupted frame one time in ten, to test the device.
+/// pub async fn faulty() {
+///     if rand::random_bool(0.1) {
+///         serial::send([0x02, 0xFF, 0x03])?;
+///     } else {
+///         serial::send([0x02, 0x41, 0x03])?;
+///     }
+/// }
+/// ```
+#[rune::function(keep)]
 fn random_bool(p: f64) -> VmResult<bool> {
     with_rng(|rng| bool_of(rng, p))
 }
@@ -90,7 +155,23 @@ fn bool_of(rng: &mut SmallRng, p: f64) -> VmResult<bool> {
     }
 }
 
-/// A generator of its own: of a seed given, the same numbers each run.
+/// A random number generator of its own, made of a seed.
+///
+/// Of the same seed, it gives the same numbers each run.
+///
+/// It has the methods `random`, `random_range`, and `random_bool`, as the
+/// module's functions.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::rand;
+///
+/// pub async fn repeatable() {
+///     let rng = rand::Rng::seed_from_u64(42);
+///     println!("{} {}", rng.random(), rng.random_range(0, 10));
+/// }
+/// ```
 #[derive(Any, Debug)]
 #[rune(item = ::serval::rand)]
 pub struct Rng {
@@ -98,7 +179,7 @@ pub struct Rng {
 }
 
 impl Rng {
-    /// Seeded anew.
+    /// A generator seeded by the system.
     #[rune::function(keep, path = Self::new)]
     fn new() -> VmResult<Self> {
         VmResult::Ok(Self {
@@ -106,6 +187,7 @@ impl Rng {
         })
     }
 
+    /// A generator of `seed`: the same seed gives the same numbers.
     #[rune::function(keep, path = Self::seed_from_u64)]
     fn seed_from_u64(seed: i64) -> Self {
         Self {
