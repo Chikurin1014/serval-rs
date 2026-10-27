@@ -52,8 +52,9 @@ pub struct ScatterSettings {
 /// with the newest Y, once both have a new one (as a map of two inputs takes
 /// them), at the time of the later. Those of one time (as of one chunk
 /// received) go in turn: its first X and Y, then its second ones. Only those of
-/// the time range back from the newest are shown: as older ones leave it, or
-/// it changes, those of it are sent anew.
+/// the time range back from the newest are shown: as older ones leave it, the
+/// plot drops them ([`ScatterFeed::dropped`]); as it changes, those of it are
+/// sent anew.
 #[derive(Default)]
 struct ScatterFeed {
     labels: (String, String),
@@ -64,6 +65,9 @@ struct ScatterFeed {
     sent: bool,
     /// All the points paired, as many as it keeps, each with its time.
     kept: VecDeque<(i64, f64, f64)>,
+    /// How many of its oldest the plot leaves out after the last points sent
+    /// (after it takes them).
+    dropped: usize,
     /// How many of the newest of them the plot has.
     shown: usize,
     /// The time range it has them of.
@@ -160,13 +164,20 @@ impl ScatterFeed {
             .rev()
             .take_while(|&&(timestamp, ..)| timestamp >= since)
             .count();
-        // Some left the time range (the plot has them), or it changed (those
-        // before it come back): those of it go anew. Else the plot keeps as
-        // many, as it does
-        let kept_as_many = shown == (self.shown + points.len()).min(MAX_ENTRIES_PER_LABEL);
-        if range != self.range || !kept_as_many {
+        // The plot has those it had and the new: those past the time range
+        // (or past as many as it keeps) go from its oldest. As the range
+        // changes (those before it may come back), those of it go anew
+        let had = self.shown + points.len();
+        self.dropped = 0;
+        if range != self.range || shown > had {
             reset = reset || self.sent;
             points = self.points_of(shown).copied().collect();
+        } else {
+            // Of the new, those out already are not sent at all
+            let dropped = had - shown;
+            let unsent = dropped.saturating_sub(self.shown);
+            points.drain(..unsent);
+            self.dropped = dropped - unsent;
         }
         self.shown = shown;
         self.range = range;
@@ -175,6 +186,12 @@ impl ScatterFeed {
         }
         self.sent |= !points.is_empty();
         (reset, points.into_iter().map(|(_, x, y)| (x, y)).collect())
+    }
+
+    /// How many of its oldest the plot leaves out after taking the points
+    /// [`Self::next`] gave last.
+    fn dropped(&self) -> usize {
+        self.dropped
     }
 
     /// The line fit to the points the plot has, by least squares; none for
@@ -558,30 +575,6 @@ mod tests {
     }
 
     #[test]
-    fn sends_all_anew_as_points_leave_the_time_range() {
-        let mut feed = ScatterFeed::default();
-        let x = numbers(&[(0, 0.0), (5_000, 1.0), (8_000, 2.0)]);
-        let y = numbers(&[(0, 0.0), (5_000, 10.0), (8_000, 20.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
-
-        // A newer point puts the first out: all go anew
-        let x = numbers(&[(0, 0.0), (5_000, 1.0), (8_000, 2.0), (12_000, 3.0)]);
-        let y = numbers(&[(0, 0.0), (5_000, 10.0), (8_000, 20.0), (12_000, 30.0)]);
-        assert_eq!(
-            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
-            (true, vec![(1.0, 10.0), (2.0, 20.0), (3.0, 30.0)])
-        );
-        // Its line of those alone
-        assert_eq!(
-            feed.line(),
-            Some(Line {
-                slope: 10.0,
-                intercept: 0.0
-            })
-        );
-    }
-
-    #[test]
     fn sends_those_of_it_anew_as_the_time_range_changes() {
         let mut feed = ScatterFeed::default();
         let x = numbers(&[(0, 0.0), (15_000, 1.0), (20_000, 2.0)]);
@@ -608,6 +601,42 @@ mod tests {
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
             (true, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
         );
+    }
+
+    #[test]
+    fn those_leaving_the_time_range_are_dropped_not_sent_anew() {
+        let mut feed = ScatterFeed::default();
+        let mut x = numbers(&[(0, 0.0), (5_000, 1.0)]);
+        let mut y = numbers(&[(0, 0.0), (5_000, 10.0)]);
+        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
+        assert_eq!(feed.dropped(), 0);
+
+        // The first out of 10 s: only the new sent, the oldest dropped
+        x.push(NumberData::new(12_000, 2.0));
+        y.push(NumberData::new(12_000, 20.0));
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
+            (false, vec![(2.0, 20.0)])
+        );
+        assert_eq!(feed.dropped(), 1);
+        // Its line and statistics of those left alone
+        assert_eq!(
+            feed.line(),
+            Some(Line {
+                slope: 10.0,
+                intercept: 0.0
+            })
+        );
+        assert_eq!(
+            feed.statistics().map(|(covariance, _)| covariance),
+            Some(5.0)
+        );
+
+        // None out: none dropped
+        x.push(NumberData::new(13_000, 3.0));
+        y.push(NumberData::new(13_000, 30.0));
+        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
+        assert_eq!(feed.dropped(), 0);
     }
 
     #[test]

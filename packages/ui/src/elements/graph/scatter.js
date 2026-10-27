@@ -1,8 +1,9 @@
 // Plots the points sent from `ScatterGraph` with uPlot.
 //
-// From Rust: the container id, then `[reset, points, [xLabel, yLabel],
+// From Rust: the container id, then `[reset, dropped, points, [xLabel, yLabel],
 // [xLog, yLog], [pointColor, lineColor], line, statistics]` on each change
-// (points: `[[x, y]]`, after those before unless `reset`; line: `[slope,
+// (points: `[[x, y]]`, after those before unless `reset`, then `dropped` of
+// the oldest left out; line: `[slope,
 // intercept]` or `null`; statistics: `[covariance, correlation]` as text or
 // `null`), then `null` on unmount. To Rust: `["zoomed", []]` as it is zoomed
 // into.
@@ -311,8 +312,8 @@ function draw() {
   } else {
     plot.setData(plotData());
   }
-  // For tests
-  container.dataset.points = String(plotData()[1][0].length);
+  // For tests: as uPlot has them, not worked out again
+  container.dataset.points = String(plot.data[1][0].length);
   container.dataset.draws = String(Number(container.dataset.draws ?? 0) + 1);
   container.dataset.line = line ? line.join(" ") : "";
   showStatistics(plot);
@@ -340,6 +341,7 @@ create();
 for await (const message of messages()) {
   const [
     reset,
+    dropped,
     points,
     pointLabels,
     pointLogs,
@@ -365,6 +367,11 @@ for await (const message of messages()) {
   for (const [x, y] of points) {
     xs.push(x);
     ys.push(y);
+  }
+  // Those that left its time range
+  if (dropped > 0) {
+    xs.splice(0, dropped);
+    ys.splice(0, dropped);
   }
   const excess = xs.length - MAX_POINTS;
   if (excess > 0) {

@@ -74,6 +74,7 @@ pub fn ScatterGraph(id: usize) -> Element {
             .flatten();
         let (reset, points) =
             update.unwrap_or_else(|| feed.next(labels, None, None, paused_at, range));
+        let dropped = feed.dropped();
         let fitted = feed.line();
         set_if_changed(&mut line, fitted);
         let statistics = feed.statistics().map(statistics_texts);
@@ -85,6 +86,7 @@ pub fn ScatterGraph(id: usize) -> Element {
         let paused = paused_at.is_some();
         let _ = plot.send((
             reset,
+            dropped,
             points,
             (&x, &y),
             logs,
