@@ -23,6 +23,16 @@ The output label and the values a map gives (its **To**, **Level** and
 A **Level** field takes a level's name (e.g. `WARN`, or `$1`); left empty,
 the log has none (`NONE`).
 
+## Constants
+
+A field of a label or a number (of Add, Pow, Compose, …) also takes a constant,
+by its name after `#`. No label starts with `#`, so none is taken for one.
+
+| Constant | |
+|---|---|
+| `#pi` | π (`3.141592653589793`) |
+| `#e` | e (`2.718281828459045`) |
+
 ## Maps by output type
 
 ### To Bytes

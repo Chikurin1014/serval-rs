@@ -55,7 +55,7 @@ or of two Vector2ds).
 | Match | `from_label`, `pattern`, `to_label`, `replacement` (value, x, or level), `y_replacement` (y or message), `z_replacement` (z), `weakest_level` |
 | Replace | `from_label`, `pattern`, `replacement`, `to_label`, `weakest_level` |
 | Concat | `first_label`, `second_label`, `first_weakest_level`, `second_weakest_level`, `separator`, `level`, `to_label` |
-| Add, Subtract, Multiply, Divide, Pow, Dot, Cross | `first`, `second` (a label, or a constant), `to_label` |
+| Add, Subtract, Multiply, Divide, Pow, Dot, Cross | `first`, `second` (a label, a number, or a [constant](maps.md#constants) as `#pi`), `to_label` |
 | Differentiate, Integrate, Magnitude | `from_label`, `to_label` |
 | Compose | `x`, `y`, `z` (3D only; each a label, or a number), `to_label` |
 | Decompose | `from_label`, `x_label`, `y_label`, `z_label` (3D only) |

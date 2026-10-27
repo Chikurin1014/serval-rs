@@ -240,6 +240,19 @@ mod tests {
     }
 
     #[test]
+    fn constants_are_named_after_a_hash() {
+        let mut maps = Maps::new();
+        arithmetic(&mut maps, Operation::Multiply, ["#pi", "temp", "turned"]);
+        let unknown = arithmetic(&mut maps, Operation::Add, ["#tau", "temp", "sum"]);
+        maps.push("temp", number(2.0));
+        assert_eq!(maps.values("turned"), ["6.2832"]);
+        assert_eq!(
+            maps.read(unknown.error).as_deref(),
+            Some("No constant '#tau'")
+        );
+    }
+
+    #[test]
     fn a_label_wins_over_a_number() {
         let mut maps = Maps::new();
         maps.push("10", number(3.0));

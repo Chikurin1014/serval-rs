@@ -10,6 +10,10 @@ use crate::{
 /// The label the bytes received from the serial port go to.
 pub const RAW_BYTES_LABEL: &str = "raw_bytes";
 
+/// What no label starts with: it marks a constant where a map takes a label or
+/// a number (as `#pi`).
+pub const CONSTANT_PREFIX: char = '#';
+
 /// The data, by label. Each label is its own signal, so a reader runs again only
 /// for writes to the labels it reads (and for labels coming and going).
 #[derive(Clone, Copy)]
@@ -84,9 +88,10 @@ impl DataContext {
     }
 
     /// As [`Self::push`] for each of `entries`, in one write.
+    /// None to a label of [`CONSTANT_PREFIX`], which would be taken for a constant.
     pub fn push_all<T: DataEntry>(&mut self, label: &str, entries: impl IntoIterator<Item = T>) {
         let mut entries = entries.into_iter().peekable();
-        if entries.peek().is_none() {
+        if entries.peek().is_none() || label.starts_with(CONSTANT_PREFIX) {
             return;
         }
         let existing = self
@@ -291,6 +296,16 @@ mod tests {
         dom.in_runtime(|| {
             let mut data = DATA.with(|cell| cell.borrow().expect("grabbed"));
             assert!(!data.clear_all(), "nothing left");
+        });
+    }
+
+    #[test]
+    fn no_label_starts_as_a_constant() {
+        let mut dom = dom();
+        write(&mut dom, |data| data.push("#pi", NumberData::new(1, 1.0)));
+        dom.in_runtime(|| {
+            let data = DATA.with(|cell| cell.borrow().expect("grabbed"));
+            assert_eq!(data.data_type_of("#pi"), None);
         });
     }
 }
