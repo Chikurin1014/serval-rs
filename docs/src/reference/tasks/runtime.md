@@ -16,7 +16,7 @@ Each task runs alone: turning one on again starts it anew.
 
 | | |
 |---|---|
-| `println!` | To **STDOUT**, as `<file>::<function> (HH:MM:SS.mmm)` and the line |
+| `println!` | To **STDOUT**, as `<file>::<function> (HH:MM:SS.mmm)` (the file without its extension, e.g. `demo::poll`) and the line |
 | Card | The last line it printed, while it runs |
 | STDOUT | The last 10,000 lines of all tasks; the brush button clears it |
 
