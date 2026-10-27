@@ -157,6 +157,7 @@ impl Default for TimeRangeWidth {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DrawStyle {
     Points,
     #[default]
@@ -186,6 +187,7 @@ impl DrawStyle {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum AxisScale {
     #[default]
     Linear,
@@ -362,7 +364,7 @@ pub fn GraphProvider(
 
 #[cfg(test)]
 mod tests {
-    use super::{GraphProperty, TimeRange, TimeRangeWidth};
+    use super::{AxisScale, DrawStyle, GraphProperty, TimeRange, TimeRangeWidth};
 
     #[test]
     fn widths_are_steps_within_their_range_the_shortest_at_first() {
@@ -399,5 +401,17 @@ mod tests {
             "all"
         );
         assert!(serde_json::from_str::<GraphProperty>(r#"{"time_range": "All"}"#).is_err());
+    }
+
+    #[test]
+    fn a_layout_has_scales_and_draw_styles_in_lower_case() {
+        let property: GraphProperty =
+            serde_json::from_str(r#"{"value_scale": "log", "draw_style": "stepped"}"#).unwrap();
+        assert_eq!(property.value_scale, AxisScale::Log);
+        assert_eq!(property.draw_style, DrawStyle::Stepped);
+        let written = serde_json::to_value(&property).unwrap();
+        assert_eq!(written["x_scale"], "linear");
+        assert_eq!(written["draw_style"], "stepped");
+        assert!(serde_json::from_str::<GraphProperty>(r#"{"value_scale": "Log"}"#).is_err());
     }
 }

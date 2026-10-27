@@ -76,11 +76,11 @@ All graphs share the same settings; each uses those of its kind.
 |---|---|---|---|
 | `title` | Text, or `null` | `null` (numbered) | All |
 | `hidden` | Labels hidden in the legend | `[]` | All |
-| `value_scale` | `"Linear"`, `"Log"` | `"Linear"` | Time series, Box plot, Scatter (Y) |
-| `x_scale` | `"Linear"`, `"Log"` | `"Linear"` | Scatter |
+| `value_scale` | `"linear"`, `"log"` | `"linear"` | Time series, Box plot, Scatter (Y) |
+| `x_scale` | `"linear"`, `"log"` | `"linear"` | Scatter |
 | `x_label`, `y_label` | Number labels | `""` | Scatter |
 | `regression` | `true`, `false` | `false` | Scatter |
-| `draw_style` | `"Points"`, `"Linear"`, `"Stepped"` | `"Linear"` | Time series |
+| `draw_style` | `"points"`, `"linear"`, `"stepped"` | `"linear"` | Time series |
 | `time_range` | Seconds, 10–300 (rounded to 10), or `"all"` (all the values kept) | `10` | Time series, Box plot, Scatter |
 | `trails` | `true`, `false` | `false` | Arrows |
 | `weakest_level` | A level | `"NONE"` | Log |
