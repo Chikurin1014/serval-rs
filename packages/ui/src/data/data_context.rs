@@ -14,6 +14,13 @@ pub const RAW_BYTES_LABEL: &str = "raw_bytes";
 /// a number (as `#pi`).
 pub const CONSTANT_PREFIX: char = '#';
 
+/// Why `label` can't be pushed to, if it can't: it starts with [`CONSTANT_PREFIX`].
+pub fn label_error(label: &str) -> Option<String> {
+    label
+        .starts_with(CONSTANT_PREFIX)
+        .then(|| format!("A label can't start with '{CONSTANT_PREFIX}': '{label}'"))
+}
+
 /// The data, by label. Each label is its own signal, so a reader runs again only
 /// for writes to the labels it reads (and for labels coming and going).
 #[derive(Clone, Copy)]
@@ -22,6 +29,8 @@ pub struct DataContext {
     labels: Signal<BTreeMap<String, DataType>>,
     /// Not reactive: only each label's own signal is.
     queues: CopyValue<HashMap<String, LabelData>>,
+    /// Why the last label refused was, until taken.
+    refused: CopyValue<Option<String>>,
     scope: ScopeId,
 }
 
@@ -88,10 +97,15 @@ impl DataContext {
     }
 
     /// As [`Self::push`] for each of `entries`, in one write.
-    /// None to a label of [`CONSTANT_PREFIX`], which would be taken for a constant.
+    /// None to a label of [`CONSTANT_PREFIX`], which would be taken for a
+    /// constant: why is kept for [`Self::take_refused`].
     pub fn push_all<T: DataEntry>(&mut self, label: &str, entries: impl IntoIterator<Item = T>) {
         let mut entries = entries.into_iter().peekable();
-        if entries.peek().is_none() || label.starts_with(CONSTANT_PREFIX) {
+        if entries.peek().is_none() {
+            return;
+        }
+        if let Some(error) = label_error(label) {
+            self.refused.set(Some(error));
             return;
         }
         let existing = self
@@ -141,6 +155,11 @@ impl DataContext {
         label_removed || queue_removed
     }
 
+    /// Why a label was refused since this was last called, if one was.
+    pub fn take_refused(&mut self) -> Option<String> {
+        self.refused.write().take()
+    }
+
     /// Whether there was any label.
     pub fn clear_all(&mut self) -> bool {
         let had_labels = !std::mem::take(&mut *self.labels.write()).is_empty();
@@ -155,6 +174,7 @@ pub fn DataProvider(children: Element) -> Element {
     use_context_provider(|| DataContext {
         labels: Signal::new(BTreeMap::new()),
         queues: CopyValue::new(HashMap::new()),
+        refused: CopyValue::new(None),
         scope: current_scope_id(),
     });
 
@@ -304,8 +324,13 @@ mod tests {
         let mut dom = dom();
         write(&mut dom, |data| data.push("#pi", NumberData::new(1, 1.0)));
         dom.in_runtime(|| {
-            let data = DATA.with(|cell| cell.borrow().expect("grabbed"));
+            let mut data = DATA.with(|cell| cell.borrow().expect("grabbed"));
             assert_eq!(data.data_type_of("#pi"), None);
+            assert_eq!(
+                data.take_refused().as_deref(),
+                Some("A label can't start with '#': '#pi'")
+            );
+            assert_eq!(data.take_refused(), None);
         });
     }
 }

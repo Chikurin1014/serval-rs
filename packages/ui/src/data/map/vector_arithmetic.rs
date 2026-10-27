@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionInput, ConversionOutput, Data, DataContext, DataEntry, Input, MapRunner,
-    MapSettings, NumberData, Operand, Segment, Vector, format_number, keep_taken, take_newest_pair,
+    MapSettings, NumberData, Operand, Segment, Source, Vector, format_number, keep_taken, pairs,
 };
 use crate::helper::set_if_changed;
 
@@ -133,22 +133,6 @@ pub struct VectorArithmetic<V> {
     constants_used: bool,
 }
 
-/// Where a value comes from.
-#[derive(Clone, Debug, PartialEq)]
-enum Source<T> {
-    Label(String),
-    Constant(T),
-}
-
-impl<T> Source<T> {
-    fn label(&self) -> &str {
-        match self {
-            Source::Label(label) => label,
-            Source::Constant(_) => "",
-        }
-    }
-}
-
 impl<V: Vector> Source<V> {
     /// A label of vectors of `V`, or else a vector as `(x, y)` or `x, y`.
     fn resolve_vector(data: &DataContext, text: &str) -> Result<Self, String> {
@@ -159,15 +143,6 @@ impl<V: Vector> Source<V> {
         parse_vector(text)
             .map(Source::Constant)
             .ok_or_else(|| format!("No {} label or vector '{text}'", V::DATA_TYPE.name()))
-    }
-}
-
-impl Source<f64> {
-    fn resolve_number(data: &DataContext, text: &str) -> Result<Self, String> {
-        Ok(match Operand::resolve(data, text)? {
-            Operand::Label(label) => Source::Label(label),
-            Operand::Constant(value) => Source::Constant(value),
-        })
     }
 }
 
@@ -192,58 +167,6 @@ pub(super) fn vector_text<V: Vector>(vector: &V) -> String {
         .map(|&component| format_number(component))
         .collect();
     format!("({})", components.join(", "))
-}
-
-/// The pairs of values to work out: with two labels, their newest once both
-/// have one; with a label and a constant, each new value; with two constants,
-/// once.
-fn pairs<A: Clone, B: Clone>(
-    data: &DataContext,
-    sources: (&Source<A>, &Source<B>),
-    inputs: (&mut Input<A>, &mut Input<B>),
-    constants_used: &mut bool,
-) -> Vec<(A, B)>
-where
-    Data<A>: DataEntry,
-    Data<B>: DataEntry,
-{
-    let (first_input, second_input) = inputs;
-    if !matches!(sources, (Source::Constant(_), Source::Constant(_))) {
-        *constants_used = false;
-    }
-    match sources {
-        (Source::Label(first), Source::Label(second)) => {
-            first_input.read_newest(data, first);
-            second_input.read_newest(data, second);
-            take_newest_pair(first_input, second_input)
-                .into_iter()
-                .collect()
-        }
-        (Source::Label(first), Source::Constant(second)) => {
-            second_input.forget();
-            let values = first_input.read(data, first);
-            values
-                .into_iter()
-                .map(|first| (first, second.clone()))
-                .collect()
-        }
-        (Source::Constant(first), Source::Label(second)) => {
-            first_input.forget();
-            let values = second_input.read(data, second);
-            values
-                .into_iter()
-                .map(|second| (first.clone(), second))
-                .collect()
-        }
-        (Source::Constant(first), Source::Constant(second)) => {
-            first_input.forget();
-            second_input.forget();
-            if std::mem::replace(constants_used, true) {
-                return Vec::new();
-            }
-            vec![(first.clone(), second.clone())]
-        }
-    }
 }
 
 /// A result, after its operands as text.
@@ -281,7 +204,7 @@ where
         let operation = self.settings.operation;
         let vector = Source::<V>::resolve_vector(data, second)?;
         if operation == VectorOperation::Multiply {
-            let number = Source::resolve_number(data, first)?;
+            let number = Operand::resolve(data, first)?;
             let labels = [number.label().to_string(), vector.label().to_string()];
             let results = pairs::<f64, V>(
                 data,

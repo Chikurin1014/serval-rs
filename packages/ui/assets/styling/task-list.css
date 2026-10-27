@@ -31,10 +31,6 @@
   max-width: none;
 }
 
-.task-latest[data-failed="true"] {
-  color: var(--dc-danger);
-}
-
 /* Its function's definition, scrolled within the card */
 .task-definition {
   max-height: 20rem;

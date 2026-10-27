@@ -468,6 +468,21 @@ def test_pow_raises_a_to_the_power_of_b(app: App):
     expect(card.locator(".field-error")).to_have_count(0)
 
 
+def test_an_output_label_of_a_hash_is_an_error(app: App):
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Add", "1", "2", "#sum")
+    failed = card.locator('.map-latest[data-failed="true"]')
+    expect(failed).to_have_text("A label can't start with '#': '#sum'")
+    assert "#sum" not in app.data_rows()
+
+    # Gone as it is turned on again, with a label it can take
+    card.get_by_role("switch").click()
+    card.get_by_placeholder("Output label").fill("sum")
+    card.get_by_role("switch").click()
+    app.wait_for_labels("sum")
+    expect(failed).to_have_count(0)
+
+
 def test_formula_renders_with_katex(app: App):
     failed = []
     app.page.on(

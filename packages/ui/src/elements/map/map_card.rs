@@ -25,6 +25,7 @@ pub(super) fn MapCard(map: Map) -> Element {
         mut enabled,
         mut open,
         latest,
+        output_error,
         ..
     } = map;
     use_context_provider(|| MapEnabled(enabled.into()));
@@ -55,7 +56,7 @@ pub(super) fn MapCard(map: Map) -> Element {
                             }
                             // Its own component: it changes with each conversion,
                             // and the card must not render again with it
-                            Latest { latest }
+                            Latest { latest, output_error }
                         }
                         Button {
                             class: "map-remove reveal-on-hover",
@@ -121,11 +122,22 @@ pub(super) fn MapTypes(from: Vec<&'static str>, to: &'static str) -> Element {
     }
 }
 
-/// The latest conversion of a map, if any.
+/// The latest conversion of a map, if any; why its output was refused over it.
 #[component]
-fn Latest(latest: ReadSignal<Option<Conversion>>) -> Element {
+fn Latest(
+    latest: ReadSignal<Option<Conversion>>,
+    output_error: ReadSignal<Option<String>>,
+) -> Element {
     rsx! {
-        if let Some(conversion) = latest() {
+        if let Some(error) = output_error() {
+            span {
+                class: "map-latest",
+                "data-failed": true,
+                title: "{error}",
+                lucide::CircleAlert {}
+                span { class: "map-latest-value", {single_line(&error)} }
+            }
+        } else if let Some(conversion) = latest() {
             LatestConversion { conversion }
         }
     }

@@ -3,6 +3,8 @@
 * A map's settings are locked while it is on: turn it off to edit them.
 * Turned on again with its settings changed, it reads its input from the start.
 * An empty output label (e.g. of a group that matched nothing) gives no value.
+* An output label starting with `#` gives none either: its title shows
+  "A label can't start with '#'" until it is turned on again.
 * **From** fields take a [pattern](patterns.md), with its aliases
   (`{number}`, `{word}`, `{level}`).
 
