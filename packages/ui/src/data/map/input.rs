@@ -92,12 +92,25 @@ impl<T: Clone> Input<T> {
     }
 }
 
-/// Where a number a map takes comes from: a Number label, or a constant.
+/// Where a value a map takes comes from: a label, or a constant.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Operand {
+pub(crate) enum Source<T> {
     Label(String),
-    Constant(f64),
+    Constant(T),
 }
+
+impl<T> Source<T> {
+    /// Its label; none for a constant.
+    pub(crate) fn label(&self) -> &str {
+        match self {
+            Source::Label(label) => label,
+            Source::Constant(_) => "",
+        }
+    }
+}
+
+/// Where a number a map takes comes from: a Number label, or a constant.
+pub(crate) type Operand = Source<f64>;
 
 /// The constant `text` names after [`CONSTANT_PREFIX`] (as `#pi`), if any.
 fn named_constant(text: &str) -> Option<f64> {
@@ -105,6 +118,15 @@ fn named_constant(text: &str) -> Option<f64> {
         "pi" => Some(std::f64::consts::PI),
         "e" => Some(std::f64::consts::E),
         _ => None,
+    }
+}
+
+/// `text` as a named constant (as `#pi`), or else a number.
+pub(crate) fn constant_or_number(text: &str) -> Option<f64> {
+    if text.starts_with(CONSTANT_PREFIX) {
+        named_constant(text)
+    } else {
+        text.parse().ok()
     }
 }
 
@@ -130,9 +152,58 @@ impl Operand {
     }
 
     pub(crate) fn input(&self, value: f64) -> ConversionInput {
-        match self {
-            Operand::Label(label) => ConversionInput::new(label.as_str(), format_number(value)),
-            Operand::Constant(_) => ConversionInput::new("", format_number(value)),
+        ConversionInput::new(self.label(), format_number(value))
+    }
+}
+
+/// The pairs of values to work out, of `sources` read by `inputs`: with two
+/// labels, their newest once both have one; with a label and a constant, each
+/// new value; with two constants, once (`constants_used` after).
+pub(crate) fn pairs<A: Clone, B: Clone>(
+    data: &DataContext,
+    sources: (&Source<A>, &Source<B>),
+    inputs: (&mut Input<A>, &mut Input<B>),
+    constants_used: &mut bool,
+) -> Vec<(A, B)>
+where
+    Data<A>: DataEntry,
+    Data<B>: DataEntry,
+{
+    let (first_input, second_input) = inputs;
+    if !matches!(sources, (Source::Constant(_), Source::Constant(_))) {
+        *constants_used = false;
+    }
+    match sources {
+        (Source::Label(first), Source::Label(second)) => {
+            first_input.read_newest(data, first);
+            second_input.read_newest(data, second);
+            take_newest_pair(first_input, second_input)
+                .into_iter()
+                .collect()
+        }
+        (Source::Label(first), Source::Constant(second)) => {
+            second_input.forget();
+            let values = first_input.read(data, first);
+            values
+                .into_iter()
+                .map(|first| (first, second.clone()))
+                .collect()
+        }
+        (Source::Constant(first), Source::Label(second)) => {
+            first_input.forget();
+            let values = second_input.read(data, second);
+            values
+                .into_iter()
+                .map(|second| (first.clone(), second))
+                .collect()
+        }
+        (Source::Constant(first), Source::Constant(second)) => {
+            first_input.forget();
+            second_input.forget();
+            if std::mem::replace(constants_used, true) {
+                return Vec::new();
+            }
+            vec![(first.clone(), second.clone())]
         }
     }
 }

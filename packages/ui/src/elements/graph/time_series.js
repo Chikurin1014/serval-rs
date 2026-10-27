@@ -1,10 +1,10 @@
 // Plots the data sent from `TimeSeriesGraph` with uPlot.
 //
 // From Rust: the container id, then `[labels, updates, colors, log, style,
-// hidden, window]` on each change (updates: `[label, reset, [[ms, value]]]`;
-// window: its seconds at most, none for all the time), then `null` on
-// unmount. To Rust: `["hidden", labels]`, those turned off in
-// the legend; `["zoomed", []]` as it is zoomed into.
+// hidden, rangeSeconds, paused]` on each change (updates: `[label, reset,
+// [[ms, value]]]`; rangeSeconds: the seconds of its time range, none for
+// all the time), then `null` on unmount. To Rust: `["hidden", labels]`, those
+// turned off in the legend; `["zoomed", []]` as it is zoomed into.
 
 // As `MAX_ENTRIES_PER_LABEL`
 const MAX_POINTS = 10000;
@@ -29,7 +29,7 @@ let plotLines = "";
 let colors = {};
 let logScale = false;
 let drawStyle = "linear";
-let windowSeconds = 10;
+let rangeSeconds = 10;
 const hiddenLabels = trackHidden();
 
 const themed = themeColors(container);
@@ -161,7 +161,7 @@ function create() {
         x: {
           time: true,
           range: (u, min, max) =>
-            zoomed?.x ?? timeRange(min, max, windowSeconds),
+            zoomed?.x ?? timeRange(min, max, rangeSeconds),
         },
         y: {
           ...(logScale && { distr: 3, log: 10 }),
@@ -266,7 +266,7 @@ for await (const message of messages()) {
   if (!paused) {
     unzoom();
   }
-  windowSeconds = seconds;
+  rangeSeconds = seconds;
   colors = lineColors;
   hiddenLabels.apply(hidden);
   showSeries(plot, hiddenLabels);

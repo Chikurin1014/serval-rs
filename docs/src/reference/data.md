@@ -3,8 +3,8 @@
 ## Labels
 
 * Any non-empty text not starting with `#`, which marks a
-  [constant](maps.md#constants): a map gives no value to such a label, and a
-  task's `data::push` fails.
+  [constant](maps.md#constants): a map gives no value to such a label (and
+  shows why in its title), and a task's `data::push` fails.
 * Each holds values of one [type](#types), each with the time it arrived (ms
   since the Unix epoch).
 * Pushing a value of another type to a label replaces it.

@@ -42,7 +42,10 @@ pub use conversion::{Conversion, ConversionInput, ConversionOutput, Segment};
 pub use decode::{Decode, DecodeSettings};
 pub use decompose::{Decompose, DecomposeSettings};
 pub use encode::{Encode, EncodeSettings};
-pub(crate) use input::{Endpoints, Input, Operand, endpoints, take_newest_all, take_newest_pair};
+pub(crate) use input::{
+    Endpoints, Input, Operand, Source, constant_or_number, endpoints, pairs, take_newest_all,
+    take_newest_pair,
+};
 pub use magnitude::{Magnitude, MagnitudeSettings};
 pub use matching::{Match, MatchOutput, MatchSettings};
 pub use replace::{Replace, ReplaceSettings};
@@ -109,6 +112,9 @@ pub struct Map {
     /// are added or removed.
     pub open: Signal<bool>,
     pub latest: Signal<Option<Conversion>>,
+    /// Why an output was refused since it was turned on (a label of
+    /// [`CONSTANT_PREFIX`](crate::data::CONSTANT_PREFIX)), if one was.
+    pub output_error: Signal<Option<String>>,
     runner: Rc<RefCell<Box<dyn MapRunner>>>,
     _owner: Owner,
 }
@@ -177,10 +183,11 @@ impl MapContext {
                 Signal::new(enabled),
                 Signal::new(open),
                 Signal::new(None),
+                Signal::new(None),
             ))
         });
         // Its signals dropped with the owner if not made
-        let (runner, enabled, open, latest) = made?;
+        let (runner, enabled, open, latest, output_error) = made?;
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
         Ok(Map {
@@ -189,6 +196,7 @@ impl MapContext {
             enabled,
             open,
             latest,
+            output_error,
             runner: Rc::new(RefCell::new(runner)),
             _owner: owner,
         })
@@ -307,12 +315,16 @@ fn MapTask(id: usize) -> Element {
             return;
         };
         let enabled = (map.enabled)();
+        let mut output_error = map.output_error;
         if !was_enabled.replace(enabled) && enabled {
             map.runner.borrow_mut().start();
+            set_if_changed(&mut output_error, None);
         }
         if !enabled {
             return;
         }
+        // Only this map's refusals
+        data_context.take_refused();
         let latest = map
             .runner
             .borrow_mut()
@@ -320,6 +332,9 @@ fn MapTask(id: usize) -> Element {
         if let Some(conversion) = latest {
             let mut shown = map.latest;
             set_if_changed(&mut shown, Some(conversion));
+        }
+        if let Some(error) = data_context.take_refused() {
+            set_if_changed(&mut output_error, Some(error));
         }
     });
 

@@ -134,7 +134,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             .collect::<HashMap<_, _>>();
         let log = value_scale() == AxisScale::Log;
         // None, of all the time
-        let window = time_range().seconds();
+        let range_seconds = time_range().seconds();
         let _ = plot.send((
             labels,
             updates,
@@ -142,7 +142,7 @@ pub fn TimeSeriesGraph(id: usize) -> Element {
             log,
             draw_style().name(),
             hidden(),
-            window,
+            range_seconds,
             paused_at.is_some(),
         ));
     });

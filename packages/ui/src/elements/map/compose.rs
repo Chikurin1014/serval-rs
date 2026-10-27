@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use super::field::LabelField;
+use super::field::{LabelField, NUMBER_HINT, NUMBER_PLACEHOLDER};
 use super::form_of;
 use super::map_list::labels_list;
 use crate::data::{Compose, ComposeSettings, DataType, MapKind};
@@ -51,20 +51,23 @@ pub fn ComposeForm(settings: ComposeSettings, output_list: String) -> Element {
                     name: "x",
                     value: x,
                     list: labels_list(DataType::Number),
-                    placeholder: "Label or number",
+                    placeholder: NUMBER_PLACEHOLDER,
+                    hint: NUMBER_HINT,
                 }
                 LabelField {
                     name: "y",
                     value: y,
                     list: labels_list(DataType::Number),
-                    placeholder: "Label or number",
+                    placeholder: NUMBER_PLACEHOLDER,
+                    hint: NUMBER_HINT,
                 }
                 if let Some(z) = z {
                     LabelField {
                         name: "z",
                         value: z,
                         list: labels_list(DataType::Number),
-                        placeholder: "Label or number",
+                        placeholder: NUMBER_PLACEHOLDER,
+                        hint: NUMBER_HINT,
                     }
                 }
                 if let Some(error) = error() {

@@ -22,6 +22,16 @@ fn use_map_enabled() -> bool {
     try_use_context::<MapEnabled>().is_some_and(|MapEnabled(enabled)| enabled())
 }
 
+/// The placeholder of a field of a Number label or a number.
+pub(super) const NUMBER_PLACEHOLDER: &str = "Label, number or #pi";
+
+/// What a field of a Number label or a number takes, on hovering it.
+pub(super) const NUMBER_HINT: &str = "A Number label, a number, or a constant: #pi, #e";
+
+/// What a field of a vector label or a vector takes, on hovering it.
+pub(super) const VECTOR_HINT: &str =
+    "A vector label, or a vector as (x, y) or (x, y, z), of numbers or constants (#pi, #e)";
+
 /// A field for a label, offering those in the `datalist` with id `list`; for an
 /// input of logs, the weakest level taken chosen beside it.
 #[component]
@@ -30,6 +40,9 @@ pub(super) fn LabelField(
     list: String,
     placeholder: String,
     #[props(default)] name: Option<String>,
+    /// What it takes, on hovering it.
+    #[props(default)]
+    hint: Option<String>,
     #[props(default)] weakest_level: Option<Signal<LogLevel>>,
 ) -> Element {
     let mut value = value;
@@ -39,6 +52,7 @@ pub(super) fn LabelField(
         label {
             class: "field",
             "data-locked": locked,
+            title: hint,
             if let Some(name) = name {
                 span { class: "field-label", "{name}" }
             }

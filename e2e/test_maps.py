@@ -419,7 +419,7 @@ def test_concat_joins_the_newest_of_both(app: App):
 def add_arithmetic_map(app: App, name: str, first: str, second: str, target: str):
     app.add_map(name, "Number", "Number")
     card = app.map_cards().last
-    fields = card.get_by_placeholder("Label or number")
+    fields = card.get_by_placeholder("Label, number or #pi")
     fields.nth(0).fill(first)
     fields.nth(1).fill(second)
     card.get_by_placeholder("Output label").fill(target)
@@ -466,6 +466,21 @@ def test_pow_raises_a_to_the_power_of_b(app: App):
     app.wait_for_labels("inverse")
     assert app.data_rows()["inverse"][1] == "inf"
     expect(card.locator(".field-error")).to_have_count(0)
+
+
+def test_an_output_label_of_a_hash_is_an_error(app: App):
+    app.tab("Data")
+    card = add_arithmetic_map(app, "Add", "1", "2", "#sum")
+    failed = card.locator('.map-latest[data-failed="true"]')
+    expect(failed).to_have_text("A label can't start with '#': '#sum'")
+    assert "#sum" not in app.data_rows()
+
+    # Gone as it is turned on again, with a label it can take
+    card.get_by_role("switch").click()
+    card.get_by_placeholder("Output label").fill("sum")
+    card.get_by_role("switch").click()
+    app.wait_for_labels("sum")
+    expect(failed).to_have_count(0)
 
 
 def test_formula_renders_with_katex(app: App):
@@ -877,6 +892,9 @@ def test_vectors_are_composed(app: App):
     expect(bad_add.locator(".field-error")).to_have_text(
         "No Vector2d label or vector '(1, 2, 3)'"
     )
+    # Of named constants
+    add_vector_arithmetic_map(app, "Add", "2D", "(#pi, 0)", "(0, #e)", "named")
+    wait_for_latest(app, "named", "(3.1416, 2.7183)")
 
     app.open_port()
     app.mock("mute()")

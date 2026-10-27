@@ -10,8 +10,8 @@ use rune::{
 use super::{host, or_stop, stream_of, time::Instant, to_value};
 use crate::{
     data::{
-        ByteData, CONSTANT_PREFIX, DataEntry, DataType, Log, LogData, LogLevel, NewEntries,
-        NumberData, SourceCursor, Vector2d, Vector2dData, Vector3d, Vector3dData,
+        ByteData, DataEntry, DataType, Log, LogData, LogLevel, NewEntries, NumberData,
+        SourceCursor, Vector2d, Vector2dData, Vector3d, Vector3dData, label_error,
     },
     plugin::ErrorText,
 };
@@ -324,10 +324,8 @@ async fn next(mut reader: Mut<Reader>, with_time: bool) -> VmResult<Option<Value
 /// ```
 #[rune::function(keep)]
 fn push(label: &str, value: Value) -> Result<(), String> {
-    if label.starts_with(CONSTANT_PREFIX) {
-        return Err(format!(
-            "A label can't start with '{CONSTANT_PREFIX}': '{label}'"
-        ));
+    if let Some(error) = label_error(label) {
+        return Err(error);
     }
     let host = host()?;
     let (mut data, now) = (host.data, host.time.current());

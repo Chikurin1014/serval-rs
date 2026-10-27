@@ -172,6 +172,15 @@
   color: var(--dc-accent);
 }
 
+/* Why it failed, in its place: as long as the card has room for */
+.map-latest[data-failed="true"] {
+  color: var(--dc-danger);
+}
+
+.map-latest[data-failed="true"] .map-latest-value {
+  max-width: none;
+}
+
 .map-panel [data-slot="card-content"] {
   min-width: 0;
   padding: 0.75rem 1rem;

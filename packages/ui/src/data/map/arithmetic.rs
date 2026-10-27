@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::data::{
     Conversion, ConversionOutput, DataContext, Input, MapRunner, MapSettings, NumberData, Operand,
-    Segment, format_number, keep_taken, take_newest_pair,
+    Segment, format_number, keep_taken, pairs,
 };
 use crate::helper::set_if_changed;
 
@@ -78,8 +78,8 @@ pub struct Arithmetic {
 struct Operands {
     first: Input<f64>,
     second: Input<f64>,
-    /// The last pair of constants used, so it gives one result.
-    last_constants: Option<(f64, f64)>,
+    /// The constants have given their result, with no label.
+    constants_used: bool,
 }
 
 impl Arithmetic {
@@ -94,45 +94,6 @@ impl Arithmetic {
             },
             taken: None,
             operands: Operands::default(),
-        }
-    }
-}
-
-impl Operands {
-    fn pairs(&mut self, data: &DataContext, first: &Operand, second: &Operand) -> Vec<(f64, f64)> {
-        if !matches!(
-            (first, second),
-            (Operand::Constant(_), Operand::Constant(_))
-        ) {
-            self.last_constants = None;
-        }
-        match (first, second) {
-            (Operand::Label(first), Operand::Label(second)) => {
-                self.first.read_newest(data, first);
-                self.second.read_newest(data, second);
-                take_newest_pair(&mut self.first, &mut self.second)
-                    .into_iter()
-                    .collect()
-            }
-            (Operand::Label(first), &Operand::Constant(second)) => {
-                self.second.forget();
-                let values = self.first.read(data, first);
-                values.into_iter().map(|first| (first, second)).collect()
-            }
-            (&Operand::Constant(first), Operand::Label(second)) => {
-                self.first.forget();
-                let values = self.second.read(data, second);
-                values.into_iter().map(|second| (first, second)).collect()
-            }
-            (&Operand::Constant(first), &Operand::Constant(second)) => {
-                self.first.forget();
-                self.second.forget();
-                if self.last_constants == Some((first, second)) {
-                    return Vec::new();
-                }
-                self.last_constants = Some((first, second));
-                vec![(first, second)]
-            }
         }
     }
 }
@@ -183,7 +144,18 @@ impl MapRunner for Arithmetic {
         set_if_changed(&mut error, None);
 
         let mut latest = None;
-        for (first_value, second_value) in self.operands.pairs(data, &first, &second) {
+        let Operands {
+            first: first_input,
+            second: second_input,
+            constants_used,
+        } = &mut self.operands;
+        let pairs = pairs(
+            data,
+            (&first, &second),
+            (first_input, second_input),
+            constants_used,
+        );
+        for (first_value, second_value) in pairs {
             let result = operation.apply(first_value, second_value);
             data.push(to, NumberData::new(timestamp, result));
             latest = Some((first_value, second_value, result));

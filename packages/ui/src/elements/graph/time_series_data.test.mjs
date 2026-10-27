@@ -116,12 +116,12 @@ test("timeOfDay is HH:MM:SS.SSS in the local time zone", () => {
   );
 });
 
-test("timeRange fits the data, up to the last window", () => {
+test("timeRange fits the data, up to its seconds", () => {
   assert.deepEqual(plain(timeRange(100, 103, 60)), [100, 103]);
   assert.deepEqual(plain(timeRange(100, 200, 60)), [140, 200]);
   assert.deepEqual(plain(timeRange(100, 103, 10)), [100, 103]);
   assert.deepEqual(plain(timeRange(100, 200, 10)), [190, 200]);
   assert.deepEqual(plain(timeRange(null, null, 10)), [null, null]);
-  // No window: all of the data
+  // All the time: all of the data
   assert.deepEqual(plain(timeRange(100, 1000, null)), [100, 1000]);
 });

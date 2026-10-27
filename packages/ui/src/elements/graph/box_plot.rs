@@ -1,4 +1,10 @@
+mod window;
+
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use dioxus::prelude::*;
+
+use window::SortedWindow;
 
 use super::{
     AxisScale, GraphContext, GraphFrame, GraphKind,
@@ -42,15 +48,21 @@ struct Summary {
 
 impl Summary {
     /// Of `values`, but those not finite; none if none are.
+    #[cfg(test)]
     fn of(values: impl IntoIterator<Item = f64>) -> Option<Self> {
         let mut sorted: Vec<f64> = values
             .into_iter()
             .filter(|value| value.is_finite())
             .collect();
+        sorted.sort_by(f64::total_cmp);
+        Self::of_sorted(&sorted)
+    }
+
+    /// Of `sorted` (finite, in order); none if it is empty.
+    fn of_sorted(sorted: &[f64]) -> Option<Self> {
         if sorted.is_empty() {
             return None;
         }
-        sorted.sort_by(f64::total_cmp);
         let count = sorted.len() as f64;
         let mean = sorted.iter().sum::<f64>() / count;
         let variance = (sorted.len() > 1).then(|| {
@@ -61,22 +73,23 @@ impl Summary {
                 / (count - 1.0)
         });
         let (q1, median, q3) = (
-            quantile(&sorted, 0.25),
-            quantile(&sorted, 0.5),
-            quantile(&sorted, 0.75),
+            quantile(sorted, 0.25),
+            quantile(sorted, 0.5),
+            quantile(sorted, 0.75),
         );
         let reach = WHISKER_IQRS * (q3 - q1);
         let (low, high) = (q1 - reach, q3 + reach);
-        let within = |value: &&f64| (low..=high).contains(*value);
-        let whiskers = (
-            *sorted.iter().find(within).unwrap_or(&q1),
-            *sorted.iter().rev().find(within).unwrap_or(&q3),
+        // Those within, between the outliers below and above
+        let (from, to) = (
+            sorted.partition_point(|&value| value < low),
+            sorted.partition_point(|&value| value <= high),
         );
-        let outliers = sorted
-            .iter()
-            .copied()
-            .filter(|value| !(low..=high).contains(value))
-            .collect();
+        let within = sorted.get(from..to).unwrap_or_default();
+        let whiskers = (
+            *within.first().unwrap_or(&q1),
+            *within.last().unwrap_or(&q3),
+        );
+        let outliers = [&sorted[..from], &sorted[to.max(from)..]].concat();
         Some(Self {
             mean,
             variance,
@@ -141,13 +154,18 @@ pub fn BoxPlotGraph(id: usize) -> Element {
 
     let number_labels = use_memo(move || data_context.labels_of(DataType::Number));
     let plotted = use_shown_count(number_labels);
+    // Each label's values within, by its label
+    let windows = use_hook(|| Rc::new(RefCell::new(HashMap::<String, SortedWindow>::new())));
 
     use_effect(move || {
         let paused_at = graph_context.paused_at();
         let range = time_range();
         // Colored by their place among the number labels, as the lines of a time series
         let colors = number_labels.read().clone();
+        let mut windows = windows.borrow_mut();
         let boxes: Vec<PlotBox> = data_context.with_each(Some(DataType::Number), |data| {
+            // Of those gone, none kept
+            windows.retain(|label, _| data.iter().any(|(held, _)| held == label));
             let shown: Vec<_> = data
                 .iter()
                 .filter(|(label, _)| filter_context.shows(label))
@@ -159,28 +177,22 @@ pub fn BoxPlotGraph(id: usize) -> Element {
             // Back from the newest of them all, as the time axis of a time series
             let newest = shown
                 .iter()
-                .filter_map(|(_, queue)| {
+                .filter_map(|(_, queue)| match paused_at {
+                    None => queue.back().map(|entry| entry.timestamp()),
                     // In order of time: the last of those up to a pause
-                    queue
+                    Some(_) => queue
                         .iter()
                         .map(|entry| entry.timestamp())
                         .take_while(|&timestamp| until_paused(paused_at, timestamp))
-                        .last()
+                        .last(),
                 })
                 .max();
             let since = newest.map_or(i64::MIN, |newest| range.since(newest));
             shown
                 .into_iter()
                 .filter_map(|(label, queue)| {
-                    let summary = Summary::of(
-                        queue
-                            .iter()
-                            .filter(|entry| {
-                                entry.timestamp() >= since
-                                    && until_paused(paused_at, entry.timestamp())
-                            })
-                            .map(|entry| *entry.value()),
-                    )?;
+                    let window = windows.entry(label.to_string()).or_default();
+                    let summary = Summary::of_sorted(window.update(queue, since, paused_at))?;
                     let (low, high) = summary.whiskers;
                     Some((
                         label.to_string(),
