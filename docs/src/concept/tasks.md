@@ -7,8 +7,8 @@ Its public async functions become **tasks**, each of which runs when you turn it
 A task can:
 
 * **send** to the port, and **read** what it receives,
-* **open and close the port**, set its baud rate, DTR and RTS, and restart the
-  board,
+* **open and close the port**, set its settings (baud rate and the like),
+  DTR and RTS, and restart the board,
 * **read** the data of labels as they arrive, and **push** values to labels,
 * **wait**, and keep time.
 

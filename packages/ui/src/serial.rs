@@ -23,6 +23,7 @@ use record::{RecordFile, RecordFormat, Recorder};
 
 use crate::{
     data::{ByteData, DataContext},
+    helper::{Choice, Delimiter},
     time::TimeContext,
     toast::{Toaster, use_toaster},
 };
@@ -76,42 +77,6 @@ pub trait SerialPort {
 pub struct Signals {
     pub dtr: bool,
     pub rts: bool,
-}
-
-/// What Enter sends in the console: a CR and an LF at first.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LineEnding {
-    Cr,
-    Lf,
-    CrLf,
-}
-
-impl LineEnding {
-    /// Of a CR, an LF, or both: none of neither.
-    pub fn of(cr: bool, lf: bool) -> Option<Self> {
-        match (cr, lf) {
-            (true, false) => Some(Self::Cr),
-            (false, true) => Some(Self::Lf),
-            (true, true) => Some(Self::CrLf),
-            (false, false) => None,
-        }
-    }
-
-    pub fn has_cr(self) -> bool {
-        matches!(self, Self::Cr | Self::CrLf)
-    }
-
-    pub fn has_lf(self) -> bool {
-        matches!(self, Self::Lf | Self::CrLf)
-    }
-
-    pub fn text(self) -> &'static str {
-        match self {
-            Self::Cr => "\r",
-            Self::Lf => "\n",
-            Self::CrLf => "\r\n",
-        }
-    }
 }
 
 /// A restart of a board through DTR and RTS, as the tools for it do.
@@ -209,18 +174,21 @@ pub enum Parity {
     Odd,
 }
 
-impl Parity {
-    pub const ALL: [Self; 3] = [Self::None, Self::Even, Self::Odd];
+impl Choice for Parity {
+    const KIND: &'static str = "parity";
+    const ALL: &'static [Self] = &[Self::None, Self::Even, Self::Odd];
 
     /// As Web Serial names it.
-    pub fn name(self) -> &'static str {
+    fn name(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Even => "even",
             Self::Odd => "odd",
         }
     }
+}
 
+impl Parity {
     fn letter(self) -> char {
         match self {
             Self::None => 'N',
@@ -237,11 +205,12 @@ pub enum FlowControl {
     Hardware,
 }
 
-impl FlowControl {
-    pub const ALL: [Self; 2] = [Self::None, Self::Hardware];
+impl Choice for FlowControl {
+    const KIND: &'static str = "flow control";
+    const ALL: &'static [Self] = &[Self::None, Self::Hardware];
 
     /// As Web Serial names it.
-    pub fn name(self) -> &'static str {
+    fn name(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Hardware => "hardware",
@@ -298,7 +267,8 @@ pub struct SerialContext {
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
     signals: Signal<Signals>,
-    line_ending: Signal<LineEnding>,
+    /// What Enter sends in the console: a CR and an LF at first.
+    line_ending: Signal<Delimiter>,
     /// A break is being sent.
     breaking: CopyValue<bool>,
     notifications: Signal<VecDeque<Notification>>,
@@ -345,11 +315,11 @@ impl SerialContext {
         (self.signals)()
     }
 
-    pub fn line_ending(&self) -> LineEnding {
+    pub fn line_ending(&self) -> Delimiter {
         (self.line_ending)()
     }
 
-    pub fn set_line_ending(&self, line_ending: LineEnding) {
+    pub fn set_line_ending(&self, line_ending: Delimiter) {
         let mut current = self.line_ending;
         current.set(line_ending);
     }
@@ -385,24 +355,32 @@ impl SerialContext {
         }
     }
 
-    pub fn set_baudrate(&self, baudrate: Baudrate) {
-        self.update_settings(|settings| settings.baudrate = Some(baudrate));
+    /// The selected port's settings, if one is selected.
+    pub fn settings(&self) -> Option<PortSettings> {
+        self.selected_port().map(|port| port.settings)
     }
 
-    pub fn set_extra_settings(&self, extra: ExtraSettings) {
-        self.update_settings(|settings| settings.extra = extra);
+    /// Whether the settings may be changed: a port is selected, and none is
+    /// open.
+    pub fn settings_editable(&self) -> bool {
+        self.selected.read().is_some() && !self.is_open()
     }
 
-    /// Changes the selected port's settings, if one is selected.
-    fn update_settings(&self, change: impl FnOnce(&mut PortSettings)) {
-        let Some(selected) = *self.selected.peek() else {
-            return;
-        };
+    /// Sets the selected port's settings: refused with no port selected, or
+    /// while it is open.
+    pub fn set_settings(&self, settings: PortSettings) -> SerialResult<()> {
+        let selected = (*self.selected.peek()).ok_or("No port is selected")?;
+        if self.open.peek().is_some() {
+            return Err("The port is open: close it to change its settings".to_string());
+        }
         let mut ports = self.ports;
         let mut ports = ports.write();
-        if let Some(port) = ports.iter_mut().find(|port| port.id == selected) {
-            change(&mut port.settings);
-        }
+        let port = ports
+            .iter_mut()
+            .find(|port| port.id == selected)
+            .ok_or("No port is selected")?;
+        port.settings = settings;
+        Ok(())
     }
 
     pub fn request_port(&self) {
@@ -622,7 +600,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
             dtr: true,
             rts: true,
         }),
-        line_ending: Signal::new(LineEnding::CrLf),
+        line_ending: Signal::new(Delimiter::CrLf),
         breaking: CopyValue::new(false),
         notifications: Signal::new(VecDeque::new()),
         history: Signal::new(ReceivedHistory::default()),
@@ -639,7 +617,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
 
 #[cfg(test)]
 mod tests {
-    use super::{Baudrate, ExtraSettings, LineEnding, Parity};
+    use super::{Baudrate, ExtraSettings, Parity};
 
     #[test]
     fn frame_is_8n1_at_first() {
@@ -655,14 +633,6 @@ mod tests {
             ..ExtraSettings::default()
         };
         assert_eq!(settings.frame(), "7E2");
-    }
-
-    #[test]
-    fn a_line_ending_is_of_a_cr_an_lf_or_both() {
-        assert_eq!(LineEnding::of(true, true), Some(LineEnding::CrLf));
-        assert_eq!(LineEnding::of(false, false), None);
-        let crlf = LineEnding::CrLf;
-        assert_eq!(LineEnding::of(crlf.has_cr(), crlf.has_lf()), Some(crlf));
     }
 
     #[test]
