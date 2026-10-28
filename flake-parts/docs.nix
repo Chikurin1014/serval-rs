@@ -41,7 +41,10 @@
           cd "$sourceRoot/tools/serval-rune"
           sourceRoot=.
         '';
-        cargoExtraArgs = "--locked";
+        # Not `--locked`: its lock may have `ui`'s version before a release
+        # (bumped in this workspace's lock alone), which cargo puts right
+        # offline; the crates of the registry stay as the lock has them
+        cargoExtraArgs = "--offline";
         doCheck = false;
       };
       serval-rune = craneLib.buildPackage (
