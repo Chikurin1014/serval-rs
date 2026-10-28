@@ -183,11 +183,9 @@ pub fn ScatterGraph(id: usize) -> Element {
                             }
                         }
                         if regression() {
-                            if let Some(fitted) = line() {
-                                Equation { line: fitted }
-                            } else {
-                                span { class: "graph-equation", "Not enough points" }
-                            }
+                            // Its own component: it changes with each point,
+                            // and the graph must not render again with it
+                            RegressionLine { line }
                         }
                     }
                 }
@@ -216,6 +214,18 @@ pub fn ScatterGraph(id: usize) -> Element {
             if let Some(empty) = empty {
                 p { class: "graph-empty", "{empty}" }
             }
+        }
+    }
+}
+
+/// The line fit to the points, if any: its equation.
+#[component]
+fn RegressionLine(line: ReadSignal<Option<Line>>) -> Element {
+    rsx! {
+        if let Some(fitted) = line() {
+            Equation { line: fitted }
+        } else {
+            span { class: "graph-equation", "Not enough points" }
         }
     }
 }
