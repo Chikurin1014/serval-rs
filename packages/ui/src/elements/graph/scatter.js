@@ -3,13 +3,10 @@
 // From Rust: the container id, then `[reset, dropped, points, [xLabel, yLabel],
 // [xLog, yLog], [pointColor, lineColor], line, statistics]` on each change
 // (points: `[[x, y]]`, after those before unless `reset`, then `dropped` of
-// the oldest left out; line: `[slope,
+// the oldest left out, so it has no more than Rust keeps; line: `[slope,
 // intercept]` or `null`; statistics: `[covariance, correlation]` as text or
 // `null`), then `null` on unmount. To Rust: `["zoomed", []]` as it is zoomed
 // into.
-
-// As `MAX_ENTRIES_PER_LABEL`
-const MAX_POINTS = 10000;
 
 const id = await dioxus.recv();
 const container = document.getElementById(id);
@@ -368,15 +365,10 @@ for await (const message of messages()) {
     xs.push(x);
     ys.push(y);
   }
-  // Those that left its time range
+  // Those that left its time range, or past as many as Rust keeps
   if (dropped > 0) {
     xs.splice(0, dropped);
     ys.splice(0, dropped);
-  }
-  const excess = xs.length - MAX_POINTS;
-  if (excess > 0) {
-    xs.splice(0, excess);
-    ys.splice(0, excess);
   }
   schedule();
 }

@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{Line, ScatterFeed, ScatterSettings, statistics_texts};
+use super::{Line, PlotUpdate, ScatterFeed, ScatterSettings, statistics_texts};
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{DataContext, DataEntry, DataType, NumberData};
 use crate::elements::Formula;
@@ -72,9 +72,11 @@ pub fn ScatterGraph(id: usize) -> Element {
                 })
             })
             .flatten();
-        let (reset, points) =
-            update.unwrap_or_else(|| feed.next(labels, None, None, paused_at, range));
-        let dropped = feed.dropped();
+        let PlotUpdate {
+            reset,
+            dropped,
+            points,
+        } = update.unwrap_or_else(|| feed.next(labels, None, None, paused_at, range));
         let fitted = feed.line();
         set_if_changed(&mut line, fitted);
         let statistics = feed.statistics().map(statistics_texts);

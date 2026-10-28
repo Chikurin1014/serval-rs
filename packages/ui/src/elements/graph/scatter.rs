@@ -53,8 +53,7 @@ pub struct ScatterSettings {
 /// them), at the time of the later. Those of one time (as of one chunk
 /// received) go in turn: its first X and Y, then its second ones. Only those of
 /// the time range back from the newest are shown: as older ones leave it, the
-/// plot drops them ([`ScatterFeed::dropped`]); as it changes, those of it are
-/// sent anew.
+/// plot drops them; as it changes, those of it are sent anew.
 #[derive(Default)]
 struct ScatterFeed {
     labels: (String, String),
@@ -65,9 +64,6 @@ struct ScatterFeed {
     sent: bool,
     /// All the points paired, as many as it keeps, each with its time.
     kept: VecDeque<(i64, f64, f64)>,
-    /// How many of its oldest the plot leaves out after the last points sent
-    /// (after it takes them).
-    dropped: usize,
     /// How many of the newest of them the plot has.
     shown: usize,
     /// The time range it has them of.
@@ -77,9 +73,17 @@ struct ScatterFeed {
     paused_at: Option<i64>,
 }
 
+/// What a plot takes in, of a [`ScatterFeed`]: the points are put after those
+/// it has (in their place if `reset`), then `dropped` of its oldest left out.
+#[derive(Debug, Default, PartialEq)]
+struct PlotUpdate {
+    reset: bool,
+    dropped: usize,
+    points: Vec<(f64, f64)>,
+}
+
 impl ScatterFeed {
-    /// The new points, and whether they replace those sent before (else they
-    /// follow them); those of `range`.
+    /// What the plot takes in for those of `range` up to now.
     fn next(
         &mut self,
         labels: (&str, &str),
@@ -87,7 +91,7 @@ impl ScatterFeed {
         y: Option<&Queue<NumberData>>,
         paused_at: Option<i64>,
         range: TimeRange,
-    ) -> (bool, Vec<(f64, f64)>) {
+    ) -> PlotUpdate {
         let mut reset = false;
         if (self.labels.0.as_str(), self.labels.1.as_str()) != labels || self.paused_at != paused_at
         {
@@ -108,7 +112,10 @@ impl ScatterFeed {
             self.sent = false;
             self.kept.clear();
             self.shown = 0;
-            return (reset, Vec::new());
+            return PlotUpdate {
+                reset,
+                ..PlotUpdate::default()
+            };
         };
 
         let mut new_x = self.x.read(x);
@@ -168,16 +175,16 @@ impl ScatterFeed {
         // (or past as many as it keeps) go from its oldest. As the range
         // changes (those before it may come back), those of it go anew
         let had = self.shown + points.len();
-        self.dropped = 0;
+        let mut dropped = 0;
         if range != self.range || shown > had {
             reset = reset || self.sent;
             points = self.points_of(shown).copied().collect();
         } else {
             // Of the new, those out already are not sent at all
-            let dropped = had - shown;
-            let unsent = dropped.saturating_sub(self.shown);
+            let out = had - shown;
+            let unsent = out.saturating_sub(self.shown);
             points.drain(..unsent);
-            self.dropped = dropped - unsent;
+            dropped = out - unsent;
         }
         self.shown = shown;
         self.range = range;
@@ -185,13 +192,11 @@ impl ScatterFeed {
             self.sent = false;
         }
         self.sent |= !points.is_empty();
-        (reset, points.into_iter().map(|(_, x, y)| (x, y)).collect())
-    }
-
-    /// How many of its oldest the plot leaves out after taking the points
-    /// [`Self::next`] gave last.
-    fn dropped(&self) -> usize {
-        self.dropped
+        PlotUpdate {
+            reset,
+            dropped,
+            points: points.into_iter().map(|(_, x, y)| (x, y)).collect(),
+        }
     }
 
     /// The line fit to the points the plot has, by least squares; none for
@@ -323,9 +328,17 @@ fn in_turn(
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, ScatterFeed, statistics_texts};
-    use crate::data::{NumberData, Queue};
+    use super::{Line, PlotUpdate, ScatterFeed, statistics_texts};
+    use crate::data::{MAX_ENTRIES_PER_LABEL, NumberData, Queue};
     use crate::elements::graph::{TimeRange, TimeRangeWidth};
+
+    fn update(reset: bool, dropped: usize, points: Vec<(f64, f64)>) -> PlotUpdate {
+        PlotUpdate {
+            reset,
+            dropped,
+            points,
+        }
+    }
 
     fn numbers(points: &[(i64, f64)]) -> Queue<NumberData> {
         points
@@ -348,7 +361,7 @@ mod tests {
         let y = numbers(&[(3, 30.0), (4, 40.0)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(2.0, 30.0), (4.0, 40.0)])
+            update(false, 0, vec![(2.0, 30.0), (4.0, 40.0)])
         );
     }
 
@@ -359,7 +372,7 @@ mod tests {
         let y = numbers(&[(1, 10.0), (2, 20.0), (3, f64::NAN)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(1.0, 10.0)])
+            update(false, 0, vec![(1.0, 10.0)])
         );
     }
 
@@ -371,7 +384,7 @@ mod tests {
         let y = numbers(&[(1, 10.0), (1, 20.0)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(1.0, 10.0), (2.0, 20.0)])
+            update(false, 0, vec![(1.0, 10.0), (2.0, 20.0)])
         );
     }
 
@@ -386,12 +399,12 @@ mod tests {
         x.push(NumberData::new(2, 2.0));
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![])
+            update(false, 0, vec![])
         );
         y.push(NumberData::new(3, 20.0));
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(2.0, 20.0)])
+            update(false, 0, vec![(2.0, 20.0)])
         );
     }
 
@@ -405,16 +418,16 @@ mod tests {
         // Cleared: no points left, then those of the new queue
         assert_eq!(
             feed.next(LABELS, None, Some(&y), None, TimeRange::All),
-            (true, vec![])
+            update(true, 0, vec![])
         );
         assert_eq!(
             feed.next(LABELS, None, Some(&y), None, TimeRange::All),
-            (false, vec![])
+            update(false, 0, vec![])
         );
         let x = numbers(&[(5, 5.0)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(5.0, 10.0)])
+            update(false, 0, vec![(5.0, 10.0)])
         );
 
         // Another X: all of its points in place of those
@@ -427,7 +440,7 @@ mod tests {
                 None,
                 TimeRange::All
             ),
-            (true, vec![(6.0, 10.0)])
+            update(true, 0, vec![(6.0, 10.0)])
         );
     }
 
@@ -441,7 +454,7 @@ mod tests {
         let x = numbers(&[(2, 2.0)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (true, vec![(2.0, 10.0)])
+            update(true, 0, vec![(2.0, 10.0)])
         );
     }
 
@@ -547,13 +560,13 @@ mod tests {
 
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), Some(2), TimeRange::All),
-            (true, vec![(1.0, 10.0)])
+            update(true, 0, vec![(1.0, 10.0)])
         );
         // Its line and statistics of those alone
         assert_eq!(feed.statistics(), None);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (true, vec![(1.0, 10.0), (3.0, 30.0)])
+            update(true, 0, vec![(1.0, 10.0), (3.0, 30.0)])
         );
     }
 
@@ -565,12 +578,12 @@ mod tests {
         // 10 s back from the newest (20 s): those at 10 s or after
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
-            (false, vec![(20.0, 200.0)])
+            update(false, 0, vec![(20.0, 200.0)])
         );
         // None leaving it: nothing to send
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
-            (false, vec![])
+            update(false, 0, vec![])
         );
     }
 
@@ -590,16 +603,16 @@ mod tests {
                 None,
                 TimeRange::Ranged(TimeRangeWidth::new(20))
             ),
-            (true, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
+            update(true, 0, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
         );
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
-            (true, vec![(1.0, 10.0), (2.0, 20.0)])
+            update(true, 0, vec![(1.0, 10.0), (2.0, 20.0)])
         );
         // All the time: every one
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (true, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
+            update(true, 0, vec![(0.0, 0.0), (1.0, 10.0), (2.0, 20.0)])
         );
     }
 
@@ -608,17 +621,18 @@ mod tests {
         let mut feed = ScatterFeed::default();
         let mut x = numbers(&[(0, 0.0), (5_000, 1.0)]);
         let mut y = numbers(&[(0, 0.0), (5_000, 10.0)]);
-        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
-        assert_eq!(feed.dropped(), 0);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
+            update(false, 0, vec![(0.0, 0.0), (1.0, 10.0)])
+        );
 
         // The first out of 10 s: only the new sent, the oldest dropped
         x.push(NumberData::new(12_000, 2.0));
         y.push(NumberData::new(12_000, 20.0));
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
-            (false, vec![(2.0, 20.0)])
+            update(false, 1, vec![(2.0, 20.0)])
         );
-        assert_eq!(feed.dropped(), 1);
         // Its line and statistics of those left alone
         assert_eq!(
             feed.line(),
@@ -635,8 +649,33 @@ mod tests {
         // None out: none dropped
         x.push(NumberData::new(13_000, 3.0));
         y.push(NumberData::new(13_000, 30.0));
-        feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds());
-        assert_eq!(feed.dropped(), 0);
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None, ten_seconds()),
+            update(false, 0, vec![(3.0, 30.0)])
+        );
+    }
+
+    #[test]
+    fn those_past_as_many_as_it_keeps_are_dropped() {
+        let mut feed = ScatterFeed::default();
+        let first: Vec<_> = (0..MAX_ENTRIES_PER_LABEL as i64)
+            .map(|i| (i, i as f64))
+            .collect();
+        let (mut x, mut y) = (numbers(&first), numbers(&first));
+        let sent = feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All);
+        assert_eq!(
+            (sent.dropped, sent.points.len()),
+            (0, MAX_ENTRIES_PER_LABEL)
+        );
+
+        // One more: the oldest goes
+        let newest = MAX_ENTRIES_PER_LABEL as i64;
+        x.push(NumberData::new(newest, -1.0));
+        y.push(NumberData::new(newest, -1.0));
+        assert_eq!(
+            feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
+            update(false, 1, vec![(-1.0, -1.0)])
+        );
     }
 
     #[test]
@@ -646,7 +685,7 @@ mod tests {
         let y = numbers(&[(0, 0.0), (60_000, 10.0)]);
         assert_eq!(
             feed.next(LABELS, Some(&x), Some(&y), None, TimeRange::All),
-            (false, vec![(0.0, 0.0), (1.0, 10.0)])
+            update(false, 0, vec![(0.0, 0.0), (1.0, 10.0)])
         );
     }
 }
