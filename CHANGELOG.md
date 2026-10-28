@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.5.0](https://github.com/Chikurin1014/serval-rs/compare/v0.4.1...v0.5.0) (2026-10-28)
+
+
+### Features
+
+* ✨ Add `serial::received` and `serial::wait_for` ([03dbad6](https://github.com/Chikurin1014/serval-rs/commit/03dbad6306ef7a14c8c775f3c78ada1d8476ca0d))
+* ✨ Add `Time range` to Statistics graphs' settings ([d974f6d](https://github.com/Chikurin1014/serval-rs/commit/d974f6d768be80f28d4d5910f311f498969d478b))
+* ✨ Add github url button ([aa9eacc](https://github.com/Chikurin1014/serval-rs/commit/aa9eacc7777c5091a206a9c8aecec9d89da09d8c))
+* ✨ Add math constants ([d51c3a9](https://github.com/Chikurin1014/serval-rs/commit/d51c3a924d455d012e03ee5cfa468d255ed815e5))
+* ✨ Add math methods ([1dd3898](https://github.com/Chikurin1014/serval-rs/commit/1dd389894e527cf31c81b7e60c1d95e490c1b01b))
+* ✨ Add navbar-title ([dc22be1](https://github.com/Chikurin1014/serval-rs/commit/dc22be101f20c920e6044f7f97ab33a22cbb01c7))
+* ✨ Add Pow map ([4eeb292](https://github.com/Chikurin1014/serval-rs/commit/4eeb29262630312d18817a6ed2be7daea2939cbe))
+* ✨ Add Pow map ([1b5f83d](https://github.com/Chikurin1014/serval-rs/commit/1b5f83df1b34c8dac6dc16b3ece6c78d985594cd))
+* ✨ Add rand module ([e9f9569](https://github.com/Chikurin1014/serval-rs/commit/e9f95695cf6cf00ae63fa1eb7e005d751bd32eca))
+* ✨ Add send_buffer features ([1c30ff9](https://github.com/Chikurin1014/serval-rs/commit/1c30ff9cf6f4ad484278606d7b1bce5a53efed31))
+* ✨ Add serval-unique modules to scripting language ([79dc26d](https://github.com/Chikurin1014/serval-rs/commit/79dc26d234c460682a115fa5055a20a81587ca44))
+* ✨ Allow constants in vector arithmetic maps ([416ff8e](https://github.com/Chikurin1014/serval-rs/commit/416ff8ea14d4001d7bed25dde5e7bec73807e046))
+* ✨ Improve task tab view ([48217d7](https://github.com/Chikurin1014/serval-rs/commit/48217d720add70df72bc2adeb734e856e3bb9744))
+* 💄 Remove `.rn` from STDOUT in Task tab ([5a4da00](https://github.com/Chikurin1014/serval-rs/commit/5a4da0023b57573c5c64b671738a7ccb3d2f3d7a))
+* 💄 Simplify scatter rendering if there are many points ([315587e](https://github.com/Chikurin1014/serval-rs/commit/315587e44258d3f84526b4c2028155f84d6a88bb))
+
+
+### Bug Fixes
+
+* 🐛 Fix bugs about plugins ([4c8b7c7](https://github.com/Chikurin1014/serval-rs/commit/4c8b7c7e61172e71cafd1062138c783e7beb2bfe))
+* 🩹 Fix preset regex ([fe9038e](https://github.com/Chikurin1014/serval-rs/commit/fe9038e42d353cc76c2b1bf8d6ca6f9a5bd5fcdb))
+* 🩹 Make it backward compatible ([dd5a58b](https://github.com/Chikurin1014/serval-rs/commit/dd5a58b17a555175b4751dd4a02bd635fc01c0d3))
+* 🩹 Small fixes ([ad039ba](https://github.com/Chikurin1014/serval-rs/commit/ad039ba410df1e5d0d7655a89f8414b20a3d883c))
+* 🚑️ Fix memory leak ([e46e840](https://github.com/Chikurin1014/serval-rs/commit/e46e840b61264936ac2ad2c2994a5ff09f7a4b38))
+
+
+### Performance Improvements
+
+* ⚡️ Improve performance of box plot graph ([2dd892e](https://github.com/Chikurin1014/serval-rs/commit/2dd892ed1c1a08ab3eb30bbb11681f1824b19e2d))
+
 ## [0.4.1](https://github.com/Chikurin1014/serval-rs/compare/v0.4.0...v0.4.1) (2026-10-20)
 
 
