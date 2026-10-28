@@ -1,12 +1,13 @@
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, collections::HashSet, rc::Rc};
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
+    components::toggle_group::{ToggleGroup, ToggleItem},
     helper::{concat_scripts, format_bytes, hex, use_script, visible},
-    serial::{OutgoingFile, SerialContext},
+    serial::{LineEnding, OutgoingFile, SerialContext},
     time::TimeContext,
 };
 
@@ -107,6 +108,10 @@ pub fn PortIoConsole() -> Element {
                 let _ = terminal.send(("data", unread.restarted, unread.bytes, times));
             }
         }
+    });
+
+    use_effect(move || {
+        let _ = terminal.send(("line-ending", serial.line_ending().text()));
     });
 
     // From the script: `["typed", text]` to send, `["redraw"]`, `["break"]` or
@@ -251,7 +256,43 @@ pub fn PortIoConsole() -> Element {
                         }
                     }
                 }
+                LineEndingChoice {}
                 RecordButton {}
+            }
+        }
+    }
+}
+
+/// What Enter sends, as the console's script is told: a CR, an LF, or both,
+/// pressed.
+#[component]
+fn LineEndingChoice() -> Element {
+    let serial = use_context::<SerialContext>();
+    let line_ending = serial.line_ending();
+    let pressed = [line_ending.has_cr(), line_ending.has_lf()]
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, on)| on.then_some(index))
+        .collect::<HashSet<_>>();
+
+    rsx! {
+        div {
+            class: "field field-choices console-line-ending",
+            role: "group",
+            aria_label: "Line ending",
+            title: "What Enter sends",
+            ToggleGroup {
+                horizontal: true,
+                allow_multiple_pressed: true,
+                pressed: Some(pressed),
+                on_pressed_change: move |pressed: HashSet<usize>| {
+                    // Unpressing the last leaves it so
+                    if let Some(line_ending) = LineEnding::of(pressed.contains(&0), pressed.contains(&1)) {
+                        serial.set_line_ending(line_ending);
+                    }
+                },
+                ToggleItem { index: 0usize, "CR" }
+                ToggleItem { index: 1usize, "LF" }
             }
         }
     }

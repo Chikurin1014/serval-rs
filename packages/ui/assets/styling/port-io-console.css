@@ -480,3 +480,8 @@
     var(--light, var(--primary-color-4));
   color: var(--secondary-color-1);
 }
+
+/* What Enter sends: right of the send buffer */
+.field.console-line-ending {
+  flex: none;
+}

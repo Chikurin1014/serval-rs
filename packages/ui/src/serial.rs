@@ -78,6 +78,42 @@ pub struct Signals {
     pub rts: bool,
 }
 
+/// What Enter sends in the console: a CR and an LF at first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LineEnding {
+    Cr,
+    Lf,
+    CrLf,
+}
+
+impl LineEnding {
+    /// Of a CR, an LF, or both: none of neither.
+    pub fn of(cr: bool, lf: bool) -> Option<Self> {
+        match (cr, lf) {
+            (true, false) => Some(Self::Cr),
+            (false, true) => Some(Self::Lf),
+            (true, true) => Some(Self::CrLf),
+            (false, false) => None,
+        }
+    }
+
+    pub fn has_cr(self) -> bool {
+        matches!(self, Self::Cr | Self::CrLf)
+    }
+
+    pub fn has_lf(self) -> bool {
+        matches!(self, Self::Lf | Self::CrLf)
+    }
+
+    pub fn text(self) -> &'static str {
+        match self {
+            Self::Cr => "\r",
+            Self::Lf => "\n",
+            Self::CrLf => "\r\n",
+        }
+    }
+}
+
 /// A restart of a board through DTR and RTS, as the tools for it do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Restart {
@@ -262,6 +298,7 @@ pub struct SerialContext {
     rx_bytes: Signal<u64>,
     tx_bytes: Signal<u64>,
     signals: Signal<Signals>,
+    line_ending: Signal<LineEnding>,
     /// A break is being sent.
     breaking: CopyValue<bool>,
     notifications: Signal<VecDeque<Notification>>,
@@ -306,6 +343,15 @@ impl SerialContext {
 
     pub fn signals(&self) -> Signals {
         (self.signals)()
+    }
+
+    pub fn line_ending(&self) -> LineEnding {
+        (self.line_ending)()
+    }
+
+    pub fn set_line_ending(&self, line_ending: LineEnding) {
+        let mut current = self.line_ending;
+        current.set(line_ending);
     }
 
     /// What happened to the ports, newest first.
@@ -576,6 +622,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
             dtr: true,
             rts: true,
         }),
+        line_ending: Signal::new(LineEnding::CrLf),
         breaking: CopyValue::new(false),
         notifications: Signal::new(VecDeque::new()),
         history: Signal::new(ReceivedHistory::default()),
@@ -592,7 +639,7 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
 
 #[cfg(test)]
 mod tests {
-    use super::{Baudrate, ExtraSettings, Parity};
+    use super::{Baudrate, ExtraSettings, LineEnding, Parity};
 
     #[test]
     fn frame_is_8n1_at_first() {
@@ -608,6 +655,14 @@ mod tests {
             ..ExtraSettings::default()
         };
         assert_eq!(settings.frame(), "7E2");
+    }
+
+    #[test]
+    fn a_line_ending_is_of_a_cr_an_lf_or_both() {
+        assert_eq!(LineEnding::of(true, true), Some(LineEnding::CrLf));
+        assert_eq!(LineEnding::of(false, false), None);
+        let crlf = LineEnding::CrLf;
+        assert_eq!(LineEnding::of(crlf.has_cr(), crlf.has_lf()), Some(crlf));
     }
 
     #[test]

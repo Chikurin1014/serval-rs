@@ -20,6 +20,8 @@ Only the console is cleared: the data, and a [record](#recording) being written,
 ## Sending
 
 * **Typing**: each key is sent as you type it. What is sent is shown in the send buffer below the console.
+  <kbd>Enter</kbd> sends a CR, an LF, or both, as pressed right of the send
+  buffer.
 * **Files**: the button to the left of the send buffer (or a file dropped on the console) sends a file as
   binary data, its progress shown in the send buffer. Click the button again to
   stop.

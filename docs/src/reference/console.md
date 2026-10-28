@@ -30,6 +30,23 @@
 * Up to 1,000 sends.
 * In the Hex view, sends are shown in hex.
 
+## Line ending
+
+What <kbd>Enter</kbd> sends, by the **CR** and **LF** toggles right of the
+send buffer:
+
+| Pressed | Sent |
+|---|---|
+| **CR** | `0x0D` |
+| **LF** | `0x0A` |
+| **CR** and **LF** (default) | `0x0D 0x0A` |
+
+* At least one stays pressed.
+* Also put after the text, and for each of its line breaks, by "Paste, with a
+  line ending after".
+* <kbd>Ctrl</kbd> + <kbd>M</kbd> (CR) and <kbd>Ctrl</kbd> + <kbd>J</kbd> (LF)
+  send theirs alone, whatever is pressed.
+
 ## Sending files
 
 * The file button, or a file dropped on the console.
@@ -41,12 +58,12 @@
 
 | Action | Windows / Linux | macOS |
 |---|---|---|
-| Send CR | <kbd>Enter</kbd> | <kbd>Return</kbd> |
+| Send the [line ending](#line-ending) | <kbd>Enter</kbd> | <kbd>Return</kbd> |
 | Send BS (`0x08`) | <kbd>Backspace</kbd> | <kbd>Delete</kbd> (⌫) |
 | Send DEL (`0x7F`) | <kbd>Delete</kbd> | <kbd>Fn</kbd> + <kbd>Delete</kbd> (⌦) |
 | Send a control character (see [Control characters](#control-characters)) | <kbd>Ctrl</kbd> + <kbd>C</kbd> | <kbd>Control</kbd> (⌃) + <kbd>C</kbd> |
 | Paste | <kbd>Alt</kbd> + <kbd>V</kbd> | <kbd>Option</kbd> (⌥) + <kbd>V</kbd> |
-| Paste, with a CR after | <kbd>Alt</kbd> + <kbd>R</kbd> | <kbd>Option</kbd> (⌥) + <kbd>R</kbd> |
+| Paste, with a line ending after | <kbd>Alt</kbd> + <kbd>R</kbd> | <kbd>Option</kbd> (⌥) + <kbd>R</kbd> |
 | Send a break | <kbd>Alt</kbd> + <kbd>B</kbd> | <kbd>Option</kbd> (⌥) + <kbd>B</kbd> |
 | Maximize or restore the console | <kbd>Alt</kbd> + <kbd>Enter</kbd> | <kbd>Option</kbd> (⌥) + <kbd>Return</kbd> |
 | Select a block | <kbd>Alt</kbd> + drag | <kbd>Option</kbd> (⌥) + drag |
@@ -56,7 +73,8 @@
 * As in Tera Term.
 * The <kbd>Alt</kbd> / <kbd>Option</kbd> shortcuts go by the key's position on
   a US layout, not by the character it types.
-* "Paste, with a CR after" turns each line break of the text into a CR.
+* "Paste, with a line ending after" turns each line break of the text into
+  the [line ending](#line-ending).
 
 ## Control characters
 
@@ -72,7 +90,7 @@ The keys that send common control characters in the console:
 | `0x08` | BS | <kbd>Backspace</kbd>, <kbd>Ctrl</kbd> + <kbd>H</kbd> | <kbd>Delete</kbd> (⌫), <kbd>Control</kbd> + <kbd>H</kbd> | Deleting a character |
 | `0x09` | HT (tab) | <kbd>Tab</kbd>, <kbd>Ctrl</kbd> + <kbd>I</kbd> | <kbd>Tab</kbd>, <kbd>Control</kbd> + <kbd>I</kbd> | Completion in a shell |
 | `0x0A` | LF | <kbd>Ctrl</kbd> + <kbd>J</kbd> | <kbd>Control</kbd> + <kbd>J</kbd> | End of a line (e.g. Arduino's `readStringUntil('\n')`) |
-| `0x0D` | CR | <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>M</kbd> | <kbd>Return</kbd>, <kbd>Control</kbd> + <kbd>M</kbd> | End of a line (e.g. AT commands) |
+| `0x0D` | CR | <kbd>Ctrl</kbd> + <kbd>M</kbd> | <kbd>Control</kbd> + <kbd>M</kbd> | End of a line (e.g. AT commands) |
 | `0x11` | XON (DC1) | <kbd>Ctrl</kbd> + <kbd>Q</kbd> | <kbd>Control</kbd> + <kbd>Q</kbd> | Software flow control: resume |
 | `0x13` | XOFF (DC3) | <kbd>Ctrl</kbd> + <kbd>S</kbd> | <kbd>Control</kbd> + <kbd>S</kbd> | Software flow control: pause |
 | `0x1A` | SUB | <kbd>Ctrl</kbd> + <kbd>Z</kbd> | <kbd>Control</kbd> + <kbd>Z</kbd> | End of a text (e.g. an SMS by AT commands) |
@@ -80,8 +98,8 @@ The keys that send common control characters in the console:
 | `0x7F` | DEL | <kbd>Delete</kbd> | <kbd>Fn</kbd> + <kbd>Delete</kbd> (⌦) | Deleting a character |
 
 * <kbd>Ctrl</kbd> + <kbd>A</kbd>–<kbd>Z</kbd> send `0x01`–`0x1A`, in order.
-* <kbd>Enter</kbd> sends a CR alone: for CR LF, press <kbd>Enter</kbd>, then
-  <kbd>Ctrl</kbd> + <kbd>J</kbd>.
+* <kbd>Enter</kbd> sends the [line ending](#line-ending) chosen: CR, LF, or CR
+  LF.
 * <kbd>Ctrl</kbd> + <kbd>Space</kbd> may be taken by the OS, to switch the
   input method.
 * On Windows and Linux, the browser keeps <kbd>Ctrl</kbd> + <kbd>N</kbd>,

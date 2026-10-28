@@ -31,8 +31,8 @@ def test_keys_are_sent_as_tera_term_sends_them(app: App):
     app.send_text("led on")
     app.page.keyboard.press("Enter")
     app.wait_for_mock("written.length >= 7")
-    # Enter sends CR
-    assert "".join(app.mock("written")) == "led on\r"
+    # Enter sends CR LF at first
+    assert "".join(app.mock("written")) == "led on\r\n"
 
     # Backspace sends BS and Delete DEL
     app.page.keyboard.press("Backspace")
@@ -46,12 +46,44 @@ def test_keys_are_sent_as_tera_term_sends_them(app: App):
     assert app.mock("signals") == [{"break": True}, {"break": False}]
     assert len(app.mock("written")) == 9
 
-    # Alt+R sends the clipboard, a CR for each line break and one after
+    # Alt+R sends the clipboard, the line ending for each line break and after
     app.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     app.page.evaluate("navigator.clipboard.writeText('led on\\nled off')")
     app.page.keyboard.press("Alt+R")
     app.wait_for_mock("written.length >= 10")
-    assert app.mock("written")[-1] == "led on\rled off\r"
+    assert app.mock("written")[-1] == "led on\r\nled off\r\n"
+
+
+def test_enter_sends_the_line_ending_chosen(app: App):
+    app.open_port()
+    choice = app.page.get_by_role("group", name="Line ending")
+    expect(choice.locator("[data-state=on]")).to_have_text(["CR", "LF"])
+    # Pressed in turn: CR off, then on again
+    for name, ending in [("CR", "\n"), ("CR", "\r\n")]:
+        choice.get_by_text(name, exact=True).click()
+        before = len(app.mock("written"))
+        app.send_text("a")
+        app.page.keyboard.press("Enter")
+        app.wait_for_mock(f"written.length >= {before + 2}")
+        assert app.mock("written")[before:] == ["a", ending]
+
+    # The last pressed stays so
+    choice.get_by_text("CR", exact=True).click()
+    choice.get_by_text("LF", exact=True).click()
+    expect(choice.locator("[data-state=on]")).to_have_text("LF")
+
+    # Ctrl+M still sends a CR alone
+    app.page.locator(".console-output").click()
+    app.page.keyboard.press("Control+KeyM")
+    app.wait_for_mock(f"written.length >= {before + 3}")
+    assert app.mock("written")[-1] == "\r"
+
+    # Alt+R: the line ending for each line break, and after
+    app.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    app.page.evaluate("navigator.clipboard.writeText('a\\nb')")
+    app.page.keyboard.press("Alt+R")
+    app.wait_for_mock(f"written.length >= {before + 4}")
+    assert app.mock("written")[-1] == "a\nb\n"
 
 
 def send_buffer(app: App) -> list[list]:
@@ -66,8 +98,8 @@ def test_send_buffer_marks_what_the_port_has_taken(app: App):
     app.mock("holdWrites = true")
     app.send_text("ok")
     app.page.keyboard.press("Enter")
-    expect(app.page.locator(".console-send-buffer")).to_have_text("ok\u240d")
-    assert send_buffer(app) == [["o", False], ["k", False], ["\u240d", False]]
+    expect(app.page.locator(".console-send-buffer")).to_have_text("ok\u240d\u240a")
+    assert send_buffer(app) == [["o", False], ["k", False], ["\u240d\u240a", False]]
     expect(app.page.locator(".console-send-buffer span[data-sent=true]")).to_have_count(
         0
     )
@@ -77,7 +109,7 @@ def test_send_buffer_marks_what_the_port_has_taken(app: App):
     expect(app.page.locator(".console-send-buffer span[data-sent=true]")).to_have_count(
         3
     )
-    assert "".join(app.mock("written")) == "ok\r"
+    assert "".join(app.mock("written")) == "ok\r\n"
 
 
 def test_send_buffer_empties_from_the_left_after_three_seconds(app: App):
@@ -135,7 +167,7 @@ def test_send_buffer_shows_hex_in_the_hex_view(app: App):
     app.send_text("ok")
     app.page.keyboard.press("Enter")
     buffer = app.page.locator(".console-send-buffer")
-    expect(buffer).to_have_text("6F 6B 0D")
+    expect(buffer).to_have_text("6F 6B 0D 0A")
     expect(buffer.locator("span[data-sent=true]")).to_have_count(0)
 
     app.mock("holdWrites = false")
@@ -143,7 +175,7 @@ def test_send_buffer_shows_hex_in_the_hex_view(app: App):
     expect(buffer.locator("span[data-sent=true]")).to_have_count(3)
 
     app.page.get_by_role("tab", name="Text").click()
-    expect(buffer).to_have_text("ok␍")
+    expect(buffer).to_have_text("ok␍␊")
 
 
 def signal_action(app: App, name: str):
