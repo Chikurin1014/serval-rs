@@ -60,13 +60,15 @@
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 
-      # The app with `docs` at `/docs/`, as `dx` serves them of `public/docs`
+      # The app with `docs` at `/docs/` and the third-party licenses at
+      # `/third-party-licenses.html`, as `dx` serves them of `public/`
       withDocs =
         docs:
         pkgs.runCommand "serval-web-${commonArgs.version}" { } ''
           mkdir -p $out/share
           cp -r --no-preserve=mode ${config.packages.web-app}/share/serval-web $out/share/serval-web
           cp -r --no-preserve=mode ${docs} $out/share/serval-web/docs
+          cp --no-preserve=mode ${src}/third-party-licenses.html $out/share/serval-web/
         '';
 
       webArgs = commonArgs // {

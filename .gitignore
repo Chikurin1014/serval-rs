@@ -32,3 +32,6 @@ __pycache__/
 
 # The plugins' API reference, generated (`nix build .#docs-api -o docs/src/api`)
 /docs/src/api
+
+# The third-party licenses, as they are copied into the web app's
+/packages/web/public/third-party-licenses.html

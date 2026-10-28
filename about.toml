@@ -1,6 +1,6 @@
-# Regenerate after changing dependencies (in `nix develop`):
+# Regenerate after changing dependencies:
 #   cargo about generate --manifest-path packages/web/Cargo.toml about.hbs \
-#     -o packages/web/public/third-party-licenses.html
+#     -o third-party-licenses.html
 accepted = ["MIT", "Apache-2.0", "Unicode-3.0", "Zlib", "ISC", "CC0-1.0"]
 targets = ["wasm32-unknown-unknown"]
 ignore-build-dependencies = true

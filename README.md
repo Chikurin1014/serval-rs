@@ -4,126 +4,127 @@ Cross-Platform Serial Visualizer
 
 ## Development
 
-Your new workspace contains a member crate for each of the web, desktop and mobile platforms, and a `ui` crate for components that are shared between multiple platforms:
+### Workspace
 
 ```
 serval-rs/
-├─ README.md
-├─ Cargo.toml
-└─ packages/
-   ├─ web/
-   │  └─ ... # Web specific UI/logic
-   ├─ desktop/
-   │  └─ ... # Desktop specific UI/logic
-   ├─ mobile/
-   │  └─ ... # Mobile specific UI/logic
-   └─  ui/
-      └─ ... # Component shared between multiple platforms
+├─ packages/
+│  ├─ ui/       # Components and logic shared by the apps
+│  ├─ web/      # Web app
+│  ├─ desktop/  # Desktop app
+│  └─ mobile/   # Mobile app
+├─ docs/        # Documents (mdBook)
+├─ e2e/         # End-to-end tests (web app)
+└─ tools/serval-rune/  # Generates the plugin API reference
 ```
 
-### Platform crates
+Each app crate has its entry point and what only its platform needs.
+`ui` has what they share.
+The steps below are for the web app.
 
-Each platform crate contains the entry point for the platform, and any assets, components and dependencies that are specific to that platform. For example, the desktop crate in the workspace looks something like this:
+### Requirements
 
-```
-desktop/ # The desktop crate contains all platform specific UI, logic and dependencies for the desktop app
-├─ assets/ # Assets used by the desktop app - Any platform specific assets should go in this folder
-├─ src/
-│  ├─ main.rs # The entrypoint for the desktop app (a placeholder for now: Serval runs in the browser)
-├─ Cargo.toml # The desktop crate's Cargo.toml - This should include all desktop specific dependencies
-```
-
-When you start developing with the workspace setup each of the platform crates will look almost identical. The UI starts out exactly the same on all platforms. However, as you continue developing your application, this setup makes it easy to let the views for each platform change independently.
-
-### Shared UI crate
-
-The workspace contains a `ui` crate with components that are shared between multiple platforms. You should put any UI elements you want to use in multiple platforms in this crate. You can also put some shared client side logic in this crate, but be careful to not pull in platform specific dependencies. The `ui` crate starts out something like this:
-
-```
-ui/
-├─ src/
-│  ├─ lib.rs # The entrypoint for the ui crate
-│  ├─ components
-```
-
-#### Serving Your App
-
-Navigate to the platform crate of your choice:
+| Tool                                                                                                      | Version (as tested)                   | Used for                                              |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
+| [Rust](https://rustup.rs/)                                                                                | stable, with `wasm32-unknown-unknown` | Everything. `rust-toolchain.toml` installs the target |
+| [Dioxus CLI](https://dioxuslabs.com/learn/0.7/getting_started) (`dx`)                                     | 0.7.9                                 | Running and building the apps                         |
+| [mdBook](https://rust-lang.github.io/mdBook/), [mdbook-mermaid](https://github.com/badboy/mdbook-mermaid) | 0.5, 0.17                             | Documents                                             |
+| [Node.js](https://nodejs.org/)                                                                            | 24                                    | JavaScript unit tests                                 |
+| [Python](https://www.python.org/) with pytest, pytest-xdist, Playwright                                   | 3.14                                  | End-to-end tests, screenshots of the documents        |
+| [FFmpeg](https://ffmpeg.org/)                                                                             |                                       | Videos of the documents                               |
+| [cargo-about](https://github.com/EmbarkStudios/cargo-about)                                               | 0.9                                   | Third-party licenses                                  |
 
 ```bash
-cd web
+cargo install dioxus-cli --version 0.7.9 --locked
 ```
-
-and serve:
 
 ```bash
-dx serve
+cargo install mdbook mdbook-mermaid cargo-about --locked
 ```
 
-#### Documents
+```bash
+pip install pytest pytest-xdist playwright
+```
 
-The documents are an [mdBook](https://rust-lang.github.io/mdBook/) in `docs/`, served at `/docs/` of the app.
-`mdbook build docs` builds them into `docs/book`, of no app (neither is kept in git).
-For `dx serve` and `dx build` to serve them with the web app, build them into its `packages/web/public/docs`:
+```bash
+python -m playwright install chromium
+```
+
+`dx` downloads `wasm-bindgen` and `wasm-opt` by itself when it needs them.
+
+### Run the web app
+
+```bash
+dx serve -p web
+```
+
+Open it in a Chromium-based browser (Chrome, Edge): Web Serial works only there.
+
+### Documents
+
+The documents are an mdBook in `docs/`.
+The web app serves them at `/docs/`.
+To include them in the web app, build them into `packages/web/public/docs`:
 
 ```bash
 mdbook build docs --dest-dir packages/web/public/docs
 ```
 
-While writing, rebuild them there as they change:
-
-```bash
-mdbook watch docs --dest-dir packages/web/public/docs
-```
-
-or preview them alone, at <http://localhost:3000>:
+To preview them alone:
 
 ```bash
 mdbook serve docs
 ```
 
-Their videos and screenshots are recorded of the app as it is built, not kept in git: `nix build .#docs` records them as it builds the documents, and `nix build .#web` (as a release deploys it) puts both at `/docs/` of the app.
-The checks build the documents without them, so CI records them only on a release.
-To see them as you write, record them of an app you built (here, as the e2e tests build it):
+These are not in git.
+Generate them when you need them:
+
+- Videos and screenshots (`docs/src/media`): record them from a built web app.
+  The end-to-end tests build one into `target/e2e`:
+
+  ```bash
+  python docs/media/capture.py target/e2e/dx/web/debug/web/public
+  ```
+
+- The plugin API reference (`docs/src/api`): generate it from the docstrings of the Rune modules (`packages/ui/src/plugin/serval/`).
+  `tools/serval-rune` is a Cargo workspace of its own:
+
+  ```bash
+  cd tools/serval-rune && cargo run -- doc --output ../../docs/src/api
+  ```
+
+### Third-party licenses
+
+The licenses of the bundled software are in [`third-party-licenses.html`](third-party-licenses.html).
+The web app serves it at `/third-party-licenses.html`.
+To include it in the web app, copy it into `packages/web/public`:
 
 ```bash
-python docs/media/capture.py target/e2e/dx/web/debug/web/public
+cp third-party-licenses.html packages/web/public/
 ```
 
-They go into `docs/src/media`, which `mdbook build` takes them from, and `packages/web/public/docs/media`, so the documents `dx serve` serves show them at once.
-
-Their diagrams are [Mermaid](https://mermaid.js.org/)'s, of `mermaid` code blocks, by `mdbook-mermaid` (in `nix develop`); its scripts, `docs/mermaid.min.js` and `docs/mermaid-init.js`, are kept in git.
-
-The plugins' API reference (at `api/` of the documents) is generated of the docstrings of their Rune modules (`packages/ui/src/plugin/serval/`) by `tools/serval-rune`, Rune's own CLI with them, not kept in git either.
-`nix build .#docs` builds it with the documents; to see it as you write, build it into `docs/src/api`:
+After you change dependencies, generate it again (see [`about.toml`](about.toml)):
 
 ```bash
-nix build .#docs-api -o docs/src/api
+cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o third-party-licenses.html
 ```
 
-or with Cargo, in the empty Rune workspace of `tools/serval-rune` (a Cargo workspace of its own):
+### Release build (web)
 
-```bash
-cd tools/serval-rune && cargo run -- doc --output ../../docs/src/api
-```
-
-#### Building for Release
-
-`nix build .#web` (or `nix build`) builds the web app as it is deployed, into `result/`.
-To build it with `dx` instead, turn off the debug symbols it adds by default:
+Build the documents and copy the licenses first, as above. Then:
 
 ```bash
 dx build --platform web --release --debug-symbols false
 ```
 
-`wasm-opt` aborts on them, and `dx` then goes on with the wasm unoptimized (about 7 MB instead of 5), reporting only `wasm-opt failed` among its logs.
+The web app is in `target/dx/web/release/web/public`.
 
-## Testing
+> [!NOTE]
+> Keep `--debug-symbols false`.
+> Without it, `wasm-opt` fails, and the wasm stays unoptimized (about 7 MB instead of 5).
+> `dx` reports only `wasm-opt failed` in its logs.
 
-`nix flake check` runs all of the tests below in the Nix sandbox, against a release build of the web app.
-It only sees files tracked by git, so `git add` new files first.
-
-Run these inside `nix develop`, which provides Node.js, pytest, Playwright and its browsers.
+### Tests
 
 Unit tests (Rust and JavaScript):
 
@@ -135,22 +136,41 @@ cargo test -p ui
 node --test 'packages/**/*.test.mjs'
 ```
 
-End-to-end tests drive the web app in headless Chromium with a mock serial port (`e2e/mock_serial.js`) that sends `temp:…` and `volt:…` lines.
-They build the app into `target/e2e`, apart from `dx serve`'s build:
+End-to-end tests run the web app in headless Chromium with a mock serial port (`e2e/mock_serial.js`).
+The port sends `temp:…` and `volt:…` lines.
+They build the web app (with the documents and the licenses) into `target/e2e`:
 
 ```bash
-pytest e2e
+pytest e2e -n auto
 ```
 
-To test an existing build instead, point `SERVAL_E2E_APP` at its `public/` directory.
+To test an existing build instead, set `SERVAL_E2E_APP` to its `public/` directory.
+
+## Development with Nix
+
+With [Nix](https://nixos.org/) (flakes enabled), you don't need to install the tools above.
+Each section above has these commands:
+
+| Section              | Command                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Requirements         | `nix develop` (a shell with all the tools)                                                                           |
+| Run the web app      | `nix develop -c dx serve -p web`                                                                                     |
+| Documents            | `nix build .#docs` (with the videos and screenshots)                                                                 |
+| Plugin API reference | `nix build .#docs-api -o docs/src/api`                                                                               |
+| Third-party licenses | `nix develop -c cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o third-party-licenses.html` |
+| Release build (web)  | `nix build` (into `result/share/serval-web`, with the documents and the licenses)                                    |
+| Tests                | `nix flake check` (all the tests, in the Nix sandbox)                                                                |
+
+`nix run` serves the release build at http://localhost:8080/.
+`nix fmt` formats all the files.
+
+> [!NOTE]
+> The checks build the documents without videos and screenshots.
+> CI records them only for a release.
 
 ## License
 
 Serval is licensed under the [MIT License](LICENSE).
 
-It bundles third-party software (KaTeX, uPlot, xterm.js, Zdog, the Dioxus components, the USB ID Repository and the Rust crates compiled into it), whose licenses are listed in [`third-party-licenses.html`](packages/web/public/third-party-licenses.html), served with the app at `/third-party-licenses.html`.
-After changing dependencies, regenerate it in `nix develop` (see [`about.toml`](about.toml)):
-
-```bash
-cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o packages/web/public/third-party-licenses.html
-```
+It bundles third-party software.
+Their licenses are in [`third-party-licenses.html`](third-party-licenses.html).
