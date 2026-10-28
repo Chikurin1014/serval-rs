@@ -1,0 +1,67 @@
+/* A `.field`, as wide as its placeholder */
+.field.baudrate-field {
+  flex: none;
+  width: 16rem;
+  padding: 0 0.75rem;
+}
+
+.baudrate-field input,
+.baudrate-field input:hover:not(:disabled),
+.baudrate-field input:focus-visible {
+  font-size: 0.875rem;
+  font-weight: normal;
+}
+
+.baudrate-unit {
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--dc-border);
+}
+
+.extra-settings-menu {
+  display: flex;
+}
+
+/* As the baud rate's field, to which it is joined */
+.port-configurator .extra-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 0.6rem;
+  border: none;
+  border-radius: 0;
+  background: var(--dc-panel);
+  box-shadow: inset 0 0 0 1px var(--dc-border);
+  color: var(--dc-text);
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.port-configurator .extra-settings-trigger:hover:not(:disabled) {
+  background: var(--dark, var(--primary-color-7))
+    var(--light, var(--primary-color-4));
+}
+
+.port-configurator .extra-settings-trigger:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--focused-border-color);
+  outline: none;
+}
+
+.port-configurator .extra-settings-trigger:disabled {
+  color: var(--dc-text-muted);
+  cursor: default;
+}
+
+.extra-settings-menu .extra-settings-content {
+  min-width: 0;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  text-align: left;
+}
+
+/* Their names in a column, the toggles lined up after */
+.field.extra-setting {
+  display: grid;
+  grid-template-columns: 7rem auto;
+}

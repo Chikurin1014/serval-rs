@@ -102,6 +102,31 @@ html[data-theme="dark"] {
   font-size: 0.75rem;
 }
 
+/* A field of choices (toggles): no frame of its own */
+.field.field-choices,
+.field.field-choices:focus-within {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.field-choices button {
+  height: 1.75rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+/* Controls side by side as one: their borders overlap */
+.joined-controls {
+  display: inline-flex;
+  align-items: stretch;
+  height: 2rem;
+}
+
+.joined-controls > * + * {
+  margin-left: -1px;
+}
+
 /* Shown while their `.reveals` ancestor is hovered or focused, and always
  * on touch screens */
 .reveal-on-hover {

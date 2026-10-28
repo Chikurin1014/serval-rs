@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::helper::format_bytes;
 use crate::{
     components::card::{Card, CardContent, CardHeader, CardTitle},
-    serial::{DATA_BITS, FLOW_CONTROL, NotificationKind, PARITY, STOP_BITS, SerialContext},
+    serial::{NotificationKind, SerialContext},
     time::TimeContext,
 };
 
@@ -24,10 +24,14 @@ pub fn PortInfoPanel() -> Element {
         .as_ref()
         .and_then(|port| port.info.product.clone())
         .unwrap_or_else(unknown);
-    let baudrate = port
-        .as_ref()
-        .and_then(|port| port.baudrate)
-        .map_or_else(unknown, |baudrate| format!("{baudrate} bps"));
+    // As the port opens next, or as it opened
+    let settings = port.as_ref().map(|port| port.settings).unwrap_or_default();
+    let baudrate = settings
+        .baudrate
+        .map_or_else(unknown, |baudrate| baudrate.to_string());
+    let extra = settings.extra;
+    let frame = extra.frame();
+    let (parity, flow_control) = (extra.parity.name(), extra.flow_control.name());
     let rx_bytes = format_bytes(serial.rx_bytes());
     let tx_bytes = format_bytes(serial.tx_bytes());
     let notifications = serial.notifications();
@@ -44,7 +48,7 @@ pub fn PortInfoPanel() -> Element {
                     div {
                         class: "port-summary",
                         span { "{product} · {vendor}" }
-                        span { "{baudrate} {frame()}" }
+                        span { "{baudrate} {frame}" }
                         span { "RX {rx_bytes} · TX {tx_bytes}" }
                         if let Some(entry) = notifications.first() {
                             span {
@@ -63,13 +67,13 @@ pub fn PortInfoPanel() -> Element {
                         dt { "Baud rate" }
                         dd { "{baudrate}" }
                         dt { "Data bits" }
-                        dd { "{DATA_BITS}" }
+                        dd { "{extra.data_bits}" }
                         dt { "Parity" }
-                        dd { "{PARITY}" }
+                        dd { "{parity}" }
                         dt { "Stop bits" }
-                        dd { "{STOP_BITS}" }
+                        dd { "{extra.stop_bits}" }
                         dt { "Flow control" }
-                        dd { "{FLOW_CONTROL}" }
+                        dd { "{flow_control}" }
                         dt { "Received" }
                         dd { "{rx_bytes}" }
                         dt { "Sent" }
@@ -95,26 +99,10 @@ pub fn PortInfoPanel() -> Element {
     }
 }
 
-/// e.g. "8N1"
-fn frame() -> String {
-    let parity = PARITY.chars().next().unwrap_or('N').to_ascii_uppercase();
-    format!("{DATA_BITS}{parity}{STOP_BITS}")
-}
-
 fn kind_name(kind: NotificationKind) -> &'static str {
     match kind {
         NotificationKind::Success => "success",
         NotificationKind::Info => "info",
         NotificationKind::Error => "error",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::frame;
-
-    #[test]
-    fn frame_is_8n1() {
-        assert_eq!(frame(), "8N1");
     }
 }

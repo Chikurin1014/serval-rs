@@ -2,14 +2,18 @@
 
 ## Port settings
 
-| Setting | Value |
-|---|---|
-| Data bits | 8 |
-| Parity | None |
-| Stop bits | 1 |
-| Flow control | None |
+| Setting | Values | Default |
+|---|---|---|
+| Baud rate | See [Baud rate](#baud-rate) | |
+| Data bits | 7, 8 | 8 |
+| Parity | none, even, odd | none |
+| Stop bits | 1, 2 | 1 |
+| Flow control | none, hardware (RTS/CTS) | none |
 
-Only the baud rate can be changed.
+* All but the baud rate are set in the menu beside the baud rate field.
+  Its button shows them as data bits, parity, and stop bits: `8N1`, `7E2`.
+* Each port keeps its own settings.
+* They take effect the next time the port is opened.
 
 ## Selecting a port
 
