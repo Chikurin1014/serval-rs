@@ -1,14 +1,12 @@
 // Plots the points sent from `ScatterGraph` with uPlot.
 //
-// From Rust: the container id, then `[reset, points, [xLabel, yLabel],
+// From Rust: the container id, then `[reset, dropped, points, [xLabel, yLabel],
 // [xLog, yLog], [pointColor, lineColor], line, statistics]` on each change
-// (points: `[[x, y]]`, after those before unless `reset`; line: `[slope,
+// (points: `[[x, y]]`, after those before unless `reset`, then `dropped` of
+// the oldest left out, so it has no more than Rust keeps; line: `[slope,
 // intercept]` or `null`; statistics: `[covariance, correlation]` as text or
 // `null`), then `null` on unmount. To Rust: `["zoomed", []]` as it is zoomed
 // into.
-
-// As `MAX_ENTRIES_PER_LABEL`
-const MAX_POINTS = 10000;
 
 const id = await dioxus.recv();
 const container = document.getElementById(id);
@@ -148,10 +146,19 @@ function scale(log, key) {
   };
 }
 
-// Each point as a dot: uPlot draws none of its own in `mode: 2`
-function drawPoints(fill, stroke) {
+// From this many points, each is drawn as a square of one color, without its
+// outline: as many circles, filled and outlined, are slow to draw
+const SIMPLE_FROM = 1000;
+// Their side, of a circle's width: smaller, so many of them look less dense
+const SQUARE_SCALE = 0.7;
+
+// Each point as a dot of `color`: uPlot draws none of its own in `mode: 2`
+function drawPoints(color) {
+  const fill = withAlpha(color, 0.6);
   return (u, seriesIndex) => {
     const size = 5 * devicePixelRatio;
+    const simple = u.data[seriesIndex][0].length >= SIMPLE_FROM;
+    const side = size * SQUARE_SCALE;
     uPlot.orient(
       u,
       seriesIndex,
@@ -175,7 +182,8 @@ function drawPoints(fill, stroke) {
         const [xs, ys] = u.data[seriesIndex];
         const path = new Path2D();
         for (let i = 0; i < xs.length; i++) {
-          const [x, y] = [xs[i], ys[i]];
+          const x = xs[i];
+          const y = ys[i];
           if (
             x < scaleX.min ||
             x > scaleX.max ||
@@ -186,15 +194,24 @@ function drawPoints(fill, stroke) {
           }
           const cx = valToPosX(x, scaleX, xDim, xOff);
           const cy = valToPosY(y, scaleY, yDim, yOff);
-          path.moveTo(cx + size / 2, cy);
-          arc(path, cx, cy, size / 2, 0, 2 * Math.PI);
+          if (simple) {
+            rect(path, cx - side / 2, cy - side / 2, side, side);
+          } else {
+            path.moveTo(cx + size / 2, cy);
+            arc(path, cx, cy, size / 2, 0, 2 * Math.PI);
+          }
         }
         u.ctx.save();
-        u.ctx.fillStyle = fill;
-        u.ctx.strokeStyle = stroke;
-        u.ctx.lineWidth = devicePixelRatio;
-        u.ctx.fill(path);
-        u.ctx.stroke(path);
+        if (simple) {
+          u.ctx.fillStyle = color;
+          u.ctx.fill(path);
+        } else {
+          u.ctx.fillStyle = fill;
+          u.ctx.strokeStyle = color;
+          u.ctx.lineWidth = devicePixelRatio;
+          u.ctx.fill(path);
+          u.ctx.stroke(path);
+        }
         // As it was, for the axes drawn after
         u.ctx.restore();
       },
@@ -290,7 +307,7 @@ function create() {
             { scale: "x", auto: true },
             { scale: "y", auto: true },
           ],
-          paths: drawPoints(withAlpha(point, 0.6), point),
+          paths: drawPoints(point),
           points: { show: false },
         },
       ],
@@ -311,8 +328,8 @@ function draw() {
   } else {
     plot.setData(plotData());
   }
-  // For tests
-  container.dataset.points = String(plotData()[1][0].length);
+  // For tests: as uPlot has them, not worked out again
+  container.dataset.points = String(plot.data[1][0].length);
   container.dataset.draws = String(Number(container.dataset.draws ?? 0) + 1);
   container.dataset.line = line ? line.join(" ") : "";
   showStatistics(plot);
@@ -340,6 +357,7 @@ create();
 for await (const message of messages()) {
   const [
     reset,
+    dropped,
     points,
     pointLabels,
     pointLogs,
@@ -366,10 +384,10 @@ for await (const message of messages()) {
     xs.push(x);
     ys.push(y);
   }
-  const excess = xs.length - MAX_POINTS;
-  if (excess > 0) {
-    xs.splice(0, excess);
-    ys.splice(0, excess);
+  // Those that left its time range, or past as many as Rust keeps
+  if (dropped > 0) {
+    xs.splice(0, dropped);
+    ys.splice(0, dropped);
   }
   schedule();
 }

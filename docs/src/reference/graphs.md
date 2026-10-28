@@ -86,6 +86,8 @@ A box per label, of its values in the [time range](#statistics-time-range).
   at the time of the later.
 * Shows the points of the [time range](#statistics-time-range), of the 10,000
   newest it keeps.
+* From 1,000 points, each is drawn as a square of one color, without its
+  outline, to draw them faster.
 * Shows the covariance (over n − 1) and Pearson's correlation coefficient, to
   two decimal places.
 * The regression line and the statistics are of the points shown alone.
