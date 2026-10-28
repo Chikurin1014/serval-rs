@@ -45,6 +45,10 @@ const LICENSES_PAGE: &str = "/third-party-licenses.html";
 const DOCUMENTS_PAGE: &str = "/docs/";
 
 fn main() {
+    // Warnings and errors alone: on the web, each span and event logged is
+    // also a `performance` mark and measure, kept until the page is closed,
+    // and Dioxus's own (as each memo computes) would pile up as data comes
+    let _ = dioxus::logger::init(dioxus::logger::tracing::Level::WARN);
     dioxus::launch(App);
 }
 

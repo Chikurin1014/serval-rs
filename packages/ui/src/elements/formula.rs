@@ -10,20 +10,24 @@ const FORMULA_JS: &str = include_str!("formula.js");
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// A LaTeX formula rendered by KaTeX; `fallback` shows until it loads.
+///
+/// `latex` is a plain value, not a signal: a signal made of each value its
+/// parent renders with would be kept until the parent is gone.
 #[component]
 pub fn Formula(
-    latex: ReadSignal<String>,
+    latex: String,
     fallback: String,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     let id = use_hook(|| format!("formula-{}", NEXT_ID.fetch_add(1, Ordering::Relaxed)));
 
+    // Rendered again as `latex` changes
     use_effect({
         let id = id.clone();
-        move || {
+        use_reactive!(|latex| {
             let eval = document::eval(FORMULA_JS);
-            let _ = eval.send((id.clone(), latex()));
-        }
+            let _ = eval.send((id.clone(), latex));
+        })
     });
 
     rsx! {
