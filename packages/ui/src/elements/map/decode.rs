@@ -6,7 +6,7 @@ use super::map_list::labels_list;
 use super::{LOG_LABEL, form_of};
 use crate::{
     data::{DataType, Decode, DecodeSettings, MapKind, MapPreset, MapRunner, RAW_BYTES_LABEL},
-    helper::{Delimiter, single_line},
+    helper::{Choice, Delimiter, single_line},
 };
 
 /// A preset reading each line of the raw bytes as a log by `$pattern`, under
@@ -70,7 +70,7 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
     let chosen = delimiters
         .read()
         .iter()
-        .filter_map(|delimiter| Delimiter::ALL.iter().position(|all| all == delimiter))
+        .map(|delimiter| delimiter.index())
         .collect::<Vec<_>>();
 
     rsx! {
@@ -85,7 +85,7 @@ pub fn DecodeForm(settings: DecodeSettings) -> Element {
                 }
                 ChoicesField {
                     name: "Delimiter",
-                    options: Delimiter::ALL.map(|delimiter| single_line(delimiter.text())).to_vec(),
+                    options: Delimiter::ALL.iter().map(|delimiter| single_line(delimiter.text())).collect(),
                     chosen,
                     on_change: move |chosen: Vec<usize>| {
                         delimiters.set(chosen.into_iter().map(|index| Delimiter::ALL[index]).collect());

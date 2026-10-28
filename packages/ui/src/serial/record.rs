@@ -10,7 +10,7 @@ pub use detect::detect_format;
 use super::{LocalFuture, SerialResult};
 use crate::{
     data::ByteData,
-    helper::{AnsiStripper, Delimiter, decode_utf8, hex, split_lines},
+    helper::{AnsiStripper, Choice, Delimiter, decode_utf8, hex, split_lines},
 };
 
 /// Where a record's bytes go as they are made: a file, by the platform.
@@ -284,7 +284,7 @@ impl Lines {
         }
         let mut start = *self.start.get_or_insert(timestamp);
         self.rest.push_str(&text);
-        let (mut lines, mut rest) = split_lines(&self.rest, &Delimiter::ALL);
+        let (mut lines, mut rest) = split_lines(&self.rest, Delimiter::ALL);
         // A last CR ends its line now, not when what follows shows it is no CRLF
         if let Some(line) = rest.strip_suffix('\r') {
             lines.push((line.to_string(), Delimiter::Cr));

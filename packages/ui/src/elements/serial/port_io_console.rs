@@ -6,8 +6,8 @@ use dioxus_icons::lucide;
 use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
 use crate::{
     components::toggle_group::{ToggleGroup, ToggleItem},
-    helper::{concat_scripts, format_bytes, hex, use_script, visible},
-    serial::{LineEnding, OutgoingFile, SerialContext},
+    helper::{Delimiter, concat_scripts, format_bytes, hex, use_script, visible},
+    serial::{OutgoingFile, SerialContext},
     time::TimeContext,
 };
 
@@ -287,7 +287,7 @@ fn LineEndingChoice() -> Element {
                 pressed: Some(pressed),
                 on_pressed_change: move |pressed: HashSet<usize>| {
                     // Unpressing the last leaves it so
-                    if let Some(line_ending) = LineEnding::of(pressed.contains(&0), pressed.contains(&1)) {
+                    if let Some(line_ending) = Delimiter::of(pressed.contains(&0), pressed.contains(&1)) {
                         serial.set_line_ending(line_ending);
                     }
                 },

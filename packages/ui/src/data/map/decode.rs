@@ -6,7 +6,9 @@ use crate::data::{
     ByteData, Conversion, ConversionInput, ConversionOutput, DataContext, Endpoints, LogData,
     MapRunner, MapSettings, SourceCursor, compile_for_map, keep_taken,
 };
-use crate::helper::{AnsiStripper, Delimiter, decode_utf8, hex, set_if_changed, split_lines};
+use crate::helper::{
+    AnsiStripper, Choice, Delimiter, decode_utf8, hex, set_if_changed, split_lines,
+};
 
 /// What matches a whole line, for its message.
 pub const WHOLE_LINE: &str = ".*";
