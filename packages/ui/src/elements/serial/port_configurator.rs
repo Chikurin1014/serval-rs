@@ -9,7 +9,8 @@ use crate::{
         popover::{PopoverContent, PopoverRoot, PopoverTrigger},
         toggle_group::{ToggleGroup, ToggleItem},
     },
-    serial::{Baudrate, ExtraSettings, FlowControl, Parity, SerialContext},
+    helper::Choice,
+    serial::{Baudrate, ExtraSettings, FlowControl, Parity, PortSettings, SerialContext},
 };
 
 const PORT_CONFIGURATOR_CSS: Asset = asset!("/assets/styling/port-configurator.css");
@@ -21,9 +22,7 @@ const BAUDRATE_PRESETS_LIST: &str = "baudrate-presets";
 #[component]
 pub fn PortConfigurator() -> Element {
     let serial = use_context::<SerialContext>();
-    let selected_baudrate = serial
-        .selected_port()
-        .and_then(|port| port.settings.baudrate);
+    let settings = serial.settings().unwrap_or_default();
 
     rsx! {
         document::Link { rel: "stylesheet", href: PORT_CONFIGURATOR_CSS }
@@ -38,10 +37,12 @@ pub fn PortConfigurator() -> Element {
                     step: "1",
                     placeholder: "Baud rate (e.g. 9600)",
                     list: BAUDRATE_PRESETS_LIST,
-                    value: selected_baudrate.map(|baudrate| baudrate.bps().to_string()),
+                    disabled: !serial.settings_editable(),
+                    value: settings.baudrate.map(|baudrate| baudrate.bps().to_string()),
                     oninput: move |event: FormEvent| {
                         if let Some(baudrate) = parse_baudrate(&event.value()) {
-                            serial.set_baudrate(baudrate);
+                            // Refused as the field is disabled: no port, or open
+                            let _ = serial.set_settings(PortSettings { baudrate: Some(baudrate), ..settings });
                         }
                     }
                 }
@@ -67,11 +68,12 @@ pub fn PortConfigurator() -> Element {
 #[component]
 fn ExtraSettingsMenu() -> Element {
     let serial = use_context::<SerialContext>();
-    let port = serial.selected_port();
-    let extra = port
-        .as_ref()
-        .map(|port| port.settings.extra)
-        .unwrap_or_default();
+    let settings = serial.settings().unwrap_or_default();
+    let extra = settings.extra;
+    // Refused as the menu is disabled: no port, or open
+    let set = move |extra| {
+        let _ = serial.set_settings(PortSettings { extra, ..settings });
+    };
 
     rsx! {
         PopoverRoot {
@@ -79,8 +81,8 @@ fn ExtraSettingsMenu() -> Element {
             PopoverTrigger {
                 class: "extra-settings-trigger",
                 aria_label: "Port settings",
-                title: "Port settings: taken as the port opens",
-                disabled: port.is_none(),
+                title: if serial.is_open() { "Close the port to change its settings" } else { "Port settings: taken as the port opens" },
+                disabled: !serial.settings_editable(),
                 span { class: "extra-settings-frame", "{extra.frame()}" }
             }
             PopoverContent {
@@ -91,25 +93,25 @@ fn ExtraSettingsMenu() -> Element {
                     name: "Data bits",
                     choices: ExtraSettings::DATA_BITS.map(|bits| bits.to_string()).to_vec(),
                     chosen: ExtraSettings::DATA_BITS.iter().position(|&bits| bits == extra.data_bits),
-                    on_choose: move |index| serial.set_extra_settings(ExtraSettings { data_bits: ExtraSettings::DATA_BITS[index], ..extra }),
+                    on_choose: move |index| set(ExtraSettings { data_bits: ExtraSettings::DATA_BITS[index], ..extra }),
                 }
                 SettingChoices {
                     name: "Parity",
-                    choices: Parity::ALL.map(|parity| parity.name().to_string()).to_vec(),
-                    chosen: Parity::ALL.iter().position(|&parity| parity == extra.parity),
-                    on_choose: move |index| serial.set_extra_settings(ExtraSettings { parity: Parity::ALL[index], ..extra }),
+                    choices: names::<Parity>(),
+                    chosen: Some(extra.parity.index()),
+                    on_choose: move |index| set(ExtraSettings { parity: Parity::ALL[index], ..extra }),
                 }
                 SettingChoices {
                     name: "Stop bits",
                     choices: ExtraSettings::STOP_BITS.map(|bits| bits.to_string()).to_vec(),
                     chosen: ExtraSettings::STOP_BITS.iter().position(|&bits| bits == extra.stop_bits),
-                    on_choose: move |index| serial.set_extra_settings(ExtraSettings { stop_bits: ExtraSettings::STOP_BITS[index], ..extra }),
+                    on_choose: move |index| set(ExtraSettings { stop_bits: ExtraSettings::STOP_BITS[index], ..extra }),
                 }
                 SettingChoices {
                     name: "Flow control",
-                    choices: FlowControl::ALL.map(|flow| flow.name().to_string()).to_vec(),
-                    chosen: FlowControl::ALL.iter().position(|&flow| flow == extra.flow_control),
-                    on_choose: move |index| serial.set_extra_settings(ExtraSettings { flow_control: FlowControl::ALL[index], ..extra }),
+                    choices: names::<FlowControl>(),
+                    chosen: Some(extra.flow_control.index()),
+                    on_choose: move |index| set(ExtraSettings { flow_control: FlowControl::ALL[index], ..extra }),
                 }
             }
         }
@@ -145,6 +147,14 @@ fn SettingChoices(
             }
         }
     }
+}
+
+/// The names of all `T`, as its toggles show them.
+fn names<T: Choice>() -> Vec<String> {
+    T::ALL
+        .iter()
+        .map(|choice| choice.name().to_string())
+        .collect()
 }
 
 fn parse_baudrate(value: &str) -> Option<Baudrate> {

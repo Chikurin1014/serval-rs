@@ -79,9 +79,13 @@ def test_shows_a_summary_when_too_short_for_the_details(app: App):
 
 def test_opens_with_the_settings_chosen_beside_the_baud_rate(app: App):
     page = app.page
-    page.locator(".toolbar-port button").first.click()
-    page.get_by_placeholder("Baud rate (e.g. 9600)").fill("9600")
+    baudrate = page.get_by_placeholder("Baud rate (e.g. 9600)")
     trigger = page.get_by_role("button", name="Port settings")
+    # Nothing to set with no port
+    expect(baudrate).to_be_disabled()
+    expect(trigger).to_be_disabled()
+    page.locator(".toolbar-port button").first.click()
+    baudrate.fill("9600")
     expect(trigger).to_have_text("8N1")
     trigger.click()
     for setting, choice in [
@@ -96,6 +100,9 @@ def test_opens_with_the_settings_chosen_beside_the_baud_rate(app: App):
 
     page.get_by_role("button", name="Open port").click()
     expect(page.get_by_role("button", name="Close port")).to_be_visible()
+    # Nor while it is open
+    expect(baudrate).to_be_disabled()
+    expect(trigger).to_be_disabled()
     assert app.mock("options") == {
         "baudRate": 9600,
         "dataBits": 7,
