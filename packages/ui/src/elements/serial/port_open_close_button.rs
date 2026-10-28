@@ -14,7 +14,7 @@ pub fn PortOpenCloseButton() -> Element {
     let currently_open = serial.is_open();
     let port_available = serial
         .selected_port()
-        .and_then(|port| port.baudrate)
+        .and_then(|port| port.settings.baudrate)
         .is_some();
 
     rsx! {

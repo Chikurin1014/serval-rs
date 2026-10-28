@@ -48,7 +48,7 @@ pub fn PortSignalButton() -> Element {
         document::Link { rel: "stylesheet", href: PORT_SIGNAL_BUTTON_CSS }
 
         div {
-            class: "port-signal",
+            class: "port-signal joined-controls",
             role: "group",
             aria_label: "Signals",
             match action() {

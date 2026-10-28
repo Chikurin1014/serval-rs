@@ -6,7 +6,10 @@ use rune::{
 };
 
 use super::{host, or_stop, stream_of, to_value};
-use crate::{plugin::ErrorText, serial::Restart};
+use crate::{
+    plugin::ErrorText,
+    serial::{Baudrate, Restart},
+};
 
 /// The serial port: what is sent to it, what it receives, and its signals.
 ///
@@ -362,7 +365,9 @@ async fn close() -> Result<(), String> {
 #[rune::function(keep)]
 fn get_baudrate() -> Result<Option<i64>, String> {
     let port = host()?.serial.selected_port();
-    Ok(port.and_then(|port| port.baudrate).map(i64::from))
+    Ok(port
+        .and_then(|port| port.settings.baudrate)
+        .map(|baudrate| i64::from(baudrate.bps())))
 }
 
 /// Sets the baud rate of the selected port.
@@ -385,7 +390,7 @@ fn get_baudrate() -> Result<Option<i64>, String> {
 fn set_baudrate(baudrate: i64) -> Result<(), String> {
     let baudrate = u32::try_from(baudrate)
         .ok()
-        .filter(|&baudrate| baudrate > 0)
+        .and_then(Baudrate::new)
         .ok_or_else(|| format!("Not a baud rate: {baudrate}"))?;
     host()?.serial.set_baudrate(baudrate);
     Ok(())

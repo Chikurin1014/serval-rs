@@ -9,8 +9,8 @@ use crate::{
         graph::GraphBoard,
         map::MapList,
         serial::{
-            PortBaudrateConfigurator, PortInfoPanel, PortIoConsole, PortOpenCloseButton,
-            PortSelector, PortSignalButton,
+            PortConfigurator, PortInfoPanel, PortIoConsole, PortOpenCloseButton, PortSelector,
+            PortSignalButton,
         },
     },
     plugin::TaskContext,
@@ -47,7 +47,7 @@ pub fn Home() -> Element {
                 div {
                     class: "toolbar-port",
                     PortSelector {}
-                    PortBaudrateConfigurator {}
+                    PortConfigurator {}
                     PortOpenCloseButton {}
                     PortSignalButton {}
                 }

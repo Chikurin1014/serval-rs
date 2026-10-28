@@ -24,7 +24,10 @@
     release: () => {},
     cancelRequest: false,
     getInfo: () => ({ usbVendorId: 0x2341, usbProductId: 0x0043 }),
-    open: async () => {
+    // What open was given last
+    options: null,
+    open: async (options) => {
+      port.options = options;
       if (port.openError) {
         throw new DOMException(port.openError, "NetworkError");
       }

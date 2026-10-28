@@ -75,3 +75,38 @@ def test_shows_a_summary_when_too_short_for_the_details(app: App):
     expect(summary).to_contain_text("Uno R3 (CDC ACM) · Arduino SA")
     expect(summary).to_contain_text("9600 bps 8N1")
     expect(summary).to_contain_text("Port opened")
+
+
+def test_opens_with_the_settings_chosen_beside_the_baud_rate(app: App):
+    page = app.page
+    page.locator(".toolbar-port button").first.click()
+    page.get_by_placeholder("Baud rate (e.g. 9600)").fill("9600")
+    trigger = page.get_by_role("button", name="Port settings")
+    expect(trigger).to_have_text("8N1")
+    trigger.click()
+    for setting, choice in [
+        ("Data bits", "7"),
+        ("Parity", "even"),
+        ("Stop bits", "2"),
+        ("Flow control", "hardware"),
+    ]:
+        page.get_by_role("group", name=setting).get_by_text(choice, exact=True).click()
+    expect(trigger).to_have_text("7E2")
+    page.keyboard.press("Escape")
+
+    page.get_by_role("button", name="Open port").click()
+    expect(page.get_by_role("button", name="Close port")).to_be_visible()
+    assert app.mock("options") == {
+        "baudRate": 9600,
+        "dataBits": 7,
+        "stopBits": 2,
+        "parity": "even",
+        "flowControl": "hardware",
+    }
+    shown = details(app)
+    assert (shown["Data bits"], shown["Parity"], shown["Stop bits"]) == (
+        "7",
+        "even",
+        "2",
+    )
+    assert shown["Flow control"] == "hardware"

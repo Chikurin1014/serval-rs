@@ -1,7 +1,7 @@
 //! Serial ports, through the platform's [`SerialBackend`]. What the open port
 //! receives goes to `RAW_BYTES_LABEL`.
 
-use std::{collections::VecDeque, future::Future, pin::Pin, rc::Rc};
+use std::{collections::VecDeque, fmt, future::Future, pin::Pin, rc::Rc};
 
 use dioxus::{
     core::{Runtime, current_scope_id},
@@ -32,11 +32,6 @@ pub type LocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 pub type SerialResult<T> = Result<T, String>;
 
-pub const DATA_BITS: u8 = 8;
-pub const PARITY: &str = "none";
-pub const STOP_BITS: u8 = 1;
-pub const FLOW_CONTROL: &str = "none";
-
 const MAX_NOTIFICATIONS: usize = 100;
 
 pub trait SerialBackend {
@@ -59,7 +54,7 @@ pub trait SerialBackend {
 pub trait SerialPort {
     fn info(&self) -> PortInfo;
 
-    fn open(&self, baudrate: u32) -> LocalFuture<SerialResult<()>>;
+    fn open(&self, baudrate: Baudrate, extra: ExtraSettings) -> LocalFuture<SerialResult<()>>;
 
     /// Passes each chunk to `on_chunk` until the port is closed or lost.
     fn read(&self, on_chunk: Box<dyn FnMut(Vec<u8>)>) -> LocalFuture<SerialResult<()>>;
@@ -105,6 +100,119 @@ impl Restart {
     }
 }
 
+/// What a port opens with: kept for each port, and taken as it opens.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PortSettings {
+    /// None until set: a port cannot open without one.
+    pub baudrate: Option<Baudrate>,
+    pub extra: ExtraSettings,
+}
+
+/// A baud rate: above 0 bps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Baudrate(u32);
+
+impl Baudrate {
+    pub fn new(bps: u32) -> Option<Self> {
+        (bps > 0).then_some(Self(bps))
+    }
+
+    pub fn bps(self) -> u32 {
+        self.0
+    }
+}
+
+/// e.g. "9600 bps"
+impl fmt::Display for Baudrate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} bps", self.0)
+    }
+}
+
+/// How a port frames its bytes, but the baud rate: 8N1 with no flow control
+/// at first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExtraSettings {
+    pub data_bits: u8,
+    pub parity: Parity,
+    pub stop_bits: u8,
+    pub flow_control: FlowControl,
+}
+
+impl ExtraSettings {
+    /// Those the platforms all take.
+    pub const DATA_BITS: [u8; 2] = [7, 8];
+    pub const STOP_BITS: [u8; 2] = [1, 2];
+
+    /// e.g. "8N1"
+    pub fn frame(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.data_bits,
+            self.parity.letter(),
+            self.stop_bits
+        )
+    }
+}
+
+impl Default for ExtraSettings {
+    fn default() -> Self {
+        Self {
+            data_bits: 8,
+            parity: Parity::None,
+            stop_bits: 1,
+            flow_control: FlowControl::None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Parity {
+    None,
+    Even,
+    Odd,
+}
+
+impl Parity {
+    pub const ALL: [Self; 3] = [Self::None, Self::Even, Self::Odd];
+
+    /// As Web Serial names it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Even => "even",
+            Self::Odd => "odd",
+        }
+    }
+
+    fn letter(self) -> char {
+        match self {
+            Self::None => 'N',
+            Self::Even => 'E',
+            Self::Odd => 'O',
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FlowControl {
+    None,
+    /// RTS and CTS.
+    Hardware,
+}
+
+impl FlowControl {
+    pub const ALL: [Self; 2] = [Self::None, Self::Hardware];
+
+    /// As Web Serial names it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Hardware => "hardware",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortInfo {
     pub name: String,
@@ -131,13 +239,13 @@ pub struct Notification {
 pub struct Port {
     pub id: usize,
     pub info: PortInfo,
-    pub baudrate: Option<u32>,
+    pub settings: PortSettings,
     handle: Rc<dyn SerialPort>,
 }
 
 impl PartialEq for Port {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.info == other.info && self.baudrate == other.baudrate
+        self.id == other.id && self.info == other.info && self.settings == other.settings
     }
 }
 
@@ -231,14 +339,23 @@ impl SerialContext {
         }
     }
 
-    pub fn set_baudrate(&self, baudrate: u32) {
+    pub fn set_baudrate(&self, baudrate: Baudrate) {
+        self.update_settings(|settings| settings.baudrate = Some(baudrate));
+    }
+
+    pub fn set_extra_settings(&self, extra: ExtraSettings) {
+        self.update_settings(|settings| settings.extra = extra);
+    }
+
+    /// Changes the selected port's settings, if one is selected.
+    fn update_settings(&self, change: impl FnOnce(&mut PortSettings)) {
         let Some(selected) = *self.selected.peek() else {
             return;
         };
         let mut ports = self.ports;
         let mut ports = ports.write();
         if let Some(port) = ports.iter_mut().find(|port| port.id == selected) {
-            port.baudrate = Some(baudrate);
+            change(&mut port.settings);
         }
     }
 
@@ -291,15 +408,16 @@ impl SerialContext {
         });
     }
 
-    /// Opens the port selected at its baudrate, if none is open: read from as
+    /// Opens the port selected with its settings, if none is open: read from as
     /// it returns. Why it failed is told as by [`Self::open`] too.
     pub async fn open_port(&self) -> SerialResult<()> {
         if self.is_open() {
             return Ok(());
         }
         let port = self.selected_port().ok_or("No port is selected")?;
-        let baudrate = port.baudrate.ok_or("No baud rate is set")?;
-        if let Err(error) = port.handle.open(baudrate).await {
+        let settings = port.settings;
+        let baudrate = settings.baudrate.ok_or("No baud rate is set")?;
+        if let Err(error) = port.handle.open(baudrate, settings.extra).await {
             self.report(NotificationKind::Error, "Failed to open the port", &error);
             return Err(error);
         }
@@ -316,7 +434,7 @@ impl SerialContext {
         tx_bytes.set(0);
         let mut outgoing = context.outgoing;
         outgoing.write().clear();
-        let opened = format!("{} at {baudrate} bps", port.info.name);
+        let opened = format!("{} at {baudrate}", port.info.name);
         context.record_event(&format!("Port opened: {opened}"));
         context.report(NotificationKind::Success, "Port opened", &opened);
 
@@ -427,7 +545,7 @@ impl SerialContext {
         ports.write().push(Port {
             id,
             info: handle.info(),
-            baudrate: None,
+            settings: PortSettings::default(),
             handle,
         });
         id
@@ -470,4 +588,32 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Baudrate, ExtraSettings, Parity};
+
+    #[test]
+    fn frame_is_8n1_at_first() {
+        assert_eq!(ExtraSettings::default().frame(), "8N1");
+    }
+
+    #[test]
+    fn frame_names_the_parity() {
+        let settings = ExtraSettings {
+            data_bits: 7,
+            parity: Parity::Even,
+            stop_bits: 2,
+            ..ExtraSettings::default()
+        };
+        assert_eq!(settings.frame(), "7E2");
+    }
+
+    #[test]
+    fn a_baud_rate_is_above_0() {
+        assert_eq!(Baudrate::new(0), None);
+        assert_eq!(Baudrate::new(9600).map(Baudrate::bps), Some(9600));
+        assert_eq!(Baudrate::new(9600).unwrap().to_string(), "9600 bps");
+    }
 }

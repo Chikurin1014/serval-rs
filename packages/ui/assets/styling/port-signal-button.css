@@ -1,10 +1,3 @@
-/* One control: the action, then the menu to change it */
-.port-signal {
-  display: inline-flex;
-  align-items: stretch;
-  height: 2rem;
-}
-
 .port-signal .port-signal-action {
   display: inline-flex;
   align-items: center;
@@ -21,11 +14,6 @@
   height: 1rem;
 }
 
-/* The DTR and RTS toggles, side by side */
-.port-signal .port-signal-toggle + .port-signal-toggle {
-  margin-left: -1px;
-}
-
 .port-signal-lamp {
   width: 0.5rem;
   height: 0.5rem;
@@ -40,7 +28,6 @@
 
 .port-signal-menu {
   display: flex;
-  margin-left: -1px;
 }
 
 .port-signal .port-signal-trigger {

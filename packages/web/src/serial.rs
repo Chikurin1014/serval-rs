@@ -5,8 +5,8 @@ use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::serial::{
-    self, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult, record::RecordFile,
-    use_serial_provider,
+    Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
+    record::RecordFile, use_serial_provider,
 };
 
 use crate::record_file;
@@ -62,16 +62,16 @@ impl SerialPort for WebSerialPort {
         port_info(&self.0)
     }
 
-    fn open(&self, baudrate: u32) -> LocalFuture<SerialResult<()>> {
+    fn open(&self, baudrate: Baudrate, extra: ExtraSettings) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move {
             web_serial::open_port(
                 &port,
-                baudrate,
-                serial::DATA_BITS,
-                serial::STOP_BITS,
-                serial::PARITY,
-                serial::FLOW_CONTROL,
+                baudrate.bps(),
+                extra.data_bits,
+                extra.stop_bits,
+                extra.parity.name(),
+                extra.flow_control.name(),
             )
             .await
             .map_err(message)
