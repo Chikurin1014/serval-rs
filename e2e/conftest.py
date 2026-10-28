@@ -3,6 +3,7 @@
 
 import functools
 import os
+import shutil
 import subprocess
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +16,7 @@ from app import App
 
 ROOT = Path(__file__).resolve().parent.parent
 MOCK_SERIAL = Path(__file__).resolve().parent / "mock_serial.js"
+LICENSES = "third-party-licenses.html"
 
 
 def pytest_configure(config: pytest.Config):
@@ -30,6 +32,8 @@ def pytest_configure(config: pytest.Config):
         cwd=ROOT,
         check=True,
     )
+    # As the documents, served at `/third-party-licenses.html`
+    shutil.copy(ROOT / LICENSES, ROOT / "packages" / "web" / "public" / LICENSES)
     subprocess.run(
         ["dx", "build", "--platform", "web"],
         cwd=ROOT / "packages" / "web",
