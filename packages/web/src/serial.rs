@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
+use ui::helper::Choice;
 use ui::serial::{
     Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
     record::RecordFile, use_serial_provider,

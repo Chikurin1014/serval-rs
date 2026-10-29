@@ -115,12 +115,12 @@ mod tests {
                 format!(\"{:?} {:?} {}\", first, second, span.as_millis())\n\
             }\n\
             pub async fn label() { data::get(\"temp\") }\n\
-            pub async fn baudrate() { serial::get_baudrate() }\n\
+            pub async fn settings() { serial::get_settings() }\n\
             pub async fn entry() { data::LogEntry::new(Some(\"INFO\"), \"up\").message }\n",
         )
         .unwrap();
         // Off the page: told so, as an error the plugin may take
-        for name in ["baudrate", "label"] {
+        for name in ["settings", "label"] {
             assert_eq!(
                 block_on(run_task(&plugin, name, |_| {})),
                 Ok(Some("Err(\"Serval is not there to run on\")".into())),

@@ -2,13 +2,14 @@
 
 use rune::{
     Any, ContextError, Module, Value,
-    runtime::{Bytes, Function, InstAddress, Memory, Mut, Output, VmResult},
+    runtime::{Bytes, Function, InstAddress, Memory, Mut, Object, Output, VmResult},
 };
 
 use super::{host, or_stop, stream_of, to_value};
 use crate::{
+    helper::{Choice, Delimiter},
     plugin::ErrorText,
-    serial::{Baudrate, Restart},
+    serial::{Baudrate, ExtraSettings, FlowControl, Parity, Restart},
 };
 
 /// The serial port: what is sent to it, what it receives, and its signals.
@@ -23,7 +24,7 @@ use crate::{
 ///
 /// /// Asks the device for its version once the port is open.
 /// pub async fn version() {
-///     serial::set_baudrate(115200)?;
+///     serial::set_settings(#{ baudrate: 115200 })?;
 ///     serial::open().await?;
 ///     serial::send("version\r\n")?;
 ///     let reply = serial::wait_for("\n").await?;
@@ -47,8 +48,11 @@ pub fn module() -> Result<Module, ContextError> {
         .docs(WAIT_FOR_DOCS.lines())?;
     module.function_meta(open__meta)?;
     module.function_meta(close__meta)?;
-    module.function_meta(get_baudrate__meta)?;
-    module.function_meta(set_baudrate__meta)?;
+    module.ty::<PortSettings>()?;
+    module.function_meta(get_settings__meta)?;
+    module.function_meta(set_settings__meta)?;
+    module.function_meta(get_line_ending__meta)?;
+    module.function_meta(set_line_ending__meta)?;
     module.function_meta(get_dtr__meta)?;
     module.function_meta(get_rts__meta)?;
     module.function_meta(set_dtr__meta)?;
@@ -313,9 +317,9 @@ async fn wait_until_received(pattern: Value, limit: Value) -> Result<Bytes, Stri
     }
 }
 
-/// Opens the selected port at its baud rate.
+/// Opens the selected port with its settings.
 ///
-/// The port is open when it returns. See `set_baudrate`.
+/// The port is open when it returns. See `set_settings`.
 ///
 /// # Examples
 ///
@@ -323,7 +327,7 @@ async fn wait_until_received(pattern: Value, limit: Value) -> Result<Bytes, Stri
 /// use serval::serial;
 ///
 /// pub async fn connect() {
-///     serial::set_baudrate(9600)?;
+///     serial::set_settings(#{ baudrate: 9600 })?;
 ///     serial::open().await?;
 /// }
 /// ```
@@ -348,51 +352,231 @@ async fn close() -> Result<(), String> {
     host()?.serial.close_port().await
 }
 
-/// The baud rate of the selected port: `None` if it has none yet.
+/// A port's settings: what it opens with.
+///
+/// * `baudrate`: a positive integer, or `None` (the port cannot open so).
+/// * `data_bits`: 7 or 8.
+/// * `parity`: `"none"`, `"even"`, or `"odd"`.
+/// * `stop_bits`: 1 or 2.
+/// * `flow_control`: `"none"`, or `"hardware"` (RTS and CTS).
+///
+/// `get_settings` gives them, and `set_settings` takes them (or an object of
+/// some of them).
 ///
 /// # Examples
 ///
 /// ```rune
 /// use serval::serial;
 ///
-/// pub async fn baud_rate() {
-///     match serial::get_baudrate()? {
-///         Some(baud_rate) => println!("{} bps", baud_rate),
-///         None => println!("No baud rate"),
-///     }
+/// /// Prints the data bits, parity, and stop bits, e.g. "8 none 1".
+/// pub async fn frame() {
+///     let settings = serial::get_settings()?.unwrap();
+///     println!("{} {} {}", settings.data_bits, settings.parity, settings.stop_bits);
 /// }
 /// ```
-#[rune::function(keep)]
-fn get_baudrate() -> Result<Option<i64>, String> {
-    let port = host()?.serial.selected_port();
-    Ok(port
-        .and_then(|port| port.settings.baudrate)
-        .map(|baudrate| i64::from(baudrate.bps())))
+#[derive(Any, Debug, Clone)]
+#[rune(item = ::serval::serial)]
+pub struct PortSettings {
+    #[rune(get, set)]
+    pub baudrate: Option<i64>,
+    #[rune(get, set)]
+    pub data_bits: i64,
+    #[rune(get, set)]
+    pub parity: String,
+    #[rune(get, set)]
+    pub stop_bits: i64,
+    #[rune(get, set)]
+    pub flow_control: String,
 }
 
-/// Sets the baud rate of the selected port.
-///
-/// A positive integer. It takes effect when the port is opened next.
+impl PortSettings {
+    /// Of `object`'s fields, those left out as a port has them at first: as
+    /// Rust's `PortSettings { baudrate, ..Default::default() }`.
+    fn of_object(object: &Object) -> Result<Self, String> {
+        let mut settings = Self::default();
+        for (field, value) in object.iter() {
+            let integer = || {
+                rune::from_value::<i64>(value.clone())
+                    .map_err(|_| format!("Not an integer: {field}"))
+            };
+            let text = || {
+                rune::from_value::<String>(value.clone())
+                    .map_err(|_| format!("Not a string: {field}"))
+            };
+            match field.as_str() {
+                // A number, as given in Rust's way too (`Some(9600)`, or `None`)
+                "baudrate" => {
+                    settings.baudrate = match rune::from_value::<Option<i64>>(value.clone()) {
+                        Ok(baudrate) => baudrate,
+                        Err(_) => Some(integer()?),
+                    }
+                }
+                "data_bits" => settings.data_bits = integer()?,
+                "parity" => settings.parity = text()?,
+                "stop_bits" => settings.stop_bits = integer()?,
+                "flow_control" => settings.flow_control = text()?,
+                _ => return Err(format!("Not a port setting: {field}")),
+            }
+        }
+        Ok(settings)
+    }
+}
+
+/// Those a port has at first: no baud rate, 8N1, and no flow control.
+impl Default for PortSettings {
+    fn default() -> Self {
+        crate::serial::PortSettings::default().into()
+    }
+}
+
+impl From<crate::serial::PortSettings> for PortSettings {
+    fn from(settings: crate::serial::PortSettings) -> Self {
+        let extra = settings.extra;
+        Self {
+            baudrate: settings.baudrate.map(|baudrate| i64::from(baudrate.bps())),
+            data_bits: i64::from(extra.data_bits),
+            parity: extra.parity.name().to_string(),
+            stop_bits: i64::from(extra.stop_bits),
+            flow_control: extra.flow_control.name().to_string(),
+        }
+    }
+}
+
+impl TryFrom<&PortSettings> for crate::serial::PortSettings {
+    type Error = String;
+
+    /// Fails on the first value a port cannot take, saying which.
+    fn try_from(settings: &PortSettings) -> Result<Self, String> {
+        let baudrate = settings
+            .baudrate
+            .map(|baudrate| {
+                u32::try_from(baudrate)
+                    .ok()
+                    .and_then(Baudrate::new)
+                    .ok_or_else(|| format!("Not a baud rate: {baudrate}"))
+            })
+            .transpose()?;
+        let bits = |bits: i64, choices: [u8; 2], name: &str| {
+            u8::try_from(bits)
+                .ok()
+                .filter(|bits| choices.contains(bits))
+                .ok_or_else(|| format!("Not {name}: {bits} ({} or {})", choices[0], choices[1]))
+        };
+        let extra = ExtraSettings {
+            data_bits: bits(settings.data_bits, ExtraSettings::DATA_BITS, "data bits")?,
+            parity: Parity::parse(&settings.parity)?,
+            stop_bits: bits(settings.stop_bits, ExtraSettings::STOP_BITS, "stop bits")?,
+            flow_control: FlowControl::parse(&settings.flow_control)?,
+        };
+        Ok(Self { baudrate, extra })
+    }
+}
+
+/// The settings of the selected port: `None` if no port is selected.
 ///
 /// # Examples
 ///
 /// ```rune
 /// use serval::serial;
 ///
-/// /// Opens the port again at another baud rate.
-/// pub async fn reopen() {
-///     serial::close().await?;
-///     serial::set_baudrate(115200)?;
-///     serial::open().await?;
+/// /// e.g. "9600 bps, 8 none 1"
+/// pub async fn settings() {
+///     let settings = serial::get_settings()?.unwrap();
+///     format!(
+///         "{} bps, {} {} {}",
+///         settings.baudrate.unwrap_or(0),
+///         settings.data_bits,
+///         settings.parity,
+///         settings.stop_bits,
+///     )
 /// }
 /// ```
 #[rune::function(keep)]
-fn set_baudrate(baudrate: i64) -> Result<(), String> {
-    let baudrate = u32::try_from(baudrate)
-        .ok()
-        .and_then(Baudrate::new)
-        .ok_or_else(|| format!("Not a baud rate: {baudrate}"))?;
-    host()?.serial.set_baudrate(baudrate);
+fn get_settings() -> Result<Option<PortSettings>, String> {
+    Ok(host()?.serial.settings().map(PortSettings::from))
+}
+
+/// Sets the settings of the selected port.
+///
+/// `settings` is a `PortSettings` (as `get_settings` gives), or an object of
+/// some of its fields: those left out are as a port has at first (no baud rate,
+/// 8N1, and no flow control).
+///
+/// They take effect when the port is opened next. Fails if no port is
+/// selected, while the port is open (close it first), or on a value a port
+/// cannot take (or a field it has not): then nothing is set.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Opens the port again at 115200 bps, all else as at first.
+/// pub async fn reopen() {
+///     serial::close().await?;
+///     serial::set_settings(#{ baudrate: 115200 })?;
+///     serial::open().await?;
+/// }
+///
+/// /// As 7E1, at 9600 bps.
+/// pub async fn seven_e_one() {
+///     serial::set_settings(#{ baudrate: 9600, data_bits: 7, parity: "even" })?;
+/// }
+///
+/// /// Hardware flow control from now on, all else as it is.
+/// pub async fn hardware_flow_control() {
+///     let settings = serial::get_settings()?.unwrap();
+///     settings.flow_control = "hardware";
+///     serial::set_settings(settings)?;
+/// }
+/// ```
+#[rune::function(keep)]
+fn set_settings(settings: Value) -> Result<(), String> {
+    let settings = if let Ok(settings) = rune::from_value::<PortSettings>(settings.clone()) {
+        settings
+    } else if let Ok(object) = rune::from_value::<Object>(settings) {
+        PortSettings::of_object(&object)?
+    } else {
+        return Err("Not port settings: a PortSettings or an object".to_string());
+    };
+    let settings = crate::serial::PortSettings::try_from(&settings)?;
+    host()?.serial.set_settings(settings)
+}
+
+/// What Enter sends in the console: `"\r"`, `"\n"`, or `"\r\n"`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// /// Sends a command as if it were typed, Enter and all.
+/// pub async fn reset() {
+///     serial::send(`reset${serial::get_line_ending()?}`)?;
+/// }
+/// ```
+#[rune::function(keep)]
+fn get_line_ending() -> Result<String, String> {
+    Ok(host()?.serial.line_ending().text().to_string())
+}
+
+/// Sets what Enter sends in the console: `"\r"`, `"\n"`, or `"\r\n"`.
+///
+/// # Examples
+///
+/// ```rune
+/// use serval::serial;
+///
+/// pub async fn lf() {
+///     serial::set_line_ending("\n")?;
+/// }
+/// ```
+#[rune::function(keep)]
+fn set_line_ending(line_ending: &str) -> Result<(), String> {
+    let line_ending = Delimiter::from_text(line_ending).ok_or_else(|| {
+        format!("Not a line ending: {line_ending:?} (\"\\r\", \"\\n\", or \"\\r\\n\")")
+    })?;
+    host()?.serial.set_line_ending(line_ending);
     Ok(())
 }
 
@@ -498,4 +682,34 @@ async fn restart(kind: String) -> Result<(), String> {
         _ => return Err(format!("No restart of {kind}: arduino or espressif")),
     };
     host()?.serial.restart_board(restart).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PortSettings;
+
+    #[test]
+    fn port_settings_go_to_the_port_and_back() {
+        let host = crate::serial::PortSettings::default();
+        let settings = PortSettings::from(host);
+        assert_eq!(settings.parity, "none");
+        assert_eq!(crate::serial::PortSettings::try_from(&settings), Ok(host));
+    }
+
+    #[test]
+    fn a_value_a_port_cannot_take_is_named() {
+        let mut settings = PortSettings {
+            baudrate: Some(0),
+            ..PortSettings::default()
+        };
+        let refused = crate::serial::PortSettings::try_from(&settings);
+        assert_eq!(refused, Err("Not a baud rate: 0".to_string()));
+        settings.baudrate = Some(9600);
+        settings.parity = "mark".to_string();
+        let refused = crate::serial::PortSettings::try_from(&settings);
+        assert_eq!(
+            refused,
+            Err("Not a parity: mark (none, even, or odd)".to_string())
+        );
+    }
 }

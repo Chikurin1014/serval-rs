@@ -12,8 +12,9 @@
 
 * All but the baud rate are set in the menu beside the baud rate field.
   Its button shows them as data bits, parity, and stop bits: `8N1`, `7E2`.
-* Each port keeps its own settings.
-* They take effect the next time the port is opened.
+* Each port keeps its own settings, taken as it opens.
+* They can be changed only while a port is selected and closed: else the
+  fields are disabled, and a plugin's `serial::set_settings` fails.
 
 ## Selecting a port
 
@@ -30,7 +31,7 @@ The vendor and product of a USB port are looked up in the
 
 * Any positive integer, in bps.
 * Presets: `9600`, `19200`, `57600`, and `115200`.
-* Takes effect the next time the port is opened.
+* Set as the other [port settings](#port-settings).
 
 ## Signals
 

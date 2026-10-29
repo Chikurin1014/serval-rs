@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::helper::format_bytes;
+use crate::helper::{Choice, format_bytes};
 use crate::{
     components::card::{Card, CardContent, CardHeader, CardTitle},
     serial::{NotificationKind, SerialContext},

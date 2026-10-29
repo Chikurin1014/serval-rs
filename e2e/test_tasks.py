@@ -309,16 +309,43 @@ pub async fn awaits_data() {
 }
 
 pub async fn talks() {
-    serial::set_baudrate(115200)?;
-    let baudrate = serial::get_baudrate()?;
+    // Refused while the port is open
+    let while_open = serial::set_settings(#{ baudrate: 9600 });
+    serial::close().await?;
+    // Of some: the rest as at first
+    serial::set_settings(#{ baudrate: 9600 })?;
+    let reset = serial::get_settings()?.unwrap();
+    let reset = (reset.baudrate, reset.data_bits, reset.parity, reset.flow_control);
+    let settings = serial::get_settings()?.unwrap();
+    settings.baudrate = Some(115200);
+    settings.data_bits = 7;
+    settings.parity = "odd";
+    settings.stop_bits = 2;
+    settings.flow_control = "hardware";
+    serial::set_settings(settings)?;
+    // A value a port cannot take, or a field it has not: refused, nothing set
+    let refused = [
+        serial::set_settings(#{ stop_bits: 3 }),
+        serial::set_settings(#{ baud: 9600 }),
+    ];
+    serial::set_line_ending("\\n")?;
+    let set = serial::get_settings()?.unwrap();
+    let settings = (
+        set.baudrate,
+        set.data_bits,
+        set.parity,
+        set.stop_bits,
+        set.flow_control,
+        refused,
+        serial::get_line_ending()? == "\\n",
+    );
+    serial::open().await?;
     serial::send("ping\\n")?;
     serial::set_dtr(false).await?;
     serial::toggle_rts().await?;
     let lines = (serial::get_dtr()?, serial::get_rts()?);
-    serial::close().await?;
-    serial::open().await?;
     serial::restart("arduino").await?;
-    format!("{:?} {:?}", baudrate, lines)
+    format!("{:?} {:?} {:?} {:?}", while_open, lines, settings, reset)
 }
 
 pub async fn sleeps() {
@@ -394,9 +421,26 @@ def test_tasks_reach_serval(app: App, tmp_path: Path):
 
     app.tab("Task")
     talked = run_task(app, 3).locator(".task-latest")
-    expect(talked).to_have_text("Some(115200) (false, false)")
+    expect(talked).to_have_text(
+        'Err("The port is open: close it to change its settings") (false, false) '
+        '(Some(115200), 7, "odd", 2, "hardware", '
+        '[Err("Not stop bits: 3 (1 or 2)"), Err("Not a port setting: baud")], true) '
+        '(Some(9600), 8, "none", "none")'
+    )
+    # Opened again with them
+    assert app.mock("options") == {
+        "baudRate": 115200,
+        "dataBits": 7,
+        "stopBits": 2,
+        "parity": "odd",
+        "flowControl": "hardware",
+    }
+    app.tab("Console")
+    expect(
+        app.page.get_by_role("group", name="Line ending").locator("[data-state=on]")
+    ).to_have_text("LF")
     assert "ping\n" in app.mock("written")
-    # DTR off, RTS toggled; then open again, and the restart's steps
+    # DTR off, RTS toggled; then the restart's steps
     assert app.mock("signals")[:2] == [
         {"dataTerminalReady": False},
         {"requestToSend": False},

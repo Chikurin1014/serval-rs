@@ -187,15 +187,18 @@ function writeHex(chunk, time) {
 
 const send = (data) => dioxus.send(["typed", data]);
 term.onData(send);
-// As Tera Term: Backspace sends BS and Delete DEL; Alt+V pastes, Alt+R pastes
-// with a CR after, Alt+B sends a break and Alt+Enter maximizes the console (or
-// back). Alt+key by where it is, as the letter Alt types differs on a Mac.
+// What Enter sends, as chosen beside the send buffer
+let lineEnding = "\r\n";
+// As Tera Term: Enter sends the line ending, Backspace BS and Delete DEL;
+// Alt+V pastes, Alt+R pastes with the line ending after (and for each line
+// break), Alt+B sends a break and Alt+Enter maximizes the console (or back).
+// Alt+key by where it is, as the letter Alt types differs on a Mac.
 const altActions = {
   KeyV: paste,
   KeyR: async () => {
     const text = await clipboardText();
     if (text) {
-      send(`${text.replace(/\r?\n/g, "\r")}\r`);
+      send(`${text.replace(/\r?\n/g, lineEnding)}${lineEnding}`);
     }
   },
   KeyB: () => dioxus.send(["break"]),
@@ -205,6 +208,12 @@ const altActions = {
 term.attachCustomKeyEventHandler((event) => {
   if (event.type !== "keydown" || event.ctrlKey || event.metaKey) {
     return true;
+  }
+  if (!event.altKey && event.key === "Enter") {
+    // Nor its keypress, which the terminal would send as a CR
+    event.preventDefault();
+    send(lineEnding);
+    return false;
   }
   if (!event.altKey && event.key === "Backspace") {
     send("\b");
@@ -242,6 +251,10 @@ while (true) {
   const message = await dioxus.recv();
   if (message === null) {
     break;
+  }
+  if (message[0] === "line-ending") {
+    lineEnding = message[1];
+    continue;
   }
   if (message[0] === "view") {
     // All the bytes follow, to draw anew

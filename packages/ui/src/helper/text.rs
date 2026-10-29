@@ -1,3 +1,4 @@
+use super::choice::Choice;
 use serde::{Deserialize, Serialize};
 
 /// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into characters.
@@ -79,8 +80,38 @@ pub enum Delimiter {
     CrLf,
 }
 
+impl Choice for Delimiter {
+    const KIND: &'static str = "line end";
+    const ALL: &'static [Self] = &[Self::Cr, Self::Lf, Self::CrLf];
+
+    /// As in a layout file.
+    fn name(self) -> &'static str {
+        match self {
+            Self::Cr => "CR",
+            Self::Lf => "LF",
+            Self::CrLf => "CRLF",
+        }
+    }
+}
+
 impl Delimiter {
-    pub const ALL: [Self; 3] = [Self::Cr, Self::Lf, Self::CrLf];
+    /// Of a CR, an LF, or both: none of neither.
+    pub fn of(cr: bool, lf: bool) -> Option<Self> {
+        match (cr, lf) {
+            (true, false) => Some(Self::Cr),
+            (false, true) => Some(Self::Lf),
+            (true, true) => Some(Self::CrLf),
+            (false, false) => None,
+        }
+    }
+
+    pub fn has_cr(self) -> bool {
+        matches!(self, Self::Cr | Self::CrLf)
+    }
+
+    pub fn has_lf(self) -> bool {
+        matches!(self, Self::Lf | Self::CrLf)
+    }
 
     pub fn text(self) -> &'static str {
         match self {
@@ -88,6 +119,14 @@ impl Delimiter {
             Self::Lf => "\n",
             Self::CrLf => "\r\n",
         }
+    }
+
+    /// Of its text: `"\r"`, `"\n"`, or `"\r\n"`.
+    pub fn from_text(text: &str) -> Option<Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|delimiter| delimiter.text() == text)
     }
 }
 
@@ -200,6 +239,14 @@ mod tests {
         Delimiter::{self, *},
         csv_field, decode_utf8, format_bytes, hex, single_line, split_lines, unescape, visible,
     };
+
+    #[test]
+    fn a_line_end_is_of_a_cr_an_lf_or_both() {
+        assert_eq!(Delimiter::of(true, true), Some(CrLf));
+        assert_eq!(Delimiter::of(false, false), None);
+        assert_eq!(Delimiter::of(CrLf.has_cr(), CrLf.has_lf()), Some(CrLf));
+        assert_eq!(Delimiter::from_text("\n"), Some(Lf));
+    }
 
     #[test]
     fn unescape_supports_escape_sequences() {
