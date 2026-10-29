@@ -17,7 +17,7 @@ const GITHUB_MARK: &str = "M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.
 
 /// A link, in a new tab (so the open port stays), as an icon button.
 #[component]
-pub fn GithubLink() -> Element {
+pub(super) fn GithubLink() -> Element {
     rsx! {
         a {
             class: "github-link",
