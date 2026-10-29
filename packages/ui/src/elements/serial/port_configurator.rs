@@ -40,10 +40,11 @@ pub fn PortConfigurator() -> Element {
                     disabled: !serial.settings_editable(),
                     value: settings.baudrate.map(|baudrate| baudrate.bps().to_string()),
                     oninput: move |event: FormEvent| {
-                        if let Some(baudrate) = parse_baudrate(&event.value()) {
-                            // Refused as the field is disabled: no port, or open
-                            let _ = serial.set_settings(PortSettings { baudrate: Some(baudrate), ..settings });
-                        }
+                        // None as it is emptied, so the port is not opened at a
+                        // rate no longer shown. Refused as the field is
+                        // disabled: no port, or open
+                        let baudrate = parse_baudrate(&event.value());
+                        let _ = serial.set_settings(PortSettings { baudrate, ..settings });
                     }
                 }
                 span { class: "field-label baudrate-unit", "bps" }

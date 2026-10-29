@@ -85,6 +85,10 @@ def test_opens_with_the_settings_chosen_beside_the_baud_rate(app: App):
     expect(baudrate).to_be_disabled()
     expect(trigger).to_be_disabled()
     page.locator(".toolbar-port button").first.click()
+    # Emptied, it has no rate to open at: not the last one typed
+    baudrate.fill("9600")
+    baudrate.fill("")
+    expect(page.get_by_role("button", name="Open port")).to_be_disabled()
     baudrate.fill("9600")
     expect(trigger).to_have_text("8N1")
     trigger.click()
