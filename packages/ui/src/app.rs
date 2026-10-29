@@ -52,16 +52,16 @@ enum Route {
 #[derive(Clone)]
 struct ShownNavbar(Option<AppPages>);
 
-/// Whether the app's tools (layouts, theme and plugins) are in the toolbar:
-/// as there is no navbar for them.
-pub(crate) fn tools_in_toolbar() -> bool {
+/// Whether the app's tools (layouts, theme and plugins) are in the toolbar's
+/// menu: as there is no navbar for them.
+pub(crate) fn tools_in_menu() -> bool {
     try_use_context::<ShownNavbar>().is_some_and(|navbar| navbar.0.is_none())
 }
 
 /// The app; `children` (e.g. a dialog of its own) over it, with all its
 /// contexts. Requires the platform's `TimeContext` and `Rc<dyn SerialBackend>`.
 /// With no `navbar` (e.g. for room on a desktop), its tools are in the
-/// toolbar, and the platform links its pages.
+/// toolbar's menu, and the platform links its pages.
 #[component]
 pub fn AppShell(navbar: Option<AppPages>, children: Element) -> Element {
     use_context_provider(|| ShownNavbar(navbar));
@@ -152,7 +152,8 @@ fn AppNavbar() -> Element {
     }
 }
 
-/// Layouts, the theme and plugins: in the navbar, or else in the toolbar.
+/// Layouts, the theme and plugins: in the navbar, or else in the toolbar's
+/// menu.
 #[component]
 pub(crate) fn AppTools() -> Element {
     rsx! {
