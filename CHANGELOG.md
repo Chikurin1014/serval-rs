@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.0](https://github.com/Chikurin1014/serval-rs/compare/v0.5.0...v0.6.0) (2026-10-29)
+
+
+### Features
+
+* ✨ Add a setting for line ending ([18c0ab8](https://github.com/Chikurin1014/serval-rs/commit/18c0ab8faf7fedc1725c18d41a5f46c2e5b37df2))
+* ✨ Add extra configuration of port ([20b01a9](https://github.com/Chikurin1014/serval-rs/commit/20b01a9e504ce2faf7de6f8fece357932fc41d69))
+* ✨ Change port config API ([3ff91e5](https://github.com/Chikurin1014/serval-rs/commit/3ff91e57a76d334a78a866bb565b459b36d6539d))
+* 💄 Improve UI ([7f4f459](https://github.com/Chikurin1014/serval-rs/commit/7f4f459944cefb2b8292f1cdd6f8e0ff719d6933))
+
 ## [0.5.0](https://github.com/Chikurin1014/serval-rs/compare/v0.4.1...v0.5.0) (2026-10-28)
 
 
