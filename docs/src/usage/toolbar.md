@@ -13,6 +13,19 @@
 | Theme switch | Light or dark theme |
 | Plugin button | Imports a [plugin](task.md) |
 
+The desktop app has no navigation bar: **Layout**, the theme switch and the
+plugin button are in the [menu](#menu), and the pages are in its **Help** menu.
+
+## Menu
+
+In a narrow window, and always in the desktop app, the toolbar is in a menu
+instead. The menu icon button at the top left opens it. It is faint until the
+pointer is on it.
+
+The menu has the port's items, and the tabs at its bottom. In the desktop app,
+it also has **Layout**, the theme switch and the plugin button. Picking a tab
+closes the menu.
+
 ## Port
 
 From the left:

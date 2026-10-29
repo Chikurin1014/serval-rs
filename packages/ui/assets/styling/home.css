@@ -5,6 +5,7 @@
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
+  position: relative;
   overflow: hidden;
   padding: 0.75rem;
 }
@@ -30,8 +31,81 @@
   margin-left: auto;
 }
 
-/* The app's tools, with no navbar for them: right of the tabs */
-.toolbar-tools {
+/* Narrow, and always with no navbar, the toolbar is in a menu from the left,
+   of a faint button over the top left (as `toolbar_menu.rs`) */
+.home button.toolbar-menu-button {
+  position: absolute;
+  z-index: 10;
+  top: 0.25rem;
+  left: 0.25rem;
+  display: none;
+  background: var(--primary-color-3);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+
+.home button.toolbar-menu-button:hover,
+.home button.toolbar-menu-button:focus-visible {
+  opacity: 1;
+}
+
+.home[data-toolbar-in-menu="true"] button.toolbar-menu-button {
+  display: inline-flex;
+}
+
+@media (max-width: 70rem) {
+  .home button.toolbar-menu-button {
+    display: inline-flex;
+  }
+
+  .home .toolbar {
+    display: none;
+  }
+}
+
+.toolbar-menu-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.toolbar-menu-footer {
+  flex: none;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--primary-color-6);
+}
+
+.toolbar-menu-footer .toolbar-menu-tabs {
+  width: 100%;
+  flex-direction: column;
+}
+
+.toolbar-menu-footer .home-tab-trigger {
+  padding: 0.5rem 0.75rem;
+}
+
+.toolbar-menu-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 1rem;
+  gap: 0.5rem;
+}
+
+.toolbar-menu-heading {
+  margin: 0;
+  color: var(--secondary-color-5);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbar-menu-row {
   display: flex;
   align-items: center;
   gap: 0.25rem;

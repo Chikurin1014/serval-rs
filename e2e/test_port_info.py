@@ -121,3 +121,28 @@ def test_opens_with_the_settings_chosen_beside_the_baud_rate(app: App):
         "2",
     )
     assert shown["Flow control"] == "hardware"
+
+
+def test_has_the_toolbar_in_the_menu_when_narrow(app: App):
+    page = app.page
+    menu_button = page.get_by_role("button", name="Menu")
+    toolbar = page.locator(".toolbar")
+    # All on the toolbar, and the app's tools on the navbar
+    expect(menu_button).to_be_hidden()
+    page.set_viewport_size({"width": 900, "height": 800})
+    expect(toolbar).to_be_hidden()
+
+    menu_button.click()
+    menu = page.get_by_role("dialog")
+    expect(menu.get_by_role("region", name="App")).to_have_count(0)
+    menu.get_by_title("Request Serial Port").click()
+    menu.get_by_placeholder("Baud rate (e.g. 9600)").fill("115200")
+    expect(menu.get_by_role("button", name="Port settings")).to_have_text("8N1")
+    menu.get_by_role("button", name="Open port").click()
+    expect(menu.get_by_role("button", name="Close port")).to_be_visible()
+    assert app.mock("options")["baudRate"] == 115200
+
+    # A tab picked, the menu gives way to it
+    menu.get_by_role("tab", name="Data").click()
+    expect(menu).to_be_hidden()
+    expect(page.locator(".data-grid")).to_be_visible()
