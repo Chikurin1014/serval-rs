@@ -34,8 +34,17 @@ pub type LocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 pub type SerialResult<T> = Result<T, String>;
 
 const MAX_NOTIFICATIONS: usize = 100;
+/// How often the ports are looked at, if none needs a request.
+const PORT_SYNC_MS: u32 = 1000;
 
 pub trait SerialBackend {
+    /// Whether a port must be requested (e.g. Web Serial's, each allowed by
+    /// the user) to be known; else all are, and the list follows the ports
+    /// plugged in and out.
+    fn needs_request(&self) -> bool {
+        false
+    }
+
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
@@ -223,6 +232,8 @@ pub struct PortInfo {
     pub name: String,
     pub vendor: Option<String>,
     pub product: Option<String>,
+    /// Where it is on the system (e.g. `/dev/ttyACM0` or `COM3`), if known.
+    pub path: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -290,6 +301,11 @@ pub struct SerialContext {
 }
 
 impl SerialContext {
+    /// See [`SerialBackend::needs_request`].
+    pub fn needs_request(&self) -> bool {
+        self.backend.read().needs_request()
+    }
+
     pub fn ports(&self) -> Vec<Port> {
         self.ports.read().clone()
     }
@@ -423,6 +439,37 @@ impl SerialContext {
             let mut selected = context.selected;
             selected.set(ids.first().copied());
         });
+    }
+
+    /// Follows the ports plugged in and out: each still there kept, with its
+    /// id and settings (as one of the same info); the open one kept until it
+    /// is closed, as reading it fails. The first selected if none is.
+    pub async fn sync_ports(&self) -> SerialResult<()> {
+        let handles = self.backend.cloned().known_ports().await?;
+        let mut found = Vec::new();
+        for handle in handles {
+            let info = handle.info();
+            let known = (self.ports.peek().iter())
+                .find(|port| port.info == info && !found.contains(&port.id))
+                .map(|port| port.id);
+            found.push(known.unwrap_or_else(|| self.add(handle)));
+        }
+        let open = *self.open.peek();
+        let kept = |port: &Port| found.contains(&port.id) || open == Some(port.id);
+        let mut ports = self.ports;
+        // Written only if one is gone: else each look would render anew
+        if !ports.peek().iter().all(kept) {
+            ports.write().retain(kept);
+        }
+        let selected = *self.selected.peek();
+        if selected.is_none_or(|id| !ports.peek().iter().any(|port| port.id == id)) {
+            let first = ports.peek().first().map(|port| port.id);
+            if first != selected {
+                let mut selected = self.selected;
+                selected.set(first);
+            }
+        }
+        Ok(())
     }
 
     pub fn open(&self) {
@@ -580,12 +627,13 @@ impl SerialContext {
     }
 }
 
-/// Requires `DataContext`, `TimeContext` and `ToastProvider`.
+/// Requires `DataContext`, `TimeContext` and `ToastProvider`. If no port needs
+/// a request, the ports are synced every `PORT_SYNC_MS`.
 pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> SerialContext {
     let data = use_context::<DataContext>();
     let time = use_context::<TimeContext>();
     let toaster = use_toaster();
-    use_context_provider(|| SerialContext {
+    let context = use_context_provider(|| SerialContext {
         backend: CopyValue::new(backend()),
         time: CopyValue::new(time),
         data,
@@ -612,7 +660,26 @@ pub fn use_serial_provider(backend: impl FnOnce() -> Rc<dyn SerialBackend>) -> S
         stop_file: CopyValue::new(false),
         next_outgoing: CopyValue::new(0),
         scope: current_scope_id(),
-    })
+    });
+    use_future(move || async move {
+        if context.needs_request() {
+            return;
+        }
+        // Told once as it starts failing, not on each look
+        let mut failing = None;
+        loop {
+            let result = context.sync_ports().await.err();
+            if let Some(error) = result
+                .as_ref()
+                .filter(|&error| failing.as_ref() != Some(error))
+            {
+                context.report(NotificationKind::Error, "Failed to list the ports", error);
+            }
+            failing = result;
+            context.time.cloned().after_ms(PORT_SYNC_MS).await;
+        }
+    });
+    context
 }
 
 #[cfg(test)]

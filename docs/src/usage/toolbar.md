@@ -20,6 +20,7 @@ From the left:
 0. **Plug icon button**: requests access to a serial port (only on the web).
 1. **Port selector**: picks a device to access.
 2. **Refresh button**: lists the devices allowed again.
+   In the desktop app, the list follows the devices plugged in and out.
 3. **Baud rate**: type a value, or pick one of `9600`, `19200`, `57600`, and `115200`.
    The menu beside it (e.g. `8N1`) sets the data bits, parity, stop bits, and
    flow control (see [Port settings](../reference/serial-port.md#port-settings)).

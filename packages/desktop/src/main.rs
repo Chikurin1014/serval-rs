@@ -1,18 +1,36 @@
-use dioxus::prelude::*;
+use dioxus::{
+    desktop::{Config, WindowBuilder},
+    prelude::*,
+};
 
-const MAIN_CSS: Asset = asset!("/assets/main.css");
+use ui::{AppPages, AppShell};
+
+mod serial;
+mod time;
+
+/// The web app's, until they are in the desktop app.
+const DOCUMENTS_PAGE: &str = "https://serval-5qv.pages.dev/docs/";
+const LICENSES_PAGE: &str = "https://serval-5qv.pages.dev/third-party-licenses.html";
 
 fn main() {
-    dioxus::launch(App);
+    let _ = dioxus::logger::init(dioxus::logger::tracing::Level::WARN);
+    let window = WindowBuilder::new().with_title("Serval");
+    dioxus::LaunchBuilder::desktop()
+        .with_cfg(Config::new().with_window(window).with_menu(None))
+        .launch(App);
 }
 
-/// Serval runs in the browser for now (it uses Web Serial), so the desktop app
-/// only says so.
 #[component]
 fn App() -> Element {
-    rsx! {
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
+    use_context_provider(time::context);
+    use_context_provider(serial::backend);
 
-        p { "Serval is not available on desktop yet." }
+    rsx! {
+        AppShell {
+            pages: AppPages {
+                documents: DOCUMENTS_PAGE.to_string(),
+                licenses: LICENSES_PAGE.to_string(),
+            },
+        }
     }
 }

@@ -23,6 +23,10 @@ pub fn is_supported() -> bool {
 struct WebSerial;
 
 impl SerialBackend for WebSerial {
+    fn needs_request(&self) -> bool {
+        true
+    }
+
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>> {
         Box::pin(async {
             match web_serial::request_port().await {
@@ -189,6 +193,7 @@ fn port_info(port: &JsValue) -> PortInfo {
             .unwrap_or_else(|| "Serial Device".to_string()),
         vendor,
         product,
+        path: None,
     }
 }
 

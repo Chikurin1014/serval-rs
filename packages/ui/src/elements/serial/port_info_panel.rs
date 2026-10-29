@@ -64,6 +64,10 @@ pub fn PortInfoPanel() -> Element {
                         dd { "{vendor}" }
                         dt { "Product" }
                         dd { "{product}" }
+                        if let Some(path) = port.as_ref().and_then(|port| port.info.path.clone()) {
+                            dt { "Path" }
+                            dd { "{path}" }
+                        }
                         dt { "Baud rate" }
                         dd { "{baudrate}" }
                         dt { "Data bits" }

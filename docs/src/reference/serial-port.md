@@ -24,6 +24,10 @@
 | Port selector | Picks one of the ports allowed before |
 | Refresh button | Lists the allowed ports again |
 
+In the desktop app, all the ports are listed, and the list follows the
+devices plugged in and out. Each is named by its product and its path (e.g.
+`Uno R3 (CDC ACM) · ttyACM0`), or by its path alone.
+
 The vendor and product of a USB port are looked up in the
 [USB ID Repository](http://www.linux-usb.org/usb-ids.html).
 
@@ -76,6 +80,7 @@ The panel beside the console:
 | Item | |
 |---|---|
 | Vendor, Product | Of a USB port, if known |
+| Path | Where the port is on the system (e.g. `/dev/ttyACM0` or `COM3`): in the desktop app |
 | Baud rate | In bps |
 | Data bits, Parity, Stop bits, Flow control | As in [Port settings](#port-settings) |
 | Received, Sent | The bytes received and sent since the port was opened |

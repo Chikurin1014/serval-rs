@@ -6,9 +6,18 @@ publish = false
 edition.workspace = true
 
 [dependencies]
+# Local time, as the app shows times
+chrono = { version = "0.4.42", default-features = false, features = ["clock"] }
 dioxus = { workspace = true, features = ["router"] }
+serialport = "4.7"
+# Reading the ports on threads, and the app's timers: on Dioxus's runtime
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 ui = { workspace = true }
+usb-ids = "1.2026.6"
 
 [features]
 default = ["desktop"]
 desktop = ["dioxus/desktop"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
