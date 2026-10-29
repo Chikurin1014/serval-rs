@@ -30,6 +30,13 @@
   margin-left: auto;
 }
 
+/* The app's tools, with no navbar for them: right of the tabs */
+.toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .home-tab-trigger {
   display: inline-flex;
   align-items: center;
