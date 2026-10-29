@@ -26,12 +26,15 @@ pub fn PortSelector() -> Element {
 
         div {
             class: "port-selector",
-            Button {
-                size: ButtonSize::Sm,
-                variant: ButtonVariant::Outline,
-                onclick: move |_| serial.request_port(),
-                title: "Request Serial Port",
-                lucide::Plug {}
+            // Else all ports are listed
+            if serial.needs_request() {
+                Button {
+                    size: ButtonSize::Sm,
+                    variant: ButtonVariant::Outline,
+                    onclick: move |_| serial.request_port(),
+                    title: "Request Serial Port",
+                    lucide::Plug {}
+                }
             }
             DropdownMenu {
                 disabled: !has_ports || is_open,
