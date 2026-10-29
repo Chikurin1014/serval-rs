@@ -1,22 +1,19 @@
 use std::rc::Rc;
 
-use dioxus::prelude::*;
 use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 use ui::helper::Choice;
 use ui::serial::{
     Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
-    record::RecordFile, use_serial_provider,
+    record::RecordFile,
 };
 
 use crate::record_file;
 
-/// Provides `SerialContext` with Web Serial. Requires `DataContext` and `TimeContext`.
-#[component]
-pub fn SerialProvider(children: Element) -> Element {
-    use_serial_provider(|| Rc::new(WebSerial));
-    children
+/// The serial ports of Web Serial.
+pub fn backend() -> Rc<dyn SerialBackend> {
+    Rc::new(WebSerial)
 }
 
 pub fn is_supported() -> bool {

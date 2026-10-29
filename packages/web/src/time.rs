@@ -1,31 +1,27 @@
-use dioxus::prelude::*;
 use js_sys::{Function, Promise, Reflect};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 use ui::TimeContext;
 
-#[component]
-pub fn TimeProvider(children: Element) -> Element {
-    use_context_provider(|| {
-        TimeContext::new(|| js_sys::Date::now() as i64)
-            .with_timer(|ms| Box::pin(set_timeout(ms)))
-            .with_format(|ms, millis| {
-                let date = js_sys::Date::new(&(ms as f64).into());
-                if !millis {
-                    return date.to_locale_time_string("default").into();
-                }
-                // The same in every locale
-                format!(
-                    "{:02}:{:02}:{:02}.{:03}",
-                    date.get_hours(),
-                    date.get_minutes(),
-                    date.get_seconds(),
-                    date.get_milliseconds()
-                )
-            })
-    });
-    children
+/// The browser's clock, timers and local time.
+pub fn context() -> TimeContext {
+    TimeContext::new(|| js_sys::Date::now() as i64)
+        .with_timer(|ms| Box::pin(set_timeout(ms)))
+        .with_format(|ms, millis| {
+            let date = js_sys::Date::new(&(ms as f64).into());
+            if !millis {
+                return date.to_locale_time_string("default").into();
+            }
+            // The same in every locale
+            format!(
+                "{:02}:{:02}:{:02}.{:03}",
+                date.get_hours(),
+                date.get_minutes(),
+                date.get_seconds(),
+                date.get_milliseconds()
+            )
+        })
 }
 
 async fn set_timeout(ms: u32) {
