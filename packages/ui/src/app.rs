@@ -48,11 +48,23 @@ enum Route {
     Home {},
 }
 
+/// The navbar, of its pages, if shown.
+#[derive(Clone)]
+struct ShownNavbar(Option<AppPages>);
+
+/// Whether the app's tools (layouts, theme and plugins) are in the toolbar:
+/// as there is no navbar for them.
+pub(crate) fn tools_in_toolbar() -> bool {
+    try_use_context::<ShownNavbar>().is_some_and(|navbar| navbar.0.is_none())
+}
+
 /// The app; `children` (e.g. a dialog of its own) over it, with all its
 /// contexts. Requires the platform's `TimeContext` and `Rc<dyn SerialBackend>`.
+/// With no `navbar` (e.g. for room on a desktop), its tools are in the
+/// toolbar, and the platform links its pages.
 #[component]
-pub fn AppShell(pages: AppPages, children: Element) -> Element {
-    use_context_provider(|| pages);
+pub fn AppShell(navbar: Option<AppPages>, children: Element) -> Element {
+    use_context_provider(|| ShownNavbar(navbar));
     let layout = use_hook(|| initial_layout(&builtin_map_kinds(), &builtin_graph_kinds()));
 
     rsx! {
@@ -88,47 +100,48 @@ fn SerialProvider(children: Element) -> Element {
     children
 }
 
+/// The page, under the navbar if it is shown.
 #[component]
 fn AppNavbar() -> Element {
-    let pages = use_context::<AppPages>();
+    let ShownNavbar(navbar) = use_context::<ShownNavbar>();
 
     rsx! {
         document::Link { rel: "stylesheet", href: APP_SHELL_CSS }
 
         div {
             class: "app-shell",
-            div {
-                class: "navbar-shell",
-                Navbar {
-                    aria_label: "Pages",
-                    NavbarItem {
-                        index: 0usize,
-                        value: "home".to_string(),
-                        to: Route::Home {},
-                        // The page's title (in time, its logo)
-                        span { class: "navbar-title", "Serval" }
-                    }
-                    NavbarItem {
-                        index: 1usize,
-                        value: "documents".to_string(),
-                        to: NavigationTarget::<Route>::External(pages.documents),
-                        new_tab: true,
-                        "Documents"
-                    }
-                    NavbarItem {
-                        index: 2usize,
-                        value: "licenses".to_string(),
-                        to: NavigationTarget::<Route>::External(pages.licenses),
-                        new_tab: true,
-                        "Licenses"
-                    }
-                }
-                GithubLink {}
+            if let Some(pages) = navbar {
                 div {
-                    class: "navbar-tools",
-                    LayoutMenu {}
-                    ThemeSwitch {}
-                    PluginButton {}
+                    class: "navbar-shell",
+                    Navbar {
+                        aria_label: "Pages",
+                        NavbarItem {
+                            index: 0usize,
+                            value: "home".to_string(),
+                            to: Route::Home {},
+                            // The page's title (in time, its logo)
+                            span { class: "navbar-title", "Serval" }
+                        }
+                        NavbarItem {
+                            index: 1usize,
+                            value: "documents".to_string(),
+                            to: NavigationTarget::<Route>::External(pages.documents),
+                            new_tab: true,
+                            "Documents"
+                        }
+                        NavbarItem {
+                            index: 2usize,
+                            value: "licenses".to_string(),
+                            to: NavigationTarget::<Route>::External(pages.licenses),
+                            new_tab: true,
+                            "Licenses"
+                        }
+                    }
+                    GithubLink {}
+                    div {
+                        class: "navbar-tools",
+                        AppTools {}
+                    }
                 }
             }
             div {
@@ -136,5 +149,15 @@ fn AppNavbar() -> Element {
                 Outlet::<Route> {}
             }
         }
+    }
+}
+
+/// Layouts, the theme and plugins: in the navbar, or else in the toolbar.
+#[component]
+pub(crate) fn AppTools() -> Element {
+    rsx! {
+        LayoutMenu {}
+        ThemeSwitch {}
+        PluginButton {}
     }
 }

@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
+    app::{AppTools, tools_in_toolbar},
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     data::RAW_BYTES_LABEL,
     elements::{
@@ -82,6 +83,12 @@ pub fn Home() -> Element {
                             lucide::Blocks { size: 20 }
                             "Task"
                         }
+                    }
+                }
+                if tools_in_toolbar() {
+                    div {
+                        class: "toolbar-tools",
+                        AppTools {}
                     }
                 }
             }
