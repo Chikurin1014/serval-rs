@@ -12,7 +12,8 @@ use crate::{
     },
     data::{DataType, InitialMap, MapContext, MapKind},
     elements::graph::{GraphContext, GraphKind, GraphProperty},
-    helper::{clear_file, download_text, pick_file},
+    helper::{clear_file, pick_file},
+    save::save_text,
     toast::use_toaster,
 };
 
@@ -213,7 +214,7 @@ pub fn LayoutMenu() -> Element {
                     index: 1usize,
                     on_select: move |_: &str| {
                         open.set(false);
-                        download_text(
+                        save_text(
                             LAYOUT_FILE_NAME,
                             "application/json",
                             export_layout(maps, graphs),

@@ -23,4 +23,6 @@ The desktop app works as the web app does, except:
 * It has no navigation bar: the toolbar is always in the
   [menu](../usage/toolbar.md#menu), which also has **Layout**, the theme
   switch, the plugin button and **Licenses**. These documents are only on the web.
+* Records, layouts and CSV files are saved where a save dialog asks, not
+  downloaded.
 * **Licenses** opens in your browser, so it needs the internet.

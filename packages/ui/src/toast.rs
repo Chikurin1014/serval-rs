@@ -1,4 +1,4 @@
-use dioxus_primitives::toast::{ToastOptions, ToastType, Toasts, use_toast};
+use dioxus_primitives::toast::{ToastOptions, ToastType, Toasts, consume_toast, use_toast};
 
 /// Shows toasts of a title and a description, as Dioxus' own do: each one.
 #[derive(Clone, Copy)]
@@ -31,5 +31,12 @@ impl Toaster {
 pub fn use_toaster() -> Toaster {
     Toaster {
         toasts: use_toast(),
+    }
+}
+
+/// As [`use_toaster`], out of a component's hooks (e.g. in a handler).
+pub fn consume_toaster() -> Toaster {
+    Toaster {
+        toasts: consume_toast(),
     }
 }

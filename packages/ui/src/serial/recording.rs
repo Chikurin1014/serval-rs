@@ -6,7 +6,7 @@ use std::rc::Rc;
 use dioxus::prelude::*;
 
 use super::{
-    NotificationKind, SerialContext,
+    LocalFuture, NotificationKind, SerialContext, SerialResult,
     record::{self, RecordFile, RecordFormat, RecordSink, Recorder},
 };
 
@@ -94,14 +94,20 @@ impl SerialContext {
         });
     }
 
+    /// As [`Self::stop_record`], telling nothing: the file is done once the
+    /// future is (e.g. for the app to close then). `None` with no record.
+    pub fn finish_record(&self) -> Option<LocalFuture<SerialResult<()>>> {
+        let (mut recorder, mut record_format) = (self.recorder, self.record_format);
+        let recorder = recorder.write().take()?;
+        record_format.set(None);
+        Some(recorder.close())
+    }
+
     /// Ends the record file, with its unfinished lines.
     pub fn stop_record(&self) {
-        let (mut recorder, mut record_format) = (self.recorder, self.record_format);
-        let Some(recorder) = recorder.write().take() else {
+        let Some(closed) = self.finish_record() else {
             return;
         };
-        record_format.set(None);
-        let closed = recorder.close();
         let context = *self;
         self.spawn(async move {
             match closed.await {

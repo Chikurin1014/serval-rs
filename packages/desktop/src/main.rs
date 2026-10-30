@@ -1,14 +1,17 @@
 use dioxus::{
     desktop::{
-        Config, WindowBuilder,
+        Config, WindowBuilder, WindowCloseBehaviour,
         muda::{Menu, PredefinedMenuItem, Submenu},
+        tao::event::{Event, WindowEvent},
+        use_wry_event_handler, window,
     },
     prelude::*,
 };
 
-use ui::{AppPages, AppShell};
+use ui::{AppPages, AppShell, serial::SerialContext};
 
 mod assets;
+mod files;
 mod serial;
 mod time;
 
@@ -73,6 +76,7 @@ fn menu_bar() -> Option<Menu> {
 fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial::backend);
+    use_context_provider(files::saver);
 
     rsx! {
         if assets::embedded() {
@@ -84,6 +88,40 @@ fn App() -> Element {
                 licenses: LICENSES_PAGE.to_string(),
             },
             navbar: false,
+            RecordCloseGuard {}
         }
     }
+}
+
+/// Ends the record as the app closes, so its file has all of it (with its
+/// unfinished line): while one is written, closing the window hides it, and
+/// it closes once the file is done.
+#[component]
+fn RecordCloseGuard() -> Element {
+    let serial = use_context::<SerialContext>();
+    use_effect(move || {
+        window().set_close_behavior(if serial.record_format().is_some() {
+            WindowCloseBehaviour::WindowHides
+        } else {
+            WindowCloseBehaviour::WindowCloses
+        });
+    });
+    use_wry_event_handler(move |event, _| {
+        let Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } = event
+        else {
+            return;
+        };
+        if let Some(closed) = serial.finish_record() {
+            spawn(async move {
+                let _ = closed.await;
+                let window = window();
+                window.set_close_behavior(WindowCloseBehaviour::WindowCloses);
+                window.close();
+            });
+        }
+    });
+    rsx! {}
 }

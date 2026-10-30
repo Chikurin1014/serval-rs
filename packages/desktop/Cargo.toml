@@ -11,6 +11,8 @@ chrono = { version = "0.4.42", default-features = false, features = ["clock"] }
 dioxus = { workspace = true, features = ["router"] }
 # Its assets, if in its binary: so it can be one file
 embed-assets = { workspace = true }
+# The OS's file dialogs, as Dioxus's own file inputs use
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 serialport = "4.7"
 # Reading the ports on threads, and the app's timers: on Dioxus's runtime
 tokio = { version = "1", features = ["rt", "sync", "time"] }
