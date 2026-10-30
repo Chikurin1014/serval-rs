@@ -22,7 +22,7 @@ mod time;
 
 /// Its licenses, of its own dependencies (see `about.toml`): in it, so they
 /// are there offline.
-const LICENSES_PAGE: &str = include_str!("../../../third-party-licenses-desktop.html");
+const LICENSES_PAGE: &str = include_str!("../third-party-licenses.html");
 
 /// The web app's icon.
 const ICON_PNG: &[u8] = include_bytes!("../../web/assets/favicon.png");

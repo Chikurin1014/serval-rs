@@ -1,10 +1,10 @@
 # Regenerate after changing dependencies, for the web app and the desktop app:
 #   cargo about generate --manifest-path packages/web/Cargo.toml about.hbs \
-#     -o third-party-licenses.html
+#     -o packages/web/public/third-party-licenses.html
 #   cargo about generate --manifest-path packages/desktop/Cargo.toml \
 #     --target x86_64-pc-windows-msvc --target x86_64-unknown-linux-gnu \
 #     --target x86_64-apple-darwin --target aarch64-apple-darwin \
-#     about.hbs -o third-party-licenses-desktop.html
+#     about.hbs -o packages/desktop/third-party-licenses.html
 accepted = [
   "MIT",
   "Apache-2.0",

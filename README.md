@@ -96,29 +96,24 @@ Generate them when you need them:
 
 ### Third-party licenses
 
-The licenses of the bundled software are in [`third-party-licenses.html`](third-party-licenses.html).
-The web app serves it at `/third-party-licenses.html`.
-To include it in the web app, copy it into `packages/web/public`:
+Each app has a list of the licenses of the software it bundles:
 
-```bash
-cp third-party-licenses.html packages/web/public/
-```
-
-The desktop app has its own list, [`third-party-licenses-desktop.html`](third-party-licenses-desktop.html), built into it.
+- The web app: [`packages/web/public/third-party-licenses.html`](packages/web/public/third-party-licenses.html), served at `/third-party-licenses.html`.
+- The desktop app: [`packages/desktop/third-party-licenses.html`](packages/desktop/third-party-licenses.html), built into it.
 
 After you change dependencies, generate them again (see [`about.toml`](about.toml)):
 
 ```bash
-cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o third-party-licenses.html
+cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o packages/web/public/third-party-licenses.html
 ```
 
 ```bash
-cargo about generate --manifest-path packages/desktop/Cargo.toml --target x86_64-pc-windows-msvc --target x86_64-unknown-linux-gnu --target x86_64-apple-darwin --target aarch64-apple-darwin about.hbs -o third-party-licenses-desktop.html
+cargo about generate --manifest-path packages/desktop/Cargo.toml --target x86_64-pc-windows-msvc --target x86_64-unknown-linux-gnu --target x86_64-apple-darwin --target aarch64-apple-darwin about.hbs -o packages/desktop/third-party-licenses.html
 ```
 
 ### Release build (web)
 
-Build the documents and copy the licenses first, as above. Then:
+Build the documents first, as above. Then:
 
 ```bash
 dx build --platform web --release --debug-symbols false
@@ -164,7 +159,7 @@ Each section above has these commands:
 | Run the web app      | `nix develop -c dx serve -p web`                                                                                     |
 | Documents            | `nix build .#docs` (with the videos and screenshots)                                                                 |
 | Plugin API reference | `nix build .#docs-api -o docs/src/api`                                                                               |
-| Third-party licenses | `nix develop -c cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o third-party-licenses.html` |
+| Third-party licenses | `nix develop`, then the two `cargo about generate` commands above                                                    |
 | Release build (web)  | `nix build` (into `result/share/serval-web`, with the documents and the licenses)                                    |
 | Tests                | `nix flake check` (all the tests, in the Nix sandbox)                                                                |
 
@@ -180,5 +175,5 @@ Each section above has these commands:
 Serval is licensed under the [MIT License](LICENSE).
 
 It bundles third-party software.
-Their licenses are in [`third-party-licenses.html`](third-party-licenses.html)
-(the desktop app's in [`third-party-licenses-desktop.html`](third-party-licenses-desktop.html)).
+Their licenses are in [`third-party-licenses.html`](packages/web/public/third-party-licenses.html) for the web app,
+and in [`third-party-licenses.html`](packages/desktop/third-party-licenses.html) for the desktop app.
