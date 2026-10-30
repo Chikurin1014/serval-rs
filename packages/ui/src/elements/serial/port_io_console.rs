@@ -3,7 +3,7 @@ use std::{cell::Cell, collections::HashSet, rc::Rc};
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use super::{RecordButton, SendFileButton, send_file_button::send_picked_file};
+use super::{RecordButton, SendFileButton};
 use crate::{
     components::toggle_group::{ToggleGroup, ToggleItem},
     helper::{Delimiter, concat_scripts, format_bytes, hex, use_script, visible},
@@ -114,8 +114,8 @@ pub fn PortIoConsole() -> Element {
         let _ = terminal.send(("line-ending", serial.line_ending().text()));
     });
 
-    // From the script: `["typed", text]` to send, `["redraw"]`, `["break"]` or
-    // `["maximize"]`
+    // From the script: `["typed", text]` to send, `["redraw"]`, `["break"]`,
+    // `["maximize"]` or `["file", name, bytes]` (a char a byte) dropped on it
     use_future(move || {
         let read_to = read_to.clone();
         async move {
@@ -129,6 +129,10 @@ pub fn PortIoConsole() -> Element {
                     }
                     [kind] if kind == "break" => serial.send_break(),
                     [kind] if kind == "maximize" => maximized.toggle(),
+                    // Sent as one picked, if one may be
+                    [kind, name, bytes] if kind == "file" && takes_file() => {
+                        serial.send_file(name.clone(), bytes.chars().map(|c| c as u8).collect());
+                    }
                     _ => {}
                 }
             }
@@ -153,15 +157,10 @@ pub fn PortIoConsole() -> Element {
                 event.prevent_default();
                 event.data_transfer().set_drop_effect(if takes_file() { "copy" } else { "none" });
             },
+            // The file itself read by the script, as `["file", ..]`
             ondrop: move |event: DragEvent| {
                 event.prevent_default();
                 drags.set(0);
-                if !takes_file() {
-                    return;
-                }
-                if let Some(file) = event.data_transfer().files().into_iter().next() {
-                    send_picked_file(serial, file);
-                }
             },
             div {
                 class: "console-screen",

@@ -4,7 +4,8 @@
 // it came, as the app shows times), then `null` on unmount.
 // To Rust: `["typed", text]`, what is typed or pasted, to send; `["redraw"]`
 // for all the bytes again, to draw them anew; `["break"]` to send a break;
-// `["maximize"]` to maximize the console, or back.
+// `["maximize"]` to maximize the console, or back; `["file", name, bytes]` of a
+// file dropped on it, its bytes a char each (U+0000 to U+00FF).
 
 // Tera Term's default
 const SCROLLBACK = 10000;
@@ -247,6 +248,24 @@ const onContextMenu = (event) => {
 };
 container.addEventListener("contextmenu", onContextMenu);
 
+// A file dropped on the console, read here: so in the desktop app too, which
+// gives Rust no files of a drop (its own handling of drops off, for drags
+// within the page to work)
+const consoleBox = container.closest(".console") ?? container;
+const onDrop = async (event) => {
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) {
+    return;
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let chars = "";
+  for (let at = 0; at < bytes.length; at += 0x8000) {
+    chars += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+  }
+  dioxus.send(["file", file.name, chars]);
+};
+consoleBox.addEventListener("drop", onDrop);
+
 while (true) {
   const message = await dioxus.recv();
   if (message === null) {
@@ -282,4 +301,5 @@ while (true) {
 resize.disconnect();
 stopWatchingTheme();
 container.removeEventListener("contextmenu", onContextMenu);
+consoleBox.removeEventListener("drop", onDrop);
 term.dispose();
