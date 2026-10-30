@@ -31,8 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The oldest there is, to run on as many Linux systems as can be
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             binary: target/dx/serval/release/linux/app/serval
             one-file: serval
             bundle: appimage
@@ -55,7 +54,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libudev-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libfuse2 libssl-dev pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libudev-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libfuse2t64
 
       - name: Install the toolchain of rust-toolchain.toml
         run: rustup toolchain install
@@ -63,26 +62,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - uses: taiki-e/install-action@v2
-        if: runner.os != 'Linux'
         with:
           tool: cargo-binstall
 
       - name: Install dx
-        if: runner.os != 'Linux'
         run: cargo binstall dioxus-cli --version "$DIOXUS_CLI_VERSION" --no-confirm
-
-      - uses: actions/cache@v4
-        if: runner.os == 'Linux'
-        with:
-          path: ~/.dx-cli
-          key: dx-cli-${{ matrix.os }}-${{ env.DIOXUS_CLI_VERSION }}
-
-      # Its own build needs a newer glibc than this system's
-      - name: Build dx
-        if: runner.os == 'Linux'
-        run: |
-          [ -x ~/.dx-cli/bin/dx ] || cargo install dioxus-cli --version "$DIOXUS_CLI_VERSION" --locked --root ~/.dx-cli
-          echo ~/.dx-cli/bin >> "$GITHUB_PATH"
 
       - name: Build one file
         if: matrix.one-file
