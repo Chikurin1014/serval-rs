@@ -9,17 +9,14 @@ use dioxus::{
 
 use ui::AppShell;
 
+mod assets;
 mod serial;
 mod time;
 
-/// The pages of the Help menu, by their items' ids: in the browser. The web
-/// app's documents and licenses, until they are in the desktop app.
-const PAGES: [(&str, &str, &str); 3] = [
-    (
-        "documents",
-        "Documents",
-        "https://serval-5qv.pages.dev/docs/",
-    ),
+/// The pages of the Help menu, by their items' ids: in the browser. The
+/// documents are the web app's only, as are its licenses until they are in
+/// the desktop app.
+const PAGES: [(&str, &str, &str); 2] = [
     (
         "licenses",
         "Licenses",
@@ -90,6 +87,9 @@ fn App() -> Element {
     });
 
     rsx! {
+        if assets::embedded() {
+            assets::EmbeddedAssets {}
+        }
         AppShell {}
     }
 }

@@ -1,0 +1,6 @@
+[package]
+name = "embed-assets"
+version.workspace = true
+license.workspace = true
+publish = false
+edition.workspace = true
