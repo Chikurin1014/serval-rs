@@ -30,12 +30,12 @@ attaches the builds to each release:
 
 | OS | Files |
 | --- | --- |
-| Linux | `serval` (one file), `serval-x86_64.AppImage` |
+| Linux | `serval` (one file) |
 | Windows | `serval.exe` (one file) |
 | macOS | `Serval-arm64.dmg` |
 
-To bundle it yourself (`linuxdeploy` is needed for an AppImage):
+To bundle it for macOS yourself:
 
 ```bash
-dx bundle --platform desktop --package-types <appimage|dmg> --release --profile desktop-release
+dx bundle --platform desktop --package-types dmg --release --profile desktop-release
 ```
