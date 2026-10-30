@@ -13,28 +13,21 @@
 | Theme switch | Light or dark theme |
 | Plugin button | Imports a [plugin](task.md) |
 
-The desktop app has no navigation bar: **Layout**, the theme switch and the
-plugin button are in the [menu](#menu), with **Licenses**. These documents
-are only on the web.
-
 ## Menu
 
-In a narrow window, and always in the desktop app, the toolbar is in a menu
-instead. The menu icon button at the top left opens it. It is faint until the
-pointer is on it.
+In a narrow window, the toolbar is in a menu instead. The menu icon button at
+the top left opens it. It is faint until the pointer is on it.
 
-The menu has the port's items, and the tabs at its bottom. In the desktop app,
-it also has **Layout**, the theme switch, the plugin button and **Licenses**.
+The menu has the port's items, and the tabs at its bottom.
 Picking a tab closes the menu.
 
 ## Port
 
 From the left:
 
-0. **Plug icon button**: requests access to a serial port (only on the web).
+0. **Plug icon button**: requests access to a serial port.
 1. **Port selector**: picks a device to access.
 2. **Refresh button**: lists the devices allowed again.
-   In the desktop app, the list follows the devices plugged in and out.
 3. **Baud rate**: type a value, or pick one of `9600`, `19200`, `57600`, and `115200`.
    The menu beside it (e.g. `8N1`) sets the data bits, parity, stop bits, and
    flow control (see [Port settings](../reference/serial-port.md#port-settings)).

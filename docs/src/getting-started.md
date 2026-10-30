@@ -14,7 +14,7 @@ as data, and as a graph without setting anything up.
 
 ## 1. Open a port
 
-0. Click the plug icon button, and choose the device to allow Serval to access it (only on the web).
+0. Click the plug icon button, and choose the device to allow Serval to access it.
 1. Click the port selector, next to the plug icon button, and pick your device.
 2. Type the baud rate the device uses (e.g. `115200`).
 3. Click the open button beside it.
