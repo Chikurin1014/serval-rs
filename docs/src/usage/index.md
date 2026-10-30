@@ -13,4 +13,4 @@ The port stays open, and the data keep coming, whichever tab is shown.
 
 > [!NOTE]
 > Serval on the web needs the internet to open.
-> To use Serval offline, use the desktop app.
+> To use Serval offline, use the [desktop app](../reference/index.md#install).

@@ -1,0 +1,115 @@
+name: Desktop
+
+# Builds the desktop app for each OS: on changes to it, and for a release, to
+# which the builds are attached. On a pull request, they are artifacts of the run.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/desktop.yml
+      - packages/desktop/**
+      - packages/embed-assets/**
+  workflow_call:
+    inputs:
+      tag:
+        description: The release to attach the builds to
+        type: string
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DIOXUS_CLI_VERSION: 0.7.9
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest there is, to run on as many Linux systems as can be
+          - os: ubuntu-22.04
+            binary: target/dx/serval/release/linux/app/serval
+            one-file: serval
+            bundle: appimage
+            bundle-name: serval-x86_64.AppImage
+          - os: windows-latest
+            binary: target/dx/serval/release/windows/app/serval.exe
+            one-file: serval.exe
+          - os: macos-latest
+            bundle: dmg
+            bundle-name: Serval-arm64.dmg
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install the libraries the app needs
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libudev-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
+
+      - name: Install the toolchain of rust-toolchain.toml
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall
+
+      - name: Install dx
+        run: cargo binstall dioxus-cli --version "$DIOXUS_CLI_VERSION" --no-confirm
+
+      - name: Build one file
+        if: matrix.one-file
+        working-directory: packages/desktop
+        run: dx build --platform desktop --release --profile desktop-release
+
+      - name: Put the assets in the file
+        if: matrix.one-file
+        run: |
+          mkdir -p dist
+          cargo run -p embed-assets -- "${{ matrix.binary }}" "dist/${{ matrix.one-file }}"
+
+      - name: Bundle
+        if: matrix.bundle
+        working-directory: packages/desktop
+        run: |
+          dx bundle --platform desktop --package-types "${{ matrix.bundle }}" --release --profile desktop-release --out-dir bundle
+          mkdir -p ../../dist
+          mv bundle/*."${{ matrix.bundle == 'appimage' && 'AppImage' || matrix.bundle }}" "../../dist/${{ matrix.bundle-name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: serval-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Attach to the release
+    needs: build
+    if: inputs.tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach the builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber
