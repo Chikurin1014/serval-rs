@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile"]
+members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile", "packages/embed-assets"]
 
 # Bumped by release-please
 [workspace.package]
@@ -14,4 +14,12 @@ dioxus-icons = { version = "0.1.0", default-features = false }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components" }
 
 # workspace
+embed-assets = { path = "packages/embed-assets" }
 ui = { path = "packages/ui" }
+
+# The desktop app to hand out: smaller, as it is one file
+[profile.desktop-release]
+inherits = "release"
+strip = true
+lto = true
+codegen-units = 1

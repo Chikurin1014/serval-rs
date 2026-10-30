@@ -14,7 +14,8 @@
 | Plugin button | Imports a [plugin](task.md) |
 
 The desktop app has no navigation bar: **Layout**, the theme switch and the
-plugin button are in the [menu](#menu), and the pages are in its **Help** menu.
+plugin button are in the [menu](#menu). Its **Help** menu has **Licenses** and
+the GitHub page. These documents are only on the web.
 
 ## Menu
 
