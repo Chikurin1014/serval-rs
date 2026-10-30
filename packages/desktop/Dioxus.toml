@@ -12,3 +12,6 @@ short_description = "Cross-Platform Serial Visualizer"
 [bundle.macos]
 signing_identity = "-"
 hardened_runtime = false
+
+[bundle.windows]
+icon_path = "../web/assets/favicon.ico"

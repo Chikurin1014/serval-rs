@@ -91,6 +91,14 @@ jobs:
           mkdir -p ../../dist
           mv bundle/*.dmg ../../dist/Serval-arm64.dmg
 
+      - name: Bundle for Windows
+        if: runner.os == 'Windows'
+        working-directory: packages/desktop
+        run: |
+          dx bundle --platform desktop --package-types msi --release --profile desktop-release --out-dir bundle
+          mkdir -p ../../dist
+          mv bundle/*.msi ../../dist/Serval-x64.msi
+
       # An Apple silicon Mac opens nothing without a valid signature, even ad hoc
       - name: Check the app's signature
         if: runner.os == 'macOS'

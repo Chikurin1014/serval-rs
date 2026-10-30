@@ -37,11 +37,11 @@ attaches the builds to each release:
 | OS | Files |
 | --- | --- |
 | Linux | `serval` (one file) |
-| Windows | `serval.exe` (one file) |
+| Windows | `serval.exe` (one file), `Serval-x64.msi` |
 | macOS | `Serval-arm64.dmg` |
 
-To bundle it for macOS yourself:
+To bundle it for Windows or macOS yourself:
 
 ```bash
-dx bundle --platform desktop --package-types dmg --release --profile desktop-release
+dx bundle --platform desktop --package-types <msi|dmg> --release --profile desktop-release
 ```
