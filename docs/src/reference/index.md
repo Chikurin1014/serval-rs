@@ -10,3 +10,17 @@
 * [Graphs](graphs.md): each graph, and its settings.
 * [Layout File](layout-file.md): the format of the layout's JSON files.
 * [Tasks](tasks/index.md): the language of plugins, how they run, and what they can use.
+
+## Desktop app
+
+The desktop app works as the web app does, except:
+
+* It works offline. It is one file, with nothing else to install.
+* All the serial ports are listed, with no need to allow them, so there is no
+  plug icon button. The list follows the devices plugged in and out (see
+  [Serial Port](serial-port.md)).
+* The [port info](serial-port.md#port-info) also shows the port's path.
+* It has no navigation bar: the toolbar is always in the
+  [menu](../usage/toolbar.md#menu), which also has **Layout**, the theme
+  switch, the plugin button and **Licenses**. These documents are only on the web.
+* **Licenses** opens in your browser, so it needs the internet.
