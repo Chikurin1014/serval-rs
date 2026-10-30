@@ -25,8 +25,7 @@ That's why I made **Serval**.
 
 Serval is designed to run on Windows, Linux, macOS, and the web.
 
-> [!WARNING]
-> Currently, Serval is only available on the web.
+Use it [on the web](https://serval-5qv.pages.dev), or [install the desktop app](reference/index.md#install).
 
 ### Flexible data format
 

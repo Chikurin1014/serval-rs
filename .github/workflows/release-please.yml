@@ -54,3 +54,12 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
+
+  desktop:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/desktop.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: write

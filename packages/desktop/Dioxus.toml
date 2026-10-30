@@ -1,0 +1,9 @@
+[application]
+name = "Serval"
+
+[bundle]
+identifier = "io.github.chikurin1014.serval"
+publisher = "Chikurin1014"
+icon = ["../web/assets/favicon.png"]
+category = "DeveloperTool"
+short_description = "Cross-Platform Serial Visualizer"
