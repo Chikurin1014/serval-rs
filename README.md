@@ -163,7 +163,7 @@ Each section above has these commands:
 | Release build (web)  | `nix build` (into `result/share/serval-web`, with the documents and the licenses)                                    |
 | Tests                | `nix flake check` (all the tests, in the Nix sandbox)                                                                |
 
-`nix run` serves the release build at http://localhost:8080/.
+`nix run` opens the desktop app. `nix run .#web` serves the web app's release build at http://localhost:8080/.
 `nix fmt` formats all the files.
 
 > [!NOTE]

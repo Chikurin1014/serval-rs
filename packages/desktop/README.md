@@ -8,6 +8,12 @@ Serval as a desktop app: serial ports through the OS, and no network needed.
 dx serve --platform desktop
 ```
 
+## Run with Nix
+
+```bash
+nix run github:Chikurin1014/serval-rs
+```
+
 ## Build one file
 
 The app reads its assets from the `assets` folder beside it, unless they are
