@@ -16,8 +16,6 @@ serialport = "4.7"
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 ui = { workspace = true }
 usb-ids = "1.2026.6"
-# The Help menu's pages
-webbrowser = "1.2"
 
 [features]
 default = ["desktop"]

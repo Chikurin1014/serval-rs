@@ -987,7 +987,6 @@ dependencies = [
  "tokio",
  "ui",
  "usb-ids",
- "webbrowser",
 ]
 
 [[package]]
