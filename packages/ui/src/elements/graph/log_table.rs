@@ -255,7 +255,14 @@ pub fn LogTable(id: usize) -> Element {
                     role: "row",
                     span { role: "columnheader", "Time" }
                     span { role: "columnheader", "Label" }
-                    span { role: "columnheader", "Level" }
+                    // Narrow, of its initial as the tags under it
+                    span {
+                        class: "log-table-level",
+                        role: "columnheader",
+                        aria_label: "Level",
+                        "L"
+                        span { class: "log-level-tag-rest", "evel" }
+                    }
                     span { role: "columnheader", "Message" }
                 }
                 VirtualList {
@@ -328,7 +335,11 @@ fn LogCounts(weakest: LogLevel) -> Element {
                     "data-shown": level <= weakest,
                     title: "{level}",
                     if level == LogLevel::None {
-                        span { class: "log-table-count-none", "NONE" }
+                        span {
+                            class: "log-table-count-none",
+                            "N"
+                            span { class: "log-level-tag-rest", "ONE" }
+                        }
                     } else {
                         LogLevelTag { level }
                     }
@@ -364,6 +375,7 @@ fn LogRow(index: usize) -> Element {
     let time = time_context.format_millis(row.timestamp);
     let color = series_color(row.label);
     let message = log.message().to_string();
+    let level = log.level();
 
     rsx! {
         div {
@@ -380,9 +392,8 @@ fn LogRow(index: usize) -> Element {
             span {
                 class: "log-table-level",
                 role: "cell",
-                if log.level() != LogLevel::None {
-                    LogLevelTag { level: log.level() }
-                }
+                title: if level != LogLevel::None { "{level}" },
+                LogLevelTag { level }
             }
             span { class: "log-table-message", role: "cell", title: "{message}", "{message}" }
         }

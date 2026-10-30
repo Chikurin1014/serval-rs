@@ -5,6 +5,7 @@
   display: flex;
   flex-direction: column;
   inset: 2.25rem 1rem 0.5rem;
+  container: log-table / inline-size;
 }
 
 .log-table-row {
@@ -109,4 +110,26 @@
     "Noto Sans",
     sans-serif;
   line-height: 1.5;
+}
+
+/* Narrow, the levels by their initials (each named in full by its title);
+   narrower, the column of them gone, the counts' kept to tell them apart */
+@container log-table (max-width: 32rem) {
+  .log-table-row {
+    grid-template-columns: 7.5rem 7rem 2.25rem minmax(0, 1fr);
+  }
+
+  .log-table .log-level-tag-rest {
+    display: none;
+  }
+}
+
+@container log-table (max-width: 24rem) {
+  .log-table-row {
+    grid-template-columns: 7.5rem 7rem minmax(0, 1fr);
+  }
+
+  .log-table-row > .log-table-level {
+    display: none;
+  }
 }

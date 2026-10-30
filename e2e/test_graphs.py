@@ -1085,3 +1085,25 @@ def test_log_table_shows_the_logs_as_they_come(app: App):
     expect(graph.locator("[data-virtual-index]").first).to_have_attribute(
         "aria-setsize", str(all_count - 60)
     )
+
+    # Narrow, the levels by their initials (in full as titles); narrower, the
+    # column of them gone; the counts' kept to tell them apart
+    plot = graph.locator(".log-table")
+    level_cells = plot.locator(".log-table-body .log-table-level")
+    head = plot.locator(".log-table-head [role=columnheader]")
+    count_tag = plot.locator(".log-table-count .log-level-tag").first
+    expect(count_tag).to_have_text("ERROR")
+    assert count_tag.inner_text() == "ERROR"
+    plot.evaluate(
+        "table => { table.style.right = 'auto'; table.style.width = '450px' }"
+    )
+    expect(level_cells.first).to_be_visible()
+    title = level_cells.first.get_attribute("title")
+    assert title in {"ERROR", "WARN", "INFO", "DEBUG", "TRACE"}
+    assert level_cells.first.inner_text() == title[0]
+    assert head.nth(2).inner_text() == "L"
+    assert count_tag.inner_text() == "E"
+    plot.evaluate("table => table.style.width = '350px'")
+    expect(level_cells.first).to_be_hidden()
+    expect(head.nth(2)).to_be_hidden()
+    expect(count_tag).to_be_visible()
