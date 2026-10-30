@@ -7,3 +7,8 @@ publisher = "Chikurin1014"
 icon = ["../web/assets/favicon.png"]
 category = "DeveloperTool"
 short_description = "Cross-Platform Serial Visualizer"
+
+# Not signed by a developer, but macOS on Apple silicon opens nothing unsigned
+[bundle.macos]
+signing_identity = "-"
+hardened_runtime = false
