@@ -19,8 +19,17 @@ const LICENSES_PAGE: &str = "https://serval-5qv.pages.dev/third-party-licenses.h
 fn main() {
     let _ = dioxus::logger::init(dioxus::logger::tracing::Level::WARN);
     let window = WindowBuilder::new().with_title("Serval");
+    let config = Config::new()
+        .with_window(window)
+        .with_menu(menu_bar())
+        // Drags within the page (e.g. of graphs) as in a browser: on Windows,
+        // the app's own handling of drops stops them. A file dropped on the
+        // console is read by its script
+        .with_disable_drag_drop_handler(true)
+        // Nor is a file dropped elsewhere opened in place of the app
+        .with_navigation_handler(|url| !url.starts_with("file:"));
     dioxus::LaunchBuilder::desktop()
-        .with_cfg(Config::new().with_window(window).with_menu(menu_bar()))
+        .with_cfg(config)
         .launch(App);
 }
 

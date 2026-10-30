@@ -49,9 +49,8 @@ pub fn SendFileButton() -> Element {
     }
 }
 
-/// Reads a file picked (or dropped) and sends it, in the current component's
-/// task.
-pub(super) fn send_picked_file(serial: SerialContext, file: FileData) {
+/// Reads a file picked and sends it, in the current component's task.
+fn send_picked_file(serial: SerialContext, file: FileData) {
     spawn(async move {
         match file.read_bytes().await {
             Ok(bytes) => serial.send_file(file.name(), bytes.to_vec()),
