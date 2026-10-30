@@ -68,7 +68,8 @@ pub fn embed(binary: &Path, root: &Path, dir: &str, out: &Path) -> io::Result<us
     walk(&root.join(dir), dir, &mut files)?;
     files.sort();
 
-    let mut out = io::BufWriter::new(File::create(out)?);
+    let path = out;
+    let mut out = io::BufWriter::new(File::create(path)?);
     io::copy(&mut source, &mut out)?;
     let mut len = 0;
     for (path, file) in &files {
@@ -82,6 +83,8 @@ pub fn embed(binary: &Path, root: &Path, dir: &str, out: &Path) -> io::Result<us
     out.write_all(&len.to_le_bytes())?;
     out.write_all(MAGIC)?;
     out.flush()?;
+    // So it runs as the binary does
+    fs::set_permissions(path, source.metadata()?.permissions())?;
     Ok(files.len())
 }
 
@@ -165,6 +168,11 @@ mod tests {
         assert_eq!(assets.get("assets/fonts/a.woff2"), Some(&[0, 1, 2][..]));
         assert_eq!(assets.get("assets/empty.js"), Some(&[][..]));
         assert_eq!(assets.get("assets/none.css"), None);
+        #[cfg(unix)]
+        assert_eq!(
+            fs::metadata(&out).unwrap().permissions(),
+            fs::metadata(root.join("app")).unwrap().permissions()
+        );
         // The binary first, as it was
         assert!(fs::read(&out).unwrap().starts_with(b"binary"));
 
