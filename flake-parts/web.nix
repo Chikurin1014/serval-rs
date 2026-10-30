@@ -60,15 +60,14 @@
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 
-      # The app with `docs` at `/docs/` and the third-party licenses at
-      # `/third-party-licenses.html`, as `dx` serves them of `public/`
+      # The app with `docs` at `/docs/` (its third-party licenses at
+      # `/third-party-licenses.html` are of `public/`, as `dx` serves them)
       withDocs =
         docs:
         pkgs.runCommand "serval-web-${commonArgs.version}" { } ''
           mkdir -p $out/share
           cp -r --no-preserve=mode ${config.packages.web-app}/share/serval-web $out/share/serval-web
           cp -r --no-preserve=mode ${docs} $out/share/serval-web/docs
-          cp --no-preserve=mode ${src}/third-party-licenses.html $out/share/serval-web/
         '';
 
       webArgs = commonArgs // {
@@ -168,7 +167,7 @@
             inputsFrom = [ config.packages.web-app ];
             packages = [
               rustToolchain
-              pkgs.cargo-about # `third-party-licenses.html` (see `about.toml`)
+              pkgs.cargo-about # `third-party-licenses.html` of each app (see `about.toml`)
               pkgs.mdbook # `docs/`
               pkgs.mdbook-mermaid # its diagrams
               pkgs.ffmpeg # `docs/media/capture.py`

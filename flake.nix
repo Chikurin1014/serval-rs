@@ -57,7 +57,8 @@
             };
             settings.global.excludes = [
               # Generated
-              "third-party-licenses*.html"
+              "packages/desktop/third-party-licenses.html"
+              "packages/web/public/third-party-licenses.html"
               "docs/book/**"
               "packages/web/public/docs/**"
               "packages/ui/src/components/**"
