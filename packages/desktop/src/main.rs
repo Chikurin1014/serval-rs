@@ -1,3 +1,6 @@
+// No console beside the window, except while developing
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use dioxus::{
     desktop::{
         Config, WindowBuilder, WindowCloseBehaviour,
