@@ -108,6 +108,8 @@ A box per label, of its values in the [time range](#statistics-time-range).
 * **Weakest level**: leaves out the logs of weaker levels. `INFO`, from the
   menu.
 * Counts the logs of each level above the table (those left out, fainter).
+* In a narrow graph, the levels show only their first letter (e.g. `E` for
+  `ERROR`). In a narrower one, the Level column is hidden.
 
 ## Pausing
 
