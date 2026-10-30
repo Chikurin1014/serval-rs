@@ -72,3 +72,35 @@
   width: 1rem;
   height: 1rem;
 }
+
+/* Licenses in the app (e.g. offline), as a page of their own */
+[role="dialog"].licenses-dialog {
+  width: min(56rem, calc(100vw - 2rem));
+  height: calc(100vh - 4rem);
+  max-width: none;
+  padding: 2.5rem 0.5rem 0.5rem;
+}
+
+.licenses-dialog-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.licenses-dialog-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background: Canvas;
+}
+
+button.navbar-licenses {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: none;
+  color: var(--dc-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}

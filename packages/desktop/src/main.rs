@@ -8,16 +8,16 @@ use dioxus::{
     prelude::*,
 };
 
-use ui::{AppPages, AppShell, serial::SerialContext};
+use ui::{AppPages, AppShell, Licenses, serial::SerialContext};
 
 mod assets;
 mod files;
 mod serial;
 mod time;
 
-/// The web app's licenses, until they are in the desktop app: in the browser,
-/// as the app opens any page on the web.
-const LICENSES_PAGE: &str = "https://serval-5qv.pages.dev/third-party-licenses.html";
+/// Its licenses, of its own dependencies (see `about.toml`): in it, so they
+/// are there offline.
+const LICENSES_PAGE: &str = include_str!("../../../third-party-licenses-desktop.html");
 
 fn main() {
     let _ = dioxus::logger::init(dioxus::logger::tracing::Level::WARN);
@@ -85,7 +85,7 @@ fn App() -> Element {
         AppShell {
             pages: AppPages {
                 documents: None,
-                licenses: LICENSES_PAGE.to_string(),
+                licenses: Licenses::Inline(LICENSES_PAGE),
             },
             navbar: false,
             RecordCloseGuard {}

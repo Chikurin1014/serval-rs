@@ -15,6 +15,6 @@ pub mod time;
 pub mod toast;
 pub mod views;
 
-pub use app::{AppPages, AppShell};
+pub use app::{AppPages, AppShell, Licenses};
 pub use theme::ThemeProvider;
 pub use time::TimeContext;

@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
-    app::{AppTools, licenses_page, tools_in_menu},
+    app::{AppTools, LicensesLink, tools_in_menu},
     components::{
         button::{Button, ButtonSize, ButtonVariant},
         sheet::{Sheet, SheetContentClose, SheetHeader, SheetTitle},
@@ -18,7 +18,6 @@ use crate::{
 pub fn ToolbarMenu(children: Element) -> Element {
     let mut open = use_signal(|| false);
     let app_tools = tools_in_menu();
-    let licenses = licenses_page();
 
     rsx! {
         Button {
@@ -62,15 +61,10 @@ pub fn ToolbarMenu(children: Element) -> Element {
                             class: "toolbar-menu-row",
                             AppTools {}
                         }
-                        if let Some(licenses) = licenses {
-                            a {
-                                class: "toolbar-menu-link",
-                                href: licenses,
-                                target: "_blank",
-                                rel: "noopener noreferrer",
-                                "Licenses"
-                                lucide::ExternalLink { size: 14 }
-                            }
+                        // Opened, the menu gives way to it
+                        div {
+                            onclick: move |_| open.set(false),
+                            LicensesLink { class: "toolbar-menu-link" }
                         }
                     }
                 }

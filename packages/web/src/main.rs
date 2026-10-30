@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ui::{AppPages, AppShell};
+use ui::{AppPages, AppShell, Licenses};
 
 mod record_file;
 mod serial;
@@ -34,7 +34,7 @@ fn App() -> Element {
         AppShell {
             pages: AppPages {
                 documents: Some(DOCUMENTS_PAGE.to_string()),
-                licenses: LICENSES_PAGE.to_string(),
+                licenses: Licenses::Link(LICENSES_PAGE.to_string()),
             },
             UnsupportedBrowserDialog {}
         }
