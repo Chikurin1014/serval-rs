@@ -111,6 +111,14 @@
   gap: 0.25rem;
 }
 
+/* At the menu's left: opens to the right, not out of the window as in the
+ * navbar */
+.toolbar-menu-row .layout-menu .layout-menu-content {
+  right: auto;
+  left: 0;
+  white-space: nowrap;
+}
+
 .toolbar-menu-link {
   display: inline-flex;
   align-items: center;
