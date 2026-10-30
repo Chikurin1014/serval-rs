@@ -983,6 +983,7 @@ dependencies = [
  "chrono",
  "dioxus",
  "embed-assets",
+ "image",
  "rfd",
  "serialport",
  "tokio",
