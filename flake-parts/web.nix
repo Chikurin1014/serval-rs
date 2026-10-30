@@ -1,5 +1,5 @@
 # The web app (the `web` package of the workspace, of `ui`), with the documents
-# at `/docs/`: its build, served (`nix run`), its checks and its shell.
+# at `/docs/`: its build, served (`nix run .#web`), and its checks.
 {
   imports = [
     ./common.nix
@@ -19,7 +19,6 @@
         commonArgs
         playwrightEnv
         python
-        rustToolchain
         src
         ;
 
@@ -97,7 +96,7 @@
 
       # The app as it is built, served on localhost (a secure context, as Web
       # Serial needs): of the flake, so from anywhere (`nix run
-      # github:Chikurin1014/serval-rs`), on the port given (8080 if none)
+      # github:Chikurin1014/serval-rs#web`), on the port given (8080 if none)
       apps.web = {
         type = "app";
         program = pkgs.lib.getExe (
@@ -158,30 +157,6 @@
               pytest e2e -p no:cacheprovider
               touch $out
             '';
-      };
-
-      devShells = {
-        web = pkgs.mkShell (
-          playwrightEnv
-          // {
-            inputsFrom = [ config.packages.web-app ];
-            packages = [
-              rustToolchain
-              pkgs.cargo-about # `third-party-licenses.html` of each app (see `about.toml`)
-              pkgs.mdbook # `docs/`
-              pkgs.mdbook-mermaid # its diagrams
-              pkgs.ffmpeg # `docs/media/capture.py`
-              pkgs.nodejs
-              pkgs.prettier
-              pkgs.pyright
-              pkgs.ruff
-              pkgs.taplo
-              pkgs.vscode-css-languageserver
-              pkgs.vscode-json-languageserver
-              python
-            ];
-          }
-        );
       };
     };
 }

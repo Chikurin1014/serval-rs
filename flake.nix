@@ -19,6 +19,8 @@
     inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
+        ./flake-parts/desktop.nix
+        ./flake-parts/devshell.nix
         ./flake-parts/web.nix
       ];
 
@@ -40,8 +42,7 @@
           };
 
           packages.default = config.packages.web;
-          devShells.default = config.devShells.web;
-          apps.default = config.apps.web;
+          apps.default = config.apps.desktop;
 
           formatter = inputs.treefmt-nix.lib.mkWrapper pkgs {
             projectRootFile = "flake.nix";

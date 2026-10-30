@@ -37,7 +37,7 @@
               glib
               gtk3
               libsoup_3
-              libudev-zero
+              udev
               webkitgtk_4_1
               xdotool
             ]
