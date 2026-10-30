@@ -65,8 +65,11 @@ jobs:
         with:
           tool: cargo-binstall
 
+      # Only its release, not its source if looking for that takes long
       - name: Install dx
-        run: cargo binstall dioxus-cli --version "$DIOXUS_CLI_VERSION" --no-confirm
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cargo binstall dioxus-cli --version "$DIOXUS_CLI_VERSION" --no-confirm --strategies crate-meta-data --maximum-resolution-timeout 120
 
       - name: Build one file
         if: matrix.one-file
