@@ -2,12 +2,17 @@ use dioxus::{
     desktop::{
         Config, WindowBuilder, WindowCloseBehaviour,
         muda::{Menu, PredefinedMenuItem, Submenu},
-        tao::event::{Event, WindowEvent},
+        tao::{
+            dpi::LogicalSize,
+            event::{Event, WindowEvent},
+            window::Icon,
+        },
         use_wry_event_handler, window,
     },
     prelude::*,
 };
 
+use image::ImageFormat;
 use ui::{AppPages, AppShell, Licenses, serial::SerialContext};
 
 mod assets;
@@ -19,10 +24,21 @@ mod time;
 /// are there offline.
 const LICENSES_PAGE: &str = include_str!("../../../third-party-licenses-desktop.html");
 
+/// The web app's icon.
+const ICON_PNG: &[u8] = include_bytes!("../../web/assets/favicon.png");
+
+/// Room for the console beside the port's info, while it fits on a small
+/// screen (e.g. 1366x768).
+const WINDOW_SIZE: LogicalSize<f64> = LogicalSize::new(1200.0, 700.0);
+const MIN_WINDOW_SIZE: LogicalSize<f64> = LogicalSize::new(480.0, 400.0);
+
 fn main() {
     let _ = dioxus::logger::init(dioxus::logger::tracing::Level::WARN);
-    let window = WindowBuilder::new().with_title("Serval");
-    let config = Config::new()
+    let window = WindowBuilder::new()
+        .with_title("Serval")
+        .with_inner_size(WINDOW_SIZE)
+        .with_min_inner_size(MIN_WINDOW_SIZE);
+    let mut config = Config::new()
         .with_window(window)
         .with_menu(menu_bar())
         // Drags within the page (e.g. of graphs) as in a browser: on Windows,
@@ -31,9 +47,21 @@ fn main() {
         .with_disable_drag_drop_handler(true)
         // Nor is a file dropped elsewhere opened in place of the app
         .with_navigation_handler(|url| !url.starts_with("file:"));
+    if let Some(icon) = icon() {
+        config = config.with_icon(icon);
+    }
     dioxus::LaunchBuilder::desktop()
         .with_cfg(config)
         .launch(App);
+}
+
+/// Its icon, of the window (and on Windows, the taskbar).
+fn icon() -> Option<Icon> {
+    let image = image::load_from_memory_with_format(ICON_PNG, ImageFormat::Png)
+        .ok()?
+        .into_rgba8();
+    let (width, height) = image.dimensions();
+    Icon::from_rgba(image.into_raw(), width, height).ok()
 }
 
 /// None, for room: all is in the toolbar's menu. On macOS, the app's menu and
@@ -124,4 +152,12 @@ fn RecordCloseGuard() -> Element {
         }
     });
     rsx! {}
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn has_its_icon() {
+        assert!(super::icon().is_some());
+    }
 }
