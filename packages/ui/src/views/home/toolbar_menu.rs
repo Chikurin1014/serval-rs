@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
-    app::AppTools,
+    app::{AppTools, licenses_page, tools_in_menu},
     components::{
         button::{Button, ButtonSize, ButtonVariant},
         sheet::{Sheet, SheetContentClose, SheetHeader, SheetTitle},
@@ -11,12 +11,14 @@ use crate::{
 };
 
 /// The toolbar in a menu from the left, for when it has no room: the port's
-/// items, the app's tools with no navbar, and the tabs (`children`) at its
-/// bottom. Its button is faint over the top left, shown only when needed (by
-/// CSS).
+/// items, the app's tools and licenses with no navbar, and the tabs
+/// (`children`) at its bottom. Its button is faint over the top left, shown
+/// only when needed (by CSS).
 #[component]
-pub fn ToolbarMenu(app_tools: bool, children: Element) -> Element {
+pub fn ToolbarMenu(children: Element) -> Element {
     let mut open = use_signal(|| false);
+    let app_tools = tools_in_menu();
+    let licenses = licenses_page();
 
     rsx! {
         Button {
@@ -59,6 +61,16 @@ pub fn ToolbarMenu(app_tools: bool, children: Element) -> Element {
                         div {
                             class: "toolbar-menu-row",
                             AppTools {}
+                        }
+                        if let Some(licenses) = licenses {
+                            a {
+                                class: "toolbar-menu-link",
+                                href: licenses,
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                "Licenses"
+                                lucide::ExternalLink { size: 14 }
+                            }
                         }
                     }
                 }

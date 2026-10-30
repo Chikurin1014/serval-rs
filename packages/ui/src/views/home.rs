@@ -68,7 +68,6 @@ pub fn Home() -> Element {
                 }
             }
             ToolbarMenu {
-                app_tools: toolbar_in_menu,
                 HomeTabList { class: "toolbar-menu-tabs", has_tasks: has_tasks() }
             }
             TabContent {

@@ -32,8 +32,8 @@ fn App() -> Element {
         document::Link { rel: "icon", href: FAVICON_PNG, r#type: "image/png", sizes: "256x256" }
 
         AppShell {
-            navbar: AppPages {
-                documents: DOCUMENTS_PAGE.to_string(),
+            pages: AppPages {
+                documents: Some(DOCUMENTS_PAGE.to_string()),
                 licenses: LICENSES_PAGE.to_string(),
             },
             UnsupportedBrowserDialog {}

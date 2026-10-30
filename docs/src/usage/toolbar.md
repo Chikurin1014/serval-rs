@@ -14,8 +14,8 @@
 | Plugin button | Imports a [plugin](task.md) |
 
 The desktop app has no navigation bar: **Layout**, the theme switch and the
-plugin button are in the [menu](#menu). Its **Help** menu has **Licenses** and
-the GitHub page. These documents are only on the web.
+plugin button are in the [menu](#menu), with **Licenses**. These documents
+are only on the web.
 
 ## Menu
 
@@ -24,8 +24,8 @@ instead. The menu icon button at the top left opens it. It is faint until the
 pointer is on it.
 
 The menu has the port's items, and the tabs at its bottom. In the desktop app,
-it also has **Layout**, the theme switch and the plugin button. Picking a tab
-closes the menu.
+it also has **Layout**, the theme switch, the plugin button and **Licenses**.
+Picking a tab closes the menu.
 
 ## Port
 
