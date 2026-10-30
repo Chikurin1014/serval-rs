@@ -1,18 +1,5 @@
 use dioxus::{document::Eval, prelude::*};
 
-const DOWNLOAD_JS: &str = r#"
-const [name, type, text] = await dioxus.recv();
-const url = URL.createObjectURL(new Blob([text], { type }));
-const link = document.createElement("a");
-link.href = url;
-link.download = name;
-document.body.append(link);
-link.click();
-link.remove();
-// Once the download has taken it
-setTimeout(() => URL.revokeObjectURL(url), 0);
-"#;
-
 /// Runs `script`, told `()` as the component is dropped, so it ends.
 pub(crate) fn use_script(script: &'static str) -> Eval {
     let eval = use_hook(|| document::eval(script));
@@ -20,12 +7,6 @@ pub(crate) fn use_script(script: &'static str) -> Eval {
         let _ = eval.send(());
     });
     eval
-}
-
-/// Saves `text` as a file named `name`, of the media type `mime`.
-pub(crate) fn download_text(name: &str, mime: &str, text: String) {
-    let download = document::eval(DOWNLOAD_JS);
-    let _ = download.send((name, mime, text));
 }
 
 /// Opens the file picker of the file input of `id`.

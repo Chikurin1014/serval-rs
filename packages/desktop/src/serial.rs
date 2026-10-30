@@ -19,8 +19,10 @@ use tokio::sync::mpsc;
 
 use ui::serial::{
     Baudrate, ExtraSettings, FlowControl, LocalFuture, Parity, PortInfo, SerialBackend, SerialPort,
-    SerialResult,
+    SerialResult, record::RecordFile,
 };
+
+use crate::files;
 
 /// How long a read waits for bytes, before it looks whether the port is closed.
 const READ_TIMEOUT: Duration = Duration::from_millis(50);
@@ -50,6 +52,15 @@ impl SerialBackend for NativeSerial {
                 .map(|port| Rc::new(NativePort::new(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
+    }
+
+    fn open_record_file(
+        &self,
+        extension: &str,
+        append: bool,
+    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
+        let extension = extension.to_string();
+        Box::pin(async move { files::open_record(&extension, append).await })
     }
 }
 
@@ -307,7 +318,7 @@ fn port_info(port: &SerialPortInfo) -> PortInfo {
     }
 }
 
-async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send + 'static) -> T {
+pub(crate) async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send + 'static) -> T {
     tokio::task::spawn_blocking(task)
         .await
         .expect("a blocking task is not cancelled")

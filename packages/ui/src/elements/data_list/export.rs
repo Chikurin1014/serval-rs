@@ -4,8 +4,8 @@ use dioxus_icons::lucide;
 use super::FilterContext;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::data::{DataContext, NumberText};
-use crate::helper::{csv_field, download_text};
 use crate::time::TimeContext;
+use crate::{helper::csv_field, save::save_text};
 
 /// Saves the labels the data list shows as a CSV file.
 #[component]
@@ -31,7 +31,7 @@ pub(super) fn ExportCsvButton() -> Element {
         });
         let csv = to_csv(&series);
         let name = format!("serval-{}.csv", time_context.current());
-        download_text(&name, "text/csv", csv);
+        save_text(&name, "text/csv", csv);
     };
 
     rsx! {

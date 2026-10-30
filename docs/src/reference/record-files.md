@@ -1,8 +1,8 @@
 # Record Files
 
-Recording needs a browser with the
+On the web, recording needs a browser with the
 [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API),
-such as Chrome or Edge.
+such as Chrome or Edge. The desktop app can always record.
 
 ## Formats
 
@@ -49,7 +49,7 @@ such as Chrome or Edge.
 
 ## File names
 
-`serval-YYYYMMDD-HHMMSS.<extension>`, of the local time it starts (the browser
+`serval-YYYYMMDD-HHMMSS.<extension>`, of the local time it starts (a save dialog
 asks where to save it).
 
 ## Timestamps
@@ -80,3 +80,5 @@ written in:
 | Others | Text | Read from its last lines (up to 64 KiB) |
 
 A record goes on while the port is closed and opened again, until **STOP**.
+
+Closing the desktop app ends the record first, so the file has all of it.

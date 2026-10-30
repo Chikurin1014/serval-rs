@@ -8,6 +8,7 @@ pub mod data;
 pub mod elements;
 pub mod helper;
 pub mod plugin;
+pub mod save;
 pub mod serial;
 pub mod theme;
 pub mod time;
