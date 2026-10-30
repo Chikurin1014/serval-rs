@@ -104,10 +104,16 @@ To include it in the web app, copy it into `packages/web/public`:
 cp third-party-licenses.html packages/web/public/
 ```
 
-After you change dependencies, generate it again (see [`about.toml`](about.toml)):
+The desktop app has its own list, [`third-party-licenses-desktop.html`](third-party-licenses-desktop.html), built into it.
+
+After you change dependencies, generate them again (see [`about.toml`](about.toml)):
 
 ```bash
 cargo about generate --manifest-path packages/web/Cargo.toml about.hbs -o third-party-licenses.html
+```
+
+```bash
+cargo about generate --manifest-path packages/desktop/Cargo.toml --target x86_64-pc-windows-msvc --target x86_64-unknown-linux-gnu --target x86_64-apple-darwin --target aarch64-apple-darwin about.hbs -o third-party-licenses-desktop.html
 ```
 
 ### Release build (web)
@@ -174,4 +180,5 @@ Each section above has these commands:
 Serval is licensed under the [MIT License](LICENSE).
 
 It bundles third-party software.
-Their licenses are in [`third-party-licenses.html`](third-party-licenses.html).
+Their licenses are in [`third-party-licenses.html`](third-party-licenses.html)
+(the desktop app's in [`third-party-licenses-desktop.html`](third-party-licenses-desktop.html)).

@@ -25,4 +25,5 @@ The desktop app works as the web app does, except:
   switch, the plugin button and **Licenses**. These documents are only on the web.
 * Records, layouts and CSV files are saved where a save dialog asks, not
   downloaded.
-* **Licenses** opens in your browser, so it needs the internet.
+* **Licenses** shows the licenses of the desktop app in the app, so it works
+  offline.
