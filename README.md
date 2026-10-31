@@ -2,16 +2,14 @@
 
 Cross-Platform Serial Visualizer
 
-## Use it
-
-### On the web
-
 Open **<https://serval-5qv.pages.dev>** in a Chromium-based browser (Chrome, Edge): Web Serial works only there.
-You don't need to install anything.
 
-### Install the desktop app
+## Installation
 
-Download it from the [latest release](https://github.com/Chikurin1014/serval-rs/releases/latest).
+> [!NOTE]
+> To use Serval online, you don't need to install it.
+
+Download the desktop app from the [latest release](https://github.com/Chikurin1014/serval-rs/releases/latest).
 These files are not signed, so the OS may warn you when you first open them.
 
 | OS                    | File               | How to open it                                                                                                                 |
