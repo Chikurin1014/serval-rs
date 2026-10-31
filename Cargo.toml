@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["packages/ui", "packages/web", "packages/desktop", "packages/mobile", "packages/embed-assets"]
+members = ["packages/ui", "packages/web", "packages/desktop", "packages/embed-assets"]
 
 # Bumped by release-please
 [workspace.package]
