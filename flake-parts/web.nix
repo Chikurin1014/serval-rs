@@ -55,7 +55,7 @@
 
       uiArgs = commonArgs // {
         pname = "serval-ui";
-        cargoExtraArgs = "--locked --package ui";
+        cargoExtraArgs = "--locked --package ui --package logic";
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 

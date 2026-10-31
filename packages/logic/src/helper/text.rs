@@ -2,7 +2,7 @@ use super::choice::Choice;
 use serde::{Deserialize, Serialize};
 
 /// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into characters.
-pub(crate) fn unescape(value: &str) -> String {
+pub fn unescape(value: &str) -> String {
     value
         .replace("\\n", "\n")
         .replace("\\r", "\r")
@@ -11,7 +11,7 @@ pub(crate) fn unescape(value: &str) -> String {
 }
 
 /// `text` escaped to one line: the reverse of [`unescape`].
-pub(crate) fn single_line(text: &str) -> String {
+pub fn single_line(text: &str) -> String {
     text.replace('\\', "\\\\")
         .replace('\r', "\\r")
         .replace('\n', "\\n")
@@ -19,7 +19,7 @@ pub(crate) fn single_line(text: &str) -> String {
 }
 
 /// `bytes` with thousands separated, e.g. "12,345 B".
-pub(crate) fn format_bytes(bytes: u64) -> String {
+pub fn format_bytes(bytes: u64) -> String {
     let digits = bytes.to_string();
     let mut grouped = String::new();
     for (index, digit) in digits.chars().enumerate() {
@@ -32,7 +32,7 @@ pub(crate) fn format_bytes(bytes: u64) -> String {
 }
 
 /// `field` quoted as RFC 4180 needs.
-pub(crate) fn csv_field(field: &str) -> String {
+pub fn csv_field(field: &str) -> String {
     if field.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", field.replace('"', "\"\""))
     } else {
@@ -41,7 +41,7 @@ pub(crate) fn csv_field(field: &str) -> String {
 }
 
 /// Decodes `pending` then `bytes` as UTF-8, leaving a cut-off character in `pending`.
-pub(crate) fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
+pub fn decode_utf8(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
     pending.extend_from_slice(bytes);
     let mut text = String::new();
     let mut rest = pending.as_slice();
@@ -132,10 +132,7 @@ impl Delimiter {
 
 /// The lines of `text` ended by one of `delimiters`, each with its end, and the
 /// rest. A last CR waits for what follows while CRLF is one of them.
-pub(crate) fn split_lines(
-    text: &str,
-    delimiters: &[Delimiter],
-) -> (Vec<(String, Delimiter)>, String) {
+pub fn split_lines(text: &str, delimiters: &[Delimiter]) -> (Vec<(String, Delimiter)>, String) {
     let mut lines = Vec::new();
     let mut start = 0;
     let mut chars = text.char_indices().peekable();
@@ -164,7 +161,7 @@ pub(crate) fn split_lines(
 /// Drops ANSI escape sequences from text given in parts; one cut between parts
 /// is dropped as it goes on.
 #[derive(Default)]
-pub(crate) struct AnsiStripper {
+pub struct AnsiStripper {
     state: AnsiState,
 }
 
@@ -183,7 +180,7 @@ enum AnsiState {
 }
 
 impl AnsiStripper {
-    pub(crate) fn strip(&mut self, text: &str) -> String {
+    pub fn strip(&mut self, text: &str) -> String {
         let mut kept = String::with_capacity(text.len());
         for c in text.chars() {
             self.state = match (self.state, c) {
@@ -212,7 +209,7 @@ impl AnsiStripper {
 }
 
 /// `bytes` in hex, apart: e.g. "6F 6B 0D".
-pub(crate) fn hex(bytes: &[u8]) -> String {
+pub fn hex(bytes: &[u8]) -> String {
     bytes
         .iter()
         .map(|byte| format!("{byte:02X}"))
@@ -221,7 +218,7 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
 }
 
 /// `bytes` as UTF-8, with control characters as their pictures, e.g. CR as "␍".
-pub(crate) fn visible(bytes: &[u8]) -> String {
+pub fn visible(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes)
         .chars()
         .map(|c| match c {

@@ -46,7 +46,8 @@ nix run github:Chikurin1014/serval-rs
 ```
 serval-rs/
 ├─ packages/
-│  ├─ ui/       # Components and logic shared by the apps
+│  ├─ ui/       # Components shared by the apps
+│  ├─ logic/    # What the app does, apart from how ui shows it
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
 │  └─ embed-assets/  # Puts the desktop app's assets in its binary
@@ -56,7 +57,7 @@ serval-rs/
 ```
 
 Each app crate has its entry point and what only its platform needs.
-`ui` has what they share.
+`ui` and `logic` have what they share.
 The steps below are for the web app.
 
 ### Requirements
