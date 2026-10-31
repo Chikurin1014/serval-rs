@@ -350,6 +350,8 @@ pub struct GraphContext {
     /// When the graphs were paused: they show the data up to then (in their
     /// settings as they are changed), the port read on all the same.
     paused_at: Signal<Option<i64>>,
+    /// The graph shown alone, if one is.
+    maximized: Signal<Option<usize>>,
 }
 
 impl GraphContext {
@@ -359,6 +361,26 @@ impl GraphContext {
 
     pub fn list(&self) -> Vec<Graph> {
         self.graphs.read().clone()
+    }
+
+    pub fn count(&self) -> usize {
+        self.graphs.read().len()
+    }
+
+    /// The graphs to show: the maximized one alone, if there is one.
+    pub fn shown(&self) -> Vec<Graph> {
+        match (self.maximized)() {
+            Some(id) => self.get(id).into_iter().collect(),
+            None => self.list(),
+        }
+    }
+
+    pub fn maximized(&self) -> Option<usize> {
+        (self.maximized)()
+    }
+
+    pub fn set_maximized(&mut self, id: Option<usize>) {
+        self.maximized.set(id);
     }
 
     pub fn get(&self, id: usize) -> Option<Graph> {
@@ -373,6 +395,8 @@ impl GraphContext {
         let id = *self.next_id.peek();
         self.next_id.set(id + 1);
         self.graphs.write().push(Graph { id, property });
+        // So the new graph is seen
+        self.maximized.set(None);
         id
     }
 
@@ -407,6 +431,9 @@ impl GraphContext {
 
     pub fn remove(&mut self, id: usize) {
         self.graphs.write().retain(|g| g.id != id);
+        if *self.maximized.peek() == Some(id) {
+            self.maximized.set(None);
+        }
     }
 
     /// Puts `graphs` in place of all there are.
@@ -419,6 +446,7 @@ impl GraphContext {
             .map(|(property, id)| Graph { id, property })
             .collect();
         self.graphs.set(graphs);
+        self.maximized.set(None);
     }
 
     /// When the graphs were paused, if they are: they show the data up to
@@ -496,6 +524,7 @@ pub fn GraphProvider(
             graphs: Signal::new(Vec::new()),
             next_id: Signal::new(0),
             paused_at: Signal::new(None),
+            maximized: Signal::new(None),
         };
         for property in initial {
             context.add(property);

@@ -29,6 +29,13 @@
   right: 0.375rem;
 }
 
+.graph .graph-maximize {
+  position: absolute;
+  z-index: 1;
+  right: 0.375rem;
+  bottom: 0;
+}
+
 .graph[data-dragging="true"] {
   opacity: 0.4;
 }

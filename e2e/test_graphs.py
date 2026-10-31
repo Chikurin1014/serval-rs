@@ -42,6 +42,59 @@ def test_plots_the_labels_the_data_list_shows(app: App):
     expect(app.graphs().first.locator(".graph-empty")).to_contain_text("filters")
 
 
+def test_a_graph_is_moved_and_maximized_only_beside_others(app: App):
+    app.tab("Graph")
+    graphs = app.graphs()
+    expect(graphs).to_have_count(1)
+    move = app.page.get_by_role("button", name="Move graph", exact=True)
+    maximize = app.page.get_by_role("button", name="Maximize graph")
+    restore = app.page.get_by_role("button", name="Restore graph")
+    expect(move).to_have_count(0)
+    expect(maximize).to_have_count(0)
+    alone = graphs.first.bounding_box()
+
+    app.add_graph()
+    app.set_up_graph(1, "Second")
+    expect(move).to_have_count(2)
+    expect(maximize).to_have_count(2)
+    # At the bottom right, above the title bar
+    button = maximize.first.bounding_box()
+    graph = graphs.first.bounding_box()
+    title = graphs.first.locator(".graph-title").bounding_box()
+    assert button["x"] + button["width"] <= graph["x"] + graph["width"]
+    assert button["x"] > graph["x"] + graph["width"] / 2
+    assert button["y"] + button["height"] <= title["y"]
+
+    maximize.last.click()
+    expect(graphs).to_have_count(1)
+    expect(graphs.locator(".graph-title-text")).to_have_text("Second")
+    expect(move).to_have_count(0)
+    expect(maximize).to_have_count(0)
+    expect(restore).to_have_count(1)
+    assert graphs.first.bounding_box() == alone
+    # In the same place, from the graph's corner
+    restoring = restore.bounding_box()
+    corner = lambda box, of: (  # noqa: E731
+        of["x"] + of["width"] - box["x"],
+        of["y"] + of["height"] - box["y"],
+    )
+    assert corner(restoring, alone) == pytest.approx(corner(button, graph))
+
+    restore.click()
+    expect(graphs.locator(".graph-title-text")).to_have_text(["Graph 1", "Second"])
+    expect(restore).to_have_count(0)
+
+    # A graph added is seen, and the one maximized gone leaves the others
+    maximize.first.click()
+    expect(graphs).to_have_count(1)
+    app.add_graph()
+    expect(graphs).to_have_count(3)
+    maximize.last.click()
+    app.page.get_by_role("button", name="Remove graph").click()
+    expect(graphs).to_have_count(2)
+    expect(restore).to_have_count(0)
+
+
 def test_graphs_survive_switching_tabs(app: App):
     open_graphs_with_numbers(app)
     app.add_graph()

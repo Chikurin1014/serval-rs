@@ -15,7 +15,9 @@
   [label filters](patterns.md#label-filters)).
 * **Title**: empty for a numbered default.
 * **Legend**: click a label to hide or show it.
-* Click the title bar to open the settings; drag the handle to move the graph.
+* Click the title bar to open the settings.
+* With two or more graphs, drag the handle to move a graph, and click the button
+  at its bottom right to show it alone or bring the others back.
 * A graph added from the menu starts with settings of its own: those below
   marked "from the menu". One of a [layout file](layout-file.md#graphs) takes
   the defaults there for the settings it leaves out.

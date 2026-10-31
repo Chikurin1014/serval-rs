@@ -11,8 +11,9 @@ use crate::components::{
 
 const GRAPH_FRAME_CSS: Asset = asset!("/assets/styling/graph-frame.css");
 
-/// What every graph has: remove and move buttons over `children` (the plot),
-/// and its title, which opens its `settings` (label | control rows).
+/// What every graph has: remove, move and maximize buttons over `children` (the
+/// plot), and its title, which opens its `settings` (label | control rows). With
+/// no other graph, there is no moving or maximizing it.
 #[component]
 pub fn GraphFrame(
     id: usize,
@@ -41,6 +42,13 @@ pub fn GraphFrame(
 
     // Draggable only while the handle is held, so dragging in the plot still zooms
     let drag = try_use_context::<GraphDrag>();
+    let has_others = use_memo(move || graph_context.count() > 1);
+    let maximized = graph_context.maximized() == Some(id);
+    let maximize_action = if maximized {
+        "Restore graph"
+    } else {
+        "Maximize graph"
+    };
     let mut handle_held = use_signal(|| false);
     let handle_id = format!("graph-handle-{id}");
     let is_dragging = drag.is_some_and(|drag| (drag.dragging)() == Some(id));
@@ -103,7 +111,7 @@ pub fn GraphFrame(
                 end_drag();
             },
             ondragend: move |_| end_drag(),
-            if drag.is_some() {
+            if drag.is_some() && has_others() && !maximized {
                 Button {
                     class: "graph-handle reveal-on-hover",
                     id: "{handle_id}",
@@ -148,6 +156,24 @@ pub fn GraphFrame(
             Card {
                 CardContent {
                     {children}
+                    // Over the plot's corner: the title bar has its own button
+                    if drag.is_some() && has_others() {
+                        Button {
+                            class: "graph-maximize reveal-on-hover",
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::IconSm,
+                            aria_label: maximize_action,
+                            title: maximize_action,
+                            onclick: move |_| {
+                                graph_context.set_maximized((!maximized).then_some(id));
+                            },
+                            if maximized {
+                                lucide::Minimize2 {}
+                            } else {
+                                lucide::Maximize2 {}
+                            }
+                        }
+                    }
                 }
                 CardFooter {
                     Collapsible {
