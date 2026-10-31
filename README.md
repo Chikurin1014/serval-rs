@@ -14,6 +14,7 @@ These files are not signed, so the OS may warn you when you first open them.
 
 | OS                    | File               | How to open it                                                                                                                 |
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Windows               | `Serval-x64.msi`   | Open it to install Serval. If Windows warns you, choose **More info**, then **Run anyway**.                                    |
 | Windows               | `serval.exe`       | Open it. It is one file, with no need to install it. If Windows warns you, choose **More info**, then **Run anyway**.          |
 | macOS (Apple silicon) | `Serval-arm64.dmg` | Open it, and drag **Serval** to **Applications**. If macOS says that it is damaged, run `xattr -cr /Applications/Serval.app`.  |
 | Linux (x86-64)        | `serval`           | Run `chmod +x serval`, then open it. It needs a system as new as Ubuntu 24.04, and the libraries below.                        |
