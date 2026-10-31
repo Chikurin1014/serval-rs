@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.7.0](https://github.com/Chikurin1014/serval-rs/compare/v0.6.0...v0.7.0) (2026-10-31)
+
+
+### Features
+
+* ✨ Add the installed app to PATH on Windows ([5c45e00](https://github.com/Chikurin1014/serval-rs/commit/5c45e00e1bd7e9df99f6129c145faec97e7efe16))
+* ✨ Build the desktop app for each OS and attach it to releases ([e674e57](https://github.com/Chikurin1014/serval-rs/commit/e674e5794e3488b769fef23205d70f9688fa5821))
+* ✨ Drop the desktop app's menu bar ([a93e693](https://github.com/Chikurin1014/serval-rs/commit/a93e693cf2c4f7dece1f5b6b27aea4863a844842))
+* ✨ Give the desktop app its icon and a larger window ([1222750](https://github.com/Chikurin1014/serval-rs/commit/12227504c51af18705001f98c094e5541b5f4b88))
+* ✨ Hand out the desktop app as an msi on Windows ([4b26e8b](https://github.com/Chikurin1014/serval-rs/commit/4b26e8b4505b221c56f6ec203daaf92a7a1190dc))
+* ✨ Hand out the desktop app as one file ([f9f0c93](https://github.com/Chikurin1014/serval-rs/commit/f9f0c93c7f06a7b28a3b10af8829c4666ca1273b))
+* ✨ Hide the navbar in the desktop app ([ddedb0b](https://github.com/Chikurin1014/serval-rs/commit/ddedb0bca8911bb4ae7edd45859db5b2218f9cdd))
+* ✨ Maximize a graph, and move or maximize only beside others ([02a204f](https://github.com/Chikurin1014/serval-rs/commit/02a204f0caca4044f7841c0baadedd48bfdf4457))
+* ✨ Open serial ports in the desktop app ([40f8d48](https://github.com/Chikurin1014/serval-rs/commit/40f8d48ff20658317e6d9d6496d09b67367b8db7))
+* ✨ Put the toolbar in a menu when it has no room ([83eacb3](https://github.com/Chikurin1014/serval-rs/commit/83eacb32eeb600bd2b8c45dd7c97c7abe189f2cd))
+* ✨ Run the desktop app from the flake by default ([9665614](https://github.com/Chikurin1014/serval-rs/commit/96656147161a289493184116bed72426b575d6be))
+* ✨ Save records and files through dialogs in the desktop app ([ee937ef](https://github.com/Chikurin1014/serval-rs/commit/ee937eff6030a849a5a75cb21af3758de2fab062))
+* ✨ Shorten the Log graph's level tags when it is narrow ([0cc5468](https://github.com/Chikurin1014/serval-rs/commit/0cc5468a27d255280b0482f2cbf50620b87ef214))
+* ✨ Show the desktop app's own licenses in it, offline ([81e25f2](https://github.com/Chikurin1014/serval-rs/commit/81e25f20bbf0301db2ed73866240e6071ef8d7b4))
+
+
+### Bug Fixes
+
+* 🐛 Build the desktop app in CI on old Linux and on macOS ([fd36b9c](https://github.com/Chikurin1014/serval-rs/commit/fd36b9cc4b45388dcbff3f8c8038401a32040d22))
+* 🐛 Keep the binary's permissions when embedding its assets ([0818f1f](https://github.com/Chikurin1014/serval-rs/commit/0818f1f29bde3e17ac9c518e2cbf1813350ffb40))
+* 🐛 Keep the Layout menu in the window in the toolbar menu ([1050ec9](https://github.com/Chikurin1014/serval-rs/commit/1050ec950ebc8e056fbf748dad0c030ee1f9a6d9))
+* 🐛 Let graphs and maps be dragged in the desktop app ([267f87c](https://github.com/Chikurin1014/serval-rs/commit/267f87cd0ddd2fa0e444e068280b60589b302ee0))
+* 🐛 Open no console beside the desktop app on Windows ([312813c](https://github.com/Chikurin1014/serval-rs/commit/312813cb1626d3b9b38594b8b4386c1cfaf460a5))
+* 🐛 Sign the macOS app ad hoc ([ccf4379](https://github.com/Chikurin1014/serval-rs/commit/ccf43792e7871185a392d11eb9773ce4d6364221))
+
 ## [0.6.0](https://github.com/Chikurin1014/serval-rs/compare/v0.5.0...v0.6.0) (2026-10-29)
 
 
