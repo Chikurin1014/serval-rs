@@ -15,3 +15,7 @@ hardened_runtime = false
 
 [bundle.windows]
 icon_path = "../web/assets/favicon.ico"
+
+[bundle.windows.wix]
+fragment_paths = ["wix/path.wxs"]
+component_refs = ["AddToPath"]

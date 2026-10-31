@@ -36,7 +36,7 @@ On Windows, choose **More info**, then **Run anyway**.
 
 | OS | File | How to open it |
 | --- | --- | --- |
-| Windows | `Serval-x64.msi` | Open it to install Serval. It needs the WebView2 runtime, which Windows 11 has. |
+| Windows | `Serval-x64.msi` | Open it to install Serval and add it to `PATH`. It needs the WebView2 runtime, which Windows 11 has. |
 | Windows | `serval.exe` | Open it. It is one file, with no need to install it. It needs the WebView2 runtime, too. |
 | macOS (Apple silicon) | `Serval-arm64.dmg` | Open it, and drag **Serval** to **Applications**. If macOS says that it is damaged, run `xattr -cr /Applications/Serval.app`. |
 | Linux (x86-64) | `serval` | Run `chmod +x serval`, then open it. It needs a system as new as Ubuntu 24.04, and the libraries below. |

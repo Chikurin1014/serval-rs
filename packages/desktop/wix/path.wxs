@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adds the installed app to the system's PATH, until it is uninstalled -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="INSTALLDIR">
+            <Component Id="AddToPath" Guid="a530dfe3-341c-4df0-8c3a-2798de8227a9" KeyPath="yes">
+                <CreateFolder />
+                <Environment
+                    Id="PathEntry"
+                    Name="PATH"
+                    Value="[INSTALLDIR]"
+                    Action="set"
+                    Part="last"
+                    System="yes"
+                    Permanent="no" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+</Wix>
