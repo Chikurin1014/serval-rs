@@ -2,6 +2,44 @@
 
 Cross-Platform Serial Visualizer
 
+## Use it
+
+### On the web
+
+Open **<https://serval-5qv.pages.dev>** in a Chromium-based browser (Chrome, Edge): Web Serial works only there.
+You don't need to install anything.
+
+### Install the desktop app
+
+Download it from the [latest release](https://github.com/Chikurin1014/serval-rs/releases/latest).
+These files are not signed, so the OS may warn you when you first open them.
+
+| OS                    | File               | How to open it                                                                                                                 |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Windows               | `serval.exe`       | Open it. It is one file, with no need to install it. If Windows warns you, choose **More info**, then **Run anyway**.          |
+| macOS (Apple silicon) | `Serval-arm64.dmg` | Open it, and drag **Serval** to **Applications**. If macOS says that it is damaged, run `xattr -cr /Applications/Serval.app`.  |
+| Linux (x86-64)        | `serval`           | Run `chmod +x serval`, then open it. It needs a system as new as Ubuntu 24.04, and the libraries below.                        |
+
+On Windows, it needs the WebView2 runtime, which Windows 11 has.
+
+On Linux, install WebKitGTK 4.1 and libxdo. On Debian and Ubuntu:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-0 libxdo3
+```
+
+Your user also needs access to the serial ports. On most systems, run this, then log out and in again:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+With [Nix](https://nixos.org/) (flakes enabled), you can run it without downloading a file:
+
+```bash
+nix run github:Chikurin1014/serval-rs
+```
+
 ## Development
 
 ### Workspace
