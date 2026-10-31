@@ -29,7 +29,7 @@ impl<T> Queue<T> {
         self.push_within(entry, MAX_ENTRIES_PER_LABEL);
     }
 
-    pub(crate) fn push_within(&mut self, entry: T, max_entries: usize) {
+    pub fn push_within(&mut self, entry: T, max_entries: usize) {
         self.entries.push_back(entry);
         while self.entries.len() > max_entries {
             self.entries.pop_front();

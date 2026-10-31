@@ -10,4 +10,10 @@ dioxus = { workspace = true }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false, features = [
   "router",
 ] }
+fancy-regex = "0.19"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+# What other crates' tests run maps with
+testing = []

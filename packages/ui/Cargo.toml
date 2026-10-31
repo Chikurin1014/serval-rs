@@ -32,3 +32,4 @@ sorted-vec = "0.8"
 
 [dev-dependencies]
 dioxus-ssr = "0.7"
+logic = { workspace = true, features = ["testing"] }
