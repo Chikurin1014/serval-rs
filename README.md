@@ -49,7 +49,6 @@ serval-rs/
 │  ├─ ui/       # Components and logic shared by the apps
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
-│  ├─ mobile/   # Mobile app
 │  └─ embed-assets/  # Puts the desktop app's assets in its binary
 ├─ docs/        # Documents (mdBook)
 ├─ e2e/         # End-to-end tests (web app)

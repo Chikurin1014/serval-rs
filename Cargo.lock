@@ -3397,14 +3397,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mobile"
-version = "0.6.0"
-dependencies = [
- "dioxus",
- "ui",
-]
-
-[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
