@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["packages/ui", "packages/web", "packages/desktop", "packages/embed-assets"]
+members = ["packages/ui", "packages/logic", "packages/web", "packages/desktop", "packages/embed-assets"]
 
 # Bumped by release-please
 [workspace.package]
@@ -15,6 +15,7 @@ dioxus-primitives = { git = "https://github.com/DioxusLabs/components" }
 
 # workspace
 embed-assets = { path = "packages/embed-assets" }
+logic = { path = "packages/logic" }
 ui = { path = "packages/ui" }
 
 # The desktop app to hand out: smaller, as it is one file
