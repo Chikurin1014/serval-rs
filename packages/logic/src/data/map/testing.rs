@@ -29,7 +29,7 @@ fn Grab() -> Element {
 
 /// The data, and maps that run again on it after each write, as long as any of
 /// them gives anything.
-pub(crate) struct Maps {
+pub struct Maps {
     dom: VirtualDom,
     data: DataContext,
     maps: Vec<Box<dyn MapRunner>>,
@@ -38,7 +38,8 @@ pub(crate) struct Maps {
 }
 
 impl Maps {
-    pub(crate) fn new() -> Self {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
         let mut dom = VirtualDom::new(|| rsx! { DataProvider { Grab {} } });
         dom.rebuild_in_place();
         let data = DATA.with(|cell| cell.borrow().expect("grabbed"));
@@ -52,14 +53,14 @@ impl Maps {
     }
 
     /// Runs `f` where signals can be made, read and written.
-    pub(crate) fn in_runtime<R>(&self, f: impl FnOnce() -> R) -> R {
+    pub fn in_runtime<R>(&self, f: impl FnOnce() -> R) -> R {
         self.dom
             .in_runtime(|| Runtime::current().in_scope(ScopeId::ROOT, f))
     }
 
     /// Makes a map, sets it with `set` (given its settings) and turns it on; its
     /// settings, to read its errors by.
-    pub(crate) fn add<M: MapRunner + 'static, S: Copy + 'static>(
+    pub fn add<M: MapRunner + 'static, S: Copy + 'static>(
         &mut self,
         make: impl FnOnce() -> M,
         set: impl FnOnce(S),
@@ -82,7 +83,7 @@ impl Maps {
     }
 
     /// Appends `entry` to `label` and runs the maps on it.
-    pub(crate) fn push<T: DataEntry>(&mut self, label: &str, entry: impl FnOnce(i64) -> T) {
+    pub fn push<T: DataEntry>(&mut self, label: &str, entry: impl FnOnce(i64) -> T) {
         self.timestamp += 1_000;
         let (mut data, timestamp) = (self.data, self.timestamp);
         self.in_runtime(|| data.push(label, entry(timestamp)));
@@ -109,7 +110,7 @@ impl Maps {
     }
 
     /// Each value of `label`, oldest first, as the data list writes it.
-    pub(crate) fn values(&self, label: &str) -> Vec<String> {
+    pub fn values(&self, label: &str) -> Vec<String> {
         self.in_runtime(|| {
             self.data
                 .with_label(label, |data| {
@@ -123,18 +124,18 @@ impl Maps {
     }
 
     /// What `signal` holds, e.g. a map's error.
-    pub(crate) fn read<T: Clone + 'static>(&self, signal: Signal<T>) -> T {
+    pub fn read<T: Clone + 'static>(&self, signal: Signal<T>) -> T {
         self.in_runtime(|| signal.peek().clone())
     }
 }
 
 /// A log to [`Maps::push`].
-pub(crate) fn log(level: LogLevel, message: &str) -> impl FnOnce(i64) -> LogData {
+pub fn log(level: LogLevel, message: &str) -> impl FnOnce(i64) -> LogData {
     let log = Log::new(level, message);
     move |timestamp| LogData::new(timestamp, log)
 }
 
 /// A number to [`Maps::push`].
-pub(crate) fn number(value: f64) -> impl FnOnce(i64) -> NumberData {
+pub fn number(value: f64) -> impl FnOnce(i64) -> NumberData {
     move |timestamp| NumberData::new(timestamp, value)
 }

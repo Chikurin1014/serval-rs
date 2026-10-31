@@ -16,8 +16,8 @@ mod replace;
 mod saved;
 mod vector_arithmetic;
 
-#[cfg(test)]
-pub(crate) mod testing;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 use std::{
     any::Any,
