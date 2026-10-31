@@ -36,3 +36,5 @@ graphs up to date.
 ## Arranging graphs
 
 Drag a graph by its handle to move it, or remove it with its button.
+With two or more graphs, the button at the bottom right of a graph shows it alone,
+and the same button brings the others back.

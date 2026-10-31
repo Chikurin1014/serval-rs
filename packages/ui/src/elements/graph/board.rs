@@ -28,7 +28,7 @@ pub(super) struct GraphDrag {
 #[component]
 pub fn GraphBoard() -> Element {
     let context = use_context::<GraphContext>();
-    let graphs = use_memo(move || context.list());
+    let graphs = use_memo(move || context.shown());
     let kinds = context.kinds();
     let columns = columns(graphs.read().len());
     use_context_provider(|| GraphDrag {
