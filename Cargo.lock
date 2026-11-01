@@ -6113,7 +6113,6 @@ dependencies = [
  "dioxus-icons",
  "dioxus-primitives",
  "dioxus-ssr",
- "fancy-regex",
  "logic",
  "serde",
  "serde_json",
