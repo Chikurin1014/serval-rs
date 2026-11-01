@@ -262,7 +262,7 @@
   white-space: nowrap;
 }
 
-(prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   .data-table .data-history > *,
   .data-history-slide {
     transition: none;
