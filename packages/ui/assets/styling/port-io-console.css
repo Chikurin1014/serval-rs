@@ -339,11 +339,10 @@
    it, which would leave its text on two colors); all, once sent */
 .console-send-text span.console-send-file {
   background: linear-gradient(
-      to right,
-      var(--secondary-success-color) var(--sent),
-      transparent var(--sent)
-    )
-    left bottom / 100% 3px no-repeat;
+    to right,
+    var(--secondary-success-color) var(--sent),
+    transparent var(--sent)
+  ) left bottom / 100% 3px no-repeat;
 }
 
 .console-send-text span.console-send-file {

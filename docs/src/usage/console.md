@@ -8,8 +8,8 @@ What you type in it is sent as it is.
 
 ## Views
 
-* **Text**: as a terminal, with its escape sequences (colors, cursor moves).
-* **Hex**: the bytes in hex, beside them as characters, as `hexdump -C` shows
+- **Text**: as a terminal, with its escape sequences (colors, cursor moves).
+- **Hex**: the bytes in hex, beside them as characters, as `hexdump -C` shows
   them.
 
 ![The console in hex](../media/console-hex.png)
@@ -19,10 +19,10 @@ Only the console is cleared: the data, and a [record](#recording) being written,
 
 ## Sending
 
-* **Typing**: each key is sent as you type it. What is sent is shown in the send buffer below the console.
+- **Typing**: each key is sent as you type it. What is sent is shown in the send buffer below the console.
   <kbd>Enter</kbd> sends a CR, an LF, or both, as pressed right of the send
   buffer.
-* **Files**: the button to the left of the send buffer (or a file dropped on the console) sends a file as
+- **Files**: the button to the left of the send buffer (or a file dropped on the console) sends a file as
   binary data, its progress shown in the send buffer. Click the button again to
   stop.
 
@@ -40,12 +40,12 @@ It goes on while the port is closed and opened again.
 
 ![The record menu](../media/console-record.png)
 
-| Format | |
-|---|---|
-| **Text file** | The lines received, without escape sequences or control characters (similar to Tera Term's log) |
-| **Hex file** | A line for each chunk received: its bytes in hex |
-| **Raw bytes** | The bytes received, as they are |
-| **Continue with existing file** | Adds to a file written before, in its format |
+| Format                          |                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Text file**                   | The lines received, without escape sequences or control characters (similar to Tera Term's log) |
+| **Hex file**                    | A line for each chunk received: its bytes in hex                                                |
+| **Raw bytes**                   | The bytes received, as they are                                                                 |
+| **Continue with existing file** | Adds to a file written before, in its format                                                    |
 
 The text and hex files can have the time of each line (of each chunk, in hex), and what was sent too
 (marked `>` / `TX`, and what was received `<` / `RX`).

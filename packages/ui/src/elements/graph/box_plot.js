@@ -84,10 +84,12 @@ function drawBoxes(u) {
 
     // Whiskers, with their caps
     ctx.beginPath();
-    for (const [from, to] of [
-      [low, q1],
-      [q3, high],
-    ]) {
+    for (
+      const [from, to] of [
+        [low, q1],
+        [q3, high],
+      ]
+    ) {
       ctx.moveTo(x, y(from));
       ctx.lineTo(x, y(to));
     }
@@ -129,8 +131,9 @@ function drawBoxes(u) {
 
 function showHover(u) {
   const left = u.cursor.left;
-  const index =
-    left == null || left < 0 ? null : Math.round(u.posToVal(left, "x"));
+  const index = left == null || left < 0
+    ? null
+    : Math.round(u.posToVal(left, "x"));
   const over = index !== null && index >= 0 && index < boxes.length;
   const next = over ? index : null;
   if (next !== hovered) {
@@ -162,10 +165,9 @@ function showHover(u) {
   const half = halfWidth(u) / devicePixelRatio;
   const area = u.over.clientWidth;
   const right = x + half + 8;
-  hover.style.left =
-    right + hover.offsetWidth <= area
-      ? `${right}px`
-      : `${Math.max(0, x - half - 8 - hover.offsetWidth)}px`;
+  hover.style.left = right + hover.offsetWidth <= area
+    ? `${right}px`
+    : `${Math.max(0, x - half - 8 - hover.offsetWidth)}px`;
   const top = Math.min(
     Math.max(0, u.cursor.top - hover.offsetHeight / 2),
     Math.max(0, u.over.clientHeight - hover.offsetHeight),

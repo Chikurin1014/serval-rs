@@ -231,9 +231,7 @@
   padding-block: 0;
   border-bottom-width: 0;
   color: var(--dc-text-muted);
-  transition:
-    padding-block 200ms ease,
-    border-bottom-width 200ms ease;
+  transition: padding-block 200ms ease, border-bottom-width 200ms ease;
 }
 
 .data-table .data-group[data-expanded="true"] .data-history > * {
@@ -245,9 +243,7 @@
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
-  transition:
-    grid-template-rows 200ms ease,
-    opacity 200ms ease;
+  transition: grid-template-rows 200ms ease, opacity 200ms ease;
 }
 
 .data-group[data-expanded="true"] .data-history-slide {

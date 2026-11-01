@@ -253,14 +253,12 @@ function showHover(u) {
   const gap = 12;
   const [tipX, tipY] = [u.valToPos(x, "x"), u.valToPos(y, "y")];
   const { clientWidth: width, clientHeight: height } = u.over;
-  const hoverX =
-    tipX + gap + hover.offsetWidth <= width
-      ? tipX + gap
-      : tipX - gap - hover.offsetWidth;
-  const hoverY =
-    tipY + gap + hover.offsetHeight <= height
-      ? tipY + gap
-      : tipY - gap - hover.offsetHeight;
+  const hoverX = tipX + gap + hover.offsetWidth <= width
+    ? tipX + gap
+    : tipX - gap - hover.offsetWidth;
+  const hoverY = tipY + gap + hover.offsetHeight <= height
+    ? tipY + gap
+    : tipY - gap - hover.offsetHeight;
   hover.style.left = `${Math.max(0, hoverX)}px`;
   hover.style.top = `${Math.max(0, hoverY)}px`;
 }

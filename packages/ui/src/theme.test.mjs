@@ -30,12 +30,14 @@ test("restoreTheme applies a stored theme, and only a known one", () => {
   restoreTheme(root, fakeStorage({ theme: "dark" }));
   assert.equal(root.dataset.theme, "dark");
 
-  for (const storage of [
-    fakeStorage(),
-    fakeStorage({ theme: "blue" }),
-    blockedStorage,
-    null,
-  ]) {
+  for (
+    const storage of [
+      fakeStorage(),
+      fakeStorage({ theme: "blue" }),
+      blockedStorage,
+      null,
+    ]
+  ) {
     const untouched = { dataset: {} };
     restoreTheme(untouched, storage);
     assert.equal(untouched.dataset.theme, undefined);

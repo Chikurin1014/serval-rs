@@ -132,7 +132,9 @@ async function openAtEnd(handle, keep) {
 function localTime(date) {
   const two = (n) => String(n).padStart(2, "0");
   return (
-    `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}-` +
-    `${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`
+    `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}-`
+    + `${two(date.getHours())}${two(date.getMinutes())}${
+      two(date.getSeconds())
+    }`
   );
 }

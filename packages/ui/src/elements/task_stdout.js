@@ -11,9 +11,9 @@ const id = await dioxus.recv();
 // Its element may not be there yet, nor the scripts of their <script> tags
 let container = null;
 while (
-  !(container = document.getElementById(id)) ||
-  !window.Terminal ||
-  !window.FitAddon
+  !(container = document.getElementById(id))
+  || !window.Terminal
+  || !window.FitAddon
 ) {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
@@ -35,7 +35,7 @@ const term = new Terminal({
   disableStdin: true,
   cursorInactiveStyle: "none",
   fontFamily:
-    'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace',
+    "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
   fontSize: 14,
   theme: theme(),
 });

@@ -34,11 +34,11 @@ On Windows, build for the `msvc` target. With `gnu`, the app needs
 [`desktop.yml`](../../.github/workflows/desktop.yml) builds it for each OS, and
 attaches the builds to each release:
 
-| OS | Files |
-| --- | --- |
-| Linux | `serval` (one file) |
+| OS      | Files                                     |
+| ------- | ----------------------------------------- |
+| Linux   | `serval` (one file)                       |
 | Windows | `serval.exe` (one file), `Serval-x64.msi` |
-| macOS | `Serval-arm64.dmg` |
+| macOS   | `Serval-arm64.dmg`                        |
 
 To bundle it for Windows or macOS yourself:
 

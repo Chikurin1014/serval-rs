@@ -38,8 +38,8 @@ flowchart LR
     task3 <-- read / push --> data
 ```
 
-* **[Data](data-types.md)**: values under **labels**, each label holding one
+- **[Data](data-types.md)**: values under **labels**, each label holding one
   **type**, each value with the time it arrived.
-* **[Maps](maps.md)**: turn the values of labels into values of other labels.
-* **[Graphs](../usage/graph.md)**: plot labels, each graph showing the types it supports.
-* **[Tasks](tasks.md)**: scripts of your own, which read and push data, and talk to the port.
+- **[Maps](maps.md)**: turn the values of labels into values of other labels.
+- **[Graphs](../usage/graph.md)**: plot labels, each graph showing the types it supports.
+- **[Tasks](tasks.md)**: scripts of your own, which read and push data, and talk to the port.

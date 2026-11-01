@@ -63,8 +63,9 @@ function lineColumn(term, column, scrollback) {
         index++;
       }
       const mark = marks[index];
-      cell.textContent =
-        buffer.type === "normal" && mark?.line === line ? mark.text : "";
+      cell.textContent = buffer.type === "normal" && mark?.line === line
+        ? mark.text
+        : "";
     }
   }
 

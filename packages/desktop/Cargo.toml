@@ -19,7 +19,9 @@ embed-assets = { workspace = true }
 # Its icon, of a PNG: as Dioxus decodes images
 image = { version = "0.25", default-features = false, features = ["png"] }
 # The OS's file dialogs, as Dioxus's own file inputs use
-rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
+rfd = { version = "0.17.2", default-features = false, features = [
+  "xdg-portal",
+] }
 serialport = "4.7"
 # Reading the ports on threads, and the app's timers: on Dioxus's runtime
 tokio = { version = "1", features = ["rt", "sync", "time"] }
