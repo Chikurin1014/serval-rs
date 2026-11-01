@@ -201,7 +201,7 @@ Each section above has these commands:
 | Tests                | `nix flake check` (all the tests, in the Nix sandbox)                                                                |
 
 `nix run` opens the desktop app. `nix run .#web` serves the web app's release build at http://localhost:8080/.
-`nix fmt` formats all the files.
+`nix fmt` formats all the files, and `nix flake check` fails if one is not formatted.
 
 > [!NOTE]
 > The checks build the documents without videos and screenshots.

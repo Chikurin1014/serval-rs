@@ -33,18 +33,8 @@
           config,
           ...
         }:
-        {
-          _module.args.pkgs = import inputs.nixpkgs {
-            inherit system;
-            overlays = [
-              inputs.rust-overlay.overlays.default
-            ];
-          };
-
-          packages.default = config.packages.web;
-          apps.default = config.apps.desktop;
-
-          formatter = inputs.treefmt-nix.lib.mkWrapper pkgs {
+        let
+          treefmt = inputs.treefmt-nix.lib.evalModule pkgs {
             projectRootFile = "flake.nix";
             programs = {
               nixfmt.enable = true;
@@ -94,6 +84,20 @@
               "docs/mermaid-init.js"
             ];
           };
+        in
+        {
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = [
+              inputs.rust-overlay.overlays.default
+            ];
+          };
+
+          packages.default = config.packages.web;
+          apps.default = config.apps.desktop;
+
+          formatter = treefmt.config.build.wrapper;
+          checks.formatting = treefmt.config.build.check inputs.self;
         };
     };
 }
