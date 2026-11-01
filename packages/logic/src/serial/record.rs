@@ -49,6 +49,24 @@ pub struct RecordFile {
     pub tail: Vec<u8>,
 }
 
+/// Picks a file for a record, in the platform's own way: given what it is named
+/// with, and whether it is an existing one to add to (with its tail), else a
+/// new one. `None` if the user cancels. Provided as a context by the platform.
+#[derive(Clone)]
+pub struct RecordFilePicker(Rc<dyn Fn(String, bool) -> PickedRecordFile>);
+
+type PickedRecordFile = LocalFuture<SerialResult<Option<RecordFile>>>;
+
+impl RecordFilePicker {
+    pub fn new(pick: impl Fn(String, bool) -> PickedRecordFile + 'static) -> Self {
+        Self(Rc::new(pick))
+    }
+
+    pub(super) fn pick(&self, extension: &str, append: bool) -> PickedRecordFile {
+        (self.0)(extension.to_string(), append)
+    }
+}
+
 impl RecordFormat {
     pub fn name(self) -> &'static str {
         match self {

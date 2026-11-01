@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use ui::{AppPages, AppShell, Licenses};
 
-mod record_file;
+mod files;
 mod serial;
 mod time;
 mod unsupported;
@@ -26,6 +26,7 @@ fn main() {
 fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial::backend);
+    use_context_provider(files::record_picker);
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }

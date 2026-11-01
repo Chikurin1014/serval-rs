@@ -7,7 +7,7 @@ use dioxus::prelude::*;
 
 use super::{
     LocalFuture, NotificationKind, SerialContext, SerialResult,
-    record::{self, RecordFile, RecordFormat, RecordSink, Recorder},
+    record::{self, RecordFile, RecordFilePicker, RecordFormat, RecordSink, Recorder},
 };
 
 impl SerialContext {
@@ -58,8 +58,8 @@ impl SerialContext {
         );
     }
 
-    /// Asks for a new file (see [`SerialBackend::open_record_file`]) and records to
-    /// it in `format`. Call it as the user asks: browsers pick files only then.
+    /// Asks for a new file (through [`RecordFilePicker`]) and records to it in
+    /// `format`. Call it as the user asks: browsers pick files only then.
     pub fn open_record(&self, format: RecordFormat) {
         self.pick_record_file(Some(format));
     }
@@ -73,10 +73,14 @@ impl SerialContext {
     /// A new file for `format`, or an existing one for `None`.
     fn pick_record_file(&self, format: Option<RecordFormat>) {
         let context = *self;
+        let picker = try_consume_context::<RecordFilePicker>();
         self.spawn(async move {
-            let backend = context.backend.cloned();
             let extension = format.map_or("log", record::extension);
-            match backend.open_record_file(extension, format.is_none()).await {
+            let picked = match picker {
+                Some(picker) => picker.pick(extension, format.is_none()).await,
+                None => Err("Saving a record is not supported here".to_string()),
+            };
+            match picked {
                 Ok(Some(RecordFile { sink, name, tail })) => {
                     let (format, title) = match format {
                         Some(format) => (format, "Recording started"),

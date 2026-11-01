@@ -6,10 +6,7 @@ use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 use ui::helper::Choice;
 use ui::serial::{
     Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
-    record::RecordFile,
 };
-
-use crate::record_file;
 
 /// The serial ports of Web Serial.
 pub fn backend() -> Rc<dyn SerialBackend> {
@@ -45,15 +42,6 @@ impl SerialBackend for WebSerial {
                 .map(|port| Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
-    }
-
-    fn open_record_file(
-        &self,
-        extension: &str,
-        append: bool,
-    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
-        let extension = extension.to_string();
-        Box::pin(async move { record_file::open(&extension, append).await })
     }
 }
 

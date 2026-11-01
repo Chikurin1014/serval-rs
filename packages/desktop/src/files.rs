@@ -19,7 +19,7 @@ use ui::{
     save::FileSaver,
     serial::{
         LocalFuture, SerialResult,
-        record::{RecordFile, RecordSink, TAIL_BYTES},
+        record::{RecordFile, RecordFilePicker, RecordSink, TAIL_BYTES},
     },
 };
 
@@ -30,8 +30,14 @@ fn dialog() -> AsyncFileDialog {
     AsyncFileDialog::new().set_parent(&window().window)
 }
 
-/// A record file the user picks; see `SerialBackend::open_record_file`.
-pub async fn open_record(extension: &str, append: bool) -> SerialResult<Option<RecordFile>> {
+/// Record files the user picks through the OS's dialogs.
+pub fn record_picker() -> RecordFilePicker {
+    RecordFilePicker::new(|extension, append| {
+        Box::pin(async move { open_record(&extension, append).await })
+    })
+}
+
+async fn open_record(extension: &str, append: bool) -> SerialResult<Option<RecordFile>> {
     let handle = if append {
         dialog().set_title("Continue a record").pick_file().await
     } else {
