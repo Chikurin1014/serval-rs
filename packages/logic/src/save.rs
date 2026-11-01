@@ -37,7 +37,7 @@ impl FileSaver {
 
 /// Saves `text` as a file named `name`, of the media type `mime`; a failure
 /// shown as a toast.
-pub(crate) fn save_text(name: &str, mime: &str, text: String) {
+pub fn save_text(name: &str, mime: &str, text: String) {
     let Some(FileSaver(save)) = try_consume_context::<FileSaver>() else {
         let download = document::eval(DOWNLOAD_JS);
         let _ = download.send((name, mime, text));
