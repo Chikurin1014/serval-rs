@@ -6,11 +6,10 @@ pub mod app;
 pub mod components;
 pub mod elements;
 pub mod helper;
-pub mod plugin;
 pub mod theme;
 pub mod views;
 
 pub use app::{AppPages, AppShell, Licenses};
-pub use logic::{data, save, serial, time, toast};
+pub use logic::{data, plugin, save, serial, time, toast};
 pub use theme::ThemeProvider;
 pub use time::TimeContext;

@@ -2,6 +2,7 @@
 
 pub mod data;
 pub mod helper;
+pub mod plugin;
 pub mod save;
 pub mod serial;
 pub mod time;

@@ -124,7 +124,7 @@ Generate them when you need them:
   python docs/media/capture.py target/e2e/dx/web/debug/web/public
   ```
 
-- The plugin API reference (`docs/src/api`): generate it from the docstrings of the Rune modules (`packages/ui/src/plugin/serval/`).
+- The plugin API reference (`docs/src/api`): generate it from the docstrings of the Rune modules (`packages/logic/src/plugin/serval/`).
   `tools/serval-rune` is a Cargo workspace of its own:
 
   ```bash
