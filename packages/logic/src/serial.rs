@@ -19,7 +19,7 @@ mod recording;
 
 use history::{ReceivedHistory, Unread};
 use received::{GATHER_MS, Gathered, Received};
-use record::{RecordFile, RecordFormat, Recorder};
+use record::{RecordFormat, Recorder};
 
 use crate::{
     data::{ByteData, DataContext},
@@ -48,17 +48,6 @@ pub trait SerialBackend {
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>>;
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>>;
-
-    /// A file the user picks for a record, named with `extension`: a new one, or
-    /// with `append`, one to add to (with its tail). `None` if they cancel.
-    fn open_record_file(
-        &self,
-        extension: &str,
-        append: bool,
-    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
-        let _ = (extension, append);
-        Box::pin(async { Err("Saving a record is not supported here".to_string()) })
-    }
 }
 
 pub trait SerialPort {

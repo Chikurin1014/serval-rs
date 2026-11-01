@@ -6,13 +6,19 @@ use wasm_bindgen::JsValue;
 
 use ui::serial::{
     LocalFuture, SerialResult,
-    record::{RecordFile, RecordSink, TAIL_BYTES},
+    record::{RecordFile, RecordFilePicker, RecordSink, TAIL_BYTES},
 };
 
 use crate::serial::message;
 
-/// A record file the user picks; see `SerialBackend::open_record_file`.
-pub async fn open(extension: &str, append: bool) -> SerialResult<Option<RecordFile>> {
+/// Record files the user picks through the browser.
+pub fn record_picker() -> RecordFilePicker {
+    RecordFilePicker::new(|extension, append| {
+        Box::pin(async move { open_record(&extension, append).await })
+    })
+}
+
+async fn open_record(extension: &str, append: bool) -> SerialResult<Option<RecordFile>> {
     if !js::is_supported() {
         return Err("Saving a record needs a browser that can save files".to_string());
     }

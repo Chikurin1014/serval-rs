@@ -108,6 +108,7 @@ fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial::backend);
     use_context_provider(files::saver);
+    use_context_provider(files::record_picker);
 
     rsx! {
         if assets::embedded() {

@@ -19,10 +19,8 @@ use tokio::sync::mpsc;
 
 use ui::serial::{
     Baudrate, ExtraSettings, FlowControl, LocalFuture, Parity, PortInfo, SerialBackend, SerialPort,
-    SerialResult, record::RecordFile,
+    SerialResult,
 };
-
-use crate::files;
 
 /// How long a read waits for bytes, before it looks whether the port is closed.
 const READ_TIMEOUT: Duration = Duration::from_millis(50);
@@ -52,15 +50,6 @@ impl SerialBackend for NativeSerial {
                 .map(|port| Rc::new(NativePort::new(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
-    }
-
-    fn open_record_file(
-        &self,
-        extension: &str,
-        append: bool,
-    ) -> LocalFuture<SerialResult<Option<RecordFile>>> {
-        let extension = extension.to_string();
-        Box::pin(async move { files::open_record(&extension, append).await })
     }
 }
 

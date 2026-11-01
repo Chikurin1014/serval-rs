@@ -1,5 +1,5 @@
-// Record files through the File System Access API, for `record_file.rs`; tests pass
-// a fake `win` and clock.
+// Record files through the File System Access API, for `files.rs`; tests pass a
+// fake `win` and clock.
 
 // What a writable stream writes goes to the file only once it is closed: so it
 // is closed (and opened again) this often, not to lose more on a crash
