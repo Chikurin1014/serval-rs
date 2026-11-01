@@ -13,7 +13,7 @@ dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version 
   "router",
 ] }
 fancy-regex = "0.19"
-serde ={ version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # A Box plot's values, kept sorted as they come and go
 sorted-vec = "0.8"
