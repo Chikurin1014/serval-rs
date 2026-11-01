@@ -48,6 +48,7 @@ serval-rs/
 ├─ packages/
 │  ├─ ui/       # Components shared by the apps
 │  ├─ logic/    # What the app does, apart from how ui shows it
+│  ├─ serial-runtime/  # The serial ports of each platform
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
 │  └─ embed-assets/  # Puts the desktop app's assets in its binary
@@ -57,7 +58,7 @@ serval-rs/
 ```
 
 Each app crate has its entry point and what only its platform needs.
-`ui` and `logic` have what they share.
+`ui`, `logic` and `serial-runtime` have what they share.
 The steps below are for the web app.
 
 ### Requirements
@@ -168,7 +169,7 @@ The web app is in `target/dx/web/release/web/public`.
 Unit tests (Rust and JavaScript):
 
 ```bash
-cargo test -p ui -p logic
+cargo test -p ui -p logic -p serial-runtime
 ```
 
 ```bash

@@ -8,6 +8,9 @@ on:
       - .github/workflows/desktop.yml
       - packages/desktop/**
       - packages/embed-assets/**
+      - packages/logic/**
+      - packages/serial-runtime/**
+      - packages/ui/**
   workflow_call:
     inputs:
       tag:

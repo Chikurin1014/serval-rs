@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "packages/ui",
   "packages/logic",
+  "packages/serial-runtime",
   "packages/web",
   "packages/desktop",
   "packages/embed-assets",
@@ -22,6 +23,7 @@ dioxus-primitives = { git = "https://github.com/DioxusLabs/components" }
 # workspace
 embed-assets = { path = "packages/embed-assets" }
 logic = { path = "packages/logic" }
+serial-runtime = { path = "packages/serial-runtime" }
 ui = { path = "packages/ui" }
 
 # The desktop app to hand out: smaller, as it is one file
