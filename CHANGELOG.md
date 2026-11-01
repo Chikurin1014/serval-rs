@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Chikurin1014/serval-rs/compare/v0.7.0...v0.7.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* 🐛 Honor reduced motion in the data list ([7b1d631](https://github.com/Chikurin1014/serval-rs/commit/7b1d63180e2580424d0e4c3bbc28db3c8dcddec9))
+
 ## [0.7.0](https://github.com/Chikurin1014/serval-rs/compare/v0.6.0...v0.7.0) (2026-10-31)
 
 
