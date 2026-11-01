@@ -26,7 +26,7 @@
             pkgs.mdbook-mermaid # its diagrams
             pkgs.ffmpeg # `docs/media/capture.py`
             pkgs.nodejs
-            pkgs.prettier
+            pkgs.dprint
             pkgs.pyright
             pkgs.ruff
             pkgs.taplo

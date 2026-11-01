@@ -54,7 +54,30 @@
               };
               rustfmt.enable = true; # Rust
               taplo.enable = true; # TOML
-              prettier.enable = true; # JS/TS/JSON/MD/...
+              # JS/JSON/MD/CSS/YAML
+              dprint = {
+                enable = true;
+                includes = [
+                  "**/*.css"
+                  "**/*.js"
+                  "**/*.json"
+                  "**/*.md"
+                  "**/*.mjs"
+                  "**/*.yml"
+                ];
+                settings = {
+                  lineWidth = 80;
+                  plugins = pkgs.dprint-plugins.getPluginList (
+                    plugins: with plugins; [
+                      dprint-plugin-json
+                      dprint-plugin-markdown
+                      dprint-plugin-typescript
+                      g-plane-malva
+                      g-plane-pretty_yaml
+                    ]
+                  );
+                };
+              };
             };
             settings.global.excludes = [
               # Generated
