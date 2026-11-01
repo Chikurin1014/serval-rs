@@ -11,7 +11,19 @@ dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version 
   "router",
 ] }
 fancy-regex = "0.19"
-serde = { version = "1.0", features = ["derive"] }
+# The seed of plugins' random numbers: from the OS, or the browser's
+# `crypto.getRandomValues` on the web
+getrandom = { version = "0.4", features = ["wasm_js"] }
+# Plugins' random numbers, of the seed
+rand = { version = "0.10", default-features = false }
+# Plugins, compiled and run in the page; their output captured
+rune = { version = "0.14", default-features = false, features = [
+  "std",
+  "capture-io",
+  # Compile errors told as a compiler does: each line and its code
+  "emit",
+] }
+serde ={ version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [features]
