@@ -173,9 +173,9 @@ function easedExtent(container, onChange) {
         frame = 0;
         value = goal = needed;
       } else if (
-        needed > value ||
-        needed > goal ||
-        needed * NARROW_PAST < value
+        needed > value
+        || needed > goal
+        || needed * NARROW_PAST < value
       ) {
         goal = needed;
         if (!frame) {

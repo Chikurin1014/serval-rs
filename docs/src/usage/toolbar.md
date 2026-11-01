@@ -4,14 +4,14 @@
 
 ## Navigation bar
 
-| Item | |
-|---|---|
-| **Documents** | These documents, in a new tab |
-| **Licenses** | The licenses of the software Serval bundles, in a new tab |
-| GitHub icon | Serval's repository on GitHub |
-| **Layout** | Imports or exports the [layout](#layout) |
-| Theme switch | Light or dark theme |
-| Plugin button | Imports a [plugin](task.md) |
+| Item          |                                                           |
+| ------------- | --------------------------------------------------------- |
+| **Documents** | These documents, in a new tab                             |
+| **Licenses**  | The licenses of the software Serval bundles, in a new tab |
+| GitHub icon   | Serval's repository on GitHub                             |
+| **Layout**    | Imports or exports the [layout](#layout)                  |
+| Theme switch  | Light or dark theme                                       |
+| Plugin button | Imports a [plugin](task.md)                               |
 
 ## Menu
 
@@ -41,11 +41,11 @@ The button does what is picked in the menu beside it:
 
 ![The signals menu](../media/toolbar-signals.png)
 
-| Action | |
-|---|---|
-| **Restart (Arduino)** | Restarts the board as avrdude does: DTR and RTS off for a moment |
-| **Restart (Espressif)** | Restarts the board as esptool does, into its program |
-| **Manual** | A toggle for each of DTR and RTS |
+| Action                  |                                                                  |
+| ----------------------- | ---------------------------------------------------------------- |
+| **Restart (Arduino)**   | Restarts the board as avrdude does: DTR and RTS off for a moment |
+| **Restart (Espressif)** | Restarts the board as esptool does, into its program             |
+| **Manual**              | A toggle for each of DTR and RTS                                 |
 
 ## Layout
 
@@ -54,5 +54,5 @@ It can be saved to a JSON file and imported again.
 
 ![The layout menu](../media/toolbar-layout.png)
 
-* **Export to JSON**: saves the layout to a file.
-* **Import from JSON**: replaces the maps and graphs with those of a file.
+- **Export to JSON**: saves the layout to a file.
+- **Import from JSON**: replaces the maps and graphs with those of a file.

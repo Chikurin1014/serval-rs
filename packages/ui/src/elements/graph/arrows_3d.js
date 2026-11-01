@@ -158,11 +158,13 @@ function build() {
   const ends = [];
   const ticks = [];
   const step = tickStep(length);
-  for (const [name, unit] of [
-    ["X", [1, 0, 0]],
-    ["Y", [0, 1, 0]],
-    ["Z", [0, 0, 1]],
-  ]) {
+  for (
+    const [name, unit] of [
+      ["X", [1, 0, 0]],
+      ["Y", [0, 1, 0]],
+      ["Z", [0, 0, 1]],
+    ]
+  ) {
     const along = (value) => toScene(unit.map((each) => each * value));
     new Zdog.Shape({
       addTo: scene,
@@ -335,14 +337,12 @@ function showHover() {
   const gap = 12;
   const [, tipX, tipY] = tips.find(([index]) => index === nearest);
   const [width, height] = area();
-  const x =
-    tipX + gap + hover.offsetWidth <= width
-      ? tipX + gap
-      : tipX - gap - hover.offsetWidth;
-  const y =
-    tipY + gap + hover.offsetHeight <= height
-      ? tipY + gap
-      : tipY - gap - hover.offsetHeight;
+  const x = tipX + gap + hover.offsetWidth <= width
+    ? tipX + gap
+    : tipX - gap - hover.offsetWidth;
+  const y = tipY + gap + hover.offsetHeight <= height
+    ? tipY + gap
+    : tipY - gap - hover.offsetHeight;
   hover.style.left = `${Math.max(0, x)}px`;
   hover.style.top = `${Math.max(0, y)}px`;
 }

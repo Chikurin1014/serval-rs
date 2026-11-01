@@ -35,7 +35,7 @@ const term = new Terminal({
   cursorBlink: true,
   // Named fonts: the WebGL renderer does not know `ui-monospace`
   fontFamily:
-    'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace',
+    "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
   fontSize: 14,
   theme: theme(),
   // Alt is for a block selection (its drag), not to move the cursor by sending
@@ -163,7 +163,7 @@ function hexLine(bytes, perLine) {
   }
   const text = bytes
     .map((byte) =>
-      byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ".",
+      byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : "."
     )
     .join("");
   return `${cells.join(" ")}  |${text}|`;

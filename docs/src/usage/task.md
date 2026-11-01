@@ -41,8 +41,8 @@ pub async fn watch_temp() {
 }
 ```
 
-* Turn a task on with its switch to run it, and off to stop it.
+- Turn a task on with its switch to run it, and off to stop it.
   **It turns off by itself when it ends.**
-* Its card shows the last line it printed, and what it returned or the error
+- Its card shows the last line it printed, and what it returned or the error
   it ended with. Click its title to see its function.
-* **STDOUT**, beside the tasks, shows everything the tasks print.
+- **STDOUT**, beside the tasks, shows everything the tasks print.

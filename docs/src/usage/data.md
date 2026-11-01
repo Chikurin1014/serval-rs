@@ -8,11 +8,11 @@ Each row corresponds to a label and shows its [type](../concept/data-types.md), 
 
 Click a row to see its earlier values.
 
-| Button | |
-|---|---|
-| **Clear all** (top) | Forgets all the data |
+| Button                     |                                                                          |
+| -------------------------- | ------------------------------------------------------------------------ |
+| **Clear all** (top)        | Forgets all the data                                                     |
 | **Export as CSV** (bottom) | Saves the labels shown as a CSV file: a time and a value column for each |
-| Delete (on a row) | Forgets the label's data |
+| Delete (on a row)          | Forgets the label's data                                                 |
 
 ### Label filters
 

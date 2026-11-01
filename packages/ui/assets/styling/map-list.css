@@ -238,7 +238,8 @@
 
 .map-types {
   display: grid;
-  grid-template-columns: calc(var(--map-from-chars, 6) * 1ch) auto calc(
+  grid-template-columns:
+    calc(var(--map-from-chars, 6) * 1ch) auto calc(
       var(--map-to-chars, 6) * 1ch
     );
   align-items: center;

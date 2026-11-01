@@ -31,15 +31,15 @@ What you type in it is sent to the device.
 The **Data** tab lists the data Serval extracts from it, each under its own label.
 With the default layout:
 
-* each line goes to `log`,
-* a line of `name: value` (e.g. `temp: 22.5`) goes to the label `name` as a
+- each line goes to `log`,
+- a line of `name: value` (e.g. `temp: 22.5`) goes to the label `name` as a
   number,
-* a line starting with a number goes to `anonymous data`.
+- a line starting with a number goes to `anonymous data`.
 
 ![The Data tab](media/getting-started-data.png)
 
 > [!TIP]
-> How the lines become data is set by the **maps** on the right of the tab. \
+> How the lines become data is set by the **maps** on the right of the tab.\
 > See [Concept / Maps](concept/maps.md) for what the default ones do.
 
 ## 4. Plot it
@@ -50,5 +50,5 @@ The **Graph** tab plots the numbers against time.
 
 ## Next steps
 
-* [Usage](usage/index.md): each part of the app.
-* [Concept](concept/index.md): how Serval turns what it receives into data.
+- [Usage](usage/index.md): each part of the app.
+- [Concept](concept/index.md): how Serval turns what it receives into data.

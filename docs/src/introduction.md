@@ -1,7 +1,7 @@
 # Introduction
 
 > [!IMPORTANT]
-> **This project is still in early development!** \
+> **This project is still in early development!**\
 > It is not yet stable, and the API may change in the future.
 >
 > If you find a bug or have a feature request,
@@ -14,7 +14,7 @@
 ## Concept
 
 To extract and plot data, most existing serial monitors
-require you to send it in a specific format, such as `label:data`, `>label:data`, and so on. \
+require you to send it in a specific format, such as `label:data`, `>label:data`, and so on.\
 **Why do I have to change my communication format just for debugging?**
 
 That's why I made **Serval**.

@@ -65,14 +65,12 @@ function showStatistics(u) {
   // Below right of the pointer, or on the side with room
   const gap = 12;
   const { clientWidth: width, clientHeight: height } = u.over;
-  const x =
-    left + gap + statisticsBox.offsetWidth <= width
-      ? left + gap
-      : left - gap - statisticsBox.offsetWidth;
-  const y =
-    top + gap + statisticsBox.offsetHeight <= height
-      ? top + gap
-      : top - gap - statisticsBox.offsetHeight;
+  const x = left + gap + statisticsBox.offsetWidth <= width
+    ? left + gap
+    : left - gap - statisticsBox.offsetWidth;
+  const y = top + gap + statisticsBox.offsetHeight <= height
+    ? top + gap
+    : top - gap - statisticsBox.offsetHeight;
   statisticsBox.style.left = `${Math.max(0, x)}px`;
   statisticsBox.style.top = `${Math.max(0, y)}px`;
 }
@@ -185,10 +183,10 @@ function drawPoints(color) {
           const x = xs[i];
           const y = ys[i];
           if (
-            x < scaleX.min ||
-            x > scaleX.max ||
-            y < scaleY.min ||
-            y > scaleY.max
+            x < scaleX.min
+            || x > scaleX.max
+            || y < scaleY.min
+            || y > scaleY.max
           ) {
             continue;
           }

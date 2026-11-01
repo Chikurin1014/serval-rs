@@ -2,14 +2,14 @@
 
 Each example is a whole plugin: save it as a `.rn` file and import it.
 
-| Example | Uses |
-|---|---|
-| [Polling a sensor](#polling-a-sensor) | `serial::send`, `serial::wait_for`, `data::push` |
-| [Moving average](#moving-average) | `data::get`, `data::push` |
-| [Threshold alert](#threshold-alert) | `data::get`, `data::LogEntry` |
-| [Binary frames](#binary-frames) | `serial::received`, `data::push` |
-| [Restarting and configuring a board](#restarting-and-configuring-a-board) | `serial::restart`, `serial::wait_for` |
-| [Test data without a device](#test-data-without-a-device) | `time`, `rand`, `data::push` |
+| Example                                                                   | Uses                                             |
+| ------------------------------------------------------------------------- | ------------------------------------------------ |
+| [Polling a sensor](#polling-a-sensor)                                     | `serial::send`, `serial::wait_for`, `data::push` |
+| [Moving average](#moving-average)                                         | `data::get`, `data::push`                        |
+| [Threshold alert](#threshold-alert)                                       | `data::get`, `data::LogEntry`                    |
+| [Binary frames](#binary-frames)                                           | `serial::received`, `data::push`                 |
+| [Restarting and configuring a board](#restarting-and-configuring-a-board) | `serial::restart`, `serial::wait_for`            |
+| [Test data without a device](#test-data-without-a-device)                 | `time`, `rand`, `data::push`                     |
 
 ## Polling a sensor
 

@@ -18,11 +18,11 @@ pub async fn ping() {
 }
 ```
 
-* A task runs until its function returns, an error stops it (e.g. one of `?`),
+- A task runs until its function returns, an error stops it (e.g. one of `?`),
   or it is turned off.
-* What it returns is shown in its card; what it prints (`println!`) in
+- What it returns is shown in its card; what it prints (`println!`) in
   **STDOUT**.
-* A loop with no `.await` would freeze the page: a task that runs too long
+- A loop with no `.await` would freeze the page: a task that runs too long
   without one is stopped (see [Runtime](runtime.md#limits)).
 
 What a task can use: [About Rune](rune.md) for the language and its standard

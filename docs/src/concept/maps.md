@@ -37,11 +37,11 @@ volt: 3.31
 
 Serval makes:
 
-| Label | Type | Values |
-|---|---|---|
-| `log` | Log | `[INFO] started`, `temp: 22.5`, `volt: 3.31`, `42` |
-| `temp` | Number | `22.5` |
-| `volt` | Number | `3.31` |
-| `anonymous data` | Number | `42` |
+| Label            | Type   | Values                                             |
+| ---------------- | ------ | -------------------------------------------------- |
+| `log`            | Log    | `[INFO] started`, `temp: 22.5`, `volt: 3.31`, `42` |
+| `temp`           | Number | `22.5`                                             |
+| `volt`           | Number | `3.31`                                             |
+| `anonymous data` | Number | `42`                                               |
 
 Change the maps, or add your own, in the [Data tab](../usage/data.md#maps).

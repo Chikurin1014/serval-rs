@@ -47,9 +47,7 @@
   transform: translate(-50%, -50%);
   visibility: hidden;
   opacity: 0;
-  transition:
-    opacity 200ms ease-in-out,
-    visibility 200ms;
+  transition: opacity 200ms ease-in-out, visibility 200ms;
 }
 
 .map-content:hover > .map-lock-tip,

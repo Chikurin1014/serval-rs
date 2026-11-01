@@ -65,5 +65,7 @@ function forLogScale(data) {
 function timeOfDay(ms) {
   const date = new Date(ms);
   const pad = (n, width = 2) => String(n).padStart(width, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${
+    pad(date.getSeconds())
+  }.${pad(date.getMilliseconds(), 3)}`;
 }

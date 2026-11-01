@@ -12,13 +12,13 @@ Hover over a category in the bar at the top, then pick a graph.
 
 ![Adding a graph](../media/graph-add.png)
 
-| Menu | Graph | Shows |
-|---|---|---|
-| Time series | **Points**, **Linear**, **Stepped** | Numbers against time |
-| Statistics | **Box plot** | The spread of each number label |
-| Statistics | **Scatter** | One number label against another |
-| Vector | **Arrows (2D / 3D)** | 2D / 3D vectors as arrows |
-| Text | **Log** | The logs |
+| Menu        | Graph                               | Shows                            |
+| ----------- | ----------------------------------- | -------------------------------- |
+| Time series | **Points**, **Linear**, **Stepped** | Numbers against time             |
+| Statistics  | **Box plot**                        | The spread of each number label  |
+| Statistics  | **Scatter**                         | One number label against another |
+| Vector      | **Arrows (2D / 3D)**                | 2D / 3D vectors as arrows        |
+| Text        | **Log**                             | The logs                         |
 
 ## Settings
 
