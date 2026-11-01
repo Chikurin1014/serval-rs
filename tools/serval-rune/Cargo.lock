@@ -1586,6 +1586,7 @@ dependencies = [
  "rune",
  "serde",
  "serde_json",
+ "serial-runtime",
 ]
 
 [[package]]
@@ -2728,6 +2729,10 @@ checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "serial-runtime"
+version = "0.7.1"
 
 [[package]]
 name = "serval-rune"

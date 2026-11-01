@@ -55,7 +55,7 @@
 
       uiArgs = commonArgs // {
         pname = "serval-ui";
-        cargoExtraArgs = "--locked --package ui --package logic";
+        cargoExtraArgs = "--locked --package ui --package logic --package serial-runtime";
       };
       uiArtifacts = craneLib.buildDepsOnly uiArgs;
 

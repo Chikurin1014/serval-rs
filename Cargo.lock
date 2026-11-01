@@ -3169,6 +3169,7 @@ dependencies = [
  "rune",
  "serde",
  "serde_json",
+ "serial-runtime",
 ]
 
 [[package]]
@@ -5223,6 +5224,10 @@ dependencies = [
  "ryu",
  "serde",
 ]
+
+[[package]]
+name = "serial-runtime"
+version = "0.7.1"
 
 [[package]]
 name = "serialport"

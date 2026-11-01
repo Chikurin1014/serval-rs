@@ -1,5 +1,5 @@
-use super::choice::Choice;
 use serde::{Deserialize, Serialize};
+use serial_runtime::Choice;
 
 /// `value` with its `\n`, `\r`, `\t` and `\\` escapes turned into characters.
 pub fn unescape(value: &str) -> String {
