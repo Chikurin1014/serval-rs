@@ -4,6 +4,8 @@
 use std::{fmt, future::Future, pin::Pin, rc::Rc};
 
 mod choice;
+#[cfg(feature = "native")]
+pub mod native;
 
 pub use choice::Choice;
 
@@ -160,6 +162,49 @@ pub struct PortInfo {
     pub product: Option<String>,
     /// Where it is on the system (e.g. `/dev/ttyACM0` or `COM3`), if known.
     pub path: Option<String>,
+}
+
+/// A port's USB device, as the OS tells of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UsbDevice {
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub manufacturer: Option<String>,
+    pub product: Option<String>,
+}
+
+impl PortInfo {
+    /// Of a port the OS lists at `path`.
+    pub fn of_device(path: String, usb: Option<UsbDevice>) -> Self {
+        // As Web Serial's are named (of the USB ID database), else as the device
+        // tells
+        let vendor = usb.as_ref().and_then(|usb| {
+            <usb_ids::Vendor as usb_ids::FromId<u16>>::from_id(usb.vendor_id)
+                .map(|vendor| vendor.name().to_string())
+                .or_else(|| usb.manufacturer.clone())
+        });
+        let product = usb.as_ref().and_then(|usb| {
+            usb_ids::Device::from_vid_pid(usb.vendor_id, usb.product_id)
+                .map(|device| device.name().to_string())
+                .or_else(|| usb.product.clone())
+        });
+        // Its device's name, and which it is if more are alike
+        let name = match &product {
+            Some(product) => {
+                let file = std::path::Path::new(&path)
+                    .file_name()
+                    .map(|file| file.to_string_lossy());
+                format!("{product} · {}", file.as_deref().unwrap_or(&path))
+            }
+            None => path.clone(),
+        };
+        Self {
+            name,
+            vendor,
+            product,
+            path: Some(path),
+        }
+    }
 }
 
 #[cfg(test)]

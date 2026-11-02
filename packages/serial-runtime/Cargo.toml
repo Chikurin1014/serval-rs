@@ -4,3 +4,12 @@ version.workspace = true
 license.workspace = true
 publish = false
 edition.workspace = true
+
+[dependencies]
+serialport = { version = "4.7", optional = true }
+# Ports named as Web Serial's are: of the USB ID database
+usb-ids = "1.2026.6"
+
+[features]
+# The OS's ports, opened blocking
+native = ["dep:serialport"]
