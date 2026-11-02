@@ -3,28 +3,22 @@
 
 use std::{
     cell::RefCell,
-    io::{self, Read},
-    path::Path,
+    io,
     rc::Rc,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
-    time::Duration,
 };
 
-use serialport::{SerialPortInfo, SerialPortType};
+use serial_runtime::native::{self, READ_TIMEOUT};
+use serialport::SerialPortInfo;
 use tokio::sync::mpsc;
 
 use ui::serial::{
-    Baudrate, ExtraSettings, FlowControl, LocalFuture, Parity, PortInfo, SerialBackend, SerialPort,
-    SerialResult,
+    Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
 };
-
-/// How long a read waits for bytes, before it looks whether the port is closed.
-const READ_TIMEOUT: Duration = Duration::from_millis(50);
-const READ_BUFFER_BYTES: usize = 4096;
 
 /// All the serial ports of the OS.
 pub fn backend() -> Rc<dyn SerialBackend> {
@@ -41,22 +35,15 @@ impl SerialBackend for NativeSerial {
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>> {
         Box::pin(async {
-            let ports = blocking(serialport::available_ports)
+            let ports = blocking(native::listed_ports)
                 .await
                 .map_err(|error| error.to_string())?;
             Ok(ports
                 .iter()
-                .filter(|port| is_listed(port))
                 .map(|port| Rc::new(NativePort::new(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
     }
-}
-
-/// On macOS, each device is both `/dev/cu.*` and `/dev/tty.*`: the latter
-/// waits for a carrier as it opens, so only the former is listed.
-fn is_listed(port: &SerialPortInfo) -> bool {
-    !(cfg!(target_os = "macos") && port.port_name.starts_with("/dev/tty."))
 }
 
 struct NativePort {
@@ -78,7 +65,7 @@ struct Opened {
 impl NativePort {
     fn new(port: &SerialPortInfo) -> Self {
         Self {
-            info: port_info(port),
+            info: native::port_info(port),
             path: port.port_name.clone(),
             opened: Rc::new(RefCell::new(None)),
         }
@@ -114,37 +101,7 @@ impl SerialPort for NativePort {
         let path = self.path.clone();
         let opened = self.opened.clone();
         Box::pin(async move {
-            let port = blocking(move || {
-                let mut port = serialport::new(&path, baudrate.bps())
-                    .data_bits(match extra.data_bits {
-                        7 => serialport::DataBits::Seven,
-                        _ => serialport::DataBits::Eight,
-                    })
-                    .parity(match extra.parity {
-                        Parity::None => serialport::Parity::None,
-                        Parity::Even => serialport::Parity::Even,
-                        Parity::Odd => serialport::Parity::Odd,
-                    })
-                    .stop_bits(match extra.stop_bits {
-                        2 => serialport::StopBits::Two,
-                        _ => serialport::StopBits::One,
-                    })
-                    .flow_control(match extra.flow_control {
-                        FlowControl::None => serialport::FlowControl::None,
-                        FlowControl::Hardware => serialport::FlowControl::Hardware,
-                    })
-                    .timeout(READ_TIMEOUT)
-                    .open()?;
-                // On, as Web Serial opens a port (the app takes them so); not
-                // RTS under hardware flow control, which it is for
-                let _ = port.write_data_terminal_ready(true);
-                if extra.flow_control == FlowControl::None {
-                    let _ = port.write_request_to_send(true);
-                }
-                Ok(port)
-            })
-            .await
-            .map_err(open_error)?;
+            let port = blocking(move || native::open(&path, baudrate, extra)).await?;
             *opened.borrow_mut() = Some(Opened {
                 port: Arc::new(Mutex::new(port)),
                 closing: Arc::new(AtomicBool::new(false)),
@@ -168,7 +125,8 @@ impl SerialPort for NativePort {
             let (sender, mut receiver) = mpsc::unbounded_channel();
             opened.reading.store(true, Ordering::Relaxed);
             thread::spawn(move || {
-                read_loop(reader, &opened.closing, &sender);
+                // Or no one reads them any more
+                native::read_loop(reader, &opened.closing, |read| sender.send(read).is_ok());
                 opened.reading.store(false, Ordering::Relaxed);
             });
             while let Some(read) = receiver.recv().await {
@@ -226,84 +184,6 @@ impl SerialPort for NativePort {
             }
             Ok(())
         })
-    }
-}
-
-/// Sends each chunk read, until the port is closed (and ends) or fails (and
-/// sends why).
-fn read_loop(
-    mut reader: Box<dyn serialport::SerialPort>,
-    closing: &AtomicBool,
-    sender: &mpsc::UnboundedSender<SerialResult<Vec<u8>>>,
-) {
-    let mut buffer = vec![0; READ_BUFFER_BYTES];
-    while !closing.load(Ordering::Relaxed) {
-        let read = match reader.read(&mut buffer) {
-            Ok(0) => continue,
-            Ok(read) => Ok(buffer[..read].to_vec()),
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    io::ErrorKind::TimedOut | io::ErrorKind::Interrupted
-                ) =>
-            {
-                continue;
-            }
-            Err(error) => Err(error.to_string()),
-        };
-        let failed = read.is_err();
-        // Or no one reads them any more
-        if sender.send(read).is_err() || failed {
-            return;
-        }
-    }
-}
-
-/// Why it did not open: on Linux, how to be let to, if not.
-fn open_error(error: serialport::Error) -> String {
-    let denied = error.kind() == serialport::ErrorKind::Io(io::ErrorKind::PermissionDenied);
-    if denied && cfg!(target_os = "linux") {
-        format!(
-            "{error}: join the port's group (e.g. `sudo usermod -aG dialout $USER`), then log in again"
-        )
-    } else {
-        error.to_string()
-    }
-}
-
-fn port_info(port: &SerialPortInfo) -> PortInfo {
-    let usb = match &port.port_type {
-        SerialPortType::UsbPort(usb) => Some(usb),
-        _ => None,
-    };
-    // As Web Serial's are named (of the USB ID database), else as the device
-    // tells
-    let vendor = usb.and_then(|usb| {
-        <usb_ids::Vendor as usb_ids::FromId<u16>>::from_id(usb.vid)
-            .map(|vendor| vendor.name().to_string())
-            .or_else(|| usb.manufacturer.clone())
-    });
-    let product = usb.and_then(|usb| {
-        usb_ids::Device::from_vid_pid(usb.vid, usb.pid)
-            .map(|device| device.name().to_string())
-            .or_else(|| usb.product.clone())
-    });
-    let path = port.port_name.clone();
-    // Its device's name, and which it is if more are alike
-    let name = match &product {
-        Some(product) => {
-            let file = Path::new(&path)
-                .file_name()
-                .map(|file| file.to_string_lossy());
-            format!("{product} · {}", file.as_deref().unwrap_or(&path))
-        }
-        None => path.clone(),
-    };
-    PortInfo {
-        name,
-        vendor,
-        product,
-        path: Some(path),
     }
 }
 

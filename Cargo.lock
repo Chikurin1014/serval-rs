@@ -985,10 +985,10 @@ dependencies = [
  "embed-assets",
  "image",
  "rfd",
+ "serial-runtime",
  "serialport",
  "tokio",
  "ui",
- "usb-ids",
 ]
 
 [[package]]
@@ -5228,6 +5228,10 @@ dependencies = [
 [[package]]
 name = "serial-runtime"
 version = "0.7.1"
+dependencies = [
+ "serialport",
+ "usb-ids",
+]
 
 [[package]]
 name = "serialport"
