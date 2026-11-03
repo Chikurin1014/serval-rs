@@ -1,19 +1,18 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
+use serial_runtime::backend::web;
 use ui::components::{
     button::{Button, ButtonSize, ButtonVariant},
     dialog::{Dialog, DialogDescription, DialogTitle},
 };
-
-use crate::serial;
 
 const WEB_SERIAL_DOCS: &str = "https://developer.mozilla.org/docs/Web/API/Web_Serial_API";
 
 /// Shown on opening the page where Web Serial is not available.
 #[component]
 pub fn UnsupportedBrowserDialog() -> Element {
-    let mut open = use_signal(|| !serial::is_supported());
+    let mut open = use_signal(|| !web::is_supported());
 
     rsx! {
         Dialog {

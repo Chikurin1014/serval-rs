@@ -8,10 +8,10 @@ edition.workspace = true
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }
 dioxus-icons = { workspace = true }
+serial-runtime = { workspace = true, features = ["web"] }
 ui = { workspace = true }
 
 js-sys = "0.3"
-usb-ids = "1.2026.6"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 

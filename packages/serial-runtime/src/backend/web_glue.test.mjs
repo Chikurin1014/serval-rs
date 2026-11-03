@@ -12,7 +12,7 @@ import {
   usbProductId,
   usbVendorId,
   writePort,
-} from "./serial.js";
+} from "./web_glue.js";
 
 function fakePort({ chunks = [], error, info } = {}) {
   const port = { released: { reader: false, writer: false }, written: [] };

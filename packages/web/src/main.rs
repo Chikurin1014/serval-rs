@@ -3,7 +3,6 @@ use dioxus::prelude::*;
 use ui::{AppPages, AppShell, Licenses};
 
 mod files;
-mod serial;
 mod time;
 mod unsupported;
 
@@ -25,7 +24,7 @@ fn main() {
 #[component]
 fn App() -> Element {
     use_context_provider(time::context);
-    use_context_provider(serial::backend);
+    use_context_provider(serial_runtime::backend::web::backend);
     use_context_provider(files::record_picker);
 
     rsx! {

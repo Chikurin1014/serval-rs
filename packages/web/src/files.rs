@@ -2,14 +2,12 @@
 
 use std::rc::Rc;
 
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 
 use ui::serial::{
     LocalFuture, SerialResult,
     record::{RecordFile, RecordFilePicker, RecordSink, TAIL_BYTES},
 };
-
-use crate::serial::message;
 
 /// Record files the user picks through the browser.
 pub fn record_picker() -> RecordFilePicker {
@@ -50,6 +48,13 @@ impl RecordSink for WebRecordSink {
     fn failure(&self) -> LocalFuture<Option<String>> {
         let record = self.0.clone();
         Box::pin(async move { js::record_file_failure(&record).await.as_string() })
+    }
+}
+
+fn message(error: JsValue) -> String {
+    match error.dyn_ref::<js_sys::Error>() {
+        Some(error) => error.message().into(),
+        None => format!("{error:?}"),
     }
 }
 

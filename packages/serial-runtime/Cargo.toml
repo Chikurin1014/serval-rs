@@ -6,17 +6,22 @@ publish = false
 edition.workspace = true
 
 [dependencies]
+js-sys = { version = "0.3", optional = true }
 serialport = { version = "4.7", optional = true }
 # Reading the ports on threads: on the desktop app's runtime
 tokio = { version = "1", features = ["rt", "sync", "time"], optional = true }
 # Ports named as Web Serial's are: of the USB ID database
 usb-ids = "1.2026.6"
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [features]
 # The OS's ports, opened blocking
 native = ["dep:serialport"]
 # The desktop app's ports, of the OS's
 desktop = ["native", "dep:tokio"]
+# The web app's ports, of Web Serial
+web = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
