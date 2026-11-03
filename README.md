@@ -51,7 +51,8 @@ serval-rs/
 │  ├─ serial-runtime/  # The serial ports of each platform, and serial-bridge
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
-│  └─ embed-assets/  # Puts the desktop app's assets in its binary
+│  ├─ embed-assets/  # Puts the desktop app's assets in its binary
+│  └─ vscode/   # VS Code extension (a prototype)
 ├─ docs/        # Documents (mdBook)
 ├─ e2e/         # End-to-end tests (web app)
 └─ tools/serval-rune/  # Generates the plugin API reference
