@@ -123,9 +123,17 @@
  * set as uPlot sets its axes and legend */
 .arrows-3d-area,
 .graph-plot > .u-legend {
-  font-family:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    "Noto Sans", sans-serif;
+  font-family: var(
+    --dc-font,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    sans-serif
+  );
   line-height: 1.5;
 }
 

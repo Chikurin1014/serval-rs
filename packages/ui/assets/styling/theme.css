@@ -20,7 +20,12 @@ html,
 body {
   background: var(--dc-page);
   color: var(--dc-text);
-  font-family: sans-serif;
+  font-family: var(--dc-font, sans-serif);
+}
+
+/* The platform's, if it sets one (as VS Code's): the sizes in rem follow */
+html {
+  font-size: var(--dc-font-size, medium);
 }
 
 body {
@@ -85,14 +90,14 @@ html[data-theme="dark"] {
   border-radius: 0;
   background: none;
   box-shadow: none;
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.75rem;
   font-weight: 300;
 }
 
 .field-label {
   color: var(--dc-text-muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.75rem;
   white-space: nowrap;
 }
@@ -112,7 +117,7 @@ html[data-theme="dark"] {
 
 .field-choices button {
   height: 1.75rem;
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.75rem;
 }
 

@@ -41,14 +41,44 @@ function toggleTheme(root, storage, systemPrefersDark) {
 }
 
 /**
- * Calls `onChange` as the theme changes, the page's or the system's; gives
- * what stops that.
+ * The consoles' font, as xterm.js takes it: the platform's if it sets one
+ * (`--dc-console-font`, `--dc-console-font-size`), else named fonts, as the
+ * WebGL renderer does not know `ui-monospace`.
+ */
+function consoleFont(root = document.documentElement) {
+  const style = getComputedStyle(root);
+  return {
+    fontFamily: style.getPropertyValue("--dc-console-font").trim()
+      || "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
+    fontSize: parseFloat(style.getPropertyValue("--dc-console-font-size"))
+      || 14,
+  };
+}
+
+/** Sets xterm.js's `term` to the consoles' font; tells whether it changed. */
+function updateConsoleFont(term) {
+  const { fontFamily, fontSize } = consoleFont();
+  if (
+    fontFamily === term.options.fontFamily
+    && fontSize === term.options.fontSize
+  ) {
+    return false;
+  }
+  term.options.fontFamily = fontFamily;
+  term.options.fontSize = fontSize;
+  return true;
+}
+
+/**
+ * Calls `onChange` as the theme changes, the page's or the system's, or the
+ * variables the platform sets on the page (its `style`); gives what stops
+ * that.
  */
 function watchTheme(onChange) {
   const observer = new MutationObserver(onChange);
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["data-theme"],
+    attributeFilter: ["data-theme", "style"],
   });
   const system = matchMedia("(prefers-color-scheme: dark)");
   system.addEventListener("change", onChange);

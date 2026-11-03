@@ -130,7 +130,7 @@
   min-width: 0;
   overflow: hidden;
   color: color-mix(in oklab, var(--dc-text) 65%, var(--dc-text-muted));
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.7rem;
   font-weight: 400;
   white-space: nowrap;
@@ -224,7 +224,7 @@
 }
 
 .add-map-bar .hover-menu-trigger {
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
 }
 
 .add-map-content [role="option"] {
@@ -245,7 +245,7 @@
   align-items: center;
   gap: 0.25rem;
   color: var(--dc-text-muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.7rem;
 }
 
@@ -354,7 +354,7 @@
 
 .add-map-preset-detail {
   color: var(--dc-text-muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.7rem;
 }
 
