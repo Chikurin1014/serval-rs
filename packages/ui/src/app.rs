@@ -62,11 +62,13 @@ enum Route {
     Home {},
 }
 
-/// The app's pages, and whether the navbar is shown with them.
+/// The app's pages, and whether the navbar and the toolbar are shown with
+/// them.
 #[derive(Clone)]
 struct ShownPages {
     pages: AppPages,
     navbar: bool,
+    toolbar: bool,
     /// Whether inline licenses are shown
     licenses_shown: Signal<bool>,
 }
@@ -75,6 +77,11 @@ struct ShownPages {
 /// in the toolbar's menu: as there is no navbar for them.
 pub(crate) fn tools_in_menu() -> bool {
     try_use_context::<ShownPages>().is_some_and(|shown| !shown.navbar)
+}
+
+/// Whether the toolbar is always in its menu, not only where it has no room.
+pub(crate) fn toolbar_in_menu() -> bool {
+    try_use_context::<ShownPages>().is_some_and(|shown| !shown.toolbar)
 }
 
 /// As the toolbar's menu closes (its animation, with some to spare).
@@ -160,17 +167,20 @@ fn LicensesDialog() -> Element {
 /// The app; `children` (e.g. a dialog of its own) over it, with all its
 /// contexts. Requires the platform's `TimeContext` and `Rc<dyn SerialBackend>`.
 /// With no `navbar` (e.g. for room on a desktop), its tools and licenses are
-/// in the toolbar's menu.
+/// in the toolbar's menu. With no `toolbar`, the toolbar is always in its
+/// menu too, else only where it has no room.
 #[component]
 pub fn AppShell(
     pages: AppPages,
     #[props(default = true)] navbar: bool,
+    #[props(default = true)] toolbar: bool,
     children: Element,
 ) -> Element {
     let licenses_shown = use_signal(|| false);
     use_context_provider(|| ShownPages {
         pages,
         navbar,
+        toolbar,
         licenses_shown,
     });
     let layout = use_hook(|| initial_layout(&builtin_map_kinds(), &builtin_graph_kinds()));

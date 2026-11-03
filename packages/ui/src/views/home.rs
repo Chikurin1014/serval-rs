@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
-    app::tools_in_menu,
+    app::{toolbar_in_menu, tools_in_menu},
     components::tabs::{TabContent, TabList, TabTrigger, Tabs},
     data::RAW_BYTES_LABEL,
     elements::{
@@ -32,8 +32,10 @@ pub fn Home() -> Element {
     let tasks = use_context::<TaskContext>();
     // Its tab once a plugin gives tasks
     let has_tasks = use_memo(move || !tasks.is_empty());
-    // With no navbar, as the desktop app: the toolbar always in the menu
-    let toolbar_in_menu = tools_in_menu();
+    // As the desktop app: the toolbar always in the menu. With no navbar, the
+    // app's tools are in it too, so it can always be opened
+    let toolbar_in_menu = toolbar_in_menu();
+    let tools_in_menu = tools_in_menu();
     let mut tab = use_signal(|| "console".to_string());
     // Its tab gone with the last task: the console's instead
     use_effect(move || {
@@ -50,10 +52,11 @@ pub fn Home() -> Element {
             value: Some(tab()),
             on_value_change: move |value| tab.set(value),
             "data-toolbar-in-menu": toolbar_in_menu,
+            "data-tools-in-menu": tools_in_menu,
             // Narrow, the toolbar is hidden by CSS, not unmounted: a part
             // unmounted as it first renders may take its component's stylesheet
             // with it (as the desktop app links them). Its place is known at
-            // once with no navbar
+            // once if it is always in the menu
             if !toolbar_in_menu {
                 div {
                     class: "toolbar",
