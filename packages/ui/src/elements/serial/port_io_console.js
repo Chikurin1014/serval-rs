@@ -33,10 +33,7 @@ const term = new Terminal({
   // A lone LF starts a new line too, as Tera Term's "AUTO" receive
   convertEol: true,
   cursorBlink: true,
-  // Named fonts: the WebGL renderer does not know `ui-monospace`
-  fontFamily:
-    "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
-  fontSize: 14,
+  ...consoleFont(),
   theme: theme(),
   // Alt is for a block selection (its drag), not to move the cursor by sending
   // arrow keys
@@ -103,17 +100,22 @@ function markLines(time) {
   times.settle();
 }
 
-const resize = new ResizeObserver(() => {
+function refit() {
   fit.fit();
   // Another width may take another count of bytes a hex line
   if (view === "hex" && bytesPerLine() !== hex.perLine) {
     dioxus.send(["redraw"]);
   }
-});
+}
+
+const resize = new ResizeObserver(refit);
 resize.observe(container);
 const stopWatchingTheme = watchTheme(() => {
   colors.clear();
   term.options.theme = theme();
+  if (updateConsoleFont(term)) {
+    refit();
+  }
 });
 
 async function clipboardText() {

@@ -34,9 +34,7 @@ const term = new Terminal({
   scrollback: SCROLLBACK,
   disableStdin: true,
   cursorInactiveStyle: "none",
-  fontFamily:
-    "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
-  fontSize: 14,
+  ...consoleFont(),
   theme: theme(),
 });
 const fit = new FitAddon.FitAddon();
@@ -76,6 +74,9 @@ const resize = new ResizeObserver(() => fit.fit());
 resize.observe(container);
 const stopWatchingTheme = watchTheme(() => {
   term.options.theme = theme();
+  if (updateConsoleFont(term)) {
+    fit.fit();
+  }
 });
 
 while (true) {

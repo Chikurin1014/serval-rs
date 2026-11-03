@@ -90,10 +90,14 @@ test("watchTheme calls back as the page's or the system's theme changes, until s
   let changes = 0;
   const stop = watchTheme(() => changes++);
 
-  // `data-theme` on <html>, as `toggleTheme` sets it
+  // `data-theme` on <html>, as `toggleTheme` sets it, and the variables a
+  // platform sets in its `style`
   const [observer] = observers;
   assert.equal(observer.target, root);
-  assert.deepEqual([...observer.options.attributeFilter], ["data-theme"]);
+  assert.deepEqual([...observer.options.attributeFilter], [
+    "data-theme",
+    "style",
+  ]);
   observer.callback();
   for (const listener of listeners) {
     listener();
@@ -103,4 +107,39 @@ test("watchTheme calls back as the page's or the system's theme changes, until s
   stop();
   assert.equal(observer.callback, null);
   assert.equal(listeners.size, 0);
+});
+
+/** theme.js with the page's variables `properties`, as a platform sets them. */
+function withProperties(properties) {
+  return loadScript(new URL("./theme.js", import.meta.url), {
+    document: { documentElement: {} },
+    getComputedStyle: () => ({
+      getPropertyValue: (name) => properties[name] ?? "",
+    }),
+  });
+}
+
+test("consoleFont is the platform's if it sets one, else the named fonts", () => {
+  const { consoleFont } = withProperties({});
+  assert.equal(consoleFont().fontSize, 14);
+  assert.match(consoleFont().fontFamily, /^Menlo, Consolas/);
+
+  const set = withProperties({
+    "--dc-console-font": " \"Fira Code\", monospace ",
+    "--dc-console-font-size": "15px",
+  });
+  assert.equal(set.consoleFont().fontFamily, "\"Fira Code\", monospace");
+  assert.equal(set.consoleFont().fontSize, 15);
+});
+
+test("updateConsoleFont sets a terminal's font, telling if it changed", () => {
+  const { updateConsoleFont } = withProperties({
+    "--dc-console-font": "monospace",
+    "--dc-console-font-size": "12px",
+  });
+  const term = { options: { fontFamily: "Menlo", fontSize: 14 } };
+  assert.equal(updateConsoleFont(term), true);
+  assert.equal(term.options.fontFamily, "monospace");
+  assert.equal(term.options.fontSize, 12);
+  assert.equal(updateConsoleFont(term), false);
 });

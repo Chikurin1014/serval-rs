@@ -6,7 +6,7 @@
   border-radius: 0.25rem;
   background: color-mix(in oklab, var(--log-level-color) 18%, transparent);
   color: var(--log-level-color);
-  font-family: ui-monospace, monospace;
+  font-family: var(--dc-mono-font, ui-monospace, monospace);
   font-size: 0.9em;
   font-weight: 700;
   letter-spacing: 0.08em;
