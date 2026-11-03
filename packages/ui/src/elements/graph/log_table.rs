@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty, GraphSettings,
+    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
     context::{until_paused, use_graph_setting, use_variant_setting},
     plot::{PlotAssets, series_color},
 };
@@ -29,10 +29,10 @@ pub const LOG_TABLE: GraphKind = GraphKind {
     // Itself, its logs of INFO and those that matter more from the start
     presets: &[GraphPreset {
         name: "Log",
-        property: || {
-            GraphProperty::new(GraphSettings::LogTable(LogTableSettings {
+        settings: || {
+            GraphSettings::LogTable(LogTableSettings {
                 weakest_level: LogLevel::Info,
-            }))
+            })
         },
     }],
 };

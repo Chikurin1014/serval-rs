@@ -5,8 +5,8 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty,
-    GraphSettings, TimeRange,
+    AxisScale, DrawStyle, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
+    TimeRange,
     context::{until_paused, use_graph_setting, use_variant_setting},
     plot::{PlotAssets, plot_script, series_color, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
@@ -25,24 +25,24 @@ pub const TIME_SERIES: GraphKind = GraphKind {
     presets: &[
         GraphPreset {
             name: "Points",
-            property: || with_draw_style(DrawStyle::Points),
+            settings: || with_draw_style(DrawStyle::Points),
         },
         GraphPreset {
             name: "Linear",
-            property: || with_draw_style(DrawStyle::Linear),
+            settings: || with_draw_style(DrawStyle::Linear),
         },
         GraphPreset {
             name: "Stepped",
-            property: || with_draw_style(DrawStyle::Stepped),
+            settings: || with_draw_style(DrawStyle::Stepped),
         },
     ],
 };
 
-fn with_draw_style(draw_style: DrawStyle) -> GraphProperty {
-    GraphProperty::new(GraphSettings::TimeSeries(TimeSeriesSettings {
+fn with_draw_style(draw_style: DrawStyle) -> GraphSettings {
+    GraphSettings::TimeSeries(TimeSeriesSettings {
         draw_style,
         ..TimeSeriesSettings::default()
-    }))
+    })
 }
 
 /// A time series's own settings, each missing in a layout file as by default.
