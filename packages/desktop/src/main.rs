@@ -20,7 +20,6 @@ use ui::{AppPages, AppShell, Licenses, serial::SerialContext};
 
 mod assets;
 mod files;
-mod serial;
 mod time;
 
 /// Its licenses, of its own dependencies (see `about.toml`): in it, so they
@@ -106,7 +105,7 @@ fn menu_bar() -> Option<Menu> {
 #[component]
 fn App() -> Element {
     use_context_provider(time::context);
-    use_context_provider(serial::backend);
+    use_context_provider(serial_runtime::backend::desktop::backend);
     use_context_provider(files::saver);
     use_context_provider(files::record_picker);
 

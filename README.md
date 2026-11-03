@@ -169,7 +169,7 @@ The web app is in `target/dx/web/release/web/public`.
 Unit tests (Rust and JavaScript):
 
 ```bash
-cargo test -p ui -p logic -p serial-runtime
+cargo test -p ui -p logic -p serial-runtime --features serial-runtime/desktop
 ```
 
 ```bash

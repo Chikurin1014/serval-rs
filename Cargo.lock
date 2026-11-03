@@ -986,7 +986,6 @@ dependencies = [
  "image",
  "rfd",
  "serial-runtime",
- "serialport",
  "tokio",
  "ui",
 ]
@@ -5230,6 +5229,7 @@ name = "serial-runtime"
 version = "0.7.1"
 dependencies = [
  "serialport",
+ "tokio",
  "usb-ids",
 ]
 

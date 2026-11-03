@@ -23,8 +23,6 @@ use ui::{
     },
 };
 
-use crate::serial::blocking;
-
 /// A dialog over the app's window.
 fn dialog() -> AsyncFileDialog {
     AsyncFileDialog::new().set_parent(&window().window)
@@ -175,6 +173,12 @@ pub fn saver() -> FileSaver {
                 .map_err(|error| format!("{}: {error}", handle.path().display()))
         })
     })
+}
+
+async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send + 'static) -> T {
+    tokio::task::spawn_blocking(task)
+        .await
+        .expect("a blocking task is not cancelled")
 }
 
 #[cfg(test)]
