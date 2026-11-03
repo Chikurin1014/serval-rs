@@ -6,10 +6,7 @@ use std::collections::VecDeque;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    AxisScale, GraphKind, GraphPreset, GraphProperty, GraphSettings, TimeRange,
-    context::until_paused,
-};
+use super::{AxisScale, GraphKind, GraphPreset, GraphSettings, TimeRange, context::until_paused};
 use crate::data::{MAX_ENTRIES_PER_LABEL, NumberData, Queue, SourceCursor};
 
 mod view;
@@ -24,11 +21,11 @@ pub const SCATTER: GraphKind = GraphKind {
     // Itself, its regression line on from the start
     presets: &[GraphPreset {
         name: "Scatter",
-        property: || {
-            GraphProperty::new(GraphSettings::Scatter(ScatterSettings {
+        settings: || {
+            GraphSettings::Scatter(ScatterSettings {
                 regression: true,
                 ..ScatterSettings::default()
-            }))
+            })
         },
     }],
 };

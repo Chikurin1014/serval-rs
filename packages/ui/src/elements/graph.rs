@@ -1,6 +1,7 @@
 //! Graphs of the received data. To add a kind, give its settings a variant of
-//! [`GraphSettings`] (tied to its [`GraphKind`] in [`GraphSettings::kind`]) and
-//! pass the kind to [`GraphProvider`]; views wrap their plot in [`GraphFrame`].
+//! [`GraphSettings`], make its [`GraphKind`] (its settings and presets all of
+//! that variant) and pass it to [`GraphProvider`]; views wrap their plot in
+//! [`GraphFrame`].
 
 mod arrows;
 mod board;

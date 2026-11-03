@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphProperty, GraphSettings,
+    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
     context::{until_paused, use_graph_setting, use_variant_setting},
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
 };
@@ -27,7 +27,7 @@ pub const ARROWS: GraphKind = GraphKind {
     settings: || GraphSettings::Arrows(ArrowsSettings::default()),
     presets: &[GraphPreset {
         name: "Arrows (2D)",
-        property: || GraphProperty::new(GraphSettings::Arrows(WITH_TRAILS)),
+        settings: || GraphSettings::Arrows(WITH_TRAILS),
     }],
 };
 
@@ -38,7 +38,7 @@ pub const ARROWS_3D: GraphKind = GraphKind {
     settings: || GraphSettings::Arrows3d(ArrowsSettings::default()),
     presets: &[GraphPreset {
         name: "Arrows (3D)",
-        property: || GraphProperty::new(GraphSettings::Arrows3d(WITH_TRAILS)),
+        settings: || GraphSettings::Arrows3d(WITH_TRAILS),
     }],
 };
 

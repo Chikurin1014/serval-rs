@@ -5,13 +5,12 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use super::{
-    ARROWS, ARROWS_3D, BOX_PLOT, LOG_TABLE, SCATTER, TIME_SERIES, arrows::ArrowsSettings,
-    box_plot::BoxPlotSettings, log_table::LogTableSettings, scatter::ScatterSettings,
-    time_series::TimeSeriesSettings,
+    arrows::ArrowsSettings, box_plot::BoxPlotSettings, log_table::LogTableSettings,
+    scatter::ScatterSettings, time_series::TimeSeriesSettings,
 };
 
-/// A kind of graph: what it is named and shown as. Which kind a graph is, its
-/// settings tell ([`GraphSettings::kind`]).
+/// A kind of graph: what it is named and shown as. Its settings are all of one
+/// variant of [`GraphSettings`], its own.
 #[derive(Clone, Copy, Debug)]
 pub struct GraphKind {
     pub name: &'static str,
@@ -27,14 +26,30 @@ pub struct GraphKind {
 impl GraphKind {
     /// A graph of it as it is, its settings by default.
     pub fn property(&self) -> GraphProperty {
-        GraphProperty::new((self.settings)())
+        self.property_of((self.settings)())
+    }
+
+    /// A graph of it, of one of its presets.
+    pub fn preset(&self, preset: &GraphPreset) -> GraphProperty {
+        self.property_of((preset.settings)())
+    }
+
+    fn property_of(&self, settings: GraphSettings) -> GraphProperty {
+        GraphProperty {
+            kind: *self,
+            title: None,
+            hidden: Vec::new(),
+            settings,
+        }
     }
 }
 
+/// A kind of graph with ready-made settings.
 #[derive(Clone, Copy, Debug)]
 pub struct GraphPreset {
     pub name: &'static str,
-    pub property: fn() -> GraphProperty,
+    /// Of its kind's variant.
+    pub settings: fn() -> GraphSettings,
 }
 
 impl PartialEq for GraphKind {
@@ -43,14 +58,18 @@ impl PartialEq for GraphKind {
     }
 }
 
-/// A graph's settings: those of every kind, and its kind's own. A layout file
-/// keeps them all in one object, those of its kind alone.
+/// A graph's kind and settings: those of every kind, and its kind's own. A
+/// layout file keeps the settings all in one object, those of its kind alone
+/// (and its kind beside them). Made of its kind, as its own settings are.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct GraphProperty {
+    #[serde(skip)]
+    kind: GraphKind,
     /// `None` for a numbered default.
     pub title: Option<String>,
     /// The labels turned off in the legend (a scatter plot has none).
     pub hidden: Vec<String>,
+    /// Of its kind's variant: changed within it.
     #[serde(flatten)]
     pub settings: GraphSettings,
 }
@@ -64,16 +83,8 @@ struct CommonSettings {
 }
 
 impl GraphProperty {
-    pub fn new(settings: GraphSettings) -> Self {
-        Self {
-            title: None,
-            hidden: Vec::new(),
-            settings,
-        }
-    }
-
     pub fn kind(&self) -> GraphKind {
-        self.settings.kind()
+        self.kind
     }
 
     /// A graph of `kind` of its settings `saved` in a layout file, each missing
@@ -83,6 +94,7 @@ impl GraphProperty {
         let CommonSettings { title, hidden } = CommonSettings::deserialize(saved).map_err(wrong)?;
         let settings = (kind.settings)().load(saved).map_err(wrong)?;
         Ok(Self {
+            kind,
             title,
             hidden,
             settings,
@@ -90,7 +102,7 @@ impl GraphProperty {
     }
 }
 
-/// A graph's own settings, of its kind: which kind it is.
+/// A graph's own settings: a variant for each kind (or a few alike).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum GraphSettings {
@@ -103,19 +115,7 @@ pub enum GraphSettings {
 }
 
 impl GraphSettings {
-    /// The one place a kind is tied to its settings.
-    pub fn kind(&self) -> GraphKind {
-        match self {
-            Self::TimeSeries(_) => TIME_SERIES,
-            Self::BoxPlot(_) => BOX_PLOT,
-            Self::Scatter(_) => SCATTER,
-            Self::Arrows(_) => ARROWS,
-            Self::Arrows3d(_) => ARROWS_3D,
-            Self::LogTable(_) => LOG_TABLE,
-        }
-    }
-
-    /// Of its kind, of `saved`: each missing as by default.
+    /// Of its variant, of `saved`: each missing as by default.
     fn load(self, saved: &Value) -> Result<Self, serde_json::Error> {
         fn of<T: DeserializeOwned>(saved: &Value) -> Result<T, serde_json::Error> {
             T::deserialize(saved)
@@ -541,11 +541,13 @@ pub fn GraphProvider(
 mod tests {
     use serde_json::json;
 
+    use std::mem::discriminant;
+
     use super::{
-        AxisScale, DrawStyle, GraphProperty, GraphSettings, LOG_TABLE, SCATTER, TimeRange,
-        TimeRangeWidth, TimeSeriesSettings,
+        AxisScale, DrawStyle, GraphProperty, GraphSettings, TimeRange, TimeRangeWidth,
+        TimeSeriesSettings,
     };
-    use crate::elements::graph::builtin_graph_kinds;
+    use crate::elements::graph::{LOG_TABLE, SCATTER, builtin_graph_kinds};
 
     #[test]
     fn widths_are_steps_within_their_range_the_shortest_at_first() {
@@ -640,10 +642,27 @@ mod tests {
 
     #[test]
     fn each_kind_makes_settings_of_its_own() {
-        for kind in builtin_graph_kinds() {
+        let variants: Vec<_> = builtin_graph_kinds()
+            .iter()
+            .map(|kind| discriminant(&(kind.settings)()))
+            .collect();
+        for (kind, variant) in builtin_graph_kinds().iter().zip(&variants) {
             assert_eq!(kind.property().kind().name, kind.name);
+            assert_eq!(
+                variants.iter().filter(|other| *other == variant).count(),
+                1,
+                "{}: a variant of its own",
+                kind.name
+            );
             for preset in kind.presets {
-                assert_eq!((preset.property)().kind().name, kind.name);
+                let property = kind.preset(preset);
+                assert_eq!(property.kind().name, kind.name);
+                assert_eq!(
+                    discriminant(&property.settings),
+                    *variant,
+                    "{}",
+                    preset.name
+                );
             }
         }
     }

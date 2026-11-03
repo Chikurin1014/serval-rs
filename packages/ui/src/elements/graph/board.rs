@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use super::{GraphContext, GraphKind, GraphProperty};
+use super::{GraphContext, GraphKind, GraphPreset, GraphProperty};
 use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -159,13 +159,13 @@ struct MenuItem {
     name: &'static str,
     kind: GraphKind,
     /// None for the kind as it is.
-    preset: Option<fn() -> GraphProperty>,
+    preset: Option<&'static GraphPreset>,
 }
 
 impl MenuItem {
     fn property(&self) -> GraphProperty {
         self.preset
-            .map_or_else(|| self.kind.property(), |preset| preset())
+            .map_or_else(|| self.kind.property(), |preset| self.kind.preset(preset))
     }
 }
 
@@ -186,7 +186,7 @@ fn menu_items(kinds: &[GraphKind]) -> Vec<(&'static str, Vec<MenuItem>)> {
                 .map(|preset| MenuItem {
                     name: preset.name,
                     kind,
-                    preset: Some(preset.property),
+                    preset: Some(preset),
                 })
                 .collect()
         };
