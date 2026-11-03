@@ -1,8 +1,13 @@
 //! Received chunks, gathered for about a frame before they go into the data.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    future::{Future, poll_fn},
+    rc::Rc,
+    task::{Poll, Waker},
+};
 
-use dioxus::prelude::*;
+use dioxus::{core::queue_effect, prelude::*};
 
 use super::{history::ReceivedHistory, record::Recorder};
 use crate::data::{ByteData, DataContext, RAW_BYTES_LABEL};
@@ -73,6 +78,33 @@ impl Received {
         }
         data.push_all(RAW_BYTES_LABEL, chunks);
     }
+}
+
+/// Done once the effects queued so far have run, e.g. those of a page just
+/// shown, which add its stylesheets. Dioxus runs effects only once no task
+/// makes a component render: chunks flushed every `GATHER_MS` would render
+/// the page each time before them, and they would never run.
+pub(super) fn after_effects() -> impl Future<Output = ()> {
+    let ran: Rc<RefCell<(bool, Option<Waker>)>> = Rc::default();
+    queue_effect({
+        let ran = ran.clone();
+        move || {
+            let mut ran = ran.borrow_mut();
+            ran.0 = true;
+            if let Some(waker) = ran.1.take() {
+                waker.wake();
+            }
+        }
+    });
+    poll_fn(move |cx| {
+        let mut ran = ran.borrow_mut();
+        if ran.0 {
+            Poll::Ready(())
+        } else {
+            ran.1 = Some(cx.waker().clone());
+            Poll::Pending
+        }
+    })
 }
 
 #[cfg(test)]
