@@ -7,7 +7,7 @@ web/
 ├─ assets/ # Assets used by the web app - Any platform specific assets should go in this folder
 ├─ src/
 │  ├─ main.rs # The entrypoint for the web app: its providers, routes and navbar
-│  ├─ serial.rs, serial.js # The serial port, by Web Serial
+│  ├─ files.rs, record_file.js # Record files, by the File System Access API
 │  ├─ time.rs # The clock, by the browser's
 ├─ Cargo.toml # The web crate's Cargo.toml - This should include all web specific dependencies
 ```

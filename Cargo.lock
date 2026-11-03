@@ -5228,9 +5228,12 @@ dependencies = [
 name = "serial-runtime"
 version = "0.7.1"
 dependencies = [
+ "js-sys",
  "serialport",
  "tokio",
  "usb-ids",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -6392,8 +6395,8 @@ dependencies = [
  "dioxus",
  "dioxus-icons",
  "js-sys",
+ "serial-runtime",
  "ui",
- "usb-ids",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]

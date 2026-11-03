@@ -1,33 +1,34 @@
+//! The web app's serial ports: those of Web Serial, each allowed by the user.
+
 use std::rc::Rc;
 
 use js_sys::{Array, Uint8Array};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
-use ui::helper::Choice;
-use ui::serial::{
-    Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
+use crate::{
+    Baudrate, Choice, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
 };
 
 /// The serial ports of Web Serial.
 pub fn backend() -> Rc<dyn SerialBackend> {
-    Rc::new(WebSerial)
+    Rc::new(WebBackend)
 }
 
 pub fn is_supported() -> bool {
-    web_serial::is_supported()
+    js::is_supported()
 }
 
-struct WebSerial;
+struct WebBackend;
 
-impl SerialBackend for WebSerial {
+impl SerialBackend for WebBackend {
     fn needs_request(&self) -> bool {
         true
     }
 
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>> {
         Box::pin(async {
-            match web_serial::request_port().await {
-                Ok(port) => Ok(Some(Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)),
+            match js::request_port().await {
+                Ok(port) => Ok(Some(Rc::new(WebPort(port)) as Rc<dyn SerialPort>)),
                 Err(error) if error_name(&error).as_deref() == Some("NotFoundError") => Ok(None),
                 Err(error) => Err(message(error)),
             }
@@ -36,18 +37,18 @@ impl SerialBackend for WebSerial {
 
     fn known_ports(&self) -> LocalFuture<SerialResult<Vec<Rc<dyn SerialPort>>>> {
         Box::pin(async {
-            let ports = web_serial::get_ports().await.map_err(message)?;
+            let ports = js::get_ports().await.map_err(message)?;
             Ok(Array::from(&ports)
                 .into_iter()
-                .map(|port| Rc::new(WebSerialPort(port)) as Rc<dyn SerialPort>)
+                .map(|port| Rc::new(WebPort(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
     }
 }
 
-struct WebSerialPort(JsValue);
+struct WebPort(JsValue);
 
-impl SerialPort for WebSerialPort {
+impl SerialPort for WebPort {
     fn info(&self) -> PortInfo {
         port_info(&self.0)
     }
@@ -55,7 +56,7 @@ impl SerialPort for WebSerialPort {
     fn open(&self, baudrate: Baudrate, extra: ExtraSettings) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move {
-            web_serial::open_port(
+            js::open_port(
                 &port,
                 baudrate.bps(),
                 extra.data_bits,
@@ -74,16 +75,14 @@ impl SerialPort for WebSerialPort {
             let on_chunk =
                 Closure::wrap(Box::new(move |chunk: Uint8Array| on_chunk(chunk.to_vec()))
                     as Box<dyn FnMut(Uint8Array)>);
-            web_serial::read_loop(&port, &on_chunk)
-                .await
-                .map_err(message)
+            js::read_loop(&port, &on_chunk).await.map_err(message)
         })
     }
 
     fn write(&self, bytes: Vec<u8>) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
         Box::pin(async move {
-            web_serial::write_port(&port, Uint8Array::from(bytes.as_slice()))
+            js::write_port(&port, Uint8Array::from(bytes.as_slice()))
                 .await
                 .map_err(message)
         })
@@ -91,29 +90,25 @@ impl SerialPort for WebSerialPort {
 
     fn set_signals(&self, dtr: Option<bool>, rts: Option<bool>) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
-        Box::pin(async move {
-            web_serial::set_signals(&port, dtr, rts)
-                .await
-                .map_err(message)
-        })
+        Box::pin(async move { js::set_signals(&port, dtr, rts).await.map_err(message) })
     }
 
     fn set_break(&self, on: bool) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
-        Box::pin(async move { web_serial::set_break(&port, on).await.map_err(message) })
+        Box::pin(async move { js::set_break(&port, on).await.map_err(message) })
     }
 
     fn close(&self) -> LocalFuture<SerialResult<()>> {
         let port = self.0.clone();
-        Box::pin(async move { web_serial::close_port(&port).await.map_err(message) })
+        Box::pin(async move { js::close_port(&port).await.map_err(message) })
     }
 }
 
-mod web_serial {
+mod js {
     use js_sys::Uint8Array;
     use wasm_bindgen::{JsValue, closure::Closure, prelude::wasm_bindgen};
 
-    #[wasm_bindgen(module = "/src/serial.js")]
+    #[wasm_bindgen(module = "/src/backend/web_glue.js")]
     extern "C" {
         #[wasm_bindgen(js_name = isSupported)]
         pub fn is_supported() -> bool;
@@ -167,9 +162,9 @@ mod web_serial {
 }
 
 fn port_info(port: &JsValue) -> PortInfo {
-    let vendor_id = web_serial::usb_vendor_id(port);
+    let vendor_id = js::usb_vendor_id(port);
     let device = vendor_id
-        .zip(web_serial::usb_product_id(port))
+        .zip(js::usb_product_id(port))
         .and_then(|(vid, pid)| usb_ids::Device::from_vid_pid(vid, pid));
     let vendor = vendor_id
         .and_then(<usb_ids::Vendor as usb_ids::FromId<u16>>::from_id)
@@ -191,7 +186,7 @@ fn error_name(error: &JsValue) -> Option<String> {
         .as_string()
 }
 
-pub(crate) fn message(error: JsValue) -> String {
+fn message(error: JsValue) -> String {
     match error.dyn_ref::<js_sys::Error>() {
         Some(error) => error.message().into(),
         None => format!("{error:?}"),

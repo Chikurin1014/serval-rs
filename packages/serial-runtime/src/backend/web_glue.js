@@ -1,4 +1,4 @@
-// Web Serial calls for `serial.rs`; tests pass a fake `serial`.
+// Web Serial calls for `web.rs`; tests pass a fake `serial`.
 
 export function isSupported(nav = navigator) {
   return "serial" in nav;
