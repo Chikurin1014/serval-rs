@@ -76,6 +76,11 @@ function framed(url, title, cspSource, script) {
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'" />
     <style>
       html, body, iframe { display: block; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; }
+      /* The frame's page prefers VS Code's light or dark (not the OS's), as
+         its \`prefers-color-scheme\` is the frame's \`color-scheme\` */
+      iframe { color-scheme: light; }
+      body[data-vscode-theme-kind="vscode-dark"] iframe,
+      body[data-vscode-theme-kind="vscode-high-contrast"] iframe { color-scheme: dark; }
     </style>
   </head>
   <body>
