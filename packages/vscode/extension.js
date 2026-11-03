@@ -11,6 +11,7 @@ const path = require("node:path");
 const vscode = require("vscode");
 
 const { startBridge } = require("./bridge.js");
+const { createFiles } = require("./files.js");
 
 /** The bridge program of this OS, in `bin`. */
 const BRIDGE_PROGRAM = process.platform === "win32"
@@ -186,11 +187,15 @@ function activate(context) {
     );
     // Its pages in tabs of their own: closed with it, as is their server
     const tabs = new Map();
-    shown.webview.onDidReceiveMessage((message) => {
+    const files = createFiles(vscode);
+    shown.webview.onDidReceiveMessage(async (message) => {
       if (typeof message === "string") {
         bridge.send(message);
       } else if (message?.servalOpen) {
         openLink(message.servalOpen, url.toString(), tabs);
+      } else if (message?.servalFile) {
+        const answer = await files.answer(message.servalFile);
+        void shown.webview.postMessage({ servalFile: answer });
       }
     });
     shown.onDidDispose(() => {
@@ -198,6 +203,7 @@ function activate(context) {
       for (const tab of tabs.values()) {
         tab.dispose();
       }
+      void files.closeAll();
       bridge.end();
       server.close();
     });

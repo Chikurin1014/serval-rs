@@ -1,7 +1,7 @@
 use dioxus::{html::FileData, prelude::*};
 use dioxus_icons::lucide;
 
-use crate::serial::SerialContext;
+use crate::{helper::open_picked_file, save::PickedFile, serial::SerialContext};
 
 /// Picks a file to send to the open port as it is, or stops the one being
 /// sent. Its own component, as the console renders again with each key typed.
@@ -30,6 +30,13 @@ pub fn SendFileButton() -> Element {
             class: "console-file",
             title: "Send a file",
             "data-disabled": !open,
+            // Through the platform's own way of opening a file, if it has one
+            onclick: move |event: MouseEvent| {
+                let picked = move |file: PickedFile| serial.send_file(file.name, file.bytes);
+                if open && open_picked_file(&[], picked) {
+                    event.prevent_default();
+                }
+            },
             input {
                 key: "{picks}",
                 class: "console-file-input",

@@ -14,7 +14,7 @@ use crate::{
     elements::graph::{GraphContext, GraphKind, GraphProperty},
     helper::{clear_file, pick_file},
     save::save_text,
-    toast::use_toaster,
+    toast::{Toaster, use_toaster},
 };
 
 mod compatibility;
@@ -175,8 +175,8 @@ pub fn import_layout(
 /// Exports the layout to a file, or imports one in place of it.
 #[component]
 pub fn LayoutMenu() -> Element {
-    let mut maps = use_context::<MapContext>();
-    let mut graphs = use_context::<GraphContext>();
+    let maps = use_context::<MapContext>();
+    let graphs = use_context::<GraphContext>();
     let toaster = use_toaster();
     let mut open = use_signal(|| false);
 
@@ -204,7 +204,10 @@ pub fn LayoutMenu() -> Element {
                     index: 0usize,
                     on_select: move |_: &str| {
                         open.set(false);
-                        pick_file(FILE_INPUT_ID);
+                        pick_file(FILE_INPUT_ID, &["json"], move |file| {
+                            let text = String::from_utf8(file.bytes).map_err(|error| error.to_string());
+                            import_file(maps, graphs, toaster, &file.name, text);
+                        });
                     },
                     lucide::FileUp {}
                     "Import from JSON"
@@ -234,18 +237,27 @@ pub fn LayoutMenu() -> Element {
                 let Some(file) = event.files().into_iter().next() else {
                     return;
                 };
-                let imported = match file.read_string().await {
-                    Ok(text) => import_layout(&mut maps, &mut graphs, &text),
-                    Err(error) => Err(error.to_string()),
-                };
+                let text = file.read_string().await.map_err(|error| error.to_string());
                 // So the same file picked again is a change
                 clear_file(FILE_INPUT_ID);
-                match imported {
-                    Ok(()) => toaster.success("Layout imported", &file.name()),
-                    Err(error) => toaster.error("Failed to import the layout", &error),
-                }
+                import_file(maps, graphs, toaster, &file.name(), text);
             },
         }
+    }
+}
+
+/// Imports the layout of the file `name`, of its `text` (or why it was not
+/// read); told in a toast.
+fn import_file(
+    mut maps: MapContext,
+    mut graphs: GraphContext,
+    toaster: Toaster,
+    name: &str,
+    text: Result<String, String>,
+) {
+    match text.and_then(|text| import_layout(&mut maps, &mut graphs, &text)) {
+        Ok(()) => toaster.success("Layout imported", name),
+        Err(error) => toaster.error("Failed to import the layout", &error),
     }
 }
 

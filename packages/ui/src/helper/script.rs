@@ -1,4 +1,9 @@
-use dioxus::{document::Eval, prelude::*};
+use dioxus::{core::spawn_forever, document::Eval, prelude::*};
+
+use crate::{
+    save::{FileOpener, PickedFile},
+    toast::consume_toaster,
+};
 
 /// Runs `script`, told `()` as the component is dropped, so it ends.
 pub(crate) fn use_script(script: &'static str) -> Eval {
@@ -9,9 +14,39 @@ pub(crate) fn use_script(script: &'static str) -> Eval {
     eval
 }
 
-/// Opens the file picker of the file input of `id`.
-pub(crate) fn pick_file(id: &str) {
-    document::eval(&format!("document.getElementById({id:?})?.click()"));
+/// Picks a file: through the platform's [`FileOpener`] if it has one,
+/// `on_pick` then given it, else through the file input of `id` (whose change
+/// takes it). `extensions` are those it may have (any if none).
+pub(crate) fn pick_file(
+    id: &str,
+    extensions: &'static [&'static str],
+    on_pick: impl FnOnce(PickedFile) + 'static,
+) {
+    if !open_picked_file(extensions, on_pick) {
+        document::eval(&format!("document.getElementById({id:?})?.click()"));
+    }
+}
+
+/// Picks a file through the platform's [`FileOpener`], `on_pick` then given
+/// it; false if it has none (for the page's file inputs).
+pub(crate) fn open_picked_file(
+    extensions: &'static [&'static str],
+    on_pick: impl FnOnce(PickedFile) + 'static,
+) -> bool {
+    let Some(opener) = try_consume_context::<FileOpener>() else {
+        return false;
+    };
+    let toaster = consume_toaster();
+    let picked = opener.open(extensions);
+    // Past the component asking (e.g. in a menu that closes)
+    spawn_forever(async move {
+        match picked.await {
+            Ok(Some(file)) => on_pick(file),
+            Ok(None) => {}
+            Err(error) => toaster.error("Failed to open the file", &error),
+        }
+    });
+    true
 }
 
 /// Empties the file input of `id`, so the same file picked again is a change.
