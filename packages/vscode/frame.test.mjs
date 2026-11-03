@@ -52,11 +52,14 @@ test("takes VS Code's fonts, and drops those it no longer has", () => {
   assert.equal(root.properties.has("--dc-console-font"), false);
 });
 
-test("marks the page, and takes the theme from its parent alone", () => {
+/** A frame's window, started: what it is sent, and what it sends its parent. */
+function startedHost() {
   const listeners = [];
+  const clicks = [];
   const root = fakeRoot();
   const appended = [];
-  const parent = {};
+  const sent = [];
+  const parent = { postMessage: (message) => sent.push(message) };
   const host = {
     parent,
     addEventListener: (_, listener) => listeners.push(listener),
@@ -64,9 +67,43 @@ test("marks the page, and takes the theme from its parent alone", () => {
       documentElement: root,
       head: { append: (element) => appended.push(element) },
       createElement: () => ({}),
+      addEventListener: (_, listener) => clicks.push(listener),
     },
   };
   start(host);
+  return { host, listeners, clicks, root, appended, parent, sent };
+}
+
+test("asks VS Code to open the links it would open in a new tab", () => {
+  const { clicks, sent } = startedHost();
+  const click = (link) => {
+    const event = {
+      target: { closest: () => link },
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    clicks.forEach((listener) => listener(event));
+    return event;
+  };
+
+  const licenses = {
+    href: "http://127.0.0.1:5000/third-party-licenses.html",
+    textContent: " Licenses ",
+  };
+  assert.equal(click(licenses).defaultPrevented, true);
+  assert.deepEqual(sent, [{
+    servalOpen: { url: licenses.href, title: "Licenses" },
+  }]);
+
+  // Not a link of a new tab: left to the page
+  assert.equal(click(null).defaultPrevented, false);
+  assert.equal(sent.length, 1);
+});
+
+test("marks the page, and takes the theme from its parent alone", () => {
+  const { host, listeners, root, appended, parent } = startedHost();
   assert.equal(host.servalExtension, true);
   assert.match(appended[0].textContent, /\.theme-switch/);
 

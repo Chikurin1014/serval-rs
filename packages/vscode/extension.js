@@ -65,9 +65,10 @@ function serve(root) {
   });
 }
 
-/** A frame of the app at `url`, its messages passed to and from the extension. */
-function page(url, cspSource, nonce) {
+/** A panel's page of a frame of `url`, and `script` (of its origin) if any. */
+function framed(url, title, cspSource, script) {
   const { origin } = new URL(url);
+  const nonce = randomBytes(16).toString("hex");
   return `<!doctype html>
 <html>
   <head>
@@ -78,8 +79,15 @@ function page(url, cspSource, nonce) {
     </style>
   </head>
   <body>
-    <iframe id="app" src="${url}" title="Serval"></iframe>
-    <script nonce="${nonce}">
+    <iframe id="app" src="${url}" title="${title}"></iframe>
+    ${script ? `<script nonce="${nonce}">${script(origin)}</script>` : ""}
+  </body>
+</html>`;
+}
+
+/** A frame of the app at `url`, its messages passed to and from the extension. */
+function page(url, cspSource) {
+  return framed(url, "Serval", cspSource, (origin) => `
       const vscode = acquireVsCodeApi();
       const app = document.getElementById("app");
       const origin = ${JSON.stringify(origin)};
@@ -109,9 +117,34 @@ function page(url, cspSource, nonce) {
       const watched = { attributes: true, attributeFilter: ["style", "class", "data-vscode-theme-kind"] };
       new MutationObserver(sendTheme).observe(document.documentElement, watched);
       new MutationObserver(sendTheme).observe(document.body, watched);
-    </script>
-  </body>
-</html>`;
+  `);
+}
+
+/**
+ * Opens a link the app would open in a new tab (`{ url, title }`): a page of
+ * its own (as its licenses) in a tab of VS Code, `tabs` of them, revealed if
+ * it is open; another in the browser.
+ */
+function openLink({ url, title }, appUrl, tabs) {
+  const link = new URL(url);
+  if (link.origin === new URL(appUrl).origin) {
+    const open = tabs.get(link.href);
+    if (open) {
+      open.reveal();
+      return;
+    }
+    const tab = vscode.window.createWebviewPanel(
+      "serval.page",
+      `Serval: ${title}`,
+      vscode.ViewColumn.Active,
+      {},
+    );
+    tabs.set(link.href, tab);
+    tab.onDidDispose(() => tabs.delete(link.href));
+    tab.webview.html = framed(link.href, title, tab.webview.cspSource);
+  } else if (link.protocol === "https:" || link.protocol === "http:") {
+    void vscode.env.openExternal(vscode.Uri.parse(link.href));
+  }
 }
 
 function activate(context) {
@@ -146,21 +179,24 @@ function activate(context) {
           `Serval: ${why}. Close the panel and open it again to restart it.`,
         ),
     );
-    shown.webview.onDidReceiveMessage((line) => {
-      if (typeof line === "string") {
-        bridge.send(line);
+    // Its pages in tabs of their own: closed with it, as is their server
+    const tabs = new Map();
+    shown.webview.onDidReceiveMessage((message) => {
+      if (typeof message === "string") {
+        bridge.send(message);
+      } else if (message?.servalOpen) {
+        openLink(message.servalOpen, url.toString(), tabs);
       }
     });
     shown.onDidDispose(() => {
       panel = undefined;
+      for (const tab of tabs.values()) {
+        tab.dispose();
+      }
       bridge.end();
       server.close();
     });
-    shown.webview.html = page(
-      url.toString(),
-      shown.webview.cspSource,
-      randomBytes(16).toString("hex"),
-    );
+    shown.webview.html = page(url.toString(), shown.webview.cspSource);
   };
 
   context.subscriptions.push(

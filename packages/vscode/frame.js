@@ -1,7 +1,8 @@
 // Runs in the app's frame, first in its <head> (as `extension.js` serves it):
 // tells the app it is in the extension, and follows VS Code's theme (light or
 // dark: the colors are the app's own) and fonts, as the panel's page passes
-// them on (`{ servalTheme }`).
+// them on (`{ servalTheme }`). The links it would open in a new tab, it asks
+// VS Code to (`{ servalOpen }`).
 
 const servalFrame = (() => {
   /** The app's fonts, each of VS Code's it takes. */
@@ -38,6 +39,15 @@ const servalFrame = (() => {
         apply(host.document.documentElement, data.servalTheme);
       }
     });
+    // A panel's frame opens no new tab: VS Code opens what it would
+    host.document.addEventListener("click", (event) => {
+      const link = event.target?.closest?.("a[target=\"_blank\"]");
+      if (link) {
+        event.preventDefault();
+        const servalOpen = { url: link.href, title: link.textContent.trim() };
+        host.parent.postMessage({ servalOpen }, "*");
+      }
+    }, true);
     // The theme is VS Code's: not switched here
     const style = host.document.createElement("style");
     style.textContent = ".theme-switch { display: none !important; }";
