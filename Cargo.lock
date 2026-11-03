@@ -5229,6 +5229,7 @@ name = "serial-runtime"
 version = "0.7.3"
 dependencies = [
  "js-sys",
+ "serde_json",
  "serialport",
  "tokio",
  "usb-ids",
