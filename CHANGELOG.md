@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/Chikurin1014/serval-rs/compare/v0.7.2...v0.7.3) (2026-11-03)
+
+
+### Bug Fixes
+
+* 🐛 Let effects run while a port receives ([7bc25d0](https://github.com/Chikurin1014/serval-rs/commit/7bc25d00c7185a5dcc305c7870d5e0c7d4c339a8))
+
 ## [0.7.2](https://github.com/Chikurin1014/serval-rs/compare/v0.7.1...v0.7.2) (2026-11-03)
 
 
