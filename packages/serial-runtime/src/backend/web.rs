@@ -186,7 +186,7 @@ fn error_name(error: &JsValue) -> Option<String> {
         .as_string()
 }
 
-fn message(error: JsValue) -> String {
+pub(super) fn message(error: JsValue) -> String {
     match error.dyn_ref::<js_sys::Error>() {
         Some(error) => error.message().into(),
         None => format!("{error:?}"),

@@ -1,5 +1,11 @@
+use std::rc::Rc;
+
 use dioxus::prelude::*;
 
+use serial_runtime::{
+    SerialBackend,
+    backend::{extension, web},
+};
 use ui::{AppPages, AppShell, Licenses};
 
 mod files;
@@ -21,10 +27,19 @@ fn main() {
     dioxus::launch(App);
 }
 
+/// The VS Code extension's ports in it, else Web Serial's.
+fn serial_backend() -> Rc<dyn SerialBackend> {
+    if extension::is_active() {
+        extension::backend()
+    } else {
+        web::backend()
+    }
+}
+
 #[component]
 fn App() -> Element {
     use_context_provider(time::context);
-    use_context_provider(serial_runtime::backend::web::backend);
+    use_context_provider(serial_backend);
     use_context_provider(files::record_picker);
 
     rsx! {
