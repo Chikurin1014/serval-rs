@@ -22,7 +22,7 @@ pub use serial_runtime::{
 mod recording;
 
 use history::{ReceivedHistory, Unread};
-use received::{GATHER_MS, Gathered, Received};
+use received::{GATHER_MS, Gathered, Received, after_effects};
 use record::{RecordFormat, Recorder};
 
 use crate::{
@@ -360,6 +360,7 @@ impl SerialContext {
                         let wait = time.read().after_ms(GATHER_MS);
                         context.spawn(async move {
                             wait.await;
+                            after_effects().await;
                             received.flush();
                         });
                     }
