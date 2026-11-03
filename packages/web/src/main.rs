@@ -41,6 +41,7 @@ fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial_backend);
     use_context_provider(files::record_picker);
+    let in_extension = extension::is_active();
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }
@@ -48,12 +49,14 @@ fn App() -> Element {
 
         AppShell {
             pages: AppPages {
-                documents: Some(DOCUMENTS_PAGE.to_string()),
+                // Not in VS Code's panel: the documents are the web app's
+                documents: (!in_extension).then(|| DOCUMENTS_PAGE.to_string()),
+                // In VS Code, in a tab of its own (as `frame.js` asks)
                 licenses: Licenses::Link(LICENSES_PAGE.to_string()),
             },
             // VS Code's panel has its own title: its tools in the toolbar's
             // menu, as on the desktop
-            navbar: !extension::is_active(),
+            navbar: !in_extension,
             UnsupportedBrowserDialog {}
         }
     }
