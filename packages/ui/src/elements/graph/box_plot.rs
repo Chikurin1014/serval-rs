@@ -3,15 +3,14 @@ mod window;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use window::SortedWindow;
 
 use super::{
-    AxisScale, GraphContext, GraphFrame, GraphKind, GraphSettings, TimeRange,
-    context::{until_paused, use_graph_setting, use_variant_setting},
+    AxisScale, BoxPlotSettings, GraphContext, GraphFrame, GraphKind, GraphSettings,
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
+    until_paused, use_graph_setting, use_variant_setting,
 };
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
@@ -26,14 +25,6 @@ pub const BOX_PLOT: GraphKind = GraphKind {
     settings: || GraphSettings::BoxPlot(BoxPlotSettings::default()),
     presets: &[],
 };
-
-/// A box plot's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct BoxPlotSettings {
-    pub value_scale: AxisScale,
-    pub time_range: TimeRange,
-}
 
 /// How far past a quartile a whisker reaches, in interquartile ranges (as
 /// Tukey's): the values further are outliers.

@@ -7,7 +7,7 @@ use sorted_vec::partial::SortedVec;
 
 use crate::data::{NumberData, Queue, SourceCursor};
 
-use super::super::context::until_paused;
+use super::super::until_paused;
 
 /// The values of one label at or after `since` (and up to a pause), sorted.
 #[derive(Debug, Default)]

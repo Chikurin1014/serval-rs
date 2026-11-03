@@ -1,10 +1,9 @@
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
-    context::{until_paused, use_graph_setting, use_variant_setting},
+    ArrowsSettings, GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
+    until_paused, use_graph_setting, use_variant_setting,
 };
 use crate::components::toggle::Toggle;
 use crate::data::{Data, DataContext, DataType, Queue, TypedData, Vector, format_number};
@@ -41,15 +40,6 @@ pub const ARROWS_3D: GraphKind = GraphKind {
         settings: || GraphSettings::Arrows3d(WITH_TRAILS),
     }],
 };
-
-/// The arrows' own settings (of 2D and 3D vectors alike), each missing in a
-/// layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ArrowsSettings {
-    /// Whether the arrows trail the tips they had.
-    pub trails: bool,
-}
 
 /// Of which vectors arrows are drawn: on a plane with uPlot, or in space with
 /// Zdog.

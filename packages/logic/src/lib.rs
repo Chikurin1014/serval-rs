@@ -2,6 +2,7 @@
 
 pub mod data;
 pub mod filter;
+pub mod graph;
 pub mod helper;
 pub mod plugin;
 pub mod save;

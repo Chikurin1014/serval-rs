@@ -1,12 +1,11 @@
 use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings,
-    context::{until_paused, use_graph_setting, use_variant_setting},
+    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings, LogTableSettings,
     plot::{PlotAssets, series_color},
+    until_paused, use_graph_setting, use_variant_setting,
 };
 use crate::components::{toggle::Toggle, virtual_list::VirtualList};
 use crate::data::{DataContext, DataType, LogData, LogLevel, Queue, TypedData};
@@ -36,14 +35,6 @@ pub const LOG_TABLE: GraphKind = GraphKind {
         },
     }],
 };
-
-/// A log table's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LogTableSettings {
-    /// The weakest level it shows: those weaker left out.
-    pub weakest_level: LogLevel,
-}
 
 /// A log of the table, by where it is: its time, its label's place among those
 /// shown, and its place in that label's queue (its message read only as it is
