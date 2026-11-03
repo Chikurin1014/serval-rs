@@ -3,6 +3,7 @@
 
 use std::{fmt, future::Future, pin::Pin, rc::Rc};
 
+pub mod backend;
 mod choice;
 #[cfg(feature = "native")]
 pub mod native;

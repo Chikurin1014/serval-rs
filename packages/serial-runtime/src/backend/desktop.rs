@@ -1,5 +1,5 @@
-//! Serial ports of the OS, through `serialport`: each read on a thread of its
-//! own, the rest on tokio's blocking threads.
+//! The desktop app's serial ports: those of the OS, each read on a thread of
+//! its own, the rest on tokio's blocking threads.
 
 use std::{
     cell::RefCell,
@@ -12,22 +12,22 @@ use std::{
     thread,
 };
 
-use serial_runtime::native::{self, READ_TIMEOUT};
 use serialport::SerialPortInfo;
 use tokio::sync::mpsc;
 
-use ui::serial::{
+use crate::{
     Baudrate, ExtraSettings, LocalFuture, PortInfo, SerialBackend, SerialPort, SerialResult,
+    native::{self, READ_TIMEOUT},
 };
 
 /// All the serial ports of the OS.
 pub fn backend() -> Rc<dyn SerialBackend> {
-    Rc::new(NativeSerial)
+    Rc::new(DesktopBackend)
 }
 
-struct NativeSerial;
+struct DesktopBackend;
 
-impl SerialBackend for NativeSerial {
+impl SerialBackend for DesktopBackend {
     // All are listed: none is requested
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>> {
         Box::pin(async { Ok(None) })
@@ -40,13 +40,13 @@ impl SerialBackend for NativeSerial {
                 .map_err(|error| error.to_string())?;
             Ok(ports
                 .iter()
-                .map(|port| Rc::new(NativePort::new(port)) as Rc<dyn SerialPort>)
+                .map(|port| Rc::new(DesktopPort::new(port)) as Rc<dyn SerialPort>)
                 .collect())
         })
     }
 }
 
-struct NativePort {
+struct DesktopPort {
     info: PortInfo,
     path: String,
     /// While open.
@@ -62,7 +62,7 @@ struct Opened {
     reading: Arc<AtomicBool>,
 }
 
-impl NativePort {
+impl DesktopPort {
     fn new(port: &SerialPortInfo) -> Self {
         Self {
             info: native::port_info(port),
@@ -92,7 +92,7 @@ impl NativePort {
     }
 }
 
-impl SerialPort for NativePort {
+impl SerialPort for DesktopPort {
     fn info(&self) -> PortInfo {
         self.info.clone()
     }
@@ -187,7 +187,7 @@ impl SerialPort for NativePort {
     }
 }
 
-pub(crate) async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send + 'static) -> T {
+async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send + 'static) -> T {
     tokio::task::spawn_blocking(task)
         .await
         .expect("a blocking task is not cancelled")
@@ -197,13 +197,13 @@ pub(crate) async fn blocking<T: Send + 'static>(task: impl FnOnce() -> T + Send 
 mod tests {
     use std::{cell::RefCell, io::Write, rc::Rc, time::Duration};
 
+    use crate::{Baudrate, ExtraSettings, SerialPort};
     use serialport::{SerialPort as _, SerialPortInfo, SerialPortType};
-    use ui::serial::{Baudrate, ExtraSettings, SerialPort};
 
-    use super::NativePort;
+    use super::DesktopPort;
 
     /// Of a pseudo terminal: its other side, as the device, and the port.
-    fn device_and_port() -> (serialport::TTYPort, NativePort) {
+    fn device_and_port() -> (serialport::TTYPort, DesktopPort) {
         let (device, port) = serialport::TTYPort::pair().expect("a pseudo terminal");
         let path = port.name().expect("its path");
         // Let go, for the app to open
@@ -212,7 +212,7 @@ mod tests {
             port_name: path,
             port_type: SerialPortType::Unknown,
         };
-        (device, NativePort::new(&info))
+        (device, DesktopPort::new(&info))
     }
 
     #[tokio::test]

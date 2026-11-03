@@ -22,9 +22,8 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 rfd = { version = "0.17.2", default-features = false, features = [
   "xdg-portal",
 ] }
-serial-runtime = { workspace = true, features = ["native"] }
-serialport = "4.7"
-# Reading the ports on threads, and the app's timers: on Dioxus's runtime
+serial-runtime = { workspace = true, features = ["desktop"] }
+# The app's timers, and the record files written on threads: on Dioxus's runtime
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 ui = { workspace = true }
 
