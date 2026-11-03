@@ -30,5 +30,9 @@ __pycache__/
 /packages/web/public/docs
 /docs/src/media
 
+# The web app and the serial bridge, built, in the VS Code extension
+/packages/vscode/media
+/packages/vscode/bin
+
 # The plugins' API reference, generated (`nix build .#docs-api -o docs/src/api`)
 /docs/src/api
