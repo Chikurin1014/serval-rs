@@ -106,7 +106,9 @@ jobs:
       - name: Check the app's signature
         if: runner.os == 'macOS'
         run: |
-          mount=$(hdiutil attach dist/Serval-arm64.dmg -nobrowse | tail -n 1 | cut -f 3)
+          # At a path of its own: hdiutil does not always tell it last
+          mount="$RUNNER_TEMP/serval-dmg"
+          hdiutil attach dist/Serval-arm64.dmg -nobrowse -mountpoint "$mount"
           codesign --verify --deep --verbose "$mount/Serval.app"
           hdiutil detach "$mount"
 
