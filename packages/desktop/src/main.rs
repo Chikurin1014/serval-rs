@@ -118,7 +118,9 @@ fn App() -> Element {
                 documents: None,
                 licenses: Licenses::Inline(LICENSES_PAGE),
             },
+            // For room: the tools and the toolbar in its menu
             navbar: false,
+            toolbar: false,
             RecordCloseGuard {}
         }
     }

@@ -55,7 +55,7 @@ fn App() -> Element {
                 licenses: Licenses::Link(LICENSES_PAGE.to_string()),
             },
             // VS Code's panel has its own title: its tools in the toolbar's
-            // menu, as on the desktop
+            // menu, as on the desktop, though the toolbar is shown
             navbar: !in_extension,
             UnsupportedBrowserDialog {}
         }

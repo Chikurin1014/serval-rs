@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
 use crate::{
-    app::{AppTools, LicensesLink, tools_in_menu},
+    app::{AppTools, LicensesLink, toolbar_in_menu, tools_in_menu},
     components::{
         button::{Button, ButtonSize, ButtonVariant},
         sheet::{Sheet, SheetContentClose, SheetHeader, SheetTitle},
@@ -18,6 +18,9 @@ use crate::{
 pub fn ToolbarMenu(children: Element) -> Element {
     let mut open = use_signal(|| false);
     let app_tools = tools_in_menu();
+    // Where it has room, the toolbar has the port's items and the tabs: the
+    // menu leaves them out there (by CSS)
+    let toolbar_shown = !toolbar_in_menu();
 
     rsx! {
         Button {
@@ -32,6 +35,7 @@ pub fn ToolbarMenu(children: Element) -> Element {
         Sheet {
             class: "toolbar-menu",
             "data-side": "left",
+            "data-toolbar-shown": toolbar_shown,
             open: open(),
             on_open_change: move |value| open.set(value),
             SheetHeader {
@@ -41,7 +45,7 @@ pub fn ToolbarMenu(children: Element) -> Element {
             div {
                 class: "toolbar-menu-body",
                 section {
-                    class: "toolbar-menu-section",
+                    class: "toolbar-menu-section toolbar-menu-port",
                     aria_label: "Port",
                     h3 { class: "toolbar-menu-heading", "Port" }
                     PortSelector {}

@@ -50,7 +50,8 @@
   opacity: 1;
 }
 
-.home[data-toolbar-in-menu="true"] button.toolbar-menu-button {
+.home[data-toolbar-in-menu="true"] button.toolbar-menu-button,
+.home[data-tools-in-menu="true"] button.toolbar-menu-button {
   display: inline-flex;
 }
 
@@ -61,6 +62,28 @@
 
   .home .toolbar {
     display: none;
+  }
+}
+
+/* Where the toolbar is shown, the menu has only what it lacks: the app's
+   tools with no navbar. Its button leads the toolbar, in a place of its own */
+@media not (max-width: 70rem) {
+  .toolbar-menu[data-toolbar-shown="true"] .toolbar-menu-port,
+  .toolbar-menu[data-toolbar-shown="true"] .toolbar-menu-footer {
+    display: none;
+  }
+
+  .home[data-tools-in-menu="true"][data-toolbar-in-menu="false"]
+    button.toolbar-menu-button {
+    top: 0.75rem;
+    left: 0.75rem;
+    background: none;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .home[data-tools-in-menu="true"][data-toolbar-in-menu="false"] .toolbar {
+    padding-left: 2.5rem;
   }
 }
 
