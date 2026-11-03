@@ -7,6 +7,7 @@ edition.workspace = true
 
 [dependencies]
 js-sys = { version = "0.3", optional = true }
+serde_json = { version = "1.0", optional = true }
 serialport = { version = "4.7", optional = true }
 # Reading the ports on threads: on the desktop app's runtime
 tokio = { version = "1", features = ["rt", "sync", "time"], optional = true }
@@ -22,6 +23,17 @@ native = ["dep:serialport"]
 desktop = ["native", "dep:tokio"]
 # The web app's ports, of Web Serial
 web = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+# The program the VS Code extension opens the ports through
+serial-bridge = ["native", "dep:serde_json"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
+
+# Opens the OS's ports for the VS Code extension, whose page cannot
+[[bin]]
+name = "serial-bridge"
+required-features = ["serial-bridge"]
+
+[[test]]
+name = "bridge"
+required-features = ["serial-bridge"]

@@ -48,7 +48,7 @@ serval-rs/
 ├─ packages/
 │  ├─ ui/       # Components shared by the apps
 │  ├─ logic/    # What the app does, apart from how ui shows it
-│  ├─ serial-runtime/  # The serial ports of each platform
+│  ├─ serial-runtime/  # The serial ports of each platform, and serial-bridge
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
 │  └─ embed-assets/  # Puts the desktop app's assets in its binary
