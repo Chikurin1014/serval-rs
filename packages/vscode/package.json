@@ -1,0 +1,28 @@
+{
+  "name": "serval",
+  "displayName": "Serval",
+  "description": "Cross-Platform Serial Visualizer",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "publisher": "chikurin1014",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chikurin1014/serval-rs"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "main": "./extension.js",
+  "extensionKind": ["ui"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "serval.open",
+        "title": "Open",
+        "category": "Serval"
+      }
+    ]
+  }
+}
