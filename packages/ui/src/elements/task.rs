@@ -18,7 +18,7 @@ use crate::{
     helper::{clear_file, concat_scripts, pick_file, single_line, use_script},
     plugin::{ImportError, Imported, Task, TaskContext, TaskOutcome},
     time::TimeContext,
-    toast::use_toaster,
+    toast::{Toaster, use_toaster},
 };
 
 // The cards as the maps'
@@ -229,10 +229,10 @@ pub fn TaskStdout() -> Element {
 /// functions.
 #[component]
 pub fn PluginButton() -> Element {
-    let mut context = use_context::<TaskContext>();
+    let context = use_context::<TaskContext>();
     let toaster = use_toaster();
     // The file that did not compile, and what the compiler told
-    let mut failed = use_signal(|| None::<(String, String)>);
+    let failed = use_signal(|| None::<(String, String)>);
 
     rsx! {
         document::Link { rel: "stylesheet", href: TASK_LIST_CSS }
@@ -244,7 +244,12 @@ pub fn PluginButton() -> Element {
             size: ButtonSize::IconSm,
             aria_label: "Import plugin",
             title: "Import a plugin (Rune)",
-            onclick: move |_| pick_file(PLUGIN_INPUT_ID),
+            onclick: move |_| {
+                pick_file(PLUGIN_INPUT_ID, &["rn"], move |file| {
+                    let source = String::from_utf8(file.bytes).map_err(|error| error.to_string());
+                    import_plugin(context, toaster, failed, file.name, source);
+                });
+            },
             lucide::Blocks {}
         }
         input {
@@ -256,33 +261,50 @@ pub fn PluginButton() -> Element {
                 let Some(file) = event.files().into_iter().next() else {
                     return;
                 };
-                let name = file.name();
-                let imported = match file.read_string().await {
-                    Ok(source) => context.import_plugin(&name, &source),
-                    Err(error) => Err(ImportError::Other(error.to_string())),
-                };
+                let source = file.read_string().await.map_err(|error| error.to_string());
                 // So the same file picked again is a change
                 clear_file(PLUGIN_INPUT_ID);
-                match imported {
-                    Ok(Imported { added, replaced, passed_over }) => {
-                        let mut detail = format!("{} of {name}", tasks(added));
-                        if replaced > 0 {
-                            detail += &format!(", in place of {}", tasks(replaced));
-                        }
-                        // Called with none, they would fail
-                        if !passed_over.is_empty() {
-                            detail += &format!(" (not of {}: taking arguments)", passed_over.join(", "));
-                        }
-                        let title = if replaced > 0 { "Plugin reimported" } else { "Plugin imported" };
-                        toaster.success(title, &detail);
-                    }
-                    Err(ImportError::Compile(told)) => failed.set(Some((name, told))),
-                    Err(ImportError::Other(error)) => {
-                        toaster.error("Failed to import the plugin", &error)
-                    }
-                }
+                import_plugin(context, toaster, failed, file.name(), source);
             },
         }
+    }
+}
+
+/// Imports the plugin of the file `name`, of its `source` (or why it was not
+/// read): told in a toast, or in `failed` if it did not compile.
+fn import_plugin(
+    mut context: TaskContext,
+    toaster: Toaster,
+    mut failed: Signal<Option<(String, String)>>,
+    name: String,
+    source: Result<String, String>,
+) {
+    let imported = source
+        .map_err(ImportError::Other)
+        .and_then(|source| context.import_plugin(&name, &source));
+    match imported {
+        Ok(Imported {
+            added,
+            replaced,
+            passed_over,
+        }) => {
+            let mut detail = format!("{} of {name}", tasks(added));
+            if replaced > 0 {
+                detail += &format!(", in place of {}", tasks(replaced));
+            }
+            // Called with none, they would fail
+            if !passed_over.is_empty() {
+                detail += &format!(" (not of {}: taking arguments)", passed_over.join(", "));
+            }
+            let title = if replaced > 0 {
+                "Plugin reimported"
+            } else {
+                "Plugin imported"
+            };
+            toaster.success(title, &detail);
+        }
+        Err(ImportError::Compile(told)) => failed.set(Some((name, told))),
+        Err(ImportError::Other(error)) => toaster.error("Failed to import the plugin", &error),
     }
 }
 

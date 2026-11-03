@@ -11,6 +11,7 @@ use ui::{AppPages, AppShell, Licenses};
 mod files;
 mod time;
 mod unsupported;
+mod vscode_files;
 
 use unsupported::UnsupportedBrowserDialog;
 
@@ -40,8 +41,16 @@ fn serial_backend() -> Rc<dyn SerialBackend> {
 fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial_backend);
-    use_context_provider(files::record_picker);
+    // The same each render, as the hooks must be
     let in_extension = extension::is_active();
+    if in_extension {
+        // Files through VS Code's dialogs, not the browser's nor downloads
+        use_context_provider(vscode_files::record_picker);
+        use_context_provider(vscode_files::saver);
+        use_context_provider(vscode_files::opener);
+    } else {
+        use_context_provider(files::record_picker);
+    }
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }

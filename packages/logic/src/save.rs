@@ -1,5 +1,6 @@
 //! Saving files the app makes (e.g. a layout or a CSV): downloaded, or as the
-//! platform saves them.
+//! platform saves them. And opening those it takes, as the platform opens them
+//! if it has its own way.
 
 use std::rc::Rc;
 
@@ -51,4 +52,34 @@ pub fn save_text(name: &str, mime: &str, text: String) {
             toaster.error("Failed to save the file", &error);
         }
     });
+}
+
+/// A file the user picked: its name and bytes.
+pub struct PickedFile {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
+/// Opens a file the user picks in the platform's own way (e.g. through its
+/// open dialog), in place of the page's file inputs: given the extensions it
+/// may have (e.g. `json`; any if none). `None` if they cancel. Provided as a
+/// context by the platform; with none, the file inputs are used.
+#[derive(Clone)]
+pub struct FileOpener(Rc<dyn Fn(Vec<String>) -> OpenedFile>);
+
+type OpenedFile = LocalFuture<SerialResult<Option<PickedFile>>>;
+
+impl FileOpener {
+    pub fn new(open: impl Fn(Vec<String>) -> OpenedFile + 'static) -> Self {
+        Self(Rc::new(open))
+    }
+
+    pub fn open(&self, extensions: &[&str]) -> OpenedFile {
+        (self.0)(
+            extensions
+                .iter()
+                .map(|extension| extension.to_string())
+                .collect(),
+        )
+    }
 }
