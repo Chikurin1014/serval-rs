@@ -5,15 +5,15 @@ use std::{cell::RefCell, rc::Rc};
 
 use dioxus::prelude::*;
 
-use super::{Line, PlotUpdate, ScatterFeed, ScatterSettings, statistics_texts};
+use super::{Line, PlotUpdate, ScatterFeed, statistics_texts};
 use crate::components::{input::Input, toggle::Toggle};
 use crate::data::{DataContext, DataEntry, DataType, NumberData};
 use crate::elements::Formula;
 use crate::elements::graph::{
-    AxisScale, GraphContext, GraphFrame,
-    context::use_variant_setting,
+    AxisScale, GraphContext, GraphFrame, ScatterSettings,
     plot::{PlotAssets, plot_script, use_plot},
     time_range::TimeRangeSetting,
+    use_variant_setting,
 };
 use crate::helper::set_if_changed;
 
