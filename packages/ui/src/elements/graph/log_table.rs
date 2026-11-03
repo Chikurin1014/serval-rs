@@ -1,11 +1,12 @@
 use std::{cell::Cell, rc::Rc};
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphContext, GraphFrame, GraphKind, GraphPreset, GraphSettings, LogTableSettings,
+    GraphContext, GraphFrame, GraphKind, GraphPreset, SettingsType,
     plot::{PlotAssets, series_color},
-    until_paused, use_graph_setting, use_variant_setting,
+    until_paused, use_graph_setting, use_own_setting,
 };
 use crate::components::{toggle::Toggle, virtual_list::VirtualList};
 use crate::data::{DataContext, DataType, LogData, LogLevel, Queue, TypedData};
@@ -24,17 +25,25 @@ pub const LOG_TABLE: GraphKind = GraphKind {
     name: "Log",
     menu: "Text",
     view: |id| rsx! { LogTable { id } },
-    settings: || GraphSettings::LogTable(LogTableSettings::default()),
+    settings: SettingsType::of::<LogTableSettings>(),
     // Itself, its logs of INFO and those that matter more from the start
     presets: &[GraphPreset {
         name: "Log",
         settings: || {
-            GraphSettings::LogTable(LogTableSettings {
+            Box::new(LogTableSettings {
                 weakest_level: LogLevel::Info,
             })
         },
     }],
 };
+
+/// A log table's own settings, each missing in a layout file as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LogTableSettings {
+    /// The weakest level it shows: those weaker left out.
+    pub weakest_level: LogLevel,
+}
 
 /// A log of the table, by where it is: its time, its label's place among those
 /// shown, and its place in that label's queue (its message read only as it is
@@ -146,7 +155,7 @@ pub fn LogTable(id: usize) -> Element {
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
-    let weakest = use_variant_setting(graph_context, id, |settings: &LogTableSettings| {
+    let weakest = use_own_setting(graph_context, id, |settings: &LogTableSettings| {
         settings.weakest_level
     });
 
@@ -224,7 +233,7 @@ pub fn LogTable(id: usize) -> Element {
                             Toggle {
                                 pressed: Some(weakest() == level),
                                 on_pressed_change: move |_| {
-                                    graph_context.update_variant(id, |settings: &mut LogTableSettings| settings.weakest_level = level);
+                                    graph_context.update_settings(id, |settings: &mut LogTableSettings| settings.weakest_level = level);
                                 },
                                 if level == LogLevel::None { "ALL" } else { "{level}" }
                             }

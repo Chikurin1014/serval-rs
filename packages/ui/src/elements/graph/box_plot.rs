@@ -3,14 +3,15 @@ mod window;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use window::SortedWindow;
 
 use super::{
-    AxisScale, BoxPlotSettings, GraphContext, GraphFrame, GraphKind, GraphSettings,
+    AxisScale, GraphContext, GraphFrame, GraphKind, SettingsType, TimeRange,
     plot::{PlotAssets, label_color, plot_script, use_plot, use_shown_count},
     time_range::TimeRangeSetting,
-    until_paused, use_graph_setting, use_variant_setting,
+    until_paused, use_graph_setting, use_own_setting,
 };
 use crate::components::toggle::Toggle;
 use crate::data::{DataContext, DataType, TypedData, format_number};
@@ -22,9 +23,17 @@ pub const BOX_PLOT: GraphKind = GraphKind {
     name: "Box plot",
     menu: "Statistics",
     view: |id| rsx! { BoxPlotGraph { id } },
-    settings: || GraphSettings::BoxPlot(BoxPlotSettings::default()),
+    settings: SettingsType::of::<BoxPlotSettings>(),
     presets: &[],
 };
+
+/// A box plot's own settings, each missing in a layout file as by default.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BoxPlotSettings {
+    pub value_scale: AxisScale,
+    pub time_range: TimeRange,
+}
 
 /// How far past a quartile a whisker reaches, in interquartile ranges (as
 /// Tukey's): the values further are outliers.
@@ -147,11 +156,11 @@ pub fn BoxPlotGraph(id: usize) -> Element {
     let data_context = use_context::<DataContext>();
     let filter_context = use_context::<FilterContext>();
     let mut graph_context = use_context::<GraphContext>();
-    let value_scale = use_variant_setting(graph_context, id, |settings: &BoxPlotSettings| {
+    let value_scale = use_own_setting(graph_context, id, |settings: &BoxPlotSettings| {
         settings.value_scale
     });
     let hidden = use_graph_setting(graph_context, id, |property| property.hidden.clone());
-    let time_range = use_variant_setting(graph_context, id, |settings: &BoxPlotSettings| {
+    let time_range = use_own_setting(graph_context, id, |settings: &BoxPlotSettings| {
         settings.time_range
     });
     let container_id = format!("graph-plot-{id}");
@@ -237,7 +246,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                             Toggle {
                                 pressed: Some(value_scale() == scale),
                                 on_pressed_change: move |_| {
-                                    graph_context.update_variant(id, |settings: &mut BoxPlotSettings| settings.value_scale = scale);
+                                    graph_context.update_settings(id, |settings: &mut BoxPlotSettings| settings.value_scale = scale);
                                 },
                                 "{scale.name()}"
                             }
@@ -247,7 +256,7 @@ pub fn BoxPlotGraph(id: usize) -> Element {
                 TimeRangeSetting {
                     range: time_range(),
                     on_change: move |range| {
-                        graph_context.update_variant(id, |settings: &mut BoxPlotSettings| settings.time_range = range);
+                        graph_context.update_settings(id, |settings: &mut BoxPlotSettings| settings.time_range = range);
                     },
                 }
             },

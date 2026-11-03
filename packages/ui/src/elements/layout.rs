@@ -265,7 +265,8 @@ mod tests {
         data::{DataProvider, MapContext, MapProvider},
         elements::{
             graph::{
-                AxisScale, DrawStyle, GraphContext, GraphProvider, GraphSettings, TimeRange,
+                AxisScale, BoxPlotSettings, DrawStyle, GraphContext, GraphProvider,
+                LogTableSettings, ScatterSettings, TimeRange, TimeSeriesSettings,
                 builtin_graph_kinds,
             },
             map::builtin_map_kinds,
@@ -378,14 +379,16 @@ mod tests {
             let [log, scatter] = &graphs.list()[..] else {
                 panic!("two graphs");
             };
-            let GraphSettings::LogTable(log_settings) = &log.property.settings else {
-                panic!("a log table's");
-            };
+            let log_settings = log
+                .property
+                .settings::<LogTableSettings>()
+                .expect("a log table's");
             assert_eq!(log_settings.weakest_level, crate::data::LogLevel::Warn);
             assert_eq!(log.property.hidden, ["log"]);
-            let GraphSettings::Scatter(scatter) = &scatter.property.settings else {
-                panic!("a scatter plot's");
-            };
+            let scatter = scatter
+                .property
+                .settings::<ScatterSettings>()
+                .expect("a scatter plot's");
             assert_eq!(scatter.x_label, "x");
             // Clamped to its steps
             assert_eq!(scatter.time_range.seconds(), Some(60));
@@ -451,20 +454,14 @@ mod tests {
             ]);
             import_layout(&mut maps, &mut graphs, &layout.to_string()).unwrap();
 
-            let settings: Vec<_> = graphs
-                .list()
-                .into_iter()
-                .map(|graph| graph.property.settings)
-                .collect();
-            let [
-                GraphSettings::TimeSeries(series),
-                GraphSettings::BoxPlot(box_plot),
-                GraphSettings::Scatter(scatter),
-                GraphSettings::LogTable(_),
-            ] = &settings[..]
-            else {
-                panic!("four graphs of their kinds: {settings:?}");
+            let graphs = graphs.list();
+            let [series, box_plot, scatter, log] = &graphs[..] else {
+                panic!("four graphs: {graphs:?}");
             };
+            let series = series.property.settings::<TimeSeriesSettings>().unwrap();
+            let box_plot = box_plot.property.settings::<BoxPlotSettings>().unwrap();
+            let scatter = scatter.property.settings::<ScatterSettings>().unwrap();
+            assert!(log.property.settings::<LogTableSettings>().is_some());
             assert_eq!(series.draw_style, DrawStyle::Stepped);
             assert_eq!(series.time_range.seconds(), Some(30));
             // Of all the values, as they were

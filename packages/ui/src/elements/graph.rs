@@ -1,7 +1,7 @@
-//! Graphs of the received data. To add a kind, give its settings a variant of
-//! [`GraphSettings`], make its [`GraphKind`] (its settings and presets all of
-//! that variant) and pass it to [`GraphProvider`]; views wrap their plot in
-//! [`GraphFrame`].
+//! Graphs of the received data. To add a kind, make its [`GraphKind`] of a type
+//! of settings of its own (any a layout file can keep: see [`GraphSettings`]),
+//! its presets of that type too, and pass it to [`GraphProvider`]; views wrap
+//! their plot in [`GraphFrame`].
 
 mod arrows;
 mod board;
@@ -13,20 +13,19 @@ mod scatter;
 mod time_range;
 mod time_series;
 
-pub use arrows::{ARROWS, ARROWS_3D, ArrowsGraph, Dimension};
+pub use arrows::{ARROWS, ARROWS_3D, ArrowsGraph, ArrowsSettings, Dimension};
 pub use board::GraphBoard;
-pub use box_plot::{BOX_PLOT, BoxPlotGraph};
+pub use box_plot::{BOX_PLOT, BoxPlotGraph, BoxPlotSettings};
 pub use frame::GraphFrame;
-pub use log_table::{LOG_TABLE, LogTable};
+pub use log_table::{LOG_TABLE, LogTable, LogTableSettings};
 pub use logic::graph::{
-    ArrowsSettings, AxisScale, BoxPlotSettings, DrawStyle, Graph, GraphContext, GraphKind,
-    GraphPreset, GraphProperty, GraphProvider, GraphSettings, LogTableSettings, ScatterSettings,
-    TimeRange, TimeRangeWidth, TimeSeriesSettings,
+    AxisScale, DrawStyle, Graph, GraphContext, GraphKind, GraphPreset, GraphProperty,
+    GraphProvider, GraphSettings, SettingsType, TimeRange, TimeRangeWidth,
 };
-pub use scatter::{SCATTER, ScatterGraph};
-pub use time_series::{TIME_SERIES, TimeSeriesGraph};
+pub use scatter::{SCATTER, ScatterGraph, ScatterSettings};
+pub use time_series::{TIME_SERIES, TimeSeriesGraph, TimeSeriesSettings};
 
-use logic::graph::{until_paused, use_graph_setting, use_variant_setting};
+use logic::graph::{until_paused, use_graph_setting, use_own_setting};
 
 pub fn builtin_graph_kinds() -> Vec<GraphKind> {
     vec![TIME_SERIES, BOX_PLOT, SCATTER, ARROWS, ARROWS_3D, LOG_TABLE]
@@ -36,9 +35,10 @@ pub fn builtin_graph_kinds() -> Vec<GraphKind> {
 mod tests {
     use serde_json::json;
 
-    use std::mem::discriminant;
-
-    use super::{GraphProperty, GraphSettings, LOG_TABLE, SCATTER, builtin_graph_kinds};
+    use super::{
+        AxisScale, DrawStyle, GraphProperty, LOG_TABLE, SCATTER, ScatterSettings, TimeRange,
+        TimeSeriesSettings, builtin_graph_kinds,
+    };
 
     #[test]
     fn a_graph_has_its_own_settings_and_those_of_every_kind() {
@@ -53,9 +53,9 @@ mod tests {
         let property = GraphProperty::load(SCATTER, &saved).unwrap();
         assert_eq!(property.kind().name, "Scatter");
         assert_eq!(property.title.as_deref(), Some("Pairs"));
-        let GraphSettings::Scatter(scatter) = &property.settings else {
-            panic!("a scatter plot's");
-        };
+        let scatter = property
+            .settings::<ScatterSettings>()
+            .expect("a scatter plot's");
         assert_eq!(scatter.x_label, "temp");
         assert!(scatter.regression);
 
@@ -83,28 +83,45 @@ mod tests {
 
     #[test]
     fn each_kind_makes_settings_of_its_own() {
-        let variants: Vec<_> = builtin_graph_kinds()
-            .iter()
-            .map(|kind| discriminant(&(kind.settings)()))
-            .collect();
-        for (kind, variant) in builtin_graph_kinds().iter().zip(&variants) {
+        // Its presets checked as they are made, too
+        for kind in builtin_graph_kinds() {
             assert_eq!(kind.property().kind().name, kind.name);
-            assert_eq!(
-                variants.iter().filter(|other| *other == variant).count(),
-                1,
-                "{}: a variant of its own",
-                kind.name
-            );
             for preset in kind.presets {
-                let property = kind.preset(preset);
-                assert_eq!(property.kind().name, kind.name);
-                assert_eq!(
-                    discriminant(&property.settings),
-                    *variant,
-                    "{}",
-                    preset.name
-                );
+                assert_eq!(kind.preset(preset).kind().name, kind.name);
             }
         }
+    }
+
+    fn series(text: &str) -> Result<TimeSeriesSettings, serde_json::Error> {
+        serde_json::from_str(text)
+    }
+
+    #[test]
+    fn a_layout_has_a_time_range_as_its_seconds_or_all() {
+        assert_eq!(series("{}").unwrap().time_range, TimeRange::default());
+        // Its name before: of a layout of v0.4.1, upgraded as it is imported, not here
+        let settings = series(r#"{"time_window": 30}"#).unwrap();
+        assert_eq!(settings.time_range, TimeRange::default());
+
+        let settings = series(r#"{"time_range": 64}"#).unwrap();
+        assert_eq!(settings.time_range.seconds(), Some(60));
+        assert_eq!(serde_json::to_value(&settings).unwrap()["time_range"], 60);
+        let settings = series(r#"{"time_range": "all"}"#).unwrap();
+        assert_eq!(settings.time_range, TimeRange::All);
+        assert_eq!(
+            serde_json::to_value(&settings).unwrap()["time_range"],
+            "all"
+        );
+        assert!(series(r#"{"time_range": "All"}"#).is_err());
+    }
+
+    #[test]
+    fn a_layout_has_scales_and_draw_styles_in_lower_case() {
+        let settings = series(r#"{"value_scale": "log", "draw_style": "stepped"}"#).unwrap();
+        assert_eq!(settings.value_scale, AxisScale::Log);
+        assert_eq!(settings.draw_style, DrawStyle::Stepped);
+        let written = serde_json::to_value(&settings).unwrap();
+        assert_eq!(written["draw_style"], "stepped");
+        assert!(series(r#"{"value_scale": "Log"}"#).is_err());
     }
 }

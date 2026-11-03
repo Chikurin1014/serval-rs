@@ -1,58 +1,6 @@
-//! Each kind's own settings, as a layout file keeps them, and those some kinds
-//! share.
+//! The settings some kinds share, as a layout file keeps them.
 
 use serde::{Deserialize, Serialize};
-
-use crate::data::LogLevel;
-
-/// A time series's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct TimeSeriesSettings {
-    pub value_scale: AxisScale,
-    pub draw_style: DrawStyle,
-    pub time_range: TimeRange,
-}
-
-/// A box plot's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct BoxPlotSettings {
-    pub value_scale: AxisScale,
-    pub time_range: TimeRange,
-}
-
-/// A scatter plot's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ScatterSettings {
-    /// The Number labels it pairs, as X and Y.
-    pub x_label: String,
-    pub y_label: String,
-    pub x_scale: AxisScale,
-    /// Its Y axis's (as the value axis of the others).
-    pub value_scale: AxisScale,
-    /// Whether it shows the line fit to its points.
-    pub regression: bool,
-    pub time_range: TimeRange,
-}
-
-/// The arrows' own settings (of 2D and 3D vectors alike), each missing in a
-/// layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ArrowsSettings {
-    /// Whether the arrows trail the tips they had.
-    pub trails: bool,
-}
-
-/// A log table's own settings, each missing in a layout file as by default.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LogTableSettings {
-    /// The weakest level it shows: those weaker left out.
-    pub weakest_level: LogLevel,
-}
 
 /// The newest values a graph over time is of: a time series's time axis fits
 /// the data, up to that long; a box plot and a scatter plot take those back
@@ -210,7 +158,7 @@ impl AxisScale {
 
 #[cfg(test)]
 mod tests {
-    use super::{AxisScale, DrawStyle, TimeRange, TimeRangeWidth, TimeSeriesSettings};
+    use super::{TimeRange, TimeRangeWidth};
 
     #[test]
     fn widths_are_steps_within_their_range_the_shortest_at_first() {
@@ -227,38 +175,5 @@ mod tests {
         assert_eq!(TimeRange::default().since(60_000), 50_000);
         assert_eq!(TimeRange::All.seconds(), None);
         assert_eq!(TimeRange::All.since(60_000), i64::MIN);
-    }
-
-    fn series(text: &str) -> Result<TimeSeriesSettings, serde_json::Error> {
-        serde_json::from_str(text)
-    }
-
-    #[test]
-    fn a_layout_has_a_time_range_as_its_seconds_or_all() {
-        assert_eq!(series("{}").unwrap().time_range, TimeRange::default());
-        // Its name before: of a layout of v0.4.1, upgraded as it is imported, not here
-        let settings = series(r#"{"time_window": 30}"#).unwrap();
-        assert_eq!(settings.time_range, TimeRange::default());
-
-        let settings = series(r#"{"time_range": 64}"#).unwrap();
-        assert_eq!(settings.time_range.seconds(), Some(60));
-        assert_eq!(serde_json::to_value(&settings).unwrap()["time_range"], 60);
-        let settings = series(r#"{"time_range": "all"}"#).unwrap();
-        assert_eq!(settings.time_range, TimeRange::All);
-        assert_eq!(
-            serde_json::to_value(&settings).unwrap()["time_range"],
-            "all"
-        );
-        assert!(series(r#"{"time_range": "All"}"#).is_err());
-    }
-
-    #[test]
-    fn a_layout_has_scales_and_draw_styles_in_lower_case() {
-        let settings = series(r#"{"value_scale": "log", "draw_style": "stepped"}"#).unwrap();
-        assert_eq!(settings.value_scale, AxisScale::Log);
-        assert_eq!(settings.draw_style, DrawStyle::Stepped);
-        let written = serde_json::to_value(&settings).unwrap();
-        assert_eq!(written["draw_style"], "stepped");
-        assert!(series(r#"{"value_scale": "Log"}"#).is_err());
     }
 }
