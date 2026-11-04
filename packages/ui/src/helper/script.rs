@@ -2,7 +2,7 @@ use dioxus::{core::spawn_forever, document::Eval, prelude::*};
 
 use crate::{
     save::{FileOpener, PickedFile},
-    toast::consume_toaster,
+    toast::{consume_toaster, use_toaster},
 };
 
 /// Runs `script`, told `()` as the component is dropped, so it ends.
@@ -49,8 +49,44 @@ pub(crate) fn open_picked_file(
     true
 }
 
+/// A file input of `id`, as [`pick_file`] opens it (or a label of it): the file
+/// picked is read and given to `on_pick`.
+#[component]
+pub(crate) fn FileInput(
+    id: &'static str,
+    class: &'static str,
+    accept: Option<&'static str>,
+    aria_label: Option<&'static str>,
+    #[props(default)] disabled: bool,
+    on_pick: EventHandler<PickedFile>,
+) -> Element {
+    let toaster = use_toaster();
+    rsx! {
+        input {
+            id,
+            class,
+            r#type: "file",
+            accept,
+            aria_label,
+            disabled,
+            onchange: move |event: FormEvent| async move {
+                let Some(file) = event.files().into_iter().next() else {
+                    return;
+                };
+                let bytes = file.read_bytes().await;
+                // So the same file picked again is a change
+                clear_file(id);
+                match bytes {
+                    Ok(bytes) => on_pick.call(PickedFile { name: file.name(), bytes: bytes.to_vec() }),
+                    Err(error) => toaster.error("Failed to open the file", &error.to_string()),
+                }
+            },
+        }
+    }
+}
+
 /// Empties the file input of `id`, so the same file picked again is a change.
-pub(crate) fn clear_file(id: &str) {
+fn clear_file(id: &str) {
     document::eval(&format!(
         "const input = document.getElementById({id:?}); if (input) input.value = ''"
     ));

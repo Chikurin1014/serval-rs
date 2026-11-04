@@ -1,16 +1,21 @@
-use dioxus::{html::FileData, prelude::*};
+use dioxus::prelude::*;
 use dioxus_icons::lucide;
 
-use crate::{helper::open_picked_file, save::PickedFile, serial::SerialContext};
+use crate::{
+    helper::{FileInput, open_picked_file},
+    save::PickedFile,
+    serial::SerialContext,
+};
+
+const FILE_INPUT_ID: &str = "console-file-input";
 
 /// Picks a file to send to the open port as it is, or stops the one being
 /// sent. Its own component, as the console renders again with each key typed.
 #[component]
 pub fn SendFileButton() -> Element {
     let serial = use_context::<SerialContext>();
-    // A fresh input for each file, so the same one may be picked again
-    let mut picks = use_signal(|| 0_u32);
     let open = serial.is_open();
+    let send = move |file: PickedFile| serial.send_file(file.name, file.bytes);
 
     if serial.is_sending_file() {
         return rsx! {
@@ -32,36 +37,18 @@ pub fn SendFileButton() -> Element {
             "data-disabled": !open,
             // Through the platform's own way of opening a file, if it has one
             onclick: move |event: MouseEvent| {
-                let picked = move |file: PickedFile| serial.send_file(file.name, file.bytes);
-                if open && open_picked_file(&[], picked) {
+                if open && open_picked_file(&[], send) {
                     event.prevent_default();
                 }
             },
-            input {
-                key: "{picks}",
+            FileInput {
+                id: FILE_INPUT_ID,
                 class: "console-file-input",
-                r#type: "file",
                 aria_label: "Send a file",
                 disabled: !open,
-                onchange: move |event: FormEvent| {
-                    let Some(file) = event.files().into_iter().next() else {
-                        return;
-                    };
-                    picks += 1;
-                    send_picked_file(serial, file);
-                },
+                on_pick: send,
             }
             lucide::Upload {}
         }
     }
-}
-
-/// Reads a file picked and sends it, in the current component's task.
-fn send_picked_file(serial: SerialContext, file: FileData) {
-    spawn(async move {
-        match file.read_bytes().await {
-            Ok(bytes) => serial.send_file(file.name(), bytes.to_vec()),
-            Err(error) => serial.report_error("Failed to read the file", &error.to_string()),
-        }
-    });
 }

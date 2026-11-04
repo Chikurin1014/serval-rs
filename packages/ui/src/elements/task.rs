@@ -15,8 +15,9 @@ use crate::{
         scroll_area::ScrollArea,
         switch::Switch,
     },
-    helper::{clear_file, concat_scripts, pick_file, single_line, use_script},
+    helper::{FileInput, concat_scripts, pick_file, single_line, use_script},
     plugin::{ImportError, Imported, Task, TaskContext, TaskOutcome},
+    save::PickedFile,
     time::TimeContext,
     toast::{Toaster, use_toaster},
 };
@@ -233,6 +234,7 @@ pub fn PluginButton() -> Element {
     let toaster = use_toaster();
     // The file that did not compile, and what the compiler told
     let failed = use_signal(|| None::<(String, String)>);
+    let import = move |file| import_plugin(context, toaster, failed, file);
 
     rsx! {
         document::Link { rel: "stylesheet", href: TASK_LIST_CSS }
@@ -244,43 +246,29 @@ pub fn PluginButton() -> Element {
             size: ButtonSize::IconSm,
             aria_label: "Import plugin",
             title: "Import a plugin (Rune)",
-            onclick: move |_| {
-                pick_file(PLUGIN_INPUT_ID, &["rn"], move |file| {
-                    let source = String::from_utf8(file.bytes).map_err(|error| error.to_string());
-                    import_plugin(context, toaster, failed, file.name, source);
-                });
-            },
+            onclick: move |_| pick_file(PLUGIN_INPUT_ID, &["rn"], import),
             lucide::Blocks {}
         }
-        input {
+        FileInput {
             id: PLUGIN_INPUT_ID,
             class: "plugin-file-input",
-            r#type: "file",
             accept: ".rn",
-            onchange: move |event| async move {
-                let Some(file) = event.files().into_iter().next() else {
-                    return;
-                };
-                let source = file.read_string().await.map_err(|error| error.to_string());
-                // So the same file picked again is a change
-                clear_file(PLUGIN_INPUT_ID);
-                import_plugin(context, toaster, failed, file.name(), source);
-            },
+            on_pick: import,
         }
     }
 }
 
-/// Imports the plugin of the file `name`, of its `source` (or why it was not
-/// read): told in a toast, or in `failed` if it did not compile.
+/// Imports the plugin of `file`: told in a toast, or in `failed` if it did not
+/// compile.
 fn import_plugin(
     mut context: TaskContext,
     toaster: Toaster,
     mut failed: Signal<Option<(String, String)>>,
-    name: String,
-    source: Result<String, String>,
+    file: PickedFile,
 ) {
-    let imported = source
-        .map_err(ImportError::Other)
+    let name = file.name;
+    let imported = String::from_utf8(file.bytes)
+        .map_err(|error| ImportError::Other(error.to_string()))
         .and_then(|source| context.import_plugin(&name, &source));
     match imported {
         Ok(Imported {
