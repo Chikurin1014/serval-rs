@@ -23,7 +23,7 @@ body {
   font-family: var(--dc-font, sans-serif);
 }
 
-/* The platform's, if it sets one (as VS Code's): the sizes in rem follow */
+/* The platform's, if it sets one: the sizes in rem follow */
 html {
   font-size: var(--dc-font-size, medium);
 }

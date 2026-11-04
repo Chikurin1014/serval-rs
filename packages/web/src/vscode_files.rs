@@ -1,5 +1,4 @@
-//! Files through VS Code's dialogs (`vscode_files.js`), where the app is in its
-//! panel: those saved, those opened, and record files.
+//! Files through VS Code's dialogs (`vscode_files.js`).
 
 use std::rc::Rc;
 
@@ -13,14 +12,12 @@ use ui::{
     },
 };
 
-/// Files saved where the user picks through VS Code.
 pub fn saver() -> FileSaver {
     FileSaver::new(|name, text| {
         Box::pin(async move { js::save_file(&name, &text).await.map_err(message) })
     })
 }
 
-/// Files the user picks through VS Code, in place of the page's file inputs.
 pub fn opener() -> FileOpener {
     FileOpener::new(|extensions| {
         Box::pin(async move {
@@ -36,7 +33,6 @@ pub fn opener() -> FileOpener {
     })
 }
 
-/// Record files the user picks through VS Code.
 pub fn record_picker() -> RecordFilePicker {
     RecordFilePicker::new(|extension, append| {
         Box::pin(async move { open_record(&extension, append).await })

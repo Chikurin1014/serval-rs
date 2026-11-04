@@ -1,7 +1,6 @@
-// Files through VS Code, for `vscode_files.rs`, where the app is in its panel:
-// each a request to the extension (`{ servalFile }`, passed on by the panel's
-// page), answered with the same `id`. Bytes go as base64. Tests pass a fake
-// `host`.
+// Files through VS Code's dialogs, for `vscode_files.rs`: each a request
+// (`{ servalFile }`) answered with the same `id`. Bytes go as base64. Tests pass
+// a fake `host`.
 
 let files;
 
