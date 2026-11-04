@@ -1,8 +1,8 @@
 // Runs in the app's frame, first in its <head> (as `extension.js` serves it):
 // tells the app its host has a bridge (`servalHost`), and follows VS Code's
 // theme (light or dark: the colors are the app's own) and fonts, as the panel's
-// page passes them on (`{ servalTheme }`). The links it would open in a new tab, it asks
-// VS Code to (`{ servalOpen }`).
+// page passes them on (`{ servalTheme }`). The links it would open in a new
+// tab, it asks VS Code to (`{ servalOpen }`).
 
 const servalFrame = (() => {
   /** The app's fonts, each of VS Code's it takes. */
