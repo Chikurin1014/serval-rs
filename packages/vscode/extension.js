@@ -31,7 +31,7 @@ const CONTENT_TYPES = {
 };
 
 /**
- * Tells the app it is in the extension (its ports are the bridge's), and
+ * Tells the app its host has a bridge (its ports are the bridge's), and
  * follows VS Code's theme: first in its page (`frame.js`).
  */
 const FRAME_SCRIPT = `<script>${

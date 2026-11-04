@@ -104,7 +104,7 @@ test("asks VS Code to open the links it would open in a new tab", () => {
 
 test("marks the page, and takes the theme from its parent alone", () => {
   const { host, listeners, root, appended, parent } = startedHost();
-  assert.equal(host.servalExtension, true);
+  assert.equal(host.servalHost, true);
   assert.match(appended[0].textContent, /\.theme-switch/);
 
   const theme = { servalTheme: { kind: "vscode-light", vars: {} } };

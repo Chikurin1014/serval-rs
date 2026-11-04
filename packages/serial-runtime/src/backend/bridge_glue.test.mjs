@@ -10,7 +10,7 @@ import {
   toHex,
   usbDevice,
   writePort,
-} from "./extension_glue.js";
+} from "./bridge_glue.js";
 
 /** A page whose parent takes the lines it is sent, and can send it some. */
 function fakeHost() {
@@ -30,7 +30,7 @@ function fakeHost() {
 
 test("is available only if the host says so", () => {
   assert.equal(isActive({}), false);
-  assert.equal(isActive({ servalExtension: true }), true);
+  assert.equal(isActive({ servalHost: true }), true);
 });
 
 test("each answer goes to its request", async () => {
