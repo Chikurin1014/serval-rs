@@ -12,6 +12,10 @@ const vscode = require("vscode");
 
 const { startBridge } = require("./bridge.js");
 const { createFiles } = require("./files.js");
+const { PROPERTIES } = require("./frame.js");
+
+/** VS Code's variables the frame takes. */
+const THEME_VARIABLES = [...new Set(Object.values(PROPERTIES))];
 
 /** The bridge program of this OS, in `bin`. */
 const BRIDGE_PROGRAM = process.platform === "win32"
@@ -111,10 +115,8 @@ function page(url, cspSource) {
       const sendTheme = () => {
         const style = document.documentElement.style;
         const vars = {};
-        for (const name of style) {
-          if (name.startsWith("--vscode-")) {
-            vars[name] = style.getPropertyValue(name);
-          }
+        for (const name of ${JSON.stringify(THEME_VARIABLES)}) {
+          vars[name] = style.getPropertyValue(name);
         }
         const kind = document.body.dataset.vscodeThemeKind ?? document.body.className;
         app.contentWindow.postMessage({ servalTheme: { kind, vars } }, origin);
