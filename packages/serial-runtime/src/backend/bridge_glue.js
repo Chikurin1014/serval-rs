@@ -1,12 +1,12 @@
-// The serial ports of the `serial-bridge` program, for `extension.rs`: where a page
-// can use no Web Serial (as VS Code's), what shows it passes on lines of JSON.
-// Tests pass a fake `host`.
+// The serial ports of the `serial-bridge` program, for `bridge.rs`: where a page
+// can use no Web Serial (as VS Code's), the page that hosts it passes on lines
+// of JSON. Tests pass a fake `host`.
 
 let bridge;
 
-/** Whether the page is in the VS Code extension, which has a bridge. */
+/** Whether the page's host (as the VS Code extension) has a bridge. */
 export function isActive(host = window) {
-  return host.servalExtension === true;
+  return host.servalHost === true;
 }
 
 /** Talks through `host.parent`, as a line in and a line out of each message. */

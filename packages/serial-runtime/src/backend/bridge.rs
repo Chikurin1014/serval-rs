@@ -1,6 +1,6 @@
-//! The VS Code extension's serial ports: those of the OS, opened by its
-//! `serial-bridge` program (through `extension_glue.js`), each read as on the
-//! desktop.
+//! The serial ports of the OS, for a page in a frame of another (as the VS Code
+//! extension's panel): opened by the `serial-bridge` program, which the parent
+//! page talks to (through `bridge_glue.js`), each read as on the desktop.
 
 use std::rc::Rc;
 
@@ -13,18 +13,19 @@ use crate::{
     SerialResult, UsbDevice,
 };
 
-/// Whether the page is in the VS Code extension: there, Web Serial is not.
+/// Whether the page's host has a bridge (as it says with `servalHost`): there,
+/// as in the VS Code extension, Web Serial may not be.
 pub fn is_active() -> bool {
     js::is_active()
 }
 
 pub fn backend() -> Rc<dyn SerialBackend> {
-    Rc::new(ExtensionBackend)
+    Rc::new(BridgeBackend)
 }
 
-struct ExtensionBackend;
+struct BridgeBackend;
 
-impl SerialBackend for ExtensionBackend {
+impl SerialBackend for BridgeBackend {
     // All are listed: none is requested
     fn request_port(&self) -> LocalFuture<SerialResult<Option<Rc<dyn SerialPort>>>> {
         Box::pin(async { Ok(None) })
@@ -35,18 +36,18 @@ impl SerialBackend for ExtensionBackend {
             let ports = js::list_ports().await.map_err(message)?;
             Ok(Array::from(&ports)
                 .iter()
-                .map(|port| Rc::new(ExtensionPort::new(&port)) as Rc<dyn SerialPort>)
+                .map(|port| Rc::new(BridgePort::new(&port)) as Rc<dyn SerialPort>)
                 .collect())
         })
     }
 }
 
-struct ExtensionPort {
+struct BridgePort {
     info: PortInfo,
     path: String,
 }
 
-impl ExtensionPort {
+impl BridgePort {
     fn new(port: &JsValue) -> Self {
         let path = js::port_path(port);
         let usb = js::usb_device(port).map(|device| {
@@ -65,7 +66,7 @@ impl ExtensionPort {
     }
 }
 
-impl SerialPort for ExtensionPort {
+impl SerialPort for BridgePort {
     fn info(&self) -> PortInfo {
         self.info.clone()
     }
@@ -121,7 +122,7 @@ mod js {
     use js_sys::Uint8Array;
     use wasm_bindgen::{JsValue, closure::Closure, prelude::wasm_bindgen};
 
-    #[wasm_bindgen(module = "/src/backend/extension_glue.js")]
+    #[wasm_bindgen(module = "/src/backend/bridge_glue.js")]
     extern "C" {
         #[wasm_bindgen(js_name = isActive)]
         pub fn is_active() -> bool;

@@ -1,8 +1,8 @@
-//! The serial ports of the OS for the VS Code extension, whose page cannot open
-//! them. Takes a JSON request on each line of its input, and answers each with a
-//! line of the same `id` (with `error`, if it failed). What a port reads comes in
-//! lines of its `path`: with `data`, or with `ended` (and `error`, if lost).
-//! Bytes are in hex. It ends with its input.
+//! The serial ports of the OS for a page that cannot open them (as the VS Code
+//! extension's panel). Takes a JSON request on each line of its input, and
+//! answers each with a line of the same `id` (with `error`, if it failed). What
+//! a port reads comes in lines of its `path`: with `data`, or with `ended` (and
+//! `error`, if lost). Bytes are in hex. It ends with its input.
 
 use std::{
     collections::HashMap,

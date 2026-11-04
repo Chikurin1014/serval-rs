@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 use serial_runtime::{
     SerialBackend,
-    backend::{extension, web},
+    backend::{bridge, web},
 };
 use ui::{AppPages, AppShell, Licenses};
 
@@ -28,10 +28,11 @@ fn main() {
     dioxus::launch(App);
 }
 
-/// The VS Code extension's ports in it, else Web Serial's.
+/// The bridge's ports in a host that has one (as the VS Code extension), else
+/// Web Serial's.
 fn serial_backend() -> Rc<dyn SerialBackend> {
-    if extension::is_active() {
-        extension::backend()
+    if bridge::is_active() {
+        bridge::backend()
     } else {
         web::backend()
     }
@@ -42,7 +43,8 @@ fn App() -> Element {
     use_context_provider(time::context);
     use_context_provider(serial_backend);
     // The same each render, as the hooks must be
-    let in_extension = extension::is_active();
+    // Only the VS Code extension hosts the app, so far
+    let in_extension = bridge::is_active();
     if in_extension {
         // Files through VS Code's dialogs, not the browser's nor downloads
         use_context_provider(vscode_files::record_picker);
