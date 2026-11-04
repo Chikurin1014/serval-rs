@@ -8,6 +8,8 @@ import {
   recordFileFailure,
   recordFileName,
   recordFileTail,
+  recording,
+  recordName,
   writeRecordFile,
 } from "./record_file.js";
 
@@ -160,4 +162,27 @@ test("cancelling the picker gives no record", async () => {
 test("isSupported is whether the browser can save files", () => {
   assert.equal(isSupported({ showSaveFilePicker: () => {} }), true);
   assert.equal(isSupported({}), false);
+});
+
+test("a new record's name is of the local time", () => {
+  const now = () => new Date(2026, 9, 8, 9, 5, 7).getTime();
+  assert.equal(recordName("csv", now), "serval-20261008-090507.csv");
+});
+
+test("a record of another sink writes to it in order, then closes it", async () => {
+  const got = [];
+  const record = recording({
+    name: "a.log",
+    tail: new Uint8Array(),
+    write: async (bytes) => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      got.push(new TextDecoder().decode(bytes));
+    },
+    close: async () => got.push("closed"),
+  });
+  assert.equal(recordFileName(record), "a.log");
+  writeRecordFile(record, bytes("a"));
+  writeRecordFile(record, bytes("b"));
+  await closeRecordFile(record);
+  assert.deepEqual(got, ["a", "b", "closed"]);
 });

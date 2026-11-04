@@ -80,20 +80,19 @@ test("opens a file of the extensions asked for, or none if cancelled", async () 
   assert.equal(asked[1].filters, undefined);
 });
 
-test("records to a new file, named of the time, written as it comes", async () => {
+test("records to a new file, suggested as asked, written as it comes", async () => {
   const dir = folder();
   const to = join(dir, "picked.log");
   const { vscode, asked } = fakeVscode([{ fsPath: to, path: to }]);
-  const recording = createFiles(vscode, {
-    now: () => new Date(2026, 10, 3, 9, 5, 7).getTime(),
-  });
+  const recording = createFiles(vscode);
   const { record } = await recording.answer({
     id: 1,
     op: "record",
-    extension: "log",
+    name: "serval-20261103-090507.log",
     append: false,
   });
   assert.equal(asked[0].defaultUri.fsPath, "/work/serval-20261103-090507.log");
+  assert.deepEqual(asked[0].filters, { Record: ["log"] });
   assert.deepEqual(record, { id: 1, name: "picked.log", tail: "" });
 
   await recording.answer({
@@ -130,7 +129,7 @@ test("adds to an existing record, given its tail", async () => {
   const { record } = await recording.answer({
     id: 1,
     op: "record",
-    extension: "log",
+    name: "serval-20261103-090507.log",
     append: true,
     tailBytes: 12,
   });

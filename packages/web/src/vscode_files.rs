@@ -1,16 +1,17 @@
 //! Files through VS Code's dialogs (`vscode_files.js`).
 
-use std::rc::Rc;
+use wasm_bindgen::JsValue;
 
-use wasm_bindgen::{JsCast, JsValue};
-
+use serial_runtime::backend::web::message;
 use ui::{
     save::{FileOpener, FileSaver, PickedFile},
     serial::{
-        LocalFuture, SerialResult,
-        record::{RecordFile, RecordFilePicker, RecordSink, TAIL_BYTES},
+        SerialResult,
+        record::{RecordFile, RecordFilePicker, TAIL_BYTES},
     },
 };
+
+use crate::files;
 
 pub fn saver() -> FileSaver {
     FileSaver::new(|name, text| {
@@ -40,42 +41,11 @@ pub fn record_picker() -> RecordFilePicker {
 }
 
 async fn open_record(extension: &str, append: bool) -> SerialResult<Option<RecordFile>> {
-    let record = js::pick_record_file(extension, append, TAIL_BYTES as u32)
+    let name = files::record_name(extension);
+    let sink: JsValue = js::pick_record_file(&name, append, TAIL_BYTES as u32)
         .await
         .map_err(message)?;
-    if record.is_null() {
-        return Ok(None);
-    }
-    Ok(Some(RecordFile {
-        name: js::record_file_name(&record),
-        tail: js::record_file_tail(&record),
-        sink: Rc::new(VscodeRecordSink(record)),
-    }))
-}
-
-struct VscodeRecordSink(JsValue);
-
-impl RecordSink for VscodeRecordSink {
-    fn write(&self, bytes: Vec<u8>) {
-        js::write_record_file(&self.0, bytes);
-    }
-
-    fn close(&self) -> LocalFuture<SerialResult<()>> {
-        let record = self.0.clone();
-        Box::pin(async move { js::close_record_file(&record).await.map_err(message) })
-    }
-
-    fn failure(&self) -> LocalFuture<Option<String>> {
-        let record = self.0.clone();
-        Box::pin(async move { js::record_file_failure(&record).await.as_string() })
-    }
-}
-
-fn message(error: JsValue) -> String {
-    match error.dyn_ref::<js_sys::Error>() {
-        Some(error) => error.message().into(),
-        None => format!("{error:?}"),
-    }
+    Ok((!sink.is_null()).then(|| files::record_of(sink)))
 }
 
 mod js {
@@ -96,29 +66,12 @@ mod js {
         #[wasm_bindgen(js_name = fileBytes)]
         pub fn file_bytes(file: &JsValue) -> Vec<u8>;
 
-        /// Null if the user cancels.
+        /// A sink for `recording`, or null if the user cancels.
         #[wasm_bindgen(catch, js_name = pickRecordFile)]
         pub async fn pick_record_file(
-            extension: &str,
+            name: &str,
             append: bool,
             tail_bytes: u32,
         ) -> Result<JsValue, JsValue>;
-
-        #[wasm_bindgen(js_name = recordFileName)]
-        pub fn record_file_name(record: &JsValue) -> String;
-
-        #[wasm_bindgen(js_name = recordFileTail)]
-        pub fn record_file_tail(record: &JsValue) -> Vec<u8>;
-
-        /// A string once a write fails; null once closed without that.
-        #[wasm_bindgen(js_name = recordFileFailure)]
-        pub async fn record_file_failure(record: &JsValue) -> JsValue;
-
-        /// Ordered in JS: it returns at once.
-        #[wasm_bindgen(js_name = writeRecordFile)]
-        pub fn write_record_file(record: &JsValue, bytes: Vec<u8>);
-
-        #[wasm_bindgen(catch, js_name = closeRecordFile)]
-        pub async fn close_record_file(record: &JsValue) -> Result<(), JsValue>;
     }
 }
