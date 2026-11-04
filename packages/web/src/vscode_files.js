@@ -56,80 +56,27 @@ export function fileBytes(file) {
 }
 
 /**
- * A record file the user picks: a new one named `serval-<local time>.<extension>`,
- * or with `append`, one to add to, with its last `tailBytes` bytes. Null if
- * they cancel.
+ * A record file the user picks, as a sink for `recording` (of
+ * `record_file.js`): a new one suggested as `name`, or with `append`, one to
+ * add to, with its last `tailBytes` bytes. Null if they cancel.
  */
 export async function pickRecordFile(
-  extension,
+  name,
   append,
   tailBytes,
   { ask } = connected(),
 ) {
-  const { record } = await ask("record", { extension, append, tailBytes });
+  const { record } = await ask("record", { name, append, tailBytes });
   if (!record) {
     return null;
   }
-  const picked = {
-    id: record.id,
+  return {
     name: record.name,
     tail: fromBase64(record.tail),
-    ask,
-    chain: Promise.resolve(),
-    error: null,
+    write: (bytes) =>
+      ask("write", { record: record.id, data: toBase64(bytes) }),
+    close: () => ask("close", { record: record.id }),
   };
-  picked.failure = new Promise((resolve) => {
-    picked.settle = resolve;
-  });
-  return picked;
-}
-
-export function recordFileName(record) {
-  return record.name;
-}
-
-export function recordFileTail(record) {
-  return record.tail;
-}
-
-/**
- * The message of the first failed write, as soon as it fails; null once the
- * record closes without one.
- */
-export function recordFileFailure(record) {
-  return record.failure;
-}
-
-function fail(record, error) {
-  if (!record.error) {
-    record.error = error;
-    record.settle(error?.message ?? String(error));
-  }
-}
-
-/** After the earlier writes, in order; the first failure stops those after. */
-export function writeRecordFile(record, bytes) {
-  record.chain = record.chain
-    .then(async () => {
-      if (!record.error) {
-        await record.ask("write", { record: record.id, data: toBase64(bytes) });
-      }
-    })
-    .catch((error) => fail(record, error));
-}
-
-/** After the writes; fails with the first failure of any. */
-export async function closeRecordFile(record) {
-  await record.chain;
-  try {
-    await record.ask("close", { record: record.id });
-  } catch (error) {
-    fail(record, error);
-  }
-  record.settle(null);
-  if (record.error) {
-    throw record.error;
-  }
 }
 
 export function toBase64(bytes) {

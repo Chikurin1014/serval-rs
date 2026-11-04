@@ -2,15 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  closeRecordFile,
   connect,
   fromBase64,
   openFile,
   pickRecordFile,
-  recordFileFailure,
   saveFile,
   toBase64,
-  writeRecordFile,
 } from "./vscode_files.js";
 
 /** A frame whose parent (the panel's page) takes what it asks, and answers. */
@@ -31,8 +28,6 @@ function fakeHost() {
       ),
   };
 }
-
-const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 test("bytes go as base64 both ways", () => {
   const bytes = Uint8Array.from([0, 1, 254, 255]);
@@ -71,40 +66,28 @@ test("a file not picked is none", async () => {
   assert.equal(await record, null);
 });
 
-test("a record's writes go in order, and the first failure stops those after", async () => {
+test("a record picked is a sink of its writes and close", async () => {
   const { sent, files, answer } = fakeHost();
-  const picking = pickRecordFile("log", true, 64, files);
-  answer({ id: 1, record: { id: 7, name: "a.log", tail: "dGFpbA==" } });
-  const record = await picking;
-  assert.equal(record.name, "a.log");
-  assert.deepEqual(record.tail, new TextEncoder().encode("tail"));
-
-  writeRecordFile(record, Uint8Array.from([104, 105]));
-  writeRecordFile(record, Uint8Array.from([33]));
-  await settled();
-  // The second waits for the first to be written
-  assert.deepEqual(sent.slice(1), [{
-    id: 2,
-    op: "write",
-    record: 7,
-    data: "aGk=",
-  }]);
-  answer({ id: 2 });
-  await settled();
-  assert.deepEqual(sent.at(-1), {
-    id: 3,
-    op: "write",
-    record: 7,
-    data: "IQ==",
+  const picking = pickRecordFile("serval.log", true, 64, files);
+  assert.deepEqual(sent[0], {
+    id: 1,
+    op: "record",
+    name: "serval.log",
+    append: true,
+    tailBytes: 64,
   });
-  answer({ id: 3, error: "Disk full" });
-  assert.equal(await recordFileFailure(record), "Disk full");
+  answer({ id: 1, record: { id: 7, name: "a.log", tail: "dGFpbA==" } });
+  const sink = await picking;
+  assert.equal(sink.name, "a.log");
+  assert.deepEqual(sink.tail, new TextEncoder().encode("tail"));
 
-  writeRecordFile(record, Uint8Array.from([1]));
-  const closing = closeRecordFile(record);
-  await settled();
-  // The write after the failure is not asked for
-  assert.deepEqual(sent.at(-1), { id: 4, op: "close", record: 7 });
-  answer({ id: 4 });
-  await assert.rejects(closing, /Disk full/);
+  const written = sink.write(Uint8Array.from([104, 105]));
+  assert.deepEqual(sent[1], { id: 2, op: "write", record: 7, data: "aGk=" });
+  answer({ id: 2, error: "Disk full" });
+  await assert.rejects(written, /Disk full/);
+
+  const closed = sink.close();
+  assert.deepEqual(sent[2], { id: 3, op: "close", record: 7 });
+  answer({ id: 3 });
+  await closed;
 });

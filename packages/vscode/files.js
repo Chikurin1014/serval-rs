@@ -7,11 +7,8 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 
-/**
- * The panel's files: `vscode` is VS Code's API (its `window`, `workspace` and
- * `Uri`); `now` the clock, for a record's name.
- */
-function createFiles(vscode, { now = Date.now } = {}) {
+/** The panel's files: `vscode` is VS Code's API (`window`, `workspace`, `Uri`). */
+function createFiles(vscode) {
   const { window, workspace, Uri } = vscode;
   const records = new Map();
   let next = 1;
@@ -62,12 +59,12 @@ function createFiles(vscode, { now = Date.now } = {}) {
       };
     },
 
-    async record({ extension, append, tailBytes }) {
+    async record({ name, append, tailBytes }) {
       const uri = append
         ? (await window.showOpenDialog({ canSelectMany: false }))?.[0]
         : await window.showSaveDialog({
-          defaultUri: near(`serval-${localTime(new Date(now()))}.${extension}`),
-          filters: { Record: [extension] },
+          defaultUri: near(name),
+          filters: { Record: [path.extname(name).slice(1)] },
         });
       if (!uri) {
         return { record: null };
@@ -142,17 +139,6 @@ async function readTail(file, bytes) {
   } finally {
     await handle.close();
   }
-}
-
-/** `YYYYMMDD-HHMMSS` in local time. */
-function localTime(date) {
-  const two = (n) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}-`
-    + `${two(date.getHours())}${two(date.getMinutes())}${
-      two(date.getSeconds())
-    }`
-  );
 }
 
 module.exports = { createFiles };

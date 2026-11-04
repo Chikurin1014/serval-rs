@@ -1,9 +1,11 @@
-//! Record files through the File System Access API (`record_file.js`).
+//! Record files (`record_file.js`): through the File System Access API, or
+//! another way's sink, each written in order.
 
 use std::rc::Rc;
 
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 
+use serial_runtime::backend::web::message;
 use ui::serial::{
     LocalFuture, SerialResult,
     record::{RecordFile, RecordFilePicker, RecordSink, TAIL_BYTES},
@@ -23,19 +25,30 @@ async fn open_record(extension: &str, append: bool) -> SerialResult<Option<Recor
     let record = js::pick_record_file(extension, append, TAIL_BYTES as u32)
         .await
         .map_err(message)?;
-    if record.is_null() {
-        return Ok(None);
-    }
-    Ok(Some(RecordFile {
-        name: js::record_file_name(&record),
-        tail: js::record_file_tail(&record),
-        sink: Rc::new(WebRecordSink(record)),
-    }))
+    Ok((!record.is_null()).then(|| record_file(record)))
 }
 
-struct WebRecordSink(JsValue);
+/// A new record's name, of the local time.
+pub fn record_name(extension: &str) -> String {
+    js::record_name(extension)
+}
 
-impl RecordSink for WebRecordSink {
+/// The record of `sink` (as `recording` in `record_file.js` takes it).
+pub fn record_of(sink: JsValue) -> RecordFile {
+    record_file(js::recording(sink))
+}
+
+fn record_file(record: JsValue) -> RecordFile {
+    RecordFile {
+        name: js::record_file_name(&record),
+        tail: js::record_file_tail(&record),
+        sink: Rc::new(JsRecordSink(record)),
+    }
+}
+
+struct JsRecordSink(JsValue);
+
+impl RecordSink for JsRecordSink {
     fn write(&self, bytes: Vec<u8>) {
         js::write_record_file(&self.0, bytes);
     }
@@ -51,13 +64,6 @@ impl RecordSink for WebRecordSink {
     }
 }
 
-fn message(error: JsValue) -> String {
-    match error.dyn_ref::<js_sys::Error>() {
-        Some(error) => error.message().into(),
-        None => format!("{error:?}"),
-    }
-}
-
 mod js {
     use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -66,6 +72,9 @@ mod js {
         #[wasm_bindgen(js_name = isSupported)]
         pub fn is_supported() -> bool;
 
+        #[wasm_bindgen(js_name = recordName)]
+        pub fn record_name(extension: &str) -> String;
+
         /// Null if the user cancels.
         #[wasm_bindgen(catch, js_name = pickRecordFile)]
         pub async fn pick_record_file(
@@ -73,6 +82,8 @@ mod js {
             append: bool,
             tail_bytes: u32,
         ) -> Result<JsValue, JsValue>;
+
+        pub fn recording(sink: JsValue) -> JsValue;
 
         #[wasm_bindgen(js_name = recordFileName)]
         pub fn record_file_name(record: &JsValue) -> String;

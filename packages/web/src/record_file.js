@@ -1,5 +1,6 @@
-// Record files through the File System Access API, for `files.rs`; tests pass a
-// fake `win` and clock.
+// Record files, for `files.rs`: through the File System Access API, or another
+// way's sink (as VS Code's, of `vscode_files.js`), each written in order. Tests
+// pass a fake `win` and clock.
 
 // What a writable stream writes goes to the file only once it is closed: so it
 // is closed (and opened again) this often, not to lose more on a crash
@@ -9,10 +10,15 @@ export function isSupported(win = window) {
   return "showSaveFilePicker" in win;
 }
 
+/** A new record's name: `serval-<local time>.<extension>`. */
+export function recordName(extension, now = Date.now) {
+  return `serval-${localTime(new Date(now()))}.${extension}`;
+}
+
 /**
- * A record file the user picks: a new one named `serval-<local time>.<extension>`,
- * or with `append`, one to add to, with its last `tailBytes` bytes to tell its
- * format by. Null if they cancel.
+ * A record file the user picks: a new one named by `recordName`, or with
+ * `append`, one to add to, with its last `tailBytes` bytes to tell its format
+ * by. Null if they cancel.
  */
 export async function pickRecordFile(
   extension,
@@ -26,7 +32,7 @@ export async function pickRecordFile(
       [handle] = await win.showOpenFilePicker();
     } else {
       handle = await win.showSaveFilePicker({
-        suggestedName: `serval-${localTime(new Date(now()))}.${extension}`,
+        suggestedName: recordName(extension, now),
         types: [
           {
             description: "Record",
@@ -48,21 +54,38 @@ export async function pickRecordFile(
       await file.slice(Math.max(0, file.size - tailBytes)).arrayBuffer(),
     );
   }
-  const record = {
-    handle,
+  let writable = await openAtEnd(handle, append);
+  let committed = now();
+  return recording({
     name: handle.name,
     tail,
-    writable: null,
+    async write(bytes) {
+      await writable.write(bytes);
+      if (now() - committed >= commitMs) {
+        await writable.close();
+        writable = await openAtEnd(handle, true);
+        committed = now();
+      }
+    },
+    close: () => writable.close(),
+  });
+}
+
+/**
+ * A record of `sink` (its `name`, `tail`, and `write` and `close`, each a
+ * promise): its writes in order.
+ */
+export function recording(sink) {
+  const record = {
+    sink,
+    name: sink.name,
+    tail: sink.tail,
     chain: Promise.resolve(),
     error: null,
-    now,
-    commitMs,
-    committed: now(),
   };
   record.failure = new Promise((resolve) => {
     record.settle = resolve;
   });
-  record.writable = await openAtEnd(handle, append);
   return record;
 }
 
@@ -89,18 +112,12 @@ function fail(record, error) {
   }
 }
 
-/** After the earlier writes, in order; the first failure is kept for `closeRecordFile`. */
+/** After the earlier writes, in order; the first failure stops those after. */
 export function writeRecordFile(record, bytes) {
   record.chain = record.chain
     .then(async () => {
-      if (record.error) {
-        return;
-      }
-      await record.writable.write(bytes);
-      if (record.now() - record.committed >= record.commitMs) {
-        await record.writable.close();
-        record.writable = await openAtEnd(record.handle, true);
-        record.committed = record.now();
+      if (!record.error) {
+        await record.sink.write(bytes);
       }
     })
     .catch((error) => fail(record, error));
@@ -110,7 +127,7 @@ export function writeRecordFile(record, bytes) {
 export async function closeRecordFile(record) {
   await record.chain;
   try {
-    await record.writable.close();
+    await record.sink.close();
   } catch (error) {
     fail(record, error);
   }
