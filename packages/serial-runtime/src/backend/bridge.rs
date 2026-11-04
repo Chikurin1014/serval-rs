@@ -1,6 +1,5 @@
-//! The serial ports of the OS, for a page in a frame of another (as the VS Code
-//! extension's panel): opened by the `serial-bridge` program, which the parent
-//! page talks to (through `bridge_glue.js`), each read as on the desktop.
+//! The OS's serial ports, opened by the `serial-bridge` program through the
+//! page's host (`bridge_glue.js`).
 
 use std::rc::Rc;
 
@@ -13,8 +12,7 @@ use crate::{
     SerialResult, UsbDevice,
 };
 
-/// Whether the page's host has a bridge (as it says with `servalHost`): there,
-/// as in the VS Code extension, Web Serial may not be.
+/// Whether the page's host has a bridge (`servalHost`).
 pub fn is_active() -> bool {
     js::is_active()
 }

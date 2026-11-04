@@ -1,8 +1,8 @@
-//! The serial ports of the OS for a page that cannot open them (as the VS Code
-//! extension's panel). Takes a JSON request on each line of its input, and
-//! answers each with a line of the same `id` (with `error`, if it failed). What
-//! a port reads comes in lines of its `path`: with `data`, or with `ended` (and
-//! `error`, if lost). Bytes are in hex. It ends with its input.
+//! The OS's serial ports, for a page that cannot open them. Takes a JSON
+//! request on each line of its input, and answers each with a line of the same
+//! `id` (with `error`, if it failed). What a port reads comes in lines of its
+//! `path`: with `data`, or with `ended` (and `error`, if lost). Bytes are in
+//! hex. It ends with its input.
 
 use std::{
     collections::HashMap,
@@ -207,7 +207,7 @@ fn respond(output: &Output, request: &Value, answer: Result<Value, String>) {
 
 fn write_line(output: &Output, line: &Value) {
     let mut output = output.lock().unwrap_or_else(|error| error.into_inner());
-    // Or the extension is gone, and its end closes the input
+    // Or the host is gone, and its end closes the input
     let _ = writeln!(output, "{line}").and_then(|()| output.flush());
 }
 

@@ -23,13 +23,13 @@ native = ["dep:serialport"]
 desktop = ["native", "dep:tokio"]
 # The web app's ports, of Web Serial
 web = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
-# The program a page's host (as the VS Code extension) opens the ports through
+# The program that opens the ports for a page's host
 serial-bridge = ["native", "dep:serde_json"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
 
-# Opens the OS's ports for a page that cannot (as the VS Code extension's)
+# Opens the OS's ports for a page that cannot
 [[bin]]
 name = "serial-bridge"
 required-features = ["serial-bridge"]
