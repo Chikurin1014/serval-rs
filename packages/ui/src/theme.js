@@ -41,9 +41,8 @@ function toggleTheme(root, storage, systemPrefersDark) {
 }
 
 /**
- * The consoles' font, as xterm.js takes it: the platform's if it sets one
- * (`--dc-console-font`, `--dc-console-font-size`), else named fonts, as the
- * WebGL renderer does not know `ui-monospace`.
+ * The consoles' font, as xterm.js takes it (`--dc-console-font`,
+ * `--dc-console-font-size`), else theme.css's, if it has not loaded yet.
  */
 function consoleFont(root = document.documentElement) {
   const style = getComputedStyle(root);

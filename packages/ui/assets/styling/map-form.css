@@ -58,7 +58,7 @@
 
 .map-formula {
   color: var(--dc-text);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 1.125rem;
   font-weight: 700;
   text-align: center;
@@ -89,7 +89,7 @@
   border-left: 1px solid var(--dc-border);
   border-radius: 0;
   background: none;
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
 }
 
@@ -119,7 +119,7 @@
   background: none;
   color: var(--dc-text);
   cursor: pointer;
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   white-space: nowrap;
 }

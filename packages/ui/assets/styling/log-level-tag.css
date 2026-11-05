@@ -6,7 +6,7 @@
   border-radius: 0.25rem;
   background: color-mix(in oklab, var(--log-level-color) 18%, transparent);
   color: var(--log-level-color);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.9em;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -15,21 +15,21 @@
 }
 
 .log-level-tag[data-level="ERROR"] {
-  --log-level-color: var(--light, #c0392b) var(--dark, #ff7b72);
+  --log-level-color: var(--dc-log-error);
 }
 
 .log-level-tag[data-level="WARN"] {
-  --log-level-color: var(--light, #9a6700) var(--dark, #e3b341);
+  --log-level-color: var(--dc-log-warn);
 }
 
 .log-level-tag[data-level="INFO"] {
-  --log-level-color: var(--light, #1a7f37) var(--dark, #56d364);
+  --log-level-color: var(--dc-log-info);
 }
 
 .log-level-tag[data-level="DEBUG"] {
-  --log-level-color: var(--light, #0969da) var(--dark, #79c0ff);
+  --log-level-color: var(--dc-log-debug);
 }
 
 .log-level-tag[data-level="TRACE"] {
-  --log-level-color: var(--light, #1b7c83) var(--dark, #56d4dd);
+  --log-level-color: var(--dc-log-trace);
 }

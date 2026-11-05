@@ -78,7 +78,7 @@
   background: var(--light, var(--primary-color-2))
     var(--dark, var(--primary-color-3));
   color: var(--dc-text);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -90,7 +90,7 @@
 }
 
 .data-table .data-cell {
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
@@ -136,7 +136,7 @@
 }
 
 .label-filter-tags [role="row"] {
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   border-color: color-mix(
     in oklab,
     var(--primary-color-6),

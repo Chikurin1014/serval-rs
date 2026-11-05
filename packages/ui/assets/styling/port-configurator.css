@@ -33,7 +33,7 @@
   box-shadow: inset 0 0 0 1px var(--dc-border);
   color: var(--dc-text);
   cursor: pointer;
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
 }
 

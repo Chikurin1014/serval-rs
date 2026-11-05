@@ -72,14 +72,7 @@
   background: none;
   color: color-mix(in oklab, var(--dc-screen-text) 60%, transparent);
   cursor: pointer;
-  font-family: var(
-    --dc-console-font,
-    Menlo,
-    Consolas,
-    "DejaVu Sans Mono",
-    "Liberation Mono",
-    monospace
-  );
+  font-family: var(--dc-console-font);
   font-size: 0.75rem;
 }
 
@@ -132,15 +125,8 @@
   border-right: 1px solid
     color-mix(in oklab, var(--dc-screen-text) 15%, transparent);
   color: color-mix(in oklab, var(--dc-screen-text) 55%, transparent);
-  font-family: var(
-    --dc-console-font,
-    Menlo,
-    Consolas,
-    "DejaVu Sans Mono",
-    "Liberation Mono",
-    monospace
-  );
-  font-size: var(--dc-console-font-size, 14px);
+  font-family: var(--dc-console-font);
+  font-size: var(--dc-console-font-size);
   white-space: pre;
   pointer-events: none;
   user-select: none;
@@ -304,14 +290,7 @@
   position: relative;
   overflow: hidden;
   padding: 0.25rem 0.75rem;
-  font-family: var(
-    --dc-console-font,
-    Menlo,
-    Consolas,
-    "DejaVu Sans Mono",
-    "Liberation Mono",
-    monospace
-  );
+  font-family: var(--dc-console-font);
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: pre;
@@ -332,14 +311,7 @@
   justify-content: flex-end;
   min-width: 0;
   overflow: hidden;
-  font-family: var(
-    --dc-console-font,
-    Menlo,
-    Consolas,
-    "DejaVu Sans Mono",
-    "Liberation Mono",
-    monospace
-  );
+  font-family: var(--dc-console-font);
   line-height: 1.4;
   white-space: pre;
 }
@@ -406,13 +378,13 @@
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 50%;
-  background: #e5484d;
+  background: var(--dc-record-mark);
 }
 
 .record-stop-mark {
   width: 0.6rem;
   height: 0.6rem;
-  background: #fff;
+  background: var(--dc-stop-mark);
 }
 
 /* Up and to the left: it is at the bottom right of the console */
