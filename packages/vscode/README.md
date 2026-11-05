@@ -3,11 +3,7 @@
 A prototype: it shows the web app in a panel. A panel's page may not use Web Serial,
 so the `serial-bridge` program opens the ports for it.
 
-What it does not do yet:
-
-- Open **Documents** and **Licenses**: a panel's page may not open new tabs.
-- Save files through VS Code's dialogs.
-- Come as a package: the extension needs the program of each OS.
+It does not come as a package yet: the extension needs the program of each OS.
 
 To try it, build the web app and the program, and put them in the extension:
 
