@@ -1,11 +1,18 @@
 # Serval for VS Code
 
-A prototype: it shows the web app in a panel. A panel's page may not use Web Serial,
-so the `serial-bridge` program opens the ports for it.
+[Serval](https://github.com/Chikurin1014/serval-rs), the serial visualizer, in
+a panel of VS Code. It shows what a serial port receives as text, data and
+graphs, and sends to it.
 
-It does not come as a package yet: the extension needs the program of each OS.
+Run **Serval: Open** from the Command Palette.
 
-To try it, build the web app and the program, and put them in the extension:
+A panel's page may not use Web Serial, so the extension comes with a program,
+`serial-bridge`, that opens the ports for it. If the program is missing or
+stops, VS Code shows why. Close the panel and open it again to restart it.
+
+## Building
+
+Build the web app and the program, and put them in the extension:
 
 ```bash
 dx build --platform web --release --debug-symbols false
@@ -23,11 +30,18 @@ cargo build --release -p serial-runtime --features serial-bridge --bin serial-br
 mkdir -p packages/vscode/bin && cp target/release/serial-bridge packages/vscode/bin/
 ```
 
-Then run **Serval: Open** from the Command Palette of:
+To try it, open VS Code with it:
 
 ```bash
 code --extensionDevelopmentPath=packages/vscode
 ```
 
-If the program is missing or stops, VS Code shows why.
-Close the panel and open it again to restart the program.
+To make a package of it for this OS (here, Linux on x64):
+
+```bash
+cp LICENSE packages/vscode/
+```
+
+```bash
+cd packages/vscode && npx @vscode/vsce package --no-dependencies --target linux-x64
+```
