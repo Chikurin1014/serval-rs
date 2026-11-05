@@ -14,18 +14,39 @@
   /* The console keeps a dark "screen" in both schemes */
   --dc-screen: var(--light, #202730) var(--dark, #161513);
   --dc-screen-text: #c9dfd2;
+  /* The record button's marks: a red dot to start, a white square to stop */
+  --dc-record-mark: #e5484d;
+  --dc-stop-mark: #fff;
+  --dc-log-error: var(--light, #c0392b) var(--dark, #ff7b72);
+  --dc-log-warn: var(--light, #9a6700) var(--dark, #e3b341);
+  --dc-log-info: var(--light, #1a7f37) var(--dark, #56d364);
+  --dc-log-debug: var(--light, #0969da) var(--dark, #79c0ff);
+  --dc-log-trace: var(--light, #1b7c83) var(--dark, #56d4dd);
+
+  /* Fonts. A host may set its own on <html> (e.g. the VS Code panel). The sizes
+   * in rem follow `--dc-font-size`. */
+  --dc-font: sans-serif;
+  --dc-font-size: medium;
+  --dc-mono-font: ui-monospace, monospace;
+  /* Named fonts: xterm.js's WebGL renderer does not know `ui-monospace` */
+  --dc-console-font:
+    Menlo,
+    Consolas,
+    "DejaVu Sans Mono",
+    "Liberation Mono",
+    monospace;
+  --dc-console-font-size: 14px;
 }
 
 html,
 body {
   background: var(--dc-page);
   color: var(--dc-text);
-  font-family: var(--dc-font, sans-serif);
+  font-family: var(--dc-font);
 }
 
-/* The platform's, if it sets one: the sizes in rem follow */
 html {
-  font-size: var(--dc-font-size, medium);
+  font-size: var(--dc-font-size);
 }
 
 body {
@@ -90,14 +111,14 @@ html[data-theme="dark"] {
   border-radius: 0;
   background: none;
   box-shadow: none;
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   font-weight: 300;
 }
 
 .field-label {
   color: var(--dc-text-muted);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   white-space: nowrap;
 }
@@ -117,7 +138,7 @@ html[data-theme="dark"] {
 
 .field-choices button {
   height: 1.75rem;
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
 }
 

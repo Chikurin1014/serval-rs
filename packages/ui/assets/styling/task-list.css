@@ -20,7 +20,7 @@
 .task-plugin {
   overflow: hidden;
   color: var(--dc-text-muted);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.7rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -40,7 +40,7 @@
 
 .task-definition pre,
 .task-definition code {
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
 }
 
 .task-definition pre {
@@ -73,7 +73,7 @@
 
 .compile-error pre,
 .compile-error code {
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
 }
 
 .compile-error pre {
@@ -111,7 +111,7 @@ fieldset.task-stdout {
   margin-left: 0.75rem;
   padding: 0 0.4rem;
   color: var(--secondary-color-5);
-  font-family: var(--dc-mono-font, ui-monospace, monospace);
+  font-family: var(--dc-mono-font);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -135,15 +135,8 @@ fieldset.task-stdout {
   overflow: hidden;
   border-right: 1px solid var(--border-color);
   color: var(--secondary-color-5);
-  font-family: var(
-    --dc-console-font,
-    Menlo,
-    Consolas,
-    "DejaVu Sans Mono",
-    "Liberation Mono",
-    monospace
-  );
-  font-size: var(--dc-console-font-size, 14px);
+  font-family: var(--dc-console-font);
+  font-size: var(--dc-console-font-size);
   text-overflow: ellipsis;
   white-space: pre;
   pointer-events: none;
