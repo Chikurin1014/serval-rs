@@ -118,7 +118,7 @@ function drawArrows(u) {
 
   // The axes through the origin
   const [ox, oy] = at(0, 0);
-  ctx.strokeStyle = withAlpha(cssColor("--dc-text-muted"), 0.6);
+  ctx.strokeStyle = withAlpha(cssColor("--secondary-color-5"), 0.6);
   ctx.lineWidth = line;
   ctx.beginPath();
   ctx.moveTo(left, oy);
@@ -272,8 +272,8 @@ function create() {
   if (!arrows.length) {
     return;
   }
-  const text = cssColor("--dc-text-muted");
-  const grid = withAlpha(cssColor("--dc-border"), 0.35);
+  const text = cssColor("--secondary-color-5");
+  const grid = withAlpha(cssColor("--border-color"), 0.35);
   const axis = {
     stroke: text,
     grid: { stroke: grid, width: 1 },

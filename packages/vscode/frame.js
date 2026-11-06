@@ -7,11 +7,11 @@
 const servalFrame = (() => {
   /** The app's fonts, each of VS Code's it takes. */
   const PROPERTIES = {
-    "--dc-font": "--vscode-font-family",
-    "--dc-font-size": "--vscode-font-size",
-    "--dc-mono-font": "--vscode-editor-font-family",
-    "--dc-console-font": "--vscode-editor-font-family",
-    "--dc-console-font-size": "--vscode-editor-font-size",
+    "--font": "--vscode-font-family",
+    "--font-size": "--vscode-font-size",
+    "--mono-font": "--vscode-editor-font-family",
+    "--console-font": "--vscode-editor-font-family",
+    "--console-font-size": "--vscode-editor-font-size",
   };
 
   /** The app's theme, of VS Code's kind (e.g. `vscode-high-contrast`). */

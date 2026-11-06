@@ -16,11 +16,11 @@
   align-items: center;
   justify-content: center;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--dc-border);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .port-info-panel [data-slot="card-title"] {
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   font-weight: 900;
   font-size: 0.9rem;
   letter-spacing: 0.08em;
@@ -43,18 +43,18 @@
   gap: 0.25rem 0.75rem;
   margin: 0;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--dc-border);
+  border-bottom: 1px solid var(--border-color);
   font-size: 0.8rem;
 }
 
 .port-info dt {
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 .port-info dd {
   overflow: hidden;
   margin: 0;
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -90,17 +90,17 @@
 }
 
 .port-notifications time {
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
   font-variant-numeric: tabular-nums;
 }
 
 .port-notification-title {
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
 }
 
 .port-notification-detail {
   grid-column: 2;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
   overflow-wrap: anywhere;
 }
 
@@ -124,7 +124,7 @@
     gap: 0.25rem 1rem;
     overflow: hidden;
     padding: 0.75rem 1rem;
-    color: var(--dc-text);
+    color: var(--secondary-color-4);
     font-size: 0.8rem;
   }
 }
@@ -132,7 +132,7 @@
 .port-summary-notification {
   padding-left: 0.5rem;
   border-left: 2px solid var(--border-color);
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 .port-summary-notification[data-kind="success"] {

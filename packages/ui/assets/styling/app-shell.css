@@ -12,8 +12,8 @@
   gap: 1rem;
   min-height: 2.5rem;
   padding: 0 0.75rem;
-  border-bottom: 1px solid var(--dc-border);
-  background: var(--dc-panel);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--primary-color-2);
 }
 
 .navbar-tools {
@@ -24,7 +24,7 @@
 }
 
 .navbar-shell a {
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
 }
@@ -99,7 +99,7 @@ button.navbar-licenses {
   padding: 0.25rem 0.5rem;
   border: none;
   background: none;
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   cursor: pointer;
   font-size: 0.75rem;
   letter-spacing: 0.08em;

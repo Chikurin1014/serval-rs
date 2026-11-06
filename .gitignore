@@ -39,3 +39,7 @@ __pycache__/
 
 # The plugins' API reference, generated (`nix build .#docs-api -o docs/src/api`)
 /docs/src/api
+
+# The dioxus components' theme, which `dx components add` writes: not linked,
+# as `packages/ui/assets/styling/theme.css` has all of it
+/packages/ui/assets/dx-components-theme.css

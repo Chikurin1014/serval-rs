@@ -38,18 +38,18 @@ test("takes VS Code's fonts, and drops those it no longer has", () => {
     },
   });
   assert.equal(root.dataset.theme, "light");
-  assert.equal(root.properties.get("--dc-font"), "system-ui");
-  assert.equal(root.properties.get("--dc-font-size"), "13px");
+  assert.equal(root.properties.get("--font"), "system-ui");
+  assert.equal(root.properties.get("--font-size"), "13px");
   assert.equal(
-    root.properties.get("--dc-console-font"),
+    root.properties.get("--console-font"),
     "\"Fira Code\", monospace",
   );
-  assert.equal(root.properties.get("--dc-console-font-size"), "15px");
+  assert.equal(root.properties.get("--console-font-size"), "15px");
 
   apply(root, { kind: "vscode-dark", vars: { "--vscode-font-size": "14px" } });
   assert.equal(root.dataset.theme, "dark");
-  assert.equal(root.properties.get("--dc-font-size"), "14px");
-  assert.equal(root.properties.has("--dc-console-font"), false);
+  assert.equal(root.properties.get("--font-size"), "14px");
+  assert.equal(root.properties.has("--console-font"), false);
 });
 
 /** A frame's window, started: what it is sent, and what it sends its parent. */

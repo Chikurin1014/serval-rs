@@ -149,10 +149,10 @@
   border-color: var(--toast-color);
   background-color: color-mix(
     in oklab,
-    var(--dc-panel),
+    var(--primary-color-2),
     var(--toast-color) var(--toast-background-mix)
   );
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
 }
 
 .dx-toast[data-type="success"] {
@@ -179,7 +179,7 @@
   /* More of the type's color than the description, to stand out */
   color: color-mix(
     in oklab,
-    var(--dc-text),
+    var(--secondary-color-4),
     var(--toast-color) var(--toast-title-mix)
   );
   font-weight: 700;
@@ -188,7 +188,7 @@
 .dx-toast-description {
   color: color-mix(
     in oklab,
-    var(--dc-text),
+    var(--secondary-color-4),
     var(--toast-color) var(--toast-description-mix)
   );
   font-size: 0.875rem;

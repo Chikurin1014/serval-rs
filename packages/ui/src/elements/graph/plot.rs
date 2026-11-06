@@ -32,11 +32,11 @@ pub(super) use plot_script;
 
 /// Series colors, by a label's place among those of its type (theme.css's).
 const SERIES_COLORS: [&str; 5] = [
-    "--dc-series-1",
-    "--dc-series-2",
-    "--dc-series-3",
-    "--dc-series-4",
-    "--dc-series-5",
+    "--series-color-1",
+    "--series-color-2",
+    "--series-color-3",
+    "--series-color-4",
+    "--series-color-5",
 ];
 
 pub(super) fn series_color(index: usize) -> &'static str {

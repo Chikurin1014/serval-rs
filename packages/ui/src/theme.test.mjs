@@ -125,8 +125,8 @@ test("consoleFont is the platform's if it sets one, else the named fonts", () =>
   assert.match(consoleFont().fontFamily, /^Menlo, Consolas/);
 
   const set = withProperties({
-    "--dc-console-font": " \"Fira Code\", monospace ",
-    "--dc-console-font-size": "15px",
+    "--console-font": " \"Fira Code\", monospace ",
+    "--console-font-size": "15px",
   });
   assert.equal(set.consoleFont().fontFamily, "\"Fira Code\", monospace");
   assert.equal(set.consoleFont().fontSize, 15);
@@ -134,8 +134,8 @@ test("consoleFont is the platform's if it sets one, else the named fonts", () =>
 
 test("updateConsoleFont sets a terminal's font, telling if it changed", () => {
   const { updateConsoleFont } = withProperties({
-    "--dc-console-font": "monospace",
-    "--dc-console-font-size": "12px",
+    "--console-font": "monospace",
+    "--console-font-size": "12px",
   });
   const term = { options: { fontFamily: "Menlo", fontSize: 14 } };
   assert.equal(updateConsoleFont(term), true);
