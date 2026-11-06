@@ -53,10 +53,10 @@ function showHover(u) {
     const at = idxs[index];
     const value = at == null ? null : u.data[index][at];
     if (index > 0 && s.show && value != null) {
-      const swatch = document.createElement("span");
-      swatch.className = "plot-tooltip-swatch";
-      swatch.style.background = seriesColor(s.label);
-      rows.push([[swatch, s.label], s.value(u, value, index, at)]);
+      rows.push([
+        [colorSwatch(seriesColor(s.label)), s.label],
+        s.value(u, value, index, at),
+      ]);
     }
   });
   fillTooltip(hover, u.series[0].value(u, u.data[0][idx], 0, idx), rows);
