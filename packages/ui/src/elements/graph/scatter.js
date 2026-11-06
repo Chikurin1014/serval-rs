@@ -23,7 +23,7 @@ let xs = [];
 let ys = [];
 let labels = ["", ""];
 let logs = [false, false];
-let colors = ["--dc-accent", "--secondary-warning-color"];
+let colors = ["--dc-series-1", "--dc-series-3"];
 // `[slope, intercept]` of the line drawn, if any
 let line = null;
 // `[covariance, correlation]` as shown, if any
