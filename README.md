@@ -2,6 +2,8 @@
 
 Cross-Platform Serial Visualizer
 
+[![Serval showing what a device sends: graphs of its readings, and its logs](https://serval-5qv.pages.dev/docs/media/demo.gif)](https://serval-5qv.pages.dev)
+
 Open **<https://serval-5qv.pages.dev>** in a Chromium-based browser (Chrome, Edge): Web Serial works only there.
 
 ## Installation
