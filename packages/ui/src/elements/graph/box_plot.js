@@ -143,8 +143,8 @@ function showHover(u) {
   if (!over) {
     return;
   }
-  const [label, , , , rows] = boxes[index];
-  fillTooltip(hover, label, rows);
+  const [label, color, , , rows] = boxes[index];
+  fillTooltip(hover, [colorSwatch(cssColor(color)), label], rows);
 
   // Beside the box, on the side with room
   const x = u.valToPos(index, "x");
