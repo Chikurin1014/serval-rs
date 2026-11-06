@@ -35,6 +35,38 @@ const hiddenLabels = trackHidden();
 const themed = themeColors(container);
 const cssColor = themed.color;
 
+// The values at the pointer's time, beside it: in the plot the pointer is
+// over, not in those whose cursors follow it
+const hover = plotTooltip("time-series-hover");
+let pointerOver = false;
+
+function showHover(u) {
+  const { left, top, idx, idxs } = u.cursor;
+  const over = pointerOver && idx != null && left != null && left >= 0;
+  hover.hidden = !over;
+  if (!over) {
+    return;
+  }
+  // Each label shown and its value nearest the time, as uPlot's legend had
+  const rows = [];
+  u.series.forEach((s, index) => {
+    const at = idxs[index];
+    const value = at == null ? null : u.data[index][at];
+    if (index > 0 && s.show && value != null) {
+      const swatch = document.createElement("span");
+      swatch.className = "plot-tooltip-swatch";
+      swatch.style.background = seriesColor(s.label);
+      rows.push([[swatch, s.label], s.value(u, value, index, at)]);
+    }
+  });
+  fillTooltip(hover, u.series[0].value(u, u.data[0][idx], 0, idx), rows);
+  placeTooltip(hover, [left, top], [u.over.clientWidth, u.over.clientHeight]);
+}
+
+function seriesColor(label) {
+  return cssColor(colors[label] ?? "--secondary-color-5");
+}
+
 function areaFill(color) {
   return (u) => {
     const { top, height } = u.bbox;
@@ -173,8 +205,13 @@ function create() {
         sync: { key: CURSOR_SYNC_KEY, setSeries: false },
         // Zoomed by `onSelect`, so it is told
         drag: { x: true, y: true, setScale: false },
+        // Each label's nearest value, as each has times of its own
+        hover: { skip: [null, undefined] },
       },
+      // Its labels alone: the values are in `hover`
+      legend: { live: false },
       hooks: {
+        setCursor: [showHover],
         setSeries: [onSeriesToggle],
         setSelect: [onSelect],
         // For tests
@@ -200,7 +237,7 @@ function create() {
             seconds == null ? "--" : timeOfDay(seconds * 1000),
         },
         ...labels.map((label) => {
-          const color = cssColor(colors[label] ?? "--secondary-color-5");
+          const color = seriesColor(label);
           return {
             label,
             show: !hiddenLabels.has(label),
@@ -216,6 +253,14 @@ function create() {
   );
   // Unzoomed by a double click, before uPlot takes it
   plot.root.addEventListener("dblclick", unzoom, true);
+  plot.over.appendChild(hover);
+  plot.over.addEventListener("mouseenter", () => {
+    pointerOver = true;
+  });
+  plot.over.addEventListener("mouseleave", () => {
+    pointerOver = false;
+    hover.hidden = true;
+  });
   if (zoomed) {
     zoomIn(plot);
   }

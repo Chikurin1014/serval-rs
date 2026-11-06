@@ -33,9 +33,7 @@ const themed = themeColors(container);
 const cssColor = themed.color;
 
 // The arrow the pointer is near: its label and values
-const hover = document.createElement("div");
-hover.className = "arrows-hover plot-tooltip";
-hover.hidden = true;
+const hover = plotTooltip("arrows-hover");
 
 function shown([label]) {
   return !hiddenLabels.has(label);
@@ -235,32 +233,13 @@ function showHover(u) {
     return;
   }
   const [label, , [x, y], , rows] = arrows[nearest];
-  hover.replaceChildren();
-  const title = document.createElement("div");
-  title.className = "plot-tooltip-label";
-  title.textContent = label;
-  const list = document.createElement("dl");
-  for (const [name, text] of rows) {
-    const term = document.createElement("dt");
-    term.textContent = name;
-    const value = document.createElement("dd");
-    value.textContent = text;
-    list.append(term, value);
-  }
-  hover.append(title, list);
+  fillTooltip(hover, label, rows);
 
-  // Below right of the tip, or on the side with room
-  const gap = 12;
-  const [tipX, tipY] = [u.valToPos(x, "x"), u.valToPos(y, "y")];
-  const { clientWidth: width, clientHeight: height } = u.over;
-  const hoverX = tipX + gap + hover.offsetWidth <= width
-    ? tipX + gap
-    : tipX - gap - hover.offsetWidth;
-  const hoverY = tipY + gap + hover.offsetHeight <= height
-    ? tipY + gap
-    : tipY - gap - hover.offsetHeight;
-  hover.style.left = `${Math.max(0, hoverX)}px`;
-  hover.style.top = `${Math.max(0, hoverY)}px`;
+  placeTooltip(
+    hover,
+    [u.valToPos(x, "x"), u.valToPos(y, "y")],
+    [u.over.clientWidth, u.over.clientHeight],
+  );
 }
 
 function onSeriesToggle(u, index, options) {

@@ -46,9 +46,7 @@ plotArea.className = "arrows-3d-area";
 const canvas = document.createElement("canvas");
 const labels = document.createElement("div");
 labels.className = "arrows-3d-labels";
-const hover = document.createElement("div");
-hover.className = "arrows-hover plot-tooltip";
-hover.hidden = true;
+const hover = plotTooltip("arrows-hover");
 plotArea.append(canvas, labels, hover);
 // Each arrow's label, turned on or off by clicking it
 const legend = legendTable(themed, hiddenLabels, 0.35, () => {
@@ -319,32 +317,10 @@ function showHover() {
     return;
   }
   const [label, , , , rows] = arrows[nearest];
-  hover.replaceChildren();
-  const title = document.createElement("div");
-  title.className = "plot-tooltip-label";
-  title.textContent = label;
-  const list = document.createElement("dl");
-  for (const [name, text] of rows) {
-    const term = document.createElement("dt");
-    term.textContent = name;
-    const value = document.createElement("dd");
-    value.textContent = text;
-    list.append(term, value);
-  }
-  hover.append(title, list);
+  fillTooltip(hover, label, rows);
 
-  // Below right of the tip, or on the side with room
-  const gap = 12;
   const [, tipX, tipY] = tips.find(([index]) => index === nearest);
-  const [width, height] = area();
-  const x = tipX + gap + hover.offsetWidth <= width
-    ? tipX + gap
-    : tipX - gap - hover.offsetWidth;
-  const y = tipY + gap + hover.offsetHeight <= height
-    ? tipY + gap
-    : tipY - gap - hover.offsetHeight;
-  hover.style.left = `${Math.max(0, x)}px`;
-  hover.style.top = `${Math.max(0, y)}px`;
+  placeTooltip(hover, [tipX, tipY], area());
 }
 
 function onPointerMove(event) {
