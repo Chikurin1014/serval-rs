@@ -180,7 +180,9 @@ def demo(page: Page):
 
 
 def record(browser, url: str, out: Path, name: str):
-    """Records `demo` into `out/<name>.webm`, with its last frame as the poster."""
+    """Records `demo` into `out/<name>.webm`, with its last frame as the poster,
+    and into `out/<name>.gif`, smaller, for the README (which may not show a
+    video)."""
     with tempfile.TemporaryDirectory() as videos:
         context = browser.new_context(
             viewport=SIZE, record_video_dir=videos, record_video_size=SIZE
@@ -220,6 +222,23 @@ def record(browser, url: str, out: Path, name: str):
                 "1",
                 "-an",
                 str(out / f"{name}.webm"),
+            ],
+            check=True,
+        )
+        # At 10 fps and 800 px wide, of a palette of its own
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(out / f"{name}.webm"),
+                "-vf",
+                "fps=10,scale=800:-1:flags=lanczos,split[a][b];"
+                "[a]palettegen=stats_mode=diff[p];"
+                "[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+                str(out / f"{name}.gif"),
             ],
             check=True,
         )
