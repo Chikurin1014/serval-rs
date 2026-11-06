@@ -78,14 +78,22 @@ function plotTooltip(className) {
   return tooltip;
 }
 
+/** A swatch of a series' `color` (computed), before its label in a tooltip. */
+function colorSwatch(color) {
+  const swatch = document.createElement("span");
+  swatch.className = "plot-tooltip-swatch";
+  swatch.style.background = color;
+  return swatch;
+}
+
 /**
  * Fills `tooltip` with `label`, then a row of each `[name, text]` of `rows`
- * (a name may be nodes, as a color's swatch and a label).
+ * (the label and a name may be nodes, as a color's swatch and a label).
  */
 function fillTooltip(tooltip, label, rows) {
   const title = document.createElement("div");
   title.className = "plot-tooltip-label";
-  title.textContent = label;
+  title.append(...[label].flat());
   const list = document.createElement("dl");
   for (const [name, text] of rows) {
     const term = document.createElement("dt");

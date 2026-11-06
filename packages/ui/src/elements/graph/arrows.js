@@ -230,8 +230,8 @@ function showHover(u) {
   if (nearest === null) {
     return;
   }
-  const [label, , , , rows] = arrows[nearest];
-  fillTooltip(hover, label, rows);
+  const [label, color, , , rows] = arrows[nearest];
+  fillTooltip(hover, [colorSwatch(cssColor(color)), label], rows);
   // By the pointer, which may be anywhere along the arrow
   placeTooltip(hover, [left, top], [u.over.clientWidth, u.over.clientHeight]);
 }
