@@ -63,3 +63,14 @@ jobs:
       tag: ${{ needs.release-please.outputs.tag_name }}
     permissions:
       contents: write
+
+  vscode:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/vscode.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
+    permissions:
+      contents: write
+      id-token: write

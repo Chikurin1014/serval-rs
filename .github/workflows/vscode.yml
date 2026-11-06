@@ -1,7 +1,9 @@
 name: VS Code
 
 # Packages the VS Code extension for each OS (a VSIX each): the web app, built
-# once, with the OS's serial bridge. They are artifacts of the run.
+# once, with the OS's serial bridge. They are artifacts of the run; for a
+# release, they are also attached to it and published to the Marketplace and
+# Open VSX.
 on:
   pull_request:
     paths:
@@ -11,6 +13,12 @@ on:
       - packages/ui/**
       - packages/vscode/**
       - packages/web/**
+  workflow_call:
+    inputs:
+      tag:
+        description: The release to attach the packages to, and to publish
+        type: string
+        required: true
   workflow_dispatch:
 
 permissions:
@@ -23,6 +31,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: cachix/install-nix-action@v31
 
@@ -66,6 +76,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install the library serialport needs
         if: runner.os == 'Linux'
@@ -101,6 +113,8 @@ jobs:
         working-directory: packages/vscode
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -121,10 +135,84 @@ jobs:
         run: |
           chmod +x bin/*
           cp ../../LICENSE .
-          npx --yes @vscode/vsce@3 package --no-dependencies --target "${{ matrix.target }}" --out "serval-${{ matrix.target }}.vsix"
+          npx --yes @vscode/vsce@4 package --no-dependencies --target "${{ matrix.target }}" --out "serval-${{ matrix.target }}.vsix"
 
       - uses: actions/upload-artifact@v4
         with:
           name: serval-${{ matrix.target }}
           path: packages/vscode/serval-${{ matrix.target }}.vsix
           if-no-files-found: error
+
+  release:
+    name: Attach to the release
+    needs: package
+    if: inputs.tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: serval-*
+          path: dist
+          merge-multiple: true
+
+      - name: Attach the packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" dist/*.vsix --clobber
+
+  # With trusted publishing: no token, but a policy for this repository on the
+  # publisher's page
+  marketplace:
+    name: Publish to the Marketplace
+    needs: package
+    if: inputs.tag
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: serval-*
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Publish
+        run: npx --yes @vscode/vsce@4 publish --oidc --skip-duplicate --packagePath dist/*.vsix
+
+  # With the token of the namespace's owner, in the secret OVSX_PAT; skipped
+  # until it is set
+  open-vsx:
+    name: Publish to Open VSX
+    needs: package
+    if: inputs.tag
+    runs-on: ubuntu-latest
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - name: Skip with no token
+        if: env.OVSX_PAT == ''
+        run: echo "::warning::Not published to Open VSX, as OVSX_PAT is not set"
+
+      - uses: actions/download-artifact@v4
+        if: env.OVSX_PAT != ''
+        with:
+          pattern: serval-*
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/setup-node@v4
+        if: env.OVSX_PAT != ''
+        with:
+          node-version: 22
+
+      - name: Publish
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@1 publish --skip-duplicate --packagePath dist/*.vsix
