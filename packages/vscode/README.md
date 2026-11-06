@@ -4,7 +4,10 @@
 a panel of VS Code. It shows what a serial port receives as text, data and
 graphs, and sends to it.
 
-Run **Serval: Open** from the Command Palette.
+![Serval in a panel: the port opened from the menu, then the data and the graphs](https://serval-5qv.pages.dev/docs/media/vscode-demo.gif)
+
+Run **Serval: Open** from the Command Palette. Where the panel is narrow, the
+port and the tabs are in the menu, at its top left.
 
 A panel's page may not use Web Serial, so the extension comes with a program,
 `serial-bridge`, that opens the ports for it. If the program is missing or

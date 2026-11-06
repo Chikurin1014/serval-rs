@@ -1,9 +1,11 @@
-"""Records the documents' videos and screenshots of the app as it is built.
+"""Records the documents' videos and screenshots of the app as it is built,
+and the READMEs' demos (the VS Code extension's in a page as its panel).
 
-    python docs/media/capture.py <app> [<out>...]
+    python docs/media/capture.py <app> [<out>...] [--only <capture>...]
 
 `<app>` is the app built (as `dx build` or `nix build .#web-app` gives it), and
-each `<out>` where the media go. With none, they go where a working copy has
+each `<out>` where the media go; `--only` takes some of `demo`, `vscode-demo`
+and `screenshots`, else all are captured. With no `<out>`, they go where a working copy has
 them: `docs/src/media`, as the documents link to them (and `mdbook build`
 takes them from), and `packages/web/public/docs/media`, as the documents
 built there (and served by `dx serve`) have them, so they show without
@@ -13,6 +15,7 @@ the readings of a made-up device; each recording is cut to what follows its
 setup.
 """
 
+import argparse
 import functools
 import json
 import shutil
@@ -24,7 +27,7 @@ import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import BrowserContext, Frame, Page, sync_playwright
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -99,6 +102,63 @@ POINTER = """() => {
 }"""
 
 
+# VS Code's panel, as `packages/vscode/extension.js` makes it: a page of the app
+# in a frame, which passes on its bridge's messages and its theme (here dark,
+# with VS Code's font on Linux; the editor's, Droid Sans Mono, may not be
+# installed, so the consoles keep the app's own). In place of the bridge, one port, reading
+# `DEVICE` (as `window.mockSerialPort`) once it is open
+PANEL = """<!doctype html>
+<html>
+  <head>
+    <style>
+      html, body, iframe { display: block; width: 100%; height: 100%; margin: 0; border: 0; }
+      iframe { color-scheme: dark; }
+    </style>
+  </head>
+  <body>
+    <iframe id="app" src="./"></iframe>
+    <script>
+      const app = document.getElementById("app");
+      const PATH = "/dev/ttyUSB0";
+      const post = (line) => app.contentWindow.postMessage(JSON.stringify(line), "*");
+      const hex = (text) => Array.from(new TextEncoder().encode(text),
+        (byte) => byte.toString(16).padStart(2, "0")).join("");
+      let reading = false;
+      window.mockSerialPort = {
+        mute: () => {},
+        receive: (text) => reading && post({ path: PATH, data: hex(text) }),
+      };
+      window.addEventListener("message", ({ source, data }) => {
+        if (source !== app.contentWindow || typeof data !== "string") {
+          return;
+        }
+        const { id, op } = JSON.parse(data);
+        if (op === "list") {
+          post({ id, ports: [{
+            path: PATH, vendorId: 0x10c4, productId: 0xea60,
+            manufacturer: "Silicon Labs", product: "CP2102 USB to UART Bridge Controller",
+          }] });
+          return;
+        }
+        reading = op === "read" || (reading && op !== "close");
+        post({ id });
+        if (op === "close") {
+          post({ path: PATH, ended: true });
+        }
+      });
+      app.addEventListener("load", () => app.contentWindow.postMessage({ servalTheme: {
+        kind: "vscode-dark",
+        vars: {
+          "--vscode-font-family": 'system-ui, "Ubuntu", "Droid Sans", sans-serif',
+          "--vscode-font-size": "13px",
+        },
+      } }, "*"));
+    </script>
+  </body>
+</html>"""
+PANEL_SIZE = {"width": 960, "height": 640}
+FRAME_SCRIPT = ROOT / "packages" / "vscode" / "frame.js"
+
 # The plugin of the Task tab's screenshot: a task pushing data, and one
 # printing what the device sends
 PLUGIN = """use serval::{data, time};
@@ -135,7 +195,7 @@ def serve(app: Path) -> str:
     return f"http://127.0.0.1:{server.server_port}/"
 
 
-def load_layout(page: Page, layout: dict):
+def load_layout(page: Page | Frame, layout: dict):
     page.locator("#layout-file-input").set_input_files(
         files=[
             {
@@ -161,43 +221,77 @@ def click(page: Page, locator, steps: int = 20):
     locator.click()
 
 
-def demo(page: Page):
+def demo(page: Page, app: Page | Frame):
     """About 15 s: the port asked for and opened, then each tab in turn."""
-    toolbar = page.locator(".toolbar-port")
+    toolbar = app.locator(".toolbar-port")
     click(page, toolbar.locator("button").first)
-    baudrate = page.get_by_placeholder("Baud rate (e.g. 9600)")
+    baudrate = app.get_by_placeholder("Baud rate (e.g. 9600)")
     click(page, baudrate)
     baudrate.press_sequentially("115200", delay=60)
-    click(page, page.get_by_role("button", name="Open port"))
-    page.get_by_role("button", name="Close port").wait_for()
+    click(page, app.get_by_role("button", name="Open port"))
+    app.get_by_role("button", name="Close port").wait_for()
     page.evaluate(DEVICE)
     page.wait_for_timeout(3000)
-    tabs = page.locator(".toolbar-tabs")
+    tabs = app.locator(".toolbar-tabs")
     click(page, tabs.get_by_role("tab", name="Data"))
     page.wait_for_timeout(3500)
     click(page, tabs.get_by_role("tab", name="Graph"))
     page.wait_for_timeout(4500)
 
 
-def record(browser, url: str, out: Path, name: str):
-    """Records `demo` into `out/<name>.webm`, with its last frame as the poster,
-    and into `out/<name>.gif`, smaller, for the README (which may not show a
-    video)."""
+def panel_demo(page: Page, app: Frame):
+    """About 15 s, as `demo`, in VS Code's panel: there, the port and the tabs
+    are in the menu, as it has no room for the toolbar."""
+    menu_button = app.locator("button.toolbar-menu-button")
+    menu = app.locator(".toolbar-menu")
+    click(page, menu_button)
+    baudrate = menu.get_by_placeholder("Baud rate (e.g. 9600)")
+    click(page, baudrate)
+    baudrate.press_sequentially("115200", delay=60)
+    click(page, menu.get_by_role("button", name="Open port"))
+    menu.get_by_role("button", name="Close port").wait_for()
+    page.evaluate(DEVICE)
+    page.wait_for_timeout(800)
+    click(page, menu.get_by_role("button", name="Close", exact=True))
+    page.wait_for_timeout(2500)
+    # The menu closes as a tab is chosen
+    for name, wait in [("Data", 3000), ("Graph", 4000)]:
+        click(page, menu_button)
+        page.wait_for_timeout(300)
+        click(page, menu.get_by_role("tab", name=name))
+        page.wait_for_timeout(wait)
+
+
+def web_page(
+    context: BrowserContext, url: str, layout: dict | None = None
+) -> tuple[Page, Page]:
+    """A page of the app in `context`, its port to be asked for; of `layout`,
+    if given. Gives it twice, as the app is in it."""
+    page = context.new_page()
+    page.add_init_script(path=str(MOCK_SERIAL))
+    page.goto(url)
+    page.locator(".toolbar-tabs").wait_for()
+    if layout is not None:
+        load_layout(page, layout)
+    return page, page
+
+
+def record(browser, out: Path, name: str, size: dict, start, act):
+    """Records `act(page, app)` into `out/<name>.webm`, with its last frame as
+    the poster, and into `out/<name>.gif`, smaller, for the READMEs (which may
+    not show a video). `start(context)` opens the page, and gives it and the
+    app in it."""
     with tempfile.TemporaryDirectory() as videos:
         context = browser.new_context(
-            viewport=SIZE, record_video_dir=videos, record_video_size=SIZE
+            viewport=size, record_video_dir=videos, record_video_size=size
         )
-        page = context.new_page()
         started = time.monotonic()
-        page.add_init_script(path=str(MOCK_SERIAL))
-        page.goto(url)
-        page.locator(".toolbar-tabs").wait_for()
-        load_layout(page, INTRO_LAYOUT)
-        page.evaluate(POINTER)
-        page.mouse.move(SIZE["width"] / 2, SIZE["height"] / 2)
+        page, app = start(context)
+        app.evaluate(POINTER)
+        page.mouse.move(size["width"] / 2, size["height"] / 2)
         page.wait_for_timeout(300)
         setup = time.monotonic() - started
-        demo(page)
+        act(page, app)
         page.screenshot(path=out / f"{name}.png")
         raw = page.video.path()
         context.close()
@@ -225,7 +319,8 @@ def record(browser, url: str, out: Path, name: str):
             ],
             check=True,
         )
-        # At 10 fps and 800 px wide, of a palette of its own
+        # At 8 fps and 800 px wide, of a palette of its own (with no dithering, which
+        # makes it larger)
         subprocess.run(
             [
                 "ffmpeg",
@@ -235,9 +330,9 @@ def record(browser, url: str, out: Path, name: str):
                 "-i",
                 str(out / f"{name}.webm"),
                 "-vf",
-                "fps=10,scale=800:-1:flags=lanczos,split[a][b];"
+                "fps=8,scale=800:-1:flags=lanczos,split[a][b];"
                 "[a]palettegen=stats_mode=diff[p];"
-                "[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+                "[b][p]paletteuse=dither=none:diff_mode=rectangle",
                 str(out / f"{name}.gif"),
             ],
             check=True,
@@ -247,13 +342,29 @@ def record(browser, url: str, out: Path, name: str):
 def open_app(browser, url: str, layout: dict | None = None):
     """A page of the app, its port to be asked for; of `layout`, if given."""
     context = browser.new_context(viewport=SIZE)
+    return context, web_page(context, url, layout)[0]
+
+
+def open_panel(context: BrowserContext, url: str, layout: dict) -> tuple[Page, Frame]:
+    """A page of `PANEL` in `context`, and the app's frame in it, of `layout`."""
+    # In the app's frame alone, first, as the extension serves it
+    context.add_init_script(
+        f"if (window !== window.top) {{ {FRAME_SCRIPT.read_text()} }}"
+    )
+    context.route(
+        f"{url}vscode-panel.html",
+        lambda route: route.fulfill(content_type="text/html", body=PANEL),
+    )
     page = context.new_page()
-    page.add_init_script(path=str(MOCK_SERIAL))
-    page.goto(url)
-    page.locator(".toolbar-tabs").wait_for()
-    if layout is not None:
-        load_layout(page, layout)
-    return context, page
+    page.goto(f"{url}vscode-panel.html")
+    page.frame_locator("#app").locator(".toolbar-menu-button").wait_for()
+    app = page.frames[1]
+    # Its input is in the menu, as the app's other tools
+    app.locator(".toolbar-menu-button").click()
+    load_layout(app, layout)
+    app.locator(".toolbar-menu").get_by_role("button", name="Close", exact=True).click()
+    app.locator(".toolbar-menu").wait_for(state="detached")
+    return page, app
 
 
 def open_port(page: Page):
@@ -365,21 +476,47 @@ def screenshots(browser, url: str, out: Path):
     context.close()
 
 
+# What may be captured (`--only`), each into `out`, of the app at `url`
+CAPTURES = {
+    "demo": lambda browser, url, out: record(
+        browser,
+        out,
+        "demo",
+        SIZE,
+        lambda context: web_page(context, url, INTRO_LAYOUT),
+        demo,
+    ),
+    "vscode-demo": lambda browser, url, out: record(
+        browser,
+        out,
+        "vscode-demo",
+        PANEL_SIZE,
+        lambda context: open_panel(context, url, INTRO_LAYOUT),
+        panel_demo,
+    ),
+    "screenshots": screenshots,
+}
+
+
 def main():
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    app = Path(sys.argv[1])
-    outs = [Path(out) for out in sys.argv[2:]] or DEV_OUTS
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("app", type=Path)
+    parser.add_argument("outs", metavar="out", type=Path, nargs="*")
+    parser.add_argument("--only", nargs="+", choices=CAPTURES, default=list(CAPTURES))
+    args = parser.parse_args()
+    outs = args.outs or DEV_OUTS
     # Recorded into the first, then copied to the rest
     out = outs[0]
     out.mkdir(parents=True, exist_ok=True)
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg is needed, to cut the recordings")
-    url = serve(app)
+    url = serve(args.app)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        record(browser, url, out, "demo")
-        screenshots(browser, url, out)
+        for name in args.only:
+            CAPTURES[name](browser, url, out)
         browser.close()
     for other in outs[1:]:
         shutil.copytree(out, other, dirs_exist_ok=True)
