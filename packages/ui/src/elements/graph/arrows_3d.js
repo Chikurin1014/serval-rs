@@ -152,7 +152,7 @@ function build() {
   // A width in CSS pixels, in the scene's units
   const pixels = (count) => count / illo.zoom;
 
-  const muted = cssColor("--dc-text-muted");
+  const muted = cssColor("--secondary-color-5");
   const axisColor = withAlpha(muted, 0.6);
   const ends = [];
   const ticks = [];
@@ -268,7 +268,7 @@ function render() {
   illo.updateRenderGraph();
 
   // The axes' names at their ends, their ticks' values beside them
-  const muted = cssColor("--dc-text-muted");
+  const muted = cssColor("--secondary-color-5");
   labels.replaceChildren();
   const place = (text, [x, y], className) => {
     const label = document.createElement("span");

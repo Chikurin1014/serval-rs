@@ -177,8 +177,8 @@ function create() {
   const labels = sortedLabels();
   plotLines = lines(labels);
 
-  const text = cssColor("--dc-text-muted");
-  const grid = withAlpha(cssColor("--dc-border"), 0.35);
+  const text = cssColor("--secondary-color-5");
+  const grid = withAlpha(cssColor("--border-color"), 0.35);
   const axis = {
     stroke: text,
     grid: { stroke: grid, width: 1 },

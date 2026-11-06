@@ -3,7 +3,6 @@ use dioxus_icons::lucide;
 
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
-const DX_COMPONENTS_THEME_CSS: Asset = asset!("/assets/dx-components-theme.css");
 const THEME_CSS: Asset = asset!("/assets/styling/theme.css");
 const THEME_SWITCH_CSS: Asset = asset!("/assets/styling/theme-switch.css");
 
@@ -28,7 +27,6 @@ pub fn ThemeProvider(children: Element) -> Element {
     });
 
     rsx! {
-        document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME_CSS }
         document::Link { rel: "stylesheet", href: THEME_CSS }
         {children}
     }

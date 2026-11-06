@@ -15,7 +15,7 @@
   inset: 0;
   box-sizing: border-box;
   padding: 0.5rem;
-  background: var(--dc-page);
+  background: var(--page-color);
 }
 
 /* The time column and the terminal, in one screen */
@@ -24,8 +24,8 @@
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border: 1px solid var(--dc-border);
-  background: var(--dc-screen);
+  border: 1px solid var(--border-color);
+  background: var(--primary-console-color);
 }
 
 /* A file dragged over the console, to send: the screen tells so, over all */
@@ -37,10 +37,14 @@
   inset: 0;
   align-items: center;
   justify-content: center;
-  outline: 2px dashed var(--dc-accent);
+  outline: 2px dashed var(--accent-color);
   outline-offset: -2px;
-  background: color-mix(in oklab, var(--dc-screen) 80%, transparent);
-  color: var(--dc-screen-text);
+  background: color-mix(
+    in oklab,
+    var(--primary-console-color) 80%,
+    transparent
+  );
+  color: var(--secondary-console-color);
   font-size: 1rem;
   pointer-events: none;
 }
@@ -60,9 +64,13 @@
   display: flex;
   padding: 2px;
   border-radius: 0.25rem;
-  background: color-mix(in oklab, var(--dc-screen-text) 8%, var(--dc-screen));
+  background: color-mix(
+    in oklab,
+    var(--secondary-console-color) 8%,
+    var(--primary-console-color)
+  );
   box-shadow: inset 0 0 0 1px
-    color-mix(in oklab, var(--dc-screen-text) 20%, transparent);
+    color-mix(in oklab, var(--secondary-console-color) 20%, transparent);
 }
 
 .console-view {
@@ -70,19 +78,23 @@
   border: none;
   border-radius: 0.2rem;
   background: none;
-  color: color-mix(in oklab, var(--dc-screen-text) 60%, transparent);
+  color: color-mix(in oklab, var(--secondary-console-color) 60%, transparent);
   cursor: pointer;
-  font-family: var(--dc-console-font);
+  font-family: var(--console-font);
   font-size: 0.75rem;
 }
 
 .console-view:hover {
-  color: var(--dc-screen-text);
+  color: var(--secondary-console-color);
 }
 
 .console-view[aria-selected="true"] {
-  background: color-mix(in oklab, var(--dc-screen-text) 22%, var(--dc-screen));
-  color: var(--dc-screen-text);
+  background: color-mix(
+    in oklab,
+    var(--secondary-console-color) 22%,
+    var(--primary-console-color)
+  );
+  color: var(--secondary-console-color);
 }
 
 .console-clear {
@@ -92,15 +104,19 @@
   padding: 0 0.4rem;
   border: none;
   border-radius: 0.25rem;
-  background: color-mix(in oklab, var(--dc-screen-text) 8%, var(--dc-screen));
+  background: color-mix(
+    in oklab,
+    var(--secondary-console-color) 8%,
+    var(--primary-console-color)
+  );
   box-shadow: inset 0 0 0 1px
-    color-mix(in oklab, var(--dc-screen-text) 20%, transparent);
-  color: color-mix(in oklab, var(--dc-screen-text) 60%, transparent);
+    color-mix(in oklab, var(--secondary-console-color) 20%, transparent);
+  color: color-mix(in oklab, var(--secondary-console-color) 60%, transparent);
   cursor: pointer;
 }
 
 .console-clear:hover {
-  color: var(--dc-screen-text);
+  color: var(--secondary-console-color);
 }
 
 .console-clear svg {
@@ -123,10 +139,10 @@
   padding: 0.5rem 0.5rem 0.5rem 0.5rem;
   overflow: hidden;
   border-right: 1px solid
-    color-mix(in oklab, var(--dc-screen-text) 15%, transparent);
-  color: color-mix(in oklab, var(--dc-screen-text) 55%, transparent);
-  font-family: var(--dc-console-font);
-  font-size: var(--dc-console-font-size);
+    color-mix(in oklab, var(--secondary-console-color) 15%, transparent);
+  color: color-mix(in oklab, var(--secondary-console-color) 55%, transparent);
+  font-family: var(--console-font);
+  font-size: var(--console-font-size);
   white-space: pre;
   pointer-events: none;
   user-select: none;
@@ -165,7 +181,7 @@
   border: none;
   border-radius: 0.25rem;
   background: none;
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   cursor: pointer;
 }
 
@@ -185,7 +201,7 @@
 }
 
 .console-file-stop {
-  color: var(--dc-danger);
+  color: var(--danger-color);
 }
 
 /* Over the icon, unseen: the label opens it */
@@ -217,10 +233,10 @@
   min-width: 0;
   min-height: calc(1.4em + 0.5rem);
   overflow: hidden;
-  border: 1px solid var(--dc-border);
+  border: 1px solid var(--border-color);
   border-right: none;
   border-radius: 999px 0 0 999px;
-  background: var(--dc-panel);
+  background: var(--primary-color-2);
   mask:
     linear-gradient(#000 0 0) left / calc(100% - 8px) 100% no-repeat,
     var(--wave-left) right / 8px 100% no-repeat;
@@ -229,10 +245,10 @@
 .console-send-end {
   flex: 0 0 var(--end);
   margin-left: calc(var(--cut) - 8px);
-  border: 1px solid var(--dc-border);
+  border: 1px solid var(--border-color);
   border-left: none;
   border-radius: 0 999px 999px 0;
-  background: var(--dc-panel);
+  background: var(--primary-color-2);
   mask:
     var(--wave-right) left / 8px 100% no-repeat,
     linear-gradient(#000 0 0) right / calc(100% - 8px) 100% no-repeat;
@@ -246,7 +262,7 @@
   height: 100%;
   overflow: visible;
   fill: none;
-  stroke: var(--dc-border);
+  stroke: var(--border-color);
   stroke-width: 1px;
 }
 
@@ -270,9 +286,9 @@
   min-width: 0;
   min-height: calc(1.4em + 0.5rem);
   overflow: hidden;
-  border: 1px solid var(--dc-border);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
-  background: var(--dc-panel);
+  background: var(--primary-color-2);
 }
 
 .console-send-progress-fill {
@@ -290,7 +306,7 @@
   position: relative;
   overflow: hidden;
   padding: 0.25rem 0.75rem;
-  font-family: var(--dc-console-font);
+  font-family: var(--console-font);
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: pre;
@@ -311,7 +327,7 @@
   justify-content: flex-end;
   min-width: 0;
   overflow: hidden;
-  font-family: var(--dc-console-font);
+  font-family: var(--console-font);
   line-height: 1.4;
   white-space: pre;
 }
@@ -348,7 +364,7 @@
 
 .console-send-text span.console-send-file > .console-send-file-note {
   padding: 0;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 /* Sent from the left first, so the sent ones fill in as a bar */
@@ -378,13 +394,13 @@
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 50%;
-  background: var(--dc-record-mark);
+  background: var(--record-mark-color);
 }
 
 .record-stop-mark {
   width: 0.6rem;
   height: 0.6rem;
-  background: var(--dc-stop-mark);
+  background: var(--stop-mark-color);
 }
 
 /* Up and to the left: it is at the bottom right of the console */
@@ -419,7 +435,7 @@
   flex: 0 0 auto;
   width: 0.875rem;
   height: 0.875rem;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 /* To the right, padded so the pointer stays on the item on the way over */

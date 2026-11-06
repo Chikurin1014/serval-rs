@@ -41,15 +41,15 @@ function toggleTheme(root, storage, systemPrefersDark) {
 }
 
 /**
- * The consoles' font, as xterm.js takes it (`--dc-console-font`,
- * `--dc-console-font-size`), else theme.css's, if it has not loaded yet.
+ * The consoles' font, as xterm.js takes it (`--console-font`,
+ * `--console-font-size`), else theme.css's, if it has not loaded yet.
  */
 function consoleFont(root = document.documentElement) {
   const style = getComputedStyle(root);
   return {
-    fontFamily: style.getPropertyValue("--dc-console-font").trim()
+    fontFamily: style.getPropertyValue("--console-font").trim()
       || "Menlo, Consolas, \"DejaVu Sans Mono\", \"Liberation Mono\", monospace",
-    fontSize: parseFloat(style.getPropertyValue("--dc-console-font-size"))
+    fontSize: parseFloat(style.getPropertyValue("--console-font-size"))
       || 14,
   };
 }

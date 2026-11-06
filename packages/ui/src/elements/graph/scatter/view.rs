@@ -20,9 +20,9 @@ use crate::helper::set_if_changed;
 const SCATTER_JS: &str = plot_script!("scatter.js");
 
 /// Its points' color, as the first line of a time series.
-const POINT_COLOR: &str = "--dc-series-1";
+const POINT_COLOR: &str = "--series-color-1";
 /// Its regression line's, as the third.
-const LINE_COLOR: &str = "--dc-series-3";
+const LINE_COLOR: &str = "--series-color-3";
 
 /// Plots the values of one Number label against those of another.
 #[component]

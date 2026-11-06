@@ -23,7 +23,7 @@ let xs = [];
 let ys = [];
 let labels = ["", ""];
 let logs = [false, false];
-let colors = ["--dc-series-1", "--dc-series-3"];
+let colors = ["--series-color-1", "--series-color-3"];
 // `[slope, intercept]` of the line drawn, if any
 let line = null;
 // `[covariance, correlation]` as shown, if any
@@ -264,8 +264,8 @@ function create() {
   container.dataset.xScale = logs[0] ? "log" : "linear";
   container.dataset.yScale = logs[1] ? "log" : "linear";
 
-  const text = cssColor("--dc-text-muted");
-  const grid = withAlpha(cssColor("--dc-border"), 0.35);
+  const text = cssColor("--secondary-color-5");
+  const grid = withAlpha(cssColor("--border-color"), 0.35);
   const axis = (label) => ({
     label,
     stroke: text,

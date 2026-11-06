@@ -16,11 +16,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1rem 0.5rem;
-  border-bottom: 1px solid var(--dc-border);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .data-list [data-slot="card-title"] {
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   font-weight: 900;
   font-size: 0.9rem;
   letter-spacing: 0.08em;
@@ -63,7 +63,7 @@
 .data-table th,
 .data-table td {
   padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid var(--dc-border);
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   vertical-align: middle;
   overflow: hidden;
@@ -77,8 +77,8 @@
   z-index: 1;
   background: var(--light, var(--primary-color-2))
     var(--dark, var(--primary-color-3));
-  color: var(--dc-text);
-  font-family: var(--dc-mono-font);
+  color: var(--secondary-color-4);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -86,11 +86,11 @@
 }
 
 .data-table tbody tr {
-  background: var(--dc-panel);
+  background: var(--primary-color-2);
 }
 
 .data-table .data-cell {
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
@@ -100,7 +100,7 @@
   flex: none;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
-  border-top: 1px solid var(--dc-border);
+  border-top: 1px solid var(--border-color);
 }
 
 .label-filter {
@@ -127,7 +127,7 @@
 }
 
 .label-filter-input .label-filter-kind[data-kind="Hide"] {
-  color: var(--dc-danger);
+  color: var(--danger-color);
 }
 
 .label-filter-tags {
@@ -136,7 +136,7 @@
 }
 
 .label-filter-tags [role="row"] {
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   border-color: color-mix(
     in oklab,
     var(--primary-color-6),
@@ -147,7 +147,7 @@
 .label-filter-tags [role="row"] > [role="gridcell"] > svg {
   width: 0.75rem;
   height: 0.75rem;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 .label-filter-tags [role="row"][data-kind="Hide"] {
@@ -155,7 +155,7 @@
 }
 
 .label-filter-tags [role="row"][data-kind="Hide"] > [role="gridcell"] > svg {
-  color: var(--dc-danger);
+  color: var(--danger-color);
 }
 
 /* The tag takes no class, so it is matched by its role */
@@ -173,7 +173,7 @@
 .label-filter-error {
   flex-basis: 100%;
   margin: 0;
-  color: var(--dc-danger);
+  color: var(--danger-color);
   font-size: 0.75rem;
 }
 
@@ -205,7 +205,7 @@
   flex: 0 0 auto;
   width: 0.75rem;
   height: 0.75rem;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 .data-row-toggle > span {
@@ -215,7 +215,11 @@
 }
 
 .data-table .data-group > .data-row[data-expanded="true"] {
-  background: color-mix(in oklab, var(--dc-text) 12%, var(--dc-panel));
+  background: color-mix(
+    in oklab,
+    var(--secondary-color-4) 12%,
+    var(--primary-color-2)
+  );
 }
 
 .data-table .data-row[data-expanded="true"] .data-row-toggle {
@@ -223,14 +227,18 @@
 }
 
 .data-table .data-history {
-  background: color-mix(in oklab, var(--dc-text) 5%, var(--dc-panel));
+  background: color-mix(
+    in oklab,
+    var(--secondary-color-4) 5%,
+    var(--primary-color-2)
+  );
 }
 
 /* Always rendered; they slide open as their padding and content grow */
 .data-table .data-history > * {
   padding-block: 0;
   border-bottom-width: 0;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
   transition: padding-block 200ms ease, border-bottom-width 200ms ease;
 }
 

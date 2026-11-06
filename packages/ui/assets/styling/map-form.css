@@ -57,8 +57,8 @@
 }
 
 .map-formula {
-  color: var(--dc-text);
-  font-family: var(--dc-mono-font);
+  color: var(--secondary-color-4);
+  font-family: var(--mono-font);
   font-size: 1.125rem;
   font-weight: 700;
   text-align: center;
@@ -86,10 +86,10 @@
   height: 100%;
   padding: 0 0.4rem;
   border: none;
-  border-left: 1px solid var(--dc-border);
+  border-left: 1px solid var(--border-color);
   border-radius: 0;
   background: none;
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
 }
 
@@ -117,9 +117,9 @@
   border: none;
   border-radius: 0.25rem;
   background: none;
-  color: var(--dc-text);
+  color: var(--secondary-color-4);
   cursor: pointer;
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
   white-space: nowrap;
 }
@@ -138,7 +138,7 @@
 
 .field-level-choice[aria-selected="true"] .log-level-tag,
 .field-level-choice[aria-selected="true"] .field-level-all {
-  box-shadow: inset 0 0 0 1px var(--log-level-color, var(--dc-text));
+  box-shadow: inset 0 0 0 1px var(--log-level-color, var(--secondary-color-4));
 }
 
 .field-level-all {

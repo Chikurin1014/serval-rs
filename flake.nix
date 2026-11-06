@@ -76,7 +76,6 @@
               "docs/book/**"
               "packages/web/public/docs/**"
               "packages/ui/src/components/**"
-              "packages/ui/assets/dx-components-theme.css"
               "CHANGELOG.md"
               # Third-party
               "packages/ui/assets/vendor/**"

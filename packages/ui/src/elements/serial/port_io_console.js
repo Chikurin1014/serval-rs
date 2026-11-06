@@ -23,9 +23,9 @@ while (!window.Terminal || !window.FitAddon || !window.WebglAddon) {
 
 const colors = themeColors(container);
 const theme = () => ({
-  background: colors.color("--dc-screen"),
-  foreground: colors.color("--dc-screen-text"),
-  cursor: colors.color("--dc-screen-text"),
+  background: colors.color("--primary-console-color"),
+  foreground: colors.color("--secondary-console-color"),
+  cursor: colors.color("--secondary-console-color"),
 });
 
 const term = new Terminal({

@@ -1,59 +1,144 @@
+/* The theme: its colors and fonts, of both the app's styles and the dioxus
+ * components' (`src/components`), which take the palette's names. The
+ * components' own `dx-components-theme.css`, which `dx components add` writes
+ * anew, is not linked: all is here.
+ *
+ * A color of `var(--light, A) var(--dark, B)` is A in the light theme and B in
+ * the dark one: `--light` and `--dark` are each nothing in their theme, or
+ * invalid (so taking the fallback) in the other. */
+
+:root {
+  --dark: ;
+  --light: initial;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dark: initial;
+    --light: ;
+  }
+}
+
+html[data-theme="dark"] {
+  --dark: initial;
+  --light: ;
+}
+
+html[data-theme="light"] {
+  --dark: ;
+  --light: initial;
+}
+
 :root {
   color-scheme: light dark;
 
-  /* Not in `dx-components-theme.css` */
+  /* The palette, as the components name it: `primary` for backgrounds,
+   * `secondary` for text, numbered by step (not always from light to
+   * dark). Both the app's styles and the components take it */
+  /* Controls: inputs, menus, popovers, the selected tab */
+  --primary-color: var(--light, #fff) var(--dark, #000);
+  --primary-color-1: var(--light, #fbfbfb) var(--dark, #0e0e0e);
+  /* Panels: the navbar, cards, dialogs, sheets, the data list's rows,
+   * tooltips, toasts */
+  --primary-color-2: var(--light, #fff) var(--dark, #0a0a0a);
+  /* A step under panels: lists of tabs, menus and rows in the dark theme */
+  --primary-color-3: var(--light, #f8f8f8) var(--dark, #141313);
+  /* Hovered items: in menus, toggles, the navbar */
+  --primary-color-4: var(--light, #f8f8f8) var(--dark, #1a1a1a);
+  /* Buttons (outline and secondary), and hovered items in the dark theme */
+  --primary-color-5: var(--light, #f5f5f5) var(--dark, #262626);
+  /* Dividers: the edges of dialogs, sheets and popovers, separators */
+  --primary-color-6: var(--light, #e5e5e5) var(--dark, #232323);
+  /* Borders (`--border-color`), and toggles turned on */
+  --primary-color-7: var(--light, #b0b0b0) var(--dark, #3e3e3e);
+  --secondary-color: var(--light, #000) var(--dark, #fff);
+  /* Text of controls: buttons, menus, inputs, toggles, the navbar */
+  --secondary-color-1: var(--light, #000) var(--dark, #fafafa);
+  /* The primary button's background, switches, sliders */
+  --secondary-color-2: var(--light, #0d0d0d) var(--dark, #e6e6e6);
+  /* Descriptions in dialogs and toasts, tabs */
+  --secondary-color-3: var(--light, #2b2b2b) var(--dark, #dcdcdc);
+  /* Text, of most of the app */
+  --secondary-color-4: var(--light, #111) var(--dark, #d4d4d4);
+  /* Muted text: labels, the graphs' axes, a tooltip's names */
+  --secondary-color-5: var(--light, #848484) var(--dark, #a1a1a1);
+  /* Faint text: of items being dragged, of tags */
+  --secondary-color-6: var(--light, #d0d0d0) var(--dark, #5d5d5d);
   --border-color: var(--primary-color-7);
+  /* A focused control's ring or border */
+  --focused-border-color: #2b7fff;
+  /* Success, warning, error and info: `primary` behind, `secondary` in
+   * front (toasts, the port's lamps, the console's sending, danger buttons) */
+  --primary-success-color: var(--light, #ecfdf5) var(--dark, #02271c);
+  --secondary-success-color: var(--light, #10b981) var(--dark, #b6fae3);
+  --primary-warning-color: var(--light, #fffbeb) var(--dark, #342203);
+  --secondary-warning-color: var(--light, #f59e0b) var(--dark, #feeac7);
+  --primary-error-color: var(--light, #dc2626) var(--dark, #a22e2e);
+  --secondary-error-color: var(--light, #ef4444) var(--dark, #9b1c1c);
+  --contrast-error-color: var(--light, var(--primary-color)) var(
+    --dark,
+    var(--secondary-color-3)
+  );
+  --primary-info-color: var(--light, var(--primary-color)) var(
+    --dark,
+    var(--primary-color-5)
+  );
+  --secondary-info-color: var(--light, var(--secondary-color-3)) var(
+    --dark,
+    var(--primary-color-7)
+  );
 
-  --dc-accent: var(--light, #45756b) var(--dark, #84a78e);
-  --dc-panel: var(--primary-color-2);
-  --dc-border: var(--border-color);
-  --dc-text: var(--secondary-color-4);
-  --dc-text-muted: var(--secondary-color-5);
-  --dc-danger: var(--light, #9a5b53) var(--dark, #c38771);
-  --dc-page: var(--light, #e0e2e7) var(--dark, #1a1918);
-  /* The console keeps a dark "screen" in both schemes */
-  --dc-screen: var(--light, #202730) var(--dark, #161513);
-  --dc-screen-text: #c9dfd2;
+  /* The app's own colors, named as the palette's */
+  /* Behind all, and behind the console made large */
+  --page-color: var(--light, #e0e2e7) var(--dark, #1a1918);
+  /* The open button, a signal turned on, what a map took from its input */
+  --accent-color: var(--light, #45756b) var(--dark, #84a78e);
+  /* The close button, what is invalid or failed, a filter that hides */
+  --danger-color: var(--light, #9a5b53) var(--dark, #c38771);
+  /* The console's screen, dark in both themes, and its text */
+  --primary-console-color: var(--light, #202730) var(--dark, #161513);
+  --secondary-console-color: #c9dfd2;
   /* The record button's marks: a red dot to start, a white square to stop */
-  --dc-record-mark: #e5484d;
-  --dc-stop-mark: #fff;
-  --dc-log-error: var(--light, #c0392b) var(--dark, #ff7b72);
-  --dc-log-warn: var(--light, #9a6700) var(--dark, #e3b341);
-  --dc-log-info: var(--light, #1a7f37) var(--dark, #56d364);
-  --dc-log-debug: var(--light, #0969da) var(--dark, #79c0ff);
-  --dc-log-trace: var(--light, #1b7c83) var(--dark, #56d4dd);
+  --record-mark-color: #e5484d;
+  --stop-mark-color: #fff;
+  /* The logs' levels, as tags */
+  --log-error-color: var(--light, #c0392b) var(--dark, #ff7b72);
+  --log-warn-color: var(--light, #9a6700) var(--dark, #e3b341);
+  --log-info-color: var(--light, #1a7f37) var(--dark, #56d364);
+  --log-debug-color: var(--light, #0969da) var(--dark, #79c0ff);
+  --log-trace-color: var(--light, #1b7c83) var(--dark, #56d4dd);
   /* The graphs' series, in turn (`plot.rs`): the first of each graph takes
    * the first, and so on, from the first again after the fifth */
-  --dc-series-1: var(--light, #45756b) var(--dark, #84a78e);
-  --dc-series-2: #2b7fff;
-  --dc-series-3: var(--light, #f59e0b) var(--dark, #feeac7);
-  --dc-series-4: var(--light, #9a5b53) var(--dark, #c38771);
-  --dc-series-5: var(--light, #848484) var(--dark, #a1a1a1);
+  --series-color-1: var(--light, #45756b) var(--dark, #84a78e);
+  --series-color-2: #2b7fff;
+  --series-color-3: var(--light, #f59e0b) var(--dark, #feeac7);
+  --series-color-4: var(--light, #9a5b53) var(--dark, #c38771);
+  --series-color-5: var(--light, #848484) var(--dark, #a1a1a1);
 
   /* Fonts. A host may set its own on <html> (e.g. the VS Code panel). The sizes
-   * in rem follow `--dc-font-size`. */
-  --dc-font: sans-serif;
-  --dc-font-size: medium;
-  --dc-mono-font: ui-monospace, monospace;
+   * in rem follow `--font-size`. */
+  --font: sans-serif;
+  --font-size: medium;
+  --mono-font: ui-monospace, monospace;
   /* Named fonts: xterm.js's WebGL renderer does not know `ui-monospace` */
-  --dc-console-font:
+  --console-font:
     Menlo,
     Consolas,
     "DejaVu Sans Mono",
     "Liberation Mono",
     monospace;
-  --dc-console-font-size: 14px;
+  --console-font-size: 14px;
 }
 
 html,
 body {
-  background: var(--dc-page);
-  color: var(--dc-text);
-  font-family: var(--dc-font);
+  background: var(--page-color);
+  color: var(--secondary-color-4);
+  font-family: var(--font);
 }
 
 html {
-  font-size: var(--dc-font-size);
+  font-size: var(--font-size);
 }
 
 body {
@@ -85,8 +170,8 @@ html[data-theme="dark"] {
   height: 2rem;
   box-sizing: border-box;
   padding: 0 0.5rem;
-  background: var(--dc-panel);
-  box-shadow: inset 0 0 0 1px var(--dc-border);
+  background: var(--primary-color-2);
+  box-shadow: inset 0 0 0 1px var(--border-color);
 }
 
 .field:focus-within {
@@ -94,7 +179,7 @@ html[data-theme="dark"] {
 }
 
 .field[data-invalid="true"] {
-  box-shadow: inset 0 0 0 1px var(--dc-danger);
+  box-shadow: inset 0 0 0 1px var(--danger-color);
 }
 
 .field[data-locked="true"] {
@@ -105,7 +190,7 @@ html[data-theme="dark"] {
   flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
-  color: var(--dc-text-muted);
+  color: var(--secondary-color-5);
 }
 
 .field input,
@@ -118,20 +203,20 @@ html[data-theme="dark"] {
   border-radius: 0;
   background: none;
   box-shadow: none;
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
   font-weight: 300;
 }
 
 .field-label {
-  color: var(--dc-text-muted);
-  font-family: var(--dc-mono-font);
+  color: var(--secondary-color-5);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
   white-space: nowrap;
 }
 
 .field-error {
-  color: var(--dc-danger);
+  color: var(--danger-color);
   font-size: 0.75rem;
 }
 
@@ -145,7 +230,7 @@ html[data-theme="dark"] {
 
 .field-choices button {
   height: 1.75rem;
-  font-family: var(--dc-mono-font);
+  font-family: var(--mono-font);
   font-size: 0.75rem;
 }
 
