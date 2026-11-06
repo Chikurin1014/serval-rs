@@ -17,8 +17,9 @@ while (!window.uPlot) {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
-// How near the pointer an arrow's tip is to be hovered, in CSS pixels
-const HOVER_DISTANCE = 16;
+// How near the pointer an arrow (anywhere along it) is to be hovered, in CSS
+// pixels
+const HOVER_DISTANCE = 10;
 
 let arrows = [];
 const hiddenLabels = trackHidden();
@@ -26,7 +27,7 @@ let showTrails = true;
 let plot = null;
 // The labels and colors the plot was made with
 let made = "";
-// The arrow whose tip the pointer is near, if any
+// The arrow the pointer is near, if any
 let hovered = null;
 
 const themed = themeColors(container);
@@ -207,21 +208,18 @@ function showHover(u) {
   const { left, top } = u.cursor;
   let nearest = null;
   if (left != null && left >= 0) {
-    let distance = HOVER_DISTANCE;
+    const origin = [u.valToPos(0, "x"), u.valToPos(0, "y")];
+    const onScreen = [];
     arrows.forEach((arrow, index) => {
       const [, , [x, y]] = arrow;
-      if (!shown(arrow)) {
-        return;
-      }
-      const away = Math.hypot(
-        u.valToPos(x, "x") - left,
-        u.valToPos(y, "y") - top,
-      );
-      if (away <= distance) {
-        distance = away;
-        nearest = index;
+      if (shown(arrow)) {
+        onScreen.push([index, origin, [
+          u.valToPos(x, "x"),
+          u.valToPos(y, "y"),
+        ]]);
       }
     });
+    nearest = nearestArrow(onScreen, [left, top], HOVER_DISTANCE);
   }
   if (nearest !== hovered) {
     hovered = nearest;
@@ -232,14 +230,10 @@ function showHover(u) {
   if (nearest === null) {
     return;
   }
-  const [label, , [x, y], , rows] = arrows[nearest];
+  const [label, , , , rows] = arrows[nearest];
   fillTooltip(hover, label, rows);
-
-  placeTooltip(
-    hover,
-    [u.valToPos(x, "x"), u.valToPos(y, "y")],
-    [u.over.clientWidth, u.over.clientHeight],
-  );
+  // By the pointer, which may be anywhere along the arrow
+  placeTooltip(hover, [left, top], [u.over.clientWidth, u.over.clientHeight]);
 }
 
 function onSeriesToggle(u, index, options) {

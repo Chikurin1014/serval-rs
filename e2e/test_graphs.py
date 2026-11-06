@@ -679,6 +679,12 @@ def test_arrows_point_from_the_origin_to_the_newest_vectors(app: App):
     expect(hover.locator("dd")).to_have_text(["3.0000", "4.0000", "5.0000", "53.130°"])
     app.page.mouse.move(0, 0)
     expect(hover).to_be_hidden()
+    # Anywhere along it too, not only by its tip
+    middle = [(origin[axis] + tips["v"][axis]) / 2 for axis in range(2)]
+    app.page.mouse.move(area["x"] + middle[0], area["y"] + middle[1])
+    expect(hover.locator(".plot-tooltip-label")).to_have_text("v")
+    app.page.mouse.move(0, 0)
+    expect(hover).to_be_hidden()
 
     # Trails on from the start, and off
     expect(plot).to_have_attribute("data-trails", "true")
@@ -761,6 +767,10 @@ def test_arrows_in_space_turn_as_they_are_dragged(app: App):
     expect(hover.locator(".plot-tooltip-label")).to_have_text("up")
     expect(hover.locator("dt")).to_have_text(["X", "Y", "Z", "Magnitude"])
     expect(hover.locator("dd")).to_have_text(["0.0000", "0.0000", "2.0000", "2.0000"])
+    # Anywhere along it too, not only by its tip
+    middle = [(origin[axis] + tips["up"][axis]) / 2 for axis in range(2)]
+    app.page.mouse.move(box["x"] + middle[0], box["y"] + middle[1])
+    expect(hover.locator(".plot-tooltip-label")).to_have_text("up")
 
     # Turned by dragging: the origin stays, the arrows go round it
     app.page.mouse.move(box["x"] + 40, box["y"] + 40)

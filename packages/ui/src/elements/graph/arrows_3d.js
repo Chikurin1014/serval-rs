@@ -23,13 +23,14 @@ const TAU = Zdog.TAU;
 const VIEW = { x: -TAU / 14, y: TAU / 8 };
 // Room around the furthest an axis reaches, for its name, in CSS pixels
 const MARGIN = 28;
-// How near the pointer an arrow's tip is to be hovered, in CSS pixels
-const HOVER_DISTANCE = 16;
+// How near the pointer an arrow (anywhere along it) is to be hovered, in CSS
+// pixels
+const HOVER_DISTANCE = 10;
 
 let arrows = [];
 const hiddenLabels = trackHidden();
 let showTrails = true;
-// The arrow whose tip the pointer is near, if any
+// The arrow the pointer is near, if any
 let hovered = null;
 let pointer = null;
 // Being turned by dragging: no hover meanwhile
@@ -244,6 +245,15 @@ function build() {
   return { ends, ticks, anchors };
 }
 
+/** Where the origin is drawn, in CSS pixels from the canvas's corner. */
+function originOnCanvas() {
+  const [width, height] = area();
+  return [
+    width / 2 + illo.translate.x * illo.zoom,
+    height / 2 + illo.translate.y * illo.zoom,
+  ];
+}
+
 /** Where an anchor is drawn, in CSS pixels from the canvas's corner. */
 function onCanvas(anchor) {
   const [width, height] = area();
@@ -288,24 +298,18 @@ function render() {
       Math.round(y),
     ]),
   );
-  const [width, height] = area();
-  container.dataset.origin = JSON.stringify([
-    Math.round(width / 2 + illo.translate.x * illo.zoom),
-    Math.round(height / 2 + illo.translate.y * illo.zoom),
-  ]);
+  container.dataset.origin = JSON.stringify(originOnCanvas().map(Math.round));
 }
 
 function showHover() {
   let nearest = null;
   if (pointer && !dragging) {
-    let distance = HOVER_DISTANCE;
-    for (const [index, x, y] of tips) {
-      const away = Math.hypot(x - pointer[0], y - pointer[1]);
-      if (away <= distance) {
-        distance = away;
-        nearest = index;
-      }
-    }
+    const origin = originOnCanvas();
+    nearest = nearestArrow(
+      tips.map(([index, x, y]) => [index, origin, [x, y]]),
+      pointer,
+      HOVER_DISTANCE,
+    );
   }
   if (nearest !== hovered) {
     hovered = nearest;
@@ -319,8 +323,8 @@ function showHover() {
   const [label, , , , rows] = arrows[nearest];
   fillTooltip(hover, label, rows);
 
-  const [, tipX, tipY] = tips.find(([index]) => index === nearest);
-  placeTooltip(hover, [tipX, tipY], area());
+  // By the pointer, which may be anywhere along the arrow
+  placeTooltip(hover, pointer, area());
 }
 
 function onPointerMove(event) {
