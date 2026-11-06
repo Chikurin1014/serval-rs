@@ -30,13 +30,13 @@ macro_rules! plot_script {
 }
 pub(super) use plot_script;
 
-/// Series colors, by a label's place among those of its type.
+/// Series colors, by a label's place among those of its type (theme.css's).
 const SERIES_COLORS: [&str; 5] = [
-    "--dc-accent",
-    "--focused-border-color",
-    "--secondary-warning-color",
-    "--dc-danger",
-    "--secondary-color-5",
+    "--dc-series-1",
+    "--dc-series-2",
+    "--dc-series-3",
+    "--dc-series-4",
+    "--dc-series-5",
 ];
 
 pub(super) fn series_color(index: usize) -> &'static str {

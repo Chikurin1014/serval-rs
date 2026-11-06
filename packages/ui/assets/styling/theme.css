@@ -22,6 +22,13 @@
   --dc-log-info: var(--light, #1a7f37) var(--dark, #56d364);
   --dc-log-debug: var(--light, #0969da) var(--dark, #79c0ff);
   --dc-log-trace: var(--light, #1b7c83) var(--dark, #56d4dd);
+  /* The graphs' series, in turn (`plot.rs`): the first of each graph takes
+   * the first, and so on, from the first again after the fifth */
+  --dc-series-1: var(--light, #45756b) var(--dark, #84a78e);
+  --dc-series-2: #2b7fff;
+  --dc-series-3: var(--light, #f59e0b) var(--dark, #feeac7);
+  --dc-series-4: var(--light, #9a5b53) var(--dark, #c38771);
+  --dc-series-5: var(--light, #848484) var(--dark, #a1a1a1);
 
   /* Fonts. A host may set its own on <html> (e.g. the VS Code panel). The sizes
    * in rem follow `--dc-font-size`. */
