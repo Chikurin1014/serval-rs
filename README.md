@@ -41,6 +41,18 @@ With [Nix](https://nixos.org/) (flakes enabled), you can run it without download
 nix run github:Chikurin1014/serval-rs
 ```
 
+### VS Code
+
+Serval also runs in a panel of VS Code. Install **Serval** from the Extensions
+view: it is on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=chikurin1014.serval),
+and on [Open VSX](https://open-vsx.org/extension/chikurin1014/serval) for
+VSCodium and other editors. Then run **Serval: Open** from the Command Palette.
+
+It works on Windows (x64), macOS (Apple silicon) and Linux (x86-64). Each
+release also has its packages (`serval-<platform>.vsix`), to install with
+**Install from VSIX...**. On Linux, your user needs access to the serial ports,
+as above.
+
 ## Development
 
 ### Workspace
@@ -54,7 +66,7 @@ serval-rs/
 │  ├─ web/      # Web app
 │  ├─ desktop/  # Desktop app
 │  ├─ embed-assets/  # Puts the desktop app's assets in its binary
-│  └─ vscode/   # VS Code extension (a prototype)
+│  └─ vscode/   # VS Code extension
 ├─ docs/        # Documents (mdBook)
 ├─ e2e/         # End-to-end tests (web app)
 └─ tools/serval-rune/  # Generates the plugin API reference
