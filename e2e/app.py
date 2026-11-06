@@ -19,7 +19,7 @@ _DATA_ROWS = """() => {
 }"""
 
 _GRAPH_LEGENDS = """() => [...document.querySelectorAll('.graph-grid .graph')].map(graph =>
-    [...graph.querySelectorAll('.u-legend .u-series th')].map(th => th.textContent.trim()).slice(1))"""
+    [...graph.querySelectorAll('.u-legend .u-series th')].map(th => th.textContent.trim()))"""
 
 # The lines of the console's xterm.js terminal up to the cursor's, joined
 _CONSOLE_TEXT = """() => {

@@ -30,9 +30,7 @@ const themed = themeColors(container);
 const cssColor = themed.color;
 
 // The statistics of the box the pointer is over, beside it
-const hover = document.createElement("div");
-hover.className = "box-plot-hover plot-tooltip";
-hover.hidden = true;
+const hover = plotTooltip("box-plot-hover");
 
 // Each box's label below the plot, turned on or off by clicking it: as uPlot's
 // legend, which is of its series
@@ -146,19 +144,7 @@ function showHover(u) {
     return;
   }
   const [label, , , , rows] = boxes[index];
-  hover.replaceChildren();
-  const title = document.createElement("div");
-  title.className = "plot-tooltip-label";
-  title.textContent = label;
-  const list = document.createElement("dl");
-  for (const [name, text] of rows) {
-    const term = document.createElement("dt");
-    term.textContent = name;
-    const value = document.createElement("dd");
-    value.textContent = text;
-    list.append(term, value);
-  }
-  hover.append(title, list);
+  fillTooltip(hover, label, rows);
 
   // Beside the box, on the side with room
   const x = u.valToPos(index, "x");

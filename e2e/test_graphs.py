@@ -250,9 +250,6 @@ def test_cursor_moves_together_across_graphs(app: App):
     app.wait_for_graph_legends([["temp", "volt"]] * 2)
     first, second = app.graphs().nth(0), app.graphs().nth(1)
 
-    def legend_values(graph):
-        return graph.locator(".u-legend .u-value").all_text_contents()
-
     def cursor_offset(graph):
         return graph.locator(".u-over").evaluate(
             "over => over.parentElement.querySelector('.u-cursor-x').getBoundingClientRect().left"
@@ -262,9 +259,17 @@ def test_cursor_moves_together_across_graphs(app: App):
     over = first.locator(".u-over")
     box = over.bounding_box()
     app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-    expect(second.locator(".u-legend .u-value").first).not_to_have_text("--")
-    assert all(value != "--" for value in legend_values(second))
+    # The values at the pointer's time, by it: in the graph it is over alone
+    hover = first.locator(".time-series-hover")
+    expect(hover).to_be_visible()
+    expect(hover.locator("dt")).to_have_text(["temp", "volt"])
+    expect(second.locator(".time-series-hover")).to_be_hidden()
     assert abs(cursor_offset(first) - cursor_offset(second)) < 3
+    # Not in the legend, which has the labels alone
+    expect(first.locator(".u-legend .u-value")).to_have_count(0)
+
+    app.page.mouse.move(box["x"] - 20, box["y"] - 20)
+    expect(hover).to_be_hidden()
 
 
 def test_settings_and_legend_toggles_stay(app: App):
@@ -324,7 +329,7 @@ def test_adds_time_series_graphs_from_their_presets(app: App):
         expect(styles.nth(index)).to_have_attribute("data-draw-style", style)
 
 
-def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
+def test_tooltip_shows_the_time_as_hh_mm_ss_sss(app: App):
     import re
 
     open_graphs_with_numbers(app)
@@ -332,7 +337,7 @@ def test_legend_shows_the_time_as_hh_mm_ss_sss(app: App):
     over = app.graphs().first.locator(".u-over")
     box = over.bounding_box()
     app.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-    time = app.graphs().first.locator(".u-legend .u-series").first.locator(".u-value")
+    time = app.graphs().first.locator(".time-series-hover .plot-tooltip-label")
     expect(time).to_have_text(re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}$"))
 
 

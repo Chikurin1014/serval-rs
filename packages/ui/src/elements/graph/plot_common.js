@@ -1,4 +1,5 @@
-// What the plots' scripts share: translucent colors, and Rust's messages.
+// What the plots' scripts share: translucent colors, Rust's messages, legends
+// and tooltips.
 // Prepended to each plot's script, after `theme.js` and
 // `helper/script/css_colors.js`.
 
@@ -67,6 +68,49 @@ function showSeries(plot, hidden) {
       plot.setSeries(index, { show: !hidden.has(s.label) }, false);
     }
   });
+}
+
+/** A plot's tooltip (`.plot-tooltip`, and of `className`), hidden. */
+function plotTooltip(className) {
+  const tooltip = document.createElement("div");
+  tooltip.className = `${className} plot-tooltip`;
+  tooltip.hidden = true;
+  return tooltip;
+}
+
+/**
+ * Fills `tooltip` with `label`, then a row of each `[name, text]` of `rows`
+ * (a name may be nodes, as a color's swatch and a label).
+ */
+function fillTooltip(tooltip, label, rows) {
+  const title = document.createElement("div");
+  title.className = "plot-tooltip-label";
+  title.textContent = label;
+  const list = document.createElement("dl");
+  for (const [name, text] of rows) {
+    const term = document.createElement("dt");
+    term.append(...[name].flat());
+    const value = document.createElement("dd");
+    value.textContent = text;
+    list.append(term, value);
+  }
+  tooltip.replaceChildren(title, list);
+}
+
+/**
+ * Places `tooltip` below right of `[x, y]` in an area `width` by `height`, or
+ * on the side with room.
+ */
+function placeTooltip(tooltip, [x, y], [width, height]) {
+  const gap = 12;
+  const left = x + gap + tooltip.offsetWidth <= width
+    ? x + gap
+    : x - gap - tooltip.offsetWidth;
+  const top = y + gap + tooltip.offsetHeight <= height
+    ? y + gap
+    : y - gap - tooltip.offsetHeight;
+  tooltip.style.left = `${Math.max(0, left)}px`;
+  tooltip.style.top = `${Math.max(0, top)}px`;
 }
 
 /**

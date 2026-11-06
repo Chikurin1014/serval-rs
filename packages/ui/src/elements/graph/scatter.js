@@ -39,9 +39,7 @@ const themed = themeColors(container);
 const cssColor = themed.color;
 
 // The statistics, as a tooltip by the pointer over the plot
-const statisticsBox = document.createElement("div");
-statisticsBox.className = "scatter-statistics plot-tooltip";
-statisticsBox.hidden = true;
+const statisticsBox = plotTooltip("scatter-statistics");
 const statisticsList = document.createElement("dl");
 statisticsBox.append(statisticsList);
 const statisticsValues = ["Covariance", "Correlation"].map((name) => {
@@ -62,17 +60,11 @@ function showStatistics(u) {
   if (!over) {
     return;
   }
-  // Below right of the pointer, or on the side with room
-  const gap = 12;
-  const { clientWidth: width, clientHeight: height } = u.over;
-  const x = left + gap + statisticsBox.offsetWidth <= width
-    ? left + gap
-    : left - gap - statisticsBox.offsetWidth;
-  const y = top + gap + statisticsBox.offsetHeight <= height
-    ? top + gap
-    : top - gap - statisticsBox.offsetHeight;
-  statisticsBox.style.left = `${Math.max(0, x)}px`;
-  statisticsBox.style.top = `${Math.max(0, y)}px`;
+  placeTooltip(
+    statisticsBox,
+    [left, top],
+    [u.over.clientWidth, u.over.clientHeight],
+  );
 }
 
 /** uPlot's data: the points, those of 0 or less left out of a log axis. */
