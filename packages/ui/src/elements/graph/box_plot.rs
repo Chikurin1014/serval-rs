@@ -113,7 +113,8 @@ impl Summary {
         })
     }
 
-    /// As its hover shows them, in this order.
+    /// As its hover shows them, in this order: the mean and the variance, then
+    /// the five numbers from the top, as the box is drawn.
     fn rows(&self) -> [(&'static str, String); 7] {
         [
             ("Mean", format_number(self.mean)),
@@ -121,11 +122,11 @@ impl Summary {
                 "Variance",
                 self.variance.map_or_else(|| "—".to_string(), format_number),
             ),
-            ("Median", format_number(self.median)),
             ("Max", format_number(self.max)),
-            ("Min", format_number(self.min)),
             ("Q3", format_number(self.q3)),
+            ("Median", format_number(self.median)),
             ("Q1", format_number(self.q1)),
+            ("Min", format_number(self.min)),
         ]
     }
 }
@@ -316,13 +317,13 @@ mod tests {
         let rows = summary.rows();
         assert_eq!(
             rows.clone().map(|(name, _)| name),
-            ["Mean", "Variance", "Median", "Max", "Min", "Q3", "Q1"]
+            ["Mean", "Variance", "Max", "Q3", "Median", "Q1", "Min"]
         );
         // Over n − 1: (21² + 20² + 19² + 18² + 78²) / 4
         assert_eq!(
             rows.map(|(_, value)| value),
             [
-                "22.000", "1902.5", "3.0000", "100.00", "1.0000", "4.0000", "2.0000"
+                "22.000", "1902.5", "100.00", "4.0000", "3.0000", "2.0000", "1.0000"
             ]
         );
     }

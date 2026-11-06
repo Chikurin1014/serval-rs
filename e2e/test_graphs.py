@@ -538,11 +538,11 @@ def test_box_plot_shows_each_label_and_its_statistics_on_hover(app: App):
         app.page.wait_for_timeout(100)
     expect(label).to_have_text("a")
     expect(hover.locator("dt")).to_have_text(
-        ["Mean", "Variance", "Median", "Max", "Min", "Q3", "Q1"]
+        ["Mean", "Variance", "Max", "Q3", "Median", "Q1", "Min"]
     )
     # Its variance over n − 1
     expect(hover.locator("dd")).to_have_text(
-        ["22.000", "1902.5", "3.0000", "100.00", "1.0000", "4.0000", "2.0000"]
+        ["22.000", "1902.5", "100.00", "4.0000", "3.0000", "2.0000", "1.0000"]
     )
     # Beside the box
     beside = hover.bounding_box()

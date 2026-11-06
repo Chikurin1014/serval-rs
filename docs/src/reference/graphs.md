@@ -72,7 +72,7 @@ A box per label, of its values in the [time range](#statistics-time-range).
 | Whiskers  | The furthest values within 1.5 × IQR of the box (Tukey) |
 | Outliers  | The values past the whiskers, as points                 |
 | Quartiles | By linear interpolation, as `QUARTILE.INC`              |
-| Hover     | Mean, Variance (over n − 1), Median, Max, Min, Q3, Q1   |
+| Hover     | Mean, Variance (over n − 1), Max, Q3, Median, Q1, Min   |
 
 ## Scatter
 
