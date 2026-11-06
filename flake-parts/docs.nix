@@ -67,34 +67,45 @@
             ${optionalString (media != null) "cp -r --no-preserve=mode ${media} book/src/media"}
             mdbook build book --dest-dir "$out"
           '';
+
+      # Recorded of the app as it is built, in Chromium: `capture.py`'s
+      # `captures`, of the script and its layouts, the e2e tests' mock port and
+      # `files`
+      capture =
+        name: captures: files:
+        pkgs.runCommand name
+          (
+            common.playwrightEnv
+            // {
+              nativeBuildInputs = [
+                common.python
+                pkgs.ffmpeg
+              ];
+              FONTCONFIG_FILE = common.fontsConf;
+              src = fileset.toSource {
+                root = ../.;
+                fileset = fileset.unions (
+                  [
+                    ../docs/media
+                    ../e2e/mock_serial.js
+                  ]
+                  ++ files
+                );
+              };
+            }
+          )
+          ''
+            export HOME="$TMPDIR"
+            python "$src/docs/media/capture.py" ${config.packages.web-app}/share/serval-web "$out" --only ${captures}
+          '';
     in
     {
       packages = {
-        # Recorded of the app as it is built, in Chromium
-        docs-media =
-          pkgs.runCommand "serval-docs-media"
-            (
-              common.playwrightEnv
-              // {
-                nativeBuildInputs = [
-                  common.python
-                  pkgs.ffmpeg
-                ];
-                FONTCONFIG_FILE = common.fontsConf;
-                # The script and its layouts, and the e2e tests' mock port
-                src = fileset.toSource {
-                  root = ../.;
-                  fileset = fileset.unions [
-                    ../docs/media
-                    ../e2e/mock_serial.js
-                  ];
-                };
-              }
-            )
-            ''
-              export HOME="$TMPDIR"
-              python "$src/docs/media/capture.py" ${config.packages.web-app}/share/serval-web "$out"
-            '';
+        # The documents' demo (also the README's) and screenshots
+        docs-media = capture "serval-docs-media" "demo screenshots" [ ];
+        # The VS Code extension's demo, for its README: of the page as its
+        # panel, taking its frame's script
+        vscode-media = capture "serval-vscode-media" "vscode-demo" [ ../packages/vscode/frame.js ];
 
         # The plugins' API reference, as `docs/src/api`: in an empty Rune
         # workspace (`Rune.toml`), of `std` and `serval::*` alone

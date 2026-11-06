@@ -90,8 +90,13 @@
           }
         );
         # With the documents, their videos and screenshots recorded as it is
-        # built: as it is deployed (on a release), not as the checks build it
-        web = withDocs config.packages.docs;
+        # built, and the VS Code extension's demo by them (for its README): as
+        # it is deployed (on a release), not as the checks build it
+        web = (withDocs config.packages.docs).overrideAttrs (old: {
+          buildCommand = old.buildCommand + ''
+            cp --no-preserve=mode ${config.packages.vscode-media}/* $out/share/serval-web/docs/media/
+          '';
+        });
       };
 
       # The app as it is built, served on localhost (a secure context, as Web
