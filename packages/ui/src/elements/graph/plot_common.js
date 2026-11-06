@@ -113,6 +113,37 @@ function placeTooltip(tooltip, [x, y], [width, height]) {
   tooltip.style.top = `${Math.max(0, top)}px`;
 }
 
+/** How far `[x, y]` is from the segment from `from` to `to`. */
+function segmentDistance([x, y], [fromX, fromY], [toX, toY]) {
+  const [dx, dy] = [toX - fromX, toY - fromY];
+  const length = dx * dx + dy * dy;
+  const along = length === 0
+    ? 0
+    : Math.min(Math.max(((x - fromX) * dx + (y - fromY) * dy) / length, 0), 1);
+  return Math.hypot(x - (fromX + along * dx), y - (fromY + along * dy));
+}
+
+/**
+ * Of `arrows`, each `[index, from, to]` on screen, the index of that nearest
+ * `pointer` anywhere along it, within `reach`; of those as near (as by their
+ * shared origin), that of the nearer tip. None if none is.
+ */
+function nearestArrow(arrows, pointer, reach) {
+  let nearest = null;
+  let best = [reach, Infinity];
+  for (const [index, from, to] of arrows) {
+    const away = segmentDistance(pointer, from, to);
+    const tip = Math.hypot(pointer[0] - to[0], pointer[1] - to[1]);
+    const nearer = away < best[0] - 0.5
+      || (away <= best[0] + 0.5 && tip < best[1]);
+    if (away <= reach && nearer) {
+      nearest = index;
+      best = [away, tip];
+    }
+  }
+  return nearest;
+}
+
 /**
  * A legend as uPlot's, for a plot not of it: a row of each `[label, color]`
  * entry, marked as by `fill`, turned on or off by clicking it (`hidden`
