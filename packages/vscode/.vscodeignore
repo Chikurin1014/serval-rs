@@ -1,0 +1,5 @@
+**/*.test.mjs
+*.vsix
+# The panel links no documents
+media/docs/**
+media/_headers

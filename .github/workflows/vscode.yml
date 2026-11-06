@@ -1,0 +1,130 @@
+name: VS Code
+
+# Packages the VS Code extension for each OS (a VSIX each): the web app, built
+# once, with the OS's serial bridge. They are artifacts of the run.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/vscode.yml
+      - packages/logic/**
+      - packages/serial-runtime/**
+      - packages/ui/**
+      - packages/vscode/**
+      - packages/web/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Build the web app
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+
+      # Saved only by CI
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock', 'Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml', '.cargo/config.toml') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          save: false
+
+      # Without the documents: the panel links none
+      - name: Build
+        run: |
+          nix build .#web --print-build-logs
+          cp -rL result/share/serval-web media
+          chmod -R u+w media
+          rm -rf media/docs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media
+          path: media
+          if-no-files-found: error
+
+  bridge:
+    name: Build the bridge (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          - os: macos-latest
+            target: darwin-arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the library serialport needs
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Install the toolchain of rust-toolchain.toml
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked -p serial-runtime --features serial-bridge --bin serial-bridge
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.target }}
+          path: target/release/serial-bridge${{ runner.os == 'Windows' && '.exe' || '' }}
+          if-no-files-found: error
+
+  package:
+    name: Package (${{ matrix.target }})
+    needs: [web, bridge]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-x64, win32-x64, darwin-arm64]
+    defaults:
+      run:
+        working-directory: packages/vscode
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: media
+          path: packages/vscode/media
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bridge-${{ matrix.target }}
+          path: packages/vscode/bin
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Artifacts keep no file modes: the bridge is to run
+      - name: Package
+        run: |
+          chmod +x bin/*
+          cp ../../LICENSE .
+          npx --yes @vscode/vsce@3 package --no-dependencies --target "${{ matrix.target }}" --out "serval-${{ matrix.target }}.vsix"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: serval-${{ matrix.target }}
+          path: packages/vscode/serval-${{ matrix.target }}.vsix
+          if-no-files-found: error
