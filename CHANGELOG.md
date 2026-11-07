@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.0](https://github.com/Chikurin1014/serval-rs/compare/v0.7.3...v0.8.0) (2026-11-07)
+
+
+### Features
+
+* ✨ Let the theme set the graphs' series colors ([59fd0b9](https://github.com/Chikurin1014/serval-rs/commit/59fd0b911d8877c17d1fbb0e6649e4c361c89804))
+* ✨ Mark a box's tooltip with its color ([78341aa](https://github.com/Chikurin1014/serval-rs/commit/78341aaaa4cb12d20aa4b21575275b45893d766c))
+* ✨ Mark an arrow's tooltip with its color ([1a84647](https://github.com/Chikurin1014/serval-rs/commit/1a84647e0d9f497fea53558361e680e5e2ebdf63))
+* ✨ Open the licenses in a VS Code tab, and leave the documents out ([6d0d769](https://github.com/Chikurin1014/serval-rs/commit/6d0d769fe3745259776c7dcf67cd42d4d33a8db2))
+* ✨ Open the OS's ports for the VS Code extension: serial-bridge ([3f153fa](https://github.com/Chikurin1014/serval-rs/commit/3f153fa120f69fe6705678f5370f270f3d66acf6))
+* ✨ Open the ports through the VS Code extension's bridge ([4a2da14](https://github.com/Chikurin1014/serval-rs/commit/4a2da1487e5e8c403fbeb58a0ff0a102c5c41a37))
+* ✨ Order a box's tooltip from its top to its bottom ([83ec418](https://github.com/Chikurin1014/serval-rs/commit/83ec418455c82702d7d78a3b713f8061b4bd1fd2))
+* ✨ Package the VS Code extension for each OS ([36c801c](https://github.com/Chikurin1014/serval-rs/commit/36c801cc5beaf080337ba1e69263d408555cbff3))
+* ✨ Run the serial bridge for the VS Code extension ([a9c8fa4](https://github.com/Chikurin1014/serval-rs/commit/a9c8fa47435e608f901c390c79310cd393b8c03e))
+* ✨ Save, open and record files through VS Code in its panel ([bcd60ea](https://github.com/Chikurin1014/serval-rs/commit/bcd60ea74aafabd46442c3181a34a0783df60171))
+* ✨ Show a time series' values in a tooltip by the pointer ([c9de422](https://github.com/Chikurin1014/serval-rs/commit/c9de422c5d3d520b70c95cf8cec334f50a7f9547))
+* ✨ Show an arrow's tooltip anywhere along it, not only by its tip ([0a60793](https://github.com/Chikurin1014/serval-rs/commit/0a60793fc14367bca97af1784d295eb5b8769545))
+* ✨ Show the toolbar in the VS Code panel, though it has no navbar ([17bd1a4](https://github.com/Chikurin1014/serval-rs/commit/17bd1a43e0c71ff99e38c7bbef1a32ae15e61ec3))
+* ✨ Show the web app in a VS Code panel ([8a79b88](https://github.com/Chikurin1014/serval-rs/commit/8a79b8821c4c6a34f0309d8f275d0fde7956b6b8))
+
+
+### Bug Fixes
+
+* 🐛 Show the licenses tab in VS Code's light or dark ([a966f61](https://github.com/Chikurin1014/serval-rs/commit/a966f61784ab2e9d6fb9288eea584a5b622ab8b9))
+
 ## [0.7.3](https://github.com/Chikurin1014/serval-rs/compare/v0.7.2...v0.7.3) (2026-11-03)
 
 
