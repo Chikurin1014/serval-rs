@@ -34,50 +34,62 @@ html[data-theme="light"] {
 
   /* The palette, as the components name it: `primary` for backgrounds,
    * `secondary` for text, numbered by step (not always from light to
-   * dark). Both the app's styles and the components take it */
+   * dark). Both the app's styles and the components take it. */
+
+  /* This palette is based on Catppuccin (https://catppuccin.com/) */
+
   /* Controls: inputs, menus, popovers, the selected tab */
-  --primary-color: var(--light, #fff) var(--dark, #000);
-  --primary-color-1: var(--light, #fbfbfb) var(--dark, #0e0e0e);
+  --primary-color: var(--light, #eff1f5) var(--dark, #292c3c);
+  --secondary-color: var(--light, #4c4f69) var(--dark, #c6d0f5);
+  /* Sliders, the sidebar */
+  --primary-color-1: var(--light, #e6e9ef) var(--dark, #232634);
   /* Panels: the navbar, cards, dialogs, sheets, the data list's rows,
    * tooltips, toasts */
-  --primary-color-2: var(--light, #fff) var(--dark, #0a0a0a);
+  --primary-color-2: var(--light, #eff1f5) var(--dark, #292c3c);
   /* A step under panels: lists of tabs, menus and rows in the dark theme */
-  --primary-color-3: var(--light, #f8f8f8) var(--dark, #141313);
+  --primary-color-3: var(--light, #e6e9ef) var(--dark, #303446);
   /* Hovered items: in menus, toggles, the navbar */
-  --primary-color-4: var(--light, #f8f8f8) var(--dark, #1a1a1a);
+  --primary-color-4: var(--light, #ccd0da) var(--dark, #414559);
   /* Buttons (outline and secondary), and hovered items in the dark theme */
-  --primary-color-5: var(--light, #f5f5f5) var(--dark, #262626);
+  --primary-color-5: var(--light, #e6e9ef) var(--dark, #303446);
   /* Dividers: the edges of dialogs, sheets and popovers, separators */
-  --primary-color-6: var(--light, #e5e5e5) var(--dark, #232323);
+  --primary-color-6: var(--light, #ccd0da) var(--dark, #303446);
   /* Borders (`--border-color`), and toggles turned on */
-  --primary-color-7: var(--light, #b0b0b0) var(--dark, #3e3e3e);
-  --secondary-color: var(--light, #000) var(--dark, #fff);
+  --primary-color-7: var(--light, #bcc0cc) var(--dark, #414559);
   /* Text of controls: buttons, menus, inputs, toggles, the navbar */
-  --secondary-color-1: var(--light, #000) var(--dark, #fafafa);
+  --secondary-color-1: var(--light, #4c4f69) var(--dark, #c6d0f5);
   /* The primary button's background, switches, sliders */
-  --secondary-color-2: var(--light, #0d0d0d) var(--dark, #e6e6e6);
+  --secondary-color-2: var(--light, #4c4f69) var(--dark, #c6d0f5);
   /* Descriptions in dialogs and toasts, tabs */
-  --secondary-color-3: var(--light, #2b2b2b) var(--dark, #dcdcdc);
+  --secondary-color-3: var(--light, #5c5f77) var(--dark, #b5bfe2);
   /* Text, of most of the app */
-  --secondary-color-4: var(--light, #111) var(--dark, #d4d4d4);
+  --secondary-color-4: var(--light, #4c4f69) var(--dark, #c6d0f5);
   /* Muted text: labels, the graphs' axes, a tooltip's names */
-  --secondary-color-5: var(--light, #848484) var(--dark, #a1a1a1);
+  --secondary-color-5: var(--light, #7c7f93) var(--dark, #949cbb);
   /* Faint text: of items being dragged, of tags */
-  --secondary-color-6: var(--light, #d0d0d0) var(--dark, #5d5d5d);
+  --secondary-color-6: var(--light, #acb0be) var(--dark, #626880);
   --border-color: var(--primary-color-7);
   /* A focused control's ring or border */
-  --focused-border-color: #2b7fff;
+  --focused-border-color: var(--light, #7287fd) var(--dark, #8caaee);
   /* Success, warning, error and info: `primary` behind, `secondary` in
    * front (toasts, the port's lamps, the console's sending, danger buttons) */
-  --primary-success-color: var(--light, #ecfdf5) var(--dark, #02271c);
-  --secondary-success-color: var(--light, #10b981) var(--dark, #b6fae3);
-  --primary-warning-color: var(--light, #fffbeb) var(--dark, #342203);
-  --secondary-warning-color: var(--light, #f59e0b) var(--dark, #feeac7);
-  --primary-error-color: var(--light, #dc2626) var(--dark, #a22e2e);
-  --secondary-error-color: var(--light, #ef4444) var(--dark, #9b1c1c);
+  --primary-success-color: color-mix(
+    in oklab,
+    var(--secondary-success-color) 12%,
+    var(--primary-color-2)
+  );
+  --secondary-success-color: var(--light, #40a02b) var(--dark, #a6d189);
+  --primary-warning-color: color-mix(
+    in oklab,
+    var(--secondary-warning-color) 12%,
+    var(--primary-color-2)
+  );
+  --secondary-warning-color: var(--light, #df8e1d) var(--dark, #e5c890);
+  --primary-error-color: var(--light, #d20f39) var(--dark, #e78284);
+  --secondary-error-color: var(--light, #d20f39) var(--dark, #e78284);
   --contrast-error-color: var(--light, var(--primary-color)) var(
     --dark,
-    var(--secondary-color-3)
+    var(--primary-color)
   );
   --primary-info-color: var(--light, var(--primary-color)) var(
     --dark,
@@ -90,30 +102,30 @@ html[data-theme="light"] {
 
   /* The app's own colors, named as the palette's */
   /* Behind all, and behind the console made large */
-  --page-color: var(--light, #e0e2e7) var(--dark, #1a1918);
+  --page-color: var(--light, #e6e9ef) var(--dark, #232634);
   /* The open button, a signal turned on, what a map took from its input */
-  --accent-color: var(--light, #45756b) var(--dark, #84a78e);
+  --accent-color: var(--secondary-success-color);
   /* The close button, what is invalid or failed, a filter that hides */
-  --danger-color: var(--light, #9a5b53) var(--dark, #c38771);
-  /* The console's screen, dark in both themes, and its text */
-  --primary-console-color: var(--light, #202730) var(--dark, #161513);
-  --secondary-console-color: #c9dfd2;
+  --danger-color: var(--light, #d20f39) var(--dark, #e78284);
+  /* The console's screen, Frappé's in both themes, and its text */
+  --primary-console-color: var(--light, #303446) var(--dark, #232634);
+  --secondary-console-color: #c6d0f5;
   /* The record button's marks: a red dot to start, a white square to stop */
-  --record-mark-color: #e5484d;
-  --stop-mark-color: #fff;
+  --record-mark-color: var(--light, #d20f39) var(--dark, #e78284);
+  --stop-mark-color: #eff1f5;
   /* The logs' levels, as tags */
-  --log-error-color: var(--light, #c0392b) var(--dark, #ff7b72);
-  --log-warn-color: var(--light, #9a6700) var(--dark, #e3b341);
-  --log-info-color: var(--light, #1a7f37) var(--dark, #56d364);
-  --log-debug-color: var(--light, #0969da) var(--dark, #79c0ff);
-  --log-trace-color: var(--light, #1b7c83) var(--dark, #56d4dd);
+  --log-error-color: var(--light, #d20f39) var(--dark, #e78284);
+  --log-warn-color: var(--light, #df8e1d) var(--dark, #e5c890);
+  --log-info-color: var(--light, #40a02b) var(--dark, #a6d189);
+  --log-debug-color: var(--light, #7287fd) var(--dark, #8caaee);
+  --log-trace-color: var(--light, #179299) var(--dark, #81c8be);
   /* The graphs' series, in turn (`plot.rs`): the first of each graph takes
    * the first, and so on, from the first again after the fifth */
-  --series-color-1: var(--light, #45756b) var(--dark, #84a78e);
-  --series-color-2: #2b7fff;
-  --series-color-3: var(--light, #f59e0b) var(--dark, #feeac7);
-  --series-color-4: var(--light, #9a5b53) var(--dark, #c38771);
-  --series-color-5: var(--light, #848484) var(--dark, #a1a1a1);
+  --series-color-1: var(--light, #209fb5) var(--dark, #85c1dc);
+  --series-color-2: var(--light, #fe640b) var(--dark, #ef9f76);
+  --series-color-3: var(--light, #8839ef) var(--dark, #ca9ee6);
+  --series-color-4: var(--light, #e64553) var(--dark, #ea999c);
+  --series-color-5: var(--light, #1e66f5) var(--dark, #8caaee);
 
   /* Fonts. A host may set its own on <html> (e.g. the VS Code panel). The sizes
    * in rem follow `--font-size`. */
