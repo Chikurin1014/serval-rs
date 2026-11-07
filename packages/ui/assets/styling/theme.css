@@ -106,17 +106,17 @@ html[data-theme="light"] {
   /* The open button, a signal turned on, what a map took from its input */
   --accent-color: var(--secondary-success-color);
   /* The close button, what is invalid or failed, a filter that hides */
-  --danger-color: var(--light, #d20f39) var(--dark, #e78284);
+  --danger-color: var(--primary-error-color);
   /* The console's screen, Frappé's in both themes, and its text */
   --primary-console-color: var(--light, #303446) var(--dark, #232634);
   --secondary-console-color: #c6d0f5;
   /* The record button's marks: a red dot to start, a white square to stop */
-  --record-mark-color: var(--light, #d20f39) var(--dark, #e78284);
+  --record-mark-color: var(--secondary-error-color);
   --stop-mark-color: #eff1f5;
   /* The logs' levels, as tags */
-  --log-error-color: var(--light, #d20f39) var(--dark, #e78284);
-  --log-warn-color: var(--light, #df8e1d) var(--dark, #e5c890);
-  --log-info-color: var(--light, #40a02b) var(--dark, #a6d189);
+  --log-error-color: var(--secondary-error-color);
+  --log-warn-color: var(--secondary-warning-color);
+  --log-info-color: var(--secondary-info-color);
   --log-debug-color: var(--light, #7287fd) var(--dark, #8caaee);
   --log-trace-color: var(--light, #179299) var(--dark, #81c8be);
   /* The graphs' series, in turn (`plot.rs`): the first of each graph takes
