@@ -136,7 +136,7 @@ export function toHex(bytes) {
 export function fromHex(hex) {
   const bytes = new Uint8Array(hex.length / 2);
   for (let index = 0; index < bytes.length; index++) {
-    bytes[index] = parseInt(hex.substr(index * 2, 2), 16);
+    bytes[index] = parseInt(hex.slice(index * 2, index * 2 + 2), 16);
   }
   return bytes;
 }
