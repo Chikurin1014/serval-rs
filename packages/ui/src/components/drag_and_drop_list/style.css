@@ -25,7 +25,7 @@
   padding: 12px 14px 12px 10px;
   border: 1px solid var(--primary-color-6);
   border-radius: 10px;
-  background-color: var(--light, #fff)
+  background-color: var(--light, var(--primary-color-2))
     var(--dark, var(--primary-color-4));
   color: var(--secondary-color-4);
   cursor: grab;
@@ -47,7 +47,8 @@
     --gap-shift: -1px;
 
     border-color: var(--primary-color-7);
-    background-color: var(--light, #fff) var(--dark, var(--primary-color-6));
+    background-color: var(--light, var(--primary-color-2))
+      var(--dark, var(--primary-color-6));
     box-shadow:
       0 1px 2px rgb(0 0 0 / 4%),
       0 3px 8px rgb(0 0 0 / 4%);
@@ -63,7 +64,11 @@
 .dx-dnd-list-item:focus-visible {
   border-color: var(--focused-border-color);
   box-shadow: 0 0 0 3px
-    var(--light, rgb(43 127 255 / 18%)) var(--dark, rgb(43 127 255 / 30%));
+    color-mix(
+      in srgb,
+      var(--focused-border-color) var(--light, 18%) var(--dark, 30%),
+      transparent
+    );
 }
 
 .dx-dnd-list-item[data-is-grabbing="true"] {
@@ -83,7 +88,11 @@
   border-style: solid;
   border-color: var(--focused-border-color);
   box-shadow: 0 0 0 3px
-    var(--light, rgb(43 127 255 / 18%)) var(--dark, rgb(43 127 255 / 30%));
+    color-mix(
+      in srgb,
+      var(--focused-border-color) var(--light, 18%) var(--dark, 30%),
+      transparent
+    );
   opacity: 0.75;
 }
 
