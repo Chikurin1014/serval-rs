@@ -175,11 +175,7 @@
 }
 
 .dx-button[data-style="destructive"] {
-  background-color: var(--light, var(--primary-error-color))
-    var(
-      --dark,
-      color-mix(in oklab, var(--primary-error-color) 60%, transparent)
-    );
+  background-color: var(--primary-error-color);
   color: var(--contrast-error-color);
 }
 

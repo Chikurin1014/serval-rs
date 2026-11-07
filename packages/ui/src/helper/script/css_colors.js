@@ -17,6 +17,8 @@ function rgbColor(color) {
     pixel = canvas.getContext("2d", { willReadFrequently: true });
   }
   pixel.clearRect(0, 0, 1, 1);
+  // Unread if not a color: then transparent, not the last one
+  pixel.fillStyle = "transparent";
   pixel.fillStyle = color;
   pixel.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = pixel.getImageData(0, 0, 1, 1).data;
