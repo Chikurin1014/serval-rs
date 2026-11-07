@@ -46,7 +46,15 @@ const FRAME_SCRIPT = `<script>${
 function serve(root) {
   const server = http.createServer((request, response) => {
     const { pathname } = new URL(request.url, "http://localhost");
-    const file = path.join(root, decodeURIComponent(pathname));
+    let file;
+    try {
+      file = path.join(root, decodeURIComponent(pathname));
+    } catch {
+      // Not a path (e.g. `%E0`)
+      response.statusCode = 400;
+      response.end();
+      return;
+    }
     const isFile = file.startsWith(root + path.sep)
       && fs.statSync(file, { throwIfNoEntry: false })?.isFile();
     const served = isFile ? file : path.join(root, "index.html");
@@ -70,6 +78,11 @@ function serve(root) {
   });
 }
 
+/** `text` as HTML may hold it, in an attribute too. */
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+}
+
 /** A panel's page of a frame of `url`, and `script` (of its origin) if any. */
 function framed(url, title, cspSource, script) {
   const { origin } = new URL(url);
@@ -89,7 +102,9 @@ function framed(url, title, cspSource, script) {
     </style>
   </head>
   <body>
-    <iframe id="app" src="${url}" title="${title}"></iframe>
+    <iframe id="app" src="${escapeHtml(url)}" title="${
+    escapeHtml(title)
+  }"></iframe>
     ${script ? `<script nonce="${nonce}">${script(origin)}</script>` : ""}
   </body>
 </html>`;
@@ -157,12 +172,21 @@ function openLink({ url, title }, appUrl, tabs) {
 
 function activate(context) {
   let panel;
+  // While a panel is being made: run again, it is not made twice
+  let opening;
 
   const open = async () => {
     if (panel) {
       panel.reveal();
       return;
     }
+    opening ??= makePanel().finally(() => {
+      opening = undefined;
+    });
+    await opening;
+  };
+
+  const makePanel = async () => {
     const server = await serve(path.join(context.extensionPath, "media"));
     const { port } = server.address();
     const url = await vscode.env.asExternalUri(
@@ -181,7 +205,12 @@ function activate(context) {
     panel = shown;
     const bridge = startBridge(
       path.join(context.extensionPath, "bin", BRIDGE_PROGRAM),
-      (line) => void shown.webview.postMessage(line),
+      (line) => {
+        // Not once the panel is closed
+        if (panel === shown) {
+          void shown.webview.postMessage(line);
+        }
+      },
       (why) =>
         void vscode.window.showErrorMessage(
           `Serval: ${why}. Close the panel and open it again to restart it.`,
@@ -197,7 +226,10 @@ function activate(context) {
         openLink(message.servalOpen, url.toString(), tabs);
       } else if (message?.servalFile) {
         const answer = await files.answer(message.servalFile);
-        void shown.webview.postMessage({ servalFile: answer });
+        // Unless the panel closed while it was asked
+        if (panel === shown) {
+          void shown.webview.postMessage({ servalFile: answer });
+        }
       }
     });
     shown.onDidDispose(() => {
