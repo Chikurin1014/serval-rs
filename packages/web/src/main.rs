@@ -43,13 +43,16 @@ fn App() -> Element {
     use_context_provider(serial_backend);
     // The only host is the VS Code extension, so far
     let in_extension = bridge::is_active();
-    if in_extension {
-        use_context_provider(vscode_files::record_picker);
-        use_context_provider(vscode_files::saver);
-        use_context_provider(vscode_files::opener);
-    } else {
-        use_context_provider(files::record_picker);
-    }
+    // In one hook, as the same each render: its own ways of files, if any
+    use_hook(|| {
+        if in_extension {
+            provide_context(vscode_files::record_picker());
+            provide_context(vscode_files::saver());
+            provide_context(vscode_files::opener());
+        } else {
+            provide_context(files::record_picker());
+        }
+    });
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON, sizes: "16x16 32x32 48x48" }

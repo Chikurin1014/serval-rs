@@ -51,13 +51,20 @@ fn main() {
             {
                 Ok(port) => {
                     let (sender, requests) = mpsc::channel();
-                    ports.insert(path.clone(), sender);
+                    // One lost and opened again: the old one's thread ends
+                    if let Some(old) = ports.insert(path.clone(), sender.clone()) {
+                        let _ = old.send(json!({ "op": "drop" }));
+                    }
                     respond(&output, &request, Ok(json!({})));
                     let output = output.clone();
-                    thread::spawn(move || serve_port(port, &path, &requests, &output));
+                    thread::spawn(move || serve_port(port, &path, &requests, &sender, &output));
                 }
                 Err(error) => respond(&output, &request, Err(error)),
             },
+            // The bridge's own, of no request
+            op @ ("lost" | "drop") => {
+                respond(&output, &request, Err(format!("Unknown request: {op}")));
+            }
             op => {
                 let sender = if op == "close" {
                     ports.remove(&path)
@@ -78,38 +85,73 @@ fn main() {
     }
 }
 
-/// Answers the requests of an open port, until it is closed.
+/// Answers the requests of an open port, until it is closed. Lost (as its
+/// device is unplugged), it lets the port go at once, so it may open again
+/// (on some OSes, only once the old one is let go): till closed, the requests
+/// are answered that it is not open.
 fn serve_port(
-    mut port: Box<dyn SerialPort>,
+    port: Box<dyn SerialPort>,
     path: &str,
     requests: &mpsc::Receiver<Value>,
+    own: &mpsc::Sender<Value>,
     output: &Output,
 ) {
     let closing = Arc::new(AtomicBool::new(false));
-    let mut reading = None;
+    let mut reading: Option<thread::JoinHandle<()>> = None;
+    let mut port = Some(port);
     for request in requests {
-        let answer = match text(&request, "op") {
-            "read" => port
+        let op = text(&request, "op");
+        if op == "drop" {
+            closing.store(true, Ordering::Relaxed);
+            if let Some(reading) = reading.take() {
+                let _ = reading.join();
+            }
+            return;
+        }
+        if op == "lost" {
+            // From the read thread, which has ended
+            if let Some(reading) = reading.take() {
+                let _ = reading.join();
+            }
+            port = None;
+            continue;
+        }
+        let Some(open) = port.as_mut() else {
+            if op == "close" {
+                respond(output, &request, Ok(json!({})));
+                return;
+            }
+            respond(output, &request, Err("The port is not open".to_string()));
+            continue;
+        };
+        let answer = match op {
+            "read" => open
                 .try_clone()
                 .map(|reader| {
-                    let (closing, output, path) =
-                        (closing.clone(), output.clone(), path.to_string());
+                    let (closing, output, path, own) = (
+                        closing.clone(),
+                        output.clone(),
+                        path.to_string(),
+                        own.clone(),
+                    );
                     reading = Some(thread::spawn(move || {
-                        read(reader, &path, &closing, &output);
+                        if read(reader, &path, &closing, &output) {
+                            let _ = own.send(json!({ "op": "lost" }));
+                        }
                     }));
                 })
                 .map_err(|error| error.to_string()),
             "write" => from_hex(text(&request, "data"))
                 .and_then(|bytes| {
-                    port.write_all(&bytes)?;
-                    port.flush()
+                    open.write_all(&bytes)?;
+                    open.flush()
                 })
                 .map_err(|error| error.to_string()),
-            "signals" => set_signals(port.as_mut(), &request).map_err(|error| error.to_string()),
+            "signals" => set_signals(open.as_mut(), &request).map_err(|error| error.to_string()),
             "break" => if request["on"].as_bool().unwrap_or_default() {
-                port.set_break()
+                open.set_break()
             } else {
-                port.clear_break()
+                open.clear_break()
             }
             .map_err(|error| error.to_string()),
             "close" => {
@@ -128,7 +170,8 @@ fn serve_port(
     }
 }
 
-fn read(reader: Box<dyn SerialPort>, path: &str, closing: &AtomicBool, output: &Output) {
+/// Writes what `reader` reads, till closed or lost: whether it was lost.
+fn read(reader: Box<dyn SerialPort>, path: &str, closing: &AtomicBool, output: &Output) -> bool {
     let mut error = None;
     native::read_loop(reader, closing, |read| {
         match read {
@@ -137,10 +180,12 @@ fn read(reader: Box<dyn SerialPort>, path: &str, closing: &AtomicBool, output: &
         }
         true
     });
+    let lost = error.is_some();
     write_line(
         output,
         &json!({ "path": path, "ended": true, "error": error }),
     );
+    lost
 }
 
 fn set_signals(port: &mut dyn SerialPort, request: &Value) -> serialport::Result<()> {
