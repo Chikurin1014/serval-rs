@@ -54,22 +54,46 @@ function hardwareWebgl() {
   gl.getExtension("WEBGL_lose_context")?.loseContext();
   return !/swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer);
 }
+let webgl = null;
 // For tests
 container.dataset.renderer = "dom";
-if (hardwareWebgl()) {
+function loadWebgl() {
   try {
-    const webgl = new WebglAddon.WebglAddon();
-    webgl.onContextLoss(() => {
-      webgl.dispose();
+    const addon = new WebglAddon.WebglAddon();
+    addon.onContextLoss(() => {
+      addon.dispose();
+      webgl = null;
       container.dataset.renderer = "dom";
     });
-    term.loadAddon(webgl);
+    term.loadAddon(addon);
+    webgl = addon;
     container.dataset.renderer = "webgl";
   } catch {
     // The DOM renderer then
   }
 }
+if (hardwareWebgl()) {
+  loadWebgl();
+}
 fit.fit();
+
+// The pixel ratio changes as the window goes to another screen: WebGL's
+// renderer would draw on at the old one, its letters too small or too large
+// for their cells, so it is made anew. Seen as the console's size in device
+// pixels changes: xterm.js's own watch (of `matchMedia`) is not told in VS
+// Code's panel
+let ratio = devicePixelRatio;
+function onPixelRatio() {
+  if (devicePixelRatio === ratio) {
+    return;
+  }
+  ratio = devicePixelRatio;
+  if (webgl) {
+    webgl.dispose();
+    loadWebgl();
+  }
+  refit();
+}
 // For tests
 container.xterm = term;
 
@@ -110,6 +134,8 @@ function refit() {
 
 const resize = new ResizeObserver(refit);
 resize.observe(container);
+const pixels = new ResizeObserver(onPixelRatio);
+pixels.observe(container, { box: "device-pixel-content-box" });
 const stopWatchingTheme = watchTheme(() => {
   colors.clear();
   term.options.theme = theme();
@@ -301,6 +327,7 @@ while (true) {
 }
 
 resize.disconnect();
+pixels.disconnect();
 stopWatchingTheme();
 container.removeEventListener("contextmenu", onContextMenu);
 consoleBox.removeEventListener("drop", onDrop);
