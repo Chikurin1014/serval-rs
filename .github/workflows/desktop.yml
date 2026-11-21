@@ -126,8 +126,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Its own builds alone: in a release's run, the extension's are there too
       - uses: actions/download-artifact@v4
         with:
+          pattern: serval-*
           path: dist
           merge-multiple: true
 
