@@ -171,6 +171,8 @@ jobs:
     needs: package
     if: inputs.tag
     runs-on: ubuntu-latest
+    # Up to 30 minutes for each to be validated
+    timeout-minutes: 100
     permissions:
       id-token: write
     steps:
@@ -184,8 +186,36 @@ jobs:
         with:
           node-version: 22
 
+      # One at a time, each once the last is validated: sent while one of the
+      # same version was being validated, the others were told published but
+      # were dropped
       - name: Publish
-        run: npx --yes @vscode/vsce@4 publish --oidc --skip-duplicate --packagePath dist/*.vsix
+        env:
+          VERSION: ${{ inputs.tag }}
+        run: |
+          version="${VERSION#v}"
+          for package in dist/*.vsix; do
+            target="$(basename "$package" .vsix)"
+            target="${target#serval-}"
+            npx --yes @vscode/vsce@4 publish --oidc --skip-duplicate --packagePath "$package"
+            for attempt in $(seq 60); do
+              if curl -fsS -X POST \
+                https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery \
+                -H 'Content-Type: application/json' \
+                -H 'Accept: application/json;api-version=3.0-preview.1' \
+                -d '{"filters":[{"criteria":[{"filterType":7,"value":"chikurin1014.serval"}]}],"flags":1}' \
+                | jq -e --arg version "$version" --arg target "$target" \
+                  '.results[0].extensions[0].versions[]
+                    | select(.version == $version and .targetPlatform == $target
+                      and (.flags | contains("validated")))' >/dev/null; then
+                echo "Validated: $target"
+                continue 2
+              fi
+              sleep 30
+            done
+            echo "::error::Not validated in 30 minutes: $target"
+            exit 1
+          done
 
   # With the token of the namespace's owner, in the secret OVSX_PAT; skipped
   # until it is set
