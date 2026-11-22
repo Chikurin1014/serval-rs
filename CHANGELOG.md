@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/Chikurin1014/serval-rs/compare/v0.8.0...v0.8.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* 🐛 Start the WebGL addon's canvas fonts without a space ([#171](https://github.com/Chikurin1014/serval-rs/issues/171)) ([8eed359](https://github.com/Chikurin1014/serval-rs/commit/8eed359587a7f4c6c2007d03281b4c8f3b34a4f3))
+
 ## [0.8.0](https://github.com/Chikurin1014/serval-rs/compare/v0.7.3...v0.8.0) (2026-11-21)
 
 
