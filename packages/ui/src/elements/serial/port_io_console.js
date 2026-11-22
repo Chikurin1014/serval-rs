@@ -56,7 +56,9 @@ function hardwareWebgl() {
 }
 // For tests
 container.dataset.renderer = "dom";
-if (hardwareWebgl()) {
+// Not in a host's frame (VS Code's panel): moved to a screen of another
+// scale, WebGL's letters stay at the old one, too small for their cells
+if (!window.servalHost && hardwareWebgl()) {
   try {
     const webgl = new WebglAddon.WebglAddon();
     webgl.onContextLoss(() => {
