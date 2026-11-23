@@ -19,9 +19,25 @@
   ],
   "keywords": [
     "serial",
+    "serial monitor",
+    "serial port",
+    "serial plotter",
+    "serial terminal",
     "uart",
+    "com port",
     "plot",
-    "graph"
+    "graph",
+    "chart",
+    "arduino",
+    "esp32",
+    "stm32",
+    "embedded",
+    "microcontroller",
+    "telemetry",
+    "regex",
+    "hex",
+    "log",
+    "tera term"
   ],
   "main": "./extension.js",
   "extensionKind": [
